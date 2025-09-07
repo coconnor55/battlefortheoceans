@@ -1,0 +1,70 @@
+{
+  "version": "0.1.3",
+  "era": "traditional",
+  "name": "Traditional Battleship",
+  "era_description": "Battleship, a classic pencil-and-paper game from World War I, was popularized in the 1930s. Players strategically place and sink fleets on a 10x10 grid in this timeless naval duel.",
+  "free": true,
+  "rows": 10,
+  "cols": 10,
+  "boundary": [],
+  "max_players": 2,
+  "fleet": {
+    "count": 5,
+    "ships": [
+      { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+      { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
+      { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+      { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+      { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
+    ]
+  },
+  "terrain": [
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
+  ],
+   "ai_captains": [
+    { "name": "Captain Robert", "description": "A novice commander who fires randomly across the board.", "strategy": "random_shots" },
+    { "name": "Captain Jack", "description": "A savvy commander who fires methodically.", "strategy": "methodical_hunting" },
+    { "name": "Captain Blood", "description": "A ruthless commander who targets aggressively.", "strategy": "aggressive_targeting" }
+  ],
+  "messages": {
+    "transition": [
+        "All ships placed - ready for the game?",
+        "Fleet placed - let's rumble!",
+        "Damn the torpedos, full speed ahead!"
+    ],
+    "player_win": [
+      "You sank all enemy ships! Victory!",
+      "All opponent vessels destroyed! You win!",
+      "Total naval dominance! You’re the champion!"
+    ],
+    "player_lose": [
+      "Your fleet is sunk! Opponent wins!",
+      "All ships lost! Defeat!",
+      "The enemy prevails! Your fleet is no more!"
+    ],
+    "opponent_win": [
+      "{opponent}: My fleet triumphs!",
+      "{opponent}: Your ships are at the bottom of the sea!",
+      "{opponent}: I’ve outmaneuvered you!"
+    ],
+    "opponent_lose": [
+      "{opponent}: My fleet is sunk! You win!",
+      "{opponent}: Defeated by a human? Impossible!",
+      "{opponent}: All my ships are gone! Well played!"
+    ],
+    "ship_sunk": "{ship} SUNK at {cell}!",
+    "attack_hit": "Fired at {cell}, HIT!",
+    "attack_miss": "Fired at {cell}, miss.",
+    "opponent_attack_hit": "{opponent} fired at {cell}, HIT!",
+    "opponent_attack_sunk": "{opponent} fired at {cell}, HIT! {ship} SUNK!"
+  }
+}
