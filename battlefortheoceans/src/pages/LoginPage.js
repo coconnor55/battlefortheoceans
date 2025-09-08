@@ -1,19 +1,20 @@
-// src/components/LoginPage.js (v0.1.0)
-// Copyright(c) 2025, Clint H. O'Connor
+import { useState } from 'react';
+import LoginDialog from './components/LoginDialog';
 
-import React from 'react';
-import './LoginPage.css';
+const LoginPage = () => {
+  const [isDialogOpen, setIsDialogOpen] = useState(true);
 
-const LoginPage = ({ onLogin, onSignUp, onGuest }) => (
-  <div className="login-page">
-    <input type="text" placeholder="Username" />
-    <input type="password" placeholder="Password" />
-    <button onClick={onLogin}>Login</button>
-    <button onClick={onSignUp}>Sign Up</button>
-    <button onClick={onGuest}>Play as Guest</button>
-  </div>
-);
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+  };
+
+  return (
+    <div className="login-page">
+      <h1>Battle for the Oceans - Login</h1>
+      {isDialogOpen && <LoginDialog onClose={handleCloseDialog} />}
+      <button onClick={() => setIsDialogOpen(true)}>Open Login</button>
+    </div>
+  );
+};
 
 export default LoginPage;
-
-// EOF - EOF - EOF
