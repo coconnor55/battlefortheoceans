@@ -1,4 +1,4 @@
-// src/App.js (v0.1.24)
+// src/App.js (v0.1.26)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -16,7 +16,7 @@ const App = () => {
   const { stateMachine, dispatch } = useGame();
 
   useEffect(() => {
-    console.log(`Transitioning from ${stateMachine.getCurrentState()} to ${currentPage} via event ${stateMachine.getLastEvent()}`);
+    console.log(`Transitioning from ${stateMachine.getCurrentState()} to ${currentPage} via event ${String(stateMachine.getLastEvent() || 'null')}`);
     if (!dispatch) console.error('Dispatch is undefined in App.js useGame hook');
   }, [currentPage, stateMachine.getCurrentState(), stateMachine.getLastEvent()]);
 
@@ -26,14 +26,14 @@ const App = () => {
       return;
     }
     console.log('Dispatching event:', event);
-    dispatch(event);
+    dispatch(stateMachine.event.LOGIN);
     setCurrentPage(stateMachine.getCurrentState());
   };
 
   const PageRenderer = () => {
     switch (currentPage) {
       case 'launch':
-        return <LaunchPage onPlay={() => handleTransition({ type: 'X-LOGIN' })} />;
+        return <LaunchPage onPlay={() => handleTransition({})} />;
       case 'login':
         return <LoginPage />;
       case 'era':

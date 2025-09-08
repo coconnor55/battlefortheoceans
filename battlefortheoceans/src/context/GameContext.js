@@ -1,4 +1,4 @@
-// src/context/GameContext.js (v0.1.6)
+// src/context/GameContext.js (v0.1.7)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { createContext, useContext } from 'react';

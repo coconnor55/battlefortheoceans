@@ -1,27 +1,38 @@
-// src/classes/StateMachine.js (v0.1.4)
+// src/classes/StateMachine.js (v0.1.7)
 // Copyright(c) 2025, Clint H. O'Connor
 
 export class StateMachine {
   constructor() {
+    this.event = {
+      LOGIN: Symbol('LOGIN'),
+      SELECTERA: Symbol('SELECTERA'),
+      PLACEMENT: Symbol('PLACEMENT'),
+      PLAY: Symbol('PLAY'),
+      OVER: Symbol('OVER'),
+      ERA: Symbol('ERA')
+    };
     this.states = {
-      launch: { on: { X_LOGIN: 'login' } },
-      login: { on: { X_SELECTERA: 'era' } },
-      era: { on: { X_PLACEMENT: 'placement' } },
-      placement: { on: { X_PLAY: 'play' } },
-      play: { on: { X_OVER: 'over' } },
-      over: { on: { X_ERA: 'era' } }
+      launch: { on: { [this.event.LOGIN]: 'login' } },
+      login: { on: { [this.event.SELECTERA]: 'era' } },
+      era: { on: { [this.event.PLACEMENT]: 'placement' } },
+      placement: { on: { [this.event.PLAY]: 'play' } },
+      play: { on: { [this.event.OVER]: 'over' } },
+      over: { on: { [this.event.ERA]: 'era' } }
     };
     this.currentState = 'launch';
     this.lastEvent = null;
   }
 
   transition(event) {
-    const nextState = this.states[this.currentState]?.on[event.type];
+    console.log(`Attempting transition from ${this.currentState} with event`, event);
+    console.log('Available transitions:', Object.getOwnPropertySymbols(this.states[this.currentState]?.on || {}));
+    const nextState = this.states[this.currentState]?.on[event];
     if (nextState) {
       this.currentState = nextState;
-      this.lastEvent = event.type;
+      this.lastEvent = event;
+      console.log(`Transitioned to ${this.currentState} with event`, event);
     } else {
-      console.warn(`No transition defined for ${this.currentState} with event ${event.type}`);
+      console.warn(`No transition defined for ${this.currentState} with event`, event);
     }
   }
 
