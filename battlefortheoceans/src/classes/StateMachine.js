@@ -1,51 +1,37 @@
-// src/classes/StateMachine.js (v0.1.0)
+// src/classes/StateMachine.js (v0.1.4)
 // Copyright(c) 2025, Clint H. O'Connor
-// GROK-LOCKED: Do not modify without confirmation
-class StateMachine {
+
+export class StateMachine {
   constructor() {
     this.states = {
-      launch: { template: 'LaunchPage' },
-      login: { template: 'LoginPage' },
-      select_era: { template: 'SelectEraPage' },
-      placement: { template: 'PlacementPage' },
-      playing: { template: 'PlayingPage' },
-      over: { template: 'OverPage' }
+      launch: { on: { X_LOGIN: 'login' } },
+      login: { on: { X_SELECTERA: 'era' } },
+      era: { on: { X_PLACEMENT: 'placement' } },
+      placement: { on: { X_PLAY: 'play' } },
+      play: { on: { X_OVER: 'over' } },
+      over: { on: { X_ERA: 'era' } }
     };
     this.currentState = 'launch';
-    this.globalInstance = null;
-  }
-
-  static getInstance() {
-    if (!this.globalInstance) {
-      this.globalInstance = new StateMachine();
-    }
-    return this.globalInstance;
+    this.lastEvent = null;
   }
 
   transition(event) {
-    const validTransitions = {
-      'X-LOGIN': 'login',
-      'X-SELECTERA': 'select_era',
-      'X-PLACEMENT': 'placement',
-      'X-PLAYING': 'playing',
-      'X-OVER': 'over'
-    };
-
-    const nextState = validTransitions[event];
-    if (nextState && this.states[nextState]) {
-      console.debug(`Transitioning from ${this.currentState} to ${nextState} via event ${event}`);
+    const nextState = this.states[this.currentState]?.on[event.type];
+    if (nextState) {
       this.currentState = nextState;
-      return this.states[nextState].template;
+      this.lastEvent = event.type;
+    } else {
+      console.warn(`No transition defined for ${this.currentState} with event ${event.type}`);
     }
-    console.debug(`Invalid transition from ${this.currentState} with event ${event}`);
-    return null;
   }
 
   getCurrentState() {
     return this.currentState;
   }
-}
 
-export default StateMachine;
+  getLastEvent() {
+    return this.lastEvent;
+  }
+}
 
 // EOF - EOF - EOF

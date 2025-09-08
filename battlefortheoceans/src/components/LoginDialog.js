@@ -1,15 +1,15 @@
-// src/components/LoginDialog.js (v0.1.19)
+// src/components/LoginDialog.js (v0.1.23)
 // Copyright(c) 2025, Clint H. O'Connor
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import useStateMachine from '../classes/StateMachine';
+import { useGame } from '../context/GameContext'; // Updated to useGame hook
 
 const LoginDialog = ({ onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
-  const { dispatch } = useStateMachine();
+  const { dispatch } = useGame();
 
   useEffect(() => {
     const checkGuest = async () => {
@@ -32,7 +32,7 @@ const LoginDialog = ({ onClose }) => {
     if (error) setError(error.message);
     else {
       dispatch({ type: 'X-SELECTERA' });
-      onClose(); // Automatically close dialog on successful login
+      onClose();
     }
   };
 
@@ -43,14 +43,14 @@ const LoginDialog = ({ onClose }) => {
     else {
       await supabase.from('users').insert({ email, password_hash: '', is_guest: false });
       dispatch({ type: 'X-SELECTERA' });
-      onClose(); // Automatically close dialog on successful signup
+      onClose();
     }
   };
 
   const handleGuest = async () => {
     await supabase.auth.signInWithPassword({ email: 'guest@battlefortheoceans.com', password: 'guest123' });
     dispatch({ type: 'X-SELECTERA' });
-    onClose(); // Automatically close dialog on guest login
+    onClose();
   };
 
   return (

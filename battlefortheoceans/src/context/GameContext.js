@@ -1,21 +1,25 @@
-// src/context/GameContext.js (v0.1.0)
+// src/context/GameContext.js (v0.1.6)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { createContext, useContext } from 'react';
-import StateMachine from '../classes/StateMachine';
+import { StateMachine } from '../classes/StateMachine';
 
-const GameContext = createContext();
+const GameState = createContext();
+
+const gameStateMachine = new StateMachine();
 
 export const GameProvider = ({ children }) => {
-  const stateMachine = StateMachine.getInstance();
+  const dispatch = (event) => {
+    gameStateMachine.transition(event);
+  };
 
   return (
-    <GameContext.Provider value={{ stateMachine }}>
+    <GameState.Provider value={{ stateMachine: gameStateMachine, dispatch }}>
       {children}
-    </GameContext.Provider>
+    </GameState.Provider>
   );
 };
 
-export const useGame = () => useContext(GameContext);
+export const useGame = () => useContext(GameState);
 
 // EOF - EOF - EOF
