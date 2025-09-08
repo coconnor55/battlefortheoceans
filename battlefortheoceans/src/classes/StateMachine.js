@@ -1,6 +1,6 @@
 // src/classes/StateMachine.js (v0.1.0)
 // Copyright(c) 2025, Clint H. O'Connor
-
+// GROK-LOCKED: Do not modify without confirmation
 class StateMachine {
   constructor() {
     this.states = {

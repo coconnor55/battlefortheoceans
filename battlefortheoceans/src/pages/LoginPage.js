@@ -1,5 +1,8 @@
+// src/pages/LoginPage.js (v0.1.2)
+// Copyright(c) 2025, Clint H. O'Connor
+
 import { useState } from 'react';
-import LoginDialog from './components/LoginDialog';
+import LoginDialog from '../components/LoginDialog';
 
 const LoginPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(true);
@@ -18,3 +21,5 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
+
+// EOF - EOF - EOF

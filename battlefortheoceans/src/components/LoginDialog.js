@@ -1,6 +1,9 @@
+// src/components/LoginDialog.js (v0.1.19)
+// Copyright(c) 2025, Clint H. O'Connor
+
 import { useState, useEffect } from 'react';
-import { supabase } from '../../supabaseClient';
-import { useStateMachine } from '../../stateMachine';
+import { supabase } from '../utils/supabaseClient';
+import useStateMachine from '../classes/StateMachine';
 
 const LoginDialog = ({ onClose }) => {
   const [email, setEmail] = useState('');
@@ -10,12 +13,12 @@ const LoginDialog = ({ onClose }) => {
 
   useEffect(() => {
     const checkGuest = async () => {
-      const { data: guest } = await supabase
+      const { data } = await supabase
         .from('users')
         .select('id')
         .eq('is_guest', true)
         .single();
-      if (!guest) {
+      if (!data) {
         await supabase.auth.signUp({ email: 'guest@battlefortheoceans.com', password: 'guest123' });
         await supabase.from('users').insert({ email: 'guest@battlefortheoceans.com', password_hash: '', is_guest: true });
       }
@@ -29,7 +32,7 @@ const LoginDialog = ({ onClose }) => {
     if (error) setError(error.message);
     else {
       dispatch({ type: 'X-SELECTERA' });
-      onClose();
+      onClose(); // Automatically close dialog on successful login
     }
   };
 
@@ -40,19 +43,14 @@ const LoginDialog = ({ onClose }) => {
     else {
       await supabase.from('users').insert({ email, password_hash: '', is_guest: false });
       dispatch({ type: 'X-SELECTERA' });
-      onClose();
+      onClose(); // Automatically close dialog on successful signup
     }
   };
 
   const handleGuest = async () => {
-    const { data: guest } = await supabase
-      .from('users')
-      .select('id')
-      .eq('is_guest', true)
-      .single();
     await supabase.auth.signInWithPassword({ email: 'guest@battlefortheoceans.com', password: 'guest123' });
     dispatch({ type: 'X-SELECTERA' });
-    onClose();
+    onClose(); // Automatically close dialog on guest login
   };
 
   return (
@@ -72,3 +70,5 @@ const LoginDialog = ({ onClose }) => {
 };
 
 export default LoginDialog;
+
+// EOF - EOF - EOF
