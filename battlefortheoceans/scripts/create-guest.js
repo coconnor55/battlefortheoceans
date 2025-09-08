@@ -1,4 +1,4 @@
-// scripts/create_guest.js (v0.1.0)
+// scripts/create_guest.js (v0.1.3)
 // Copyright(c) 2025, Clint H. O'Connor
 
 require('dotenv').config();
@@ -19,7 +19,7 @@ async function createGuest() {
     .from('users')
     .select('id')
     .eq('is_guest', true)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Error checking guest user:', error.message);
@@ -31,9 +31,11 @@ async function createGuest() {
     return;
   }
 
-  const { error: signUpError } = await supabase.auth.signUp({
+  console.log('Creating guest user...');
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email: 'guest@battlefortheoceans.com',
     password: 'guest123',
+    options: { emailRedirectTo: 'https://battlefortheoceans.com/welcome' }, // Optional redirect
   });
 
   if (signUpError) {
@@ -41,16 +43,24 @@ async function createGuest() {
     return;
   }
 
+  // Simulate email confirmation using service role key (admin bypass)
+  const { error: confirmError } = await supabase.auth.admin.confirmUser(signUpData.user.id, 'https://battlefortheoceans.com/welcome');
+  if (confirmError) {
+    console.error('Error confirming guest user:', confirmError.message);
+    return;
+  }
+
   const { error: insertError } = await supabase.from('users').insert({
     email: 'guest@battlefortheoceans.com',
-    password_hash: '', // Adjust if needed
+    password_hash: '',
     is_guest: true,
+    username: 'guest',
   });
 
   if (insertError) {
     console.error('Error inserting guest user:', insertError.message);
   } else {
-    console.log('Guest user created successfully');
+    console.log('Guest user created and confirmed successfully');
   }
 }
 

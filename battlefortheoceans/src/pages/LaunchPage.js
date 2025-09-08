@@ -8,7 +8,8 @@ import './LaunchPage.css';
 const LaunchPage = ({ onPlay }) => (
   <div className="launch-page">
     <video autoPlay muted loop>
-      <source src="/videos/battlefortheoceans.mp4" type="video/mp4" />
+        <source src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4" />
+        <source src="/videos/battlefortheoceans.mp4" type="video/mp4" />
     </video>
     <button onClick={onPlay}>Play Now</button>
   </div>
