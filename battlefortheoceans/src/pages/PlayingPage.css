@@ -1,0 +1,22 @@
+/* src/components/PlayingPage.css (v0.1.0) */
+/* Copyright(c) 2025, Clint H. O'Connor */
+
+.playing-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+.game-board {
+  width: 400px;
+  height: 400px;
+  border: 1px solid #000;
+}
+
+.message-console {
+  margin: 10px 0;
+  font-size: 16px;
+}
+
+/* EOF - EOF - EOF */

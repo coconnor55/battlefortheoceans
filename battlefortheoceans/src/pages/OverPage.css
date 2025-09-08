@@ -1,0 +1,26 @@
+/* src/pages/OverPage.css (v0.1.0) */
+/* Copyright(c) 2025, Clint H. O'Connor */
+
+.over-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+.over-page h2 {
+  font-size: 24px;
+}
+
+.score {
+  margin: 10px 0;
+  font-size: 18px;
+}
+
+.over-page button {
+  padding: 10px 20px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* EOF - EOF - EOF */
