@@ -1,10 +1,12 @@
-// src/pages/SelectEraPage.js (v0.1.5)
+// src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
+import BackgroundVideo from '../components/BackgroundVideo';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import './SelectEraPage.css';
 
+const version = 'v0.1.5'
 const SelectEraPage = () => {
   const [selectedEra, setSelectedEra] = useState(null);
   const [eras, setEras] = useState([]);
@@ -15,25 +17,25 @@ const SelectEraPage = () => {
   useEffect(() => {
     const fetchEras = async () => {
       setLoading(true);
-      console.log('v0.1.5: Fetching eras from era_configs');
+      console.log(version, 'Fetching eras from era_configs');
       const { data, error, status } = await supabase.from('era_configs').select('id, config, created_at');
-      console.log('v0.1.5: Fetch response - status:', status, 'data:', data, 'error:', error);
+      console.log(version, 'Fetch response - status:', status, 'data:', data, 'error:', error);
       if (error) {
         setError(error.message);
-        console.error('v0.1.5: Error fetching eras:', error);
+        console.error(version, 'Error fetching eras:', error);
       } else {
-        console.log('v0.1.5: Raw data from Supabase:', data);
+        console.log(version, 'Raw data from Supabase:', data);
         const parsedEras = data.map(row => {
           try {
             const config = JSON.parse(row.config);
             return { ...config, id: row.id, created_at: row.created_at };
           } catch (parseError) {
-            console.error('v0.1.5: Error parsing config for row:', row, parseError);
+            console.error(version, 'Error parsing config for row:', row, parseError);
             return null;
           }
         }).filter(era => era !== null);
         setEras(parsedEras);
-        console.log('v0.1.5: Parsed eras:', parsedEras);
+        console.log(version, 'Parsed eras:', parsedEras);
       }
       setLoading(false);
     };
@@ -51,6 +53,7 @@ const SelectEraPage = () => {
 
   return (
     <div className="select-era-page">
+      <BackgroundVideo />
       <h2>Select Era</h2>
       <div className="era-list">
         {eras.map((era) => (
