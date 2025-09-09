@@ -1,25 +1,46 @@
-/* src/components/LaunchPage.css (v0.1.0) */
-/* Copyright(c) 2025, Clint H. O'Connor */
-
+/* src/pages/LaunchPage.css */
 .launch-page {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  position: relative;
   height: 100vh;
-  background: #000;
+  width: 100%;
+  overflow: hidden; /* Contain video */
 }
 
 .launch-page video {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  max-height: 80vh;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.launch-page h1 {
+  position: relative;
+  z-index: 1;
+  color: white;
+  text-align: center;
+  padding: 20px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
 }
 
 .launch-page button {
-  margin-top: 20px;
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin: 20px auto;
   padding: 10px 20px;
   font-size: 18px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
   cursor: pointer;
+}
+
+/* Ensure video pauses on unmount (handled by React) */
+.launch-page video[hidden] {
+  display: none;
 }
 
 /* EOF - EOF - EOF */

@@ -1,19 +1,31 @@
-// src/components/LaunchPage.js (v0.1.1)
+// src/pages/LaunchPage.js
 // Copyright(c) 2025, Clint H. O'Connor
-// Changes: Updated video source to 'battlefortheoceans.mp4'
 
-import React from 'react';
+import BackgroundVideo from '../components/BackgroundVideo';
+import { useGame } from '../context/GameContext';
 import './LaunchPage.css';
 
-const LaunchPage = ({ onPlay }) => (
-  <div className="launch-page">
-    <video autoPlay muted loop>
-        <source src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4" />
-        <source src="/videos/battlefortheoceans.mp4" type="video/mp4" />
-    </video>
-    <button onClick={onPlay}>Play Now</button>
-  </div>
-);
+const version = 'v0.1.5'
+const LaunchPage = () => {
+  const { dispatch, stateMachine } = useGame();
+
+  const handleCloseDialog = () => {
+    if (dispatch) {
+      console.log(version, 'Firing LOGIN event from handleCloseDialog');
+      dispatch(stateMachine.event.LOGIN);
+    } else {
+      console.error(version, 'Dispatch is not available in handleCloseDialog');
+    }
+  };
+
+  return (
+    <div className="launch-page">
+      <BackgroundVideo />
+      <h1>Battle for the Oceans</h1>
+      <button onClick={handleCloseDialog}>Play Game</button>
+    </div>
+  );
+};
 
 export default LaunchPage;
 
