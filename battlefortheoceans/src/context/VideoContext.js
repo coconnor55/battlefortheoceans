@@ -3,6 +3,8 @@
 
 import React, { createContext, useContext, useRef, useState, useEffect } from 'react';
 
+const version = 'v0.1.4';
+
 const VideoContext = createContext();
 
 const videos = [
@@ -15,9 +17,16 @@ export const VideoProvider = ({ children }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(() => videos[Math.floor(Math.random() * videos.length)]);
 
+  useEffect(() => {
+    if (videoRef.current && selectedVideo) {
+      videoRef.current.play().catch(error => console.error(version, 'Initial video play error:', error));
+      setIsPlaying(true);
+    }
+  }, [selectedVideo]);
+
   const startVideo = () => {
     if (videoRef.current && !isPlaying && selectedVideo) {
-      videoRef.current.play().catch(error => console.error('v0.1.2: Video play error:', error));
+      videoRef.current.play().catch(error => console.error(version, 'Video play error:', error));
       setIsPlaying(true);
     }
   };

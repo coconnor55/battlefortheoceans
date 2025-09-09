@@ -5,13 +5,18 @@ import React, { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useVideo } from '../context/VideoContext';
 
-const version = 'v0.1.3';
+const version = 'v0.1.5';
 
 const BackgroundVideo = () => {
   const { videoRef, startVideo, stopVideo, selectedVideo } = useVideo();
   const hasMounted = useRef(false);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      console.log(version, 'BackgroundVideo', 'First render, preparing video');
+      isFirstRender.current = false;
+    }
     if (!hasMounted.current) {
       console.log(version, 'BackgroundVideo', 'First mount, starting video');
       startVideo();
@@ -24,7 +29,7 @@ const BackgroundVideo = () => {
       console.log(version, 'BackgroundVideo', 'Unmounting, stopping video');
       stopVideo();
     };
-  }, [selectedVideo]); // Trigger on selectedVideo change
+  }, [selectedVideo]);
 
   if (!selectedVideo) {
     console.log(version, 'BackgroundVideo', 'No selected video yet');
