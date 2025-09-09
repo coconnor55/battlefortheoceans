@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { GameProvider, useGame } from './context/GameContext';
-import { VideoProvider } from './context/VideoContext'; // New context
+import { VideoProvider } from './context/VideoContext';
 import LaunchPage from './pages/LaunchPage';
 import LoginPage from './pages/LoginPage';
 import SelectEraPage from './pages/SelectEraPage';
@@ -12,15 +12,16 @@ import PlayingPage from './pages/PlayingPage';
 import OverPage from './pages/OverPage';
 import './App.css';
 
-const version = 'v.1.39'
+const version = 'v0.1.42';
+
 const App = () => {
   const { stateMachine, dispatch } = useGame();
 
-  const PageRenderer = () => {
+  const SceneRenderer = () => {
     const currentState = stateMachine.getCurrentState();
-    console.log(version, 'Rendering ${currentState}');
+    console.log(version, 'Rendering scene for', currentState);
     return (
-      <div key={currentState}>
+      <div className="scene">
         {(() => {
           switch (currentState) {
             case 'launch':
@@ -46,7 +47,7 @@ const App = () => {
   return (
     <div className="App">
       <main>
-        <PageRenderer />
+        <SceneRenderer />
       </main>
     </div>
   );

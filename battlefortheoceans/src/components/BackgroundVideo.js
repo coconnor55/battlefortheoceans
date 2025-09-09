@@ -1,23 +1,30 @@
 // src/components/BackgroundVideo.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useVideo } from '../context/VideoContext';
 
-const version = 'v0.1.1';
+const version = 'v0.1.3';
 
 const BackgroundVideo = () => {
   const { videoRef, startVideo, stopVideo, selectedVideo } = useVideo();
+  const hasMounted = useRef(false);
 
   useEffect(() => {
-    console.log(version, 'BackgroundVideo', 'Mounting, starting video');
-    startVideo();
+    if (!hasMounted.current) {
+      console.log(version, 'BackgroundVideo', 'First mount, starting video');
+      startVideo();
+      hasMounted.current = true;
+    } else {
+      console.log(version, 'BackgroundVideo', 'Subsequent mount, ensuring video plays');
+      startVideo(); // Retry on remount
+    }
     return () => {
       console.log(version, 'BackgroundVideo', 'Unmounting, stopping video');
       stopVideo();
     };
-  }, []);
+  }, [selectedVideo]); // Trigger on selectedVideo change
 
   if (!selectedVideo) {
     console.log(version, 'BackgroundVideo', 'No selected video yet');
