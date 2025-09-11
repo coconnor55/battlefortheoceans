@@ -1,7 +1,7 @@
 {
   "version": "0.1.4",
-  "era": "traditional",
-  "name": "Traditional Battleship",
+  "era": "traditional3",
+  "name": "Traditional Battleship 3",
   "era_description": "Battleship, a classic pencil-and-paper game from World War I, was popularized in the 1930s. Players strategically place and sink fleets on a 10x10 grid in this timeless naval duel.",
   "free": true,
   "rows": 10,

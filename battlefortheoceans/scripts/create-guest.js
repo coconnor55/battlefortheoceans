@@ -33,8 +33,8 @@ async function createGuest() {
 
   console.log('Creating guest user...');
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-    email: 'guest@battlefortheoceans.com',
-    password: 'guest123',
+    email: 'battlefortheoceans@gmail.com',
+    password: 'guest123xyz',
     options: { emailRedirectTo: 'https://battlefortheoceans.com/welcome' }, // Optional redirect
   });
 
@@ -43,15 +43,15 @@ async function createGuest() {
     return;
   }
 
-  // Simulate email confirmation using service role key (admin bypass)
-  const { error: confirmError } = await supabase.auth.admin.confirmUser(signUpData.user.id, 'https://battlefortheoceans.com/welcome');
-  if (confirmError) {
-    console.error('Error confirming guest user:', confirmError.message);
-    return;
-  }
+//  // Simulate email confirmation using service role key (admin bypass)
+//  const { error: confirmError } = await supabase.auth.admin.confirmUser(signUpData.user.id, 'https://battlefortheoceans.com/welcome');
+//  if (confirmError) {
+//    console.error('Error confirming guest user:', confirmError.message);
+//    return;
+//  }
 
   const { error: insertError } = await supabase.from('users').insert({
-    email: 'guest@battlefortheoceans.com',
+    email: 'battlefortheoceans@gmail.com',
     password_hash: '',
     is_guest: true,
     username: 'guest',

@@ -1,32 +1,102 @@
-/* src/components/SelectEraPage.css (v0.1.0) */
+/* src/pages/SelectEraPage.css (v0.1.4) */
 /* Copyright(c) 2025, Clint H. O'Connor */
 
-.select-era-page {
+.select-page {
+  position: relative;
+  background-image: url('https://battlefortheoceans.b-cdn.net/battlefortheoceans.jpg');
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+  background-position: center top;
+  background-color: #e0e0e0; /* Fallback if image fails */
+  width: 100vw;
+  height: 2000px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.select-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  width: 50vw;
+  min-width: 50vw;
+  background-color: rgba(120, 158, 185, 0.6); /* Translucent blue frame */
+  border: 2px solid #FFFFFF;
+  border-radius: 8px;
   padding: 20px;
 }
 
-.scrollable-eras, .scrollable-opponents {
+.select-button {
+  background-color: #E6C200;
+  color: #1A3C6D;
+  border: none;
+  padding: 12px 24px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 20px 8px;
+  border: 3px solid #DFB600;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.3s ease;
+}
+
+.select-button:hover {
+  background-color: #FFD700;
+}
+
+
+.era-list {
+  max-height: 300px; /* Adjustable height for scrolling */
+  overflow-y: auto;
+  gap: 5px;
+  background-color: #1A3C6D;
+  border: 1px solid #FFFFFF;
+  border-radius: 8px;
+}
+
+.era-item {
+  padding: 10px;
+  cursor: pointer;
+  background-color: #E6C200C0;
+  border: 0.5px solid #FFFFFF;
+  border-radius: 8px;
+}
+
+.era-item:hover {
+  background-color: #FFD700;
+}
+
+.era-item.selected {
+  background-color: #FFD700;
+}
+
+.era-name {
+  font-weight: bold;
+}
+
+.opponent-slider {
   overflow-x: auto;
   white-space: nowrap;
-  width: 100%;
-  margin: 10px 0;
+  display: flex;
+  gap: 5px;
+/*  background-color: #E6C200C0;*/
+  border: 0.5px solid #FFFFFF;
+  border-radius: 8px;
 }
 
-.scrollable-eras div, .scrollable-opponents div {
-  display: inline-block;
-  margin: 0 10px;
+.opponent-item {
+  display: inline-flex;
   padding: 10px;
-  background: #f0f0f0;
-}
-
-.select-era-page button {
-  margin-top: 20px;
-  padding: 10px 20px;
-  font-size: 18px;
   cursor: pointer;
+  background-color: #E6C200C0;
+  border: 0.5px solid #FFFFFF;
+  border-radius: 8px;
 }
-
 /* EOF - EOF - EOF */

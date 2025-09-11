@@ -3,7 +3,6 @@
 
 import React from 'react';
 import { GameProvider, useGame } from './context/GameContext';
-import { VideoProvider } from './context/VideoContext';
 import LaunchPage from './pages/LaunchPage';
 import LoginPage from './pages/LoginPage';
 import SelectEraPage from './pages/SelectEraPage';
@@ -12,10 +11,10 @@ import PlayingPage from './pages/PlayingPage';
 import OverPage from './pages/OverPage';
 import './App.css';
 
-const version = 'v0.1.42';
+const version = 'v0.1.45';
 
 const App = () => {
-  const { stateMachine, dispatch } = useGame();
+  const { stateMachine } = useGame();
 
   const SceneRenderer = () => {
     const currentState = stateMachine.getCurrentState();
@@ -54,11 +53,9 @@ const App = () => {
 };
 
 const WrappedApp = () => (
-  <VideoProvider>
-    <GameProvider>
-      <App />
-    </GameProvider>
-  </VideoProvider>
+  <GameProvider>
+    <App />
+  </GameProvider>
 );
 
 export default WrappedApp;

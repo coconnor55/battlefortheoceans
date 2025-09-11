@@ -61,11 +61,10 @@ const LoginDialog = ({ onClose }) => {
       <form onSubmit={handleLogin}>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
-        <button type="submit">Login</button>
+        <button className='login-dialog-login' type="submit">Login</button>
       </form>
-      <button onClick={handleSignUp}>Sign Up</button>
-      <button onClick={handleGuest}>Play as Guest</button>
-      <button onClick={onClose}>Cancel</button>
+      <button className='login-dialog-signup' onClick={handleSignUp}>Sign Up</button>
+      <button className='login-dialog-guest' onClick={handleGuest}>Play as Guest</button>
     </div>
   );
 };

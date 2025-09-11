@@ -1,24 +1,148 @@
-/* src/pages/LoginPage.css (v0.1.0) */
+/* src/pages/LoginPage.css (v0.1.4) */
 /* Copyright(c) 2025, Clint H. O'Connor */
 
 .login-page {
+  position: relative;
+  background-image: url('https://battlefortheoceans.b-cdn.net/battlefortheoceans.jpg');
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+  background-position: center top;
+  background-color: #e0e0e0; /* Fallback if image fails */
+  width: 100vw;
+  height: 2000px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.login-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  background-color: rgba(120, 158, 185, 0.6); /* Translucent blue frame */
+  border: 2px solid #FFFFFF;
+  border-radius: 8px;
   padding: 20px;
 }
 
-.login-page input {
-  margin: 10px 0;
-  padding: 5px;
-  font-size: 16px;
+.login-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 300px;
+  text-align: center;
 }
 
-.login-page button {
-  margin: 5px 0;
+.login-dialog input[type="email"],
+.login-dialog input[type="password"] {
+  margin: 3px;
   padding: 10px;
   font-size: 16px;
-  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
 }
+
+.launch-button {
+  background-color: #E6C200;
+  color: #1A3C6D;
+  border: none;
+  padding: 12px 24px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 20px 8px;
+  border: 3px solid #DFB600;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.3s ease;
+}
+
+.login-dialog-login,
+.login-dialog-signup,
+.login-dialog-guest {
+  background-color: #E6C200; /* Gold */
+  color: #1A3C6D; /* Dark blue */
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 3px solid #DFB600;
+  transition: background-color 0.3s ease;
+}
+
+.login-dialog-login:hover,
+.login-dialog-signup:hover,
+.login-dialog-guest:hover {
+  background-color: #FFD700; /* Lighter gold on hover */
+}
+
+.login-button {
+  background-color: #5F7F82; /* Darker blue based on estimated average */
+  color: #FFFFFF; /* White text for contrast */
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.login-button:hover {
+  background-color: #789EA2; /* Lighter blue on hover */
+}
+
+/*.launch-page {
+  position: relative;
+  width: 100vw;
+  height: auto;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  background-color: #e0e0e0;
+}
+
+.launch-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 1;
+}
+
+.login-page {
+  background-image: url('https://raw.githubusercontent.com/coconnor55/battlefortheoceans/refs/heads/main/battlefortheoceans/public/images/battlefortheoceans.jpg');
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+  background-position: center top;
+  position: relative;
+  width: 100vw;
+  height: auto;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  background-color: #e0e0e0;
+}
+
+.login-content {
+    width: inherit;
+    position: fixed;
+    padding: 10px;
+}
+*/
 
 /* EOF - EOF - EOF */

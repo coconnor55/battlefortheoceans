@@ -1,46 +1,48 @@
-/* src/pages/LaunchPage.css */
+/* src/pages/LaunchPage.css (v0.1.11) */
+/* Copyright(c) 2025, Clint H. O'Connor */
+
 .launch-page {
   position: relative;
-  height: 100vh;
-  width: 100%;
-  overflow: hidden; /* Contain video */
+  background-image: url('https://battlefortheoceans.b-cdn.net/battlefortheoceans.jpg');
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+  background-position: center top;
+  background-color: #e0e0e0; /* Fallback if image fails */
+  width: 100vw;
+  height: 2000px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
 }
 
-.launch-page video {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 0;
+.launch-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
-.launch-page h1 {
-  position: relative;
-  z-index: 1;
-  color: white;
-  text-align: center;
-  padding: 20px;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
-}
-
-.launch-page button {
-  position: relative;
-  z-index: 1;
-  display: block;
-  margin: 20px auto;
-  padding: 10px 20px;
-  font-size: 18px;
-  background-color: #4CAF50;
-  color: white;
+.launch-button {
+  background-color: #E6C200;
+  color: #1A3C6D;
   border: none;
+  padding: 12px 24px;
+  font-size: 18px;
+  font-weight: bold;
   cursor: pointer;
+  border-radius: 20px 8px;
+  border: 3px solid #DFB600;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.3s ease;
 }
 
-/* Ensure video pauses on unmount (handled by React) */
-.launch-page video[hidden] {
-  display: none;
+.launch-button:hover {
+  background-color: #FFD700;
 }
 
 /* EOF - EOF - EOF */
