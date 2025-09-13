@@ -1,12 +1,12 @@
-// src/components/LoginDialog.js (v0.1.28)
+// src/components/LoginDialog.js
 // Copyright(c) 2025, Clint H. O'Connor
+// LOCKED: Do not modify without confirmation
 
 import { useState, useContext } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 
-// LOCKED: Do not modify without confirmation
-
+const version = 'v0.1.28'
 const LoginDialog = ({ onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,40 +19,45 @@ const LoginDialog = ({ onClose }) => {
       setError('Email and password are required');
       return;
     }
+    console.log(`${version}: Attempting user login with email:', ${email}`);
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setError(error.message);
     else {
-      console.log('Login successful, session:', data.session);
+      console.log('Login successful, user:', data.user);
       dispatch(stateMachine.event.SELECTERA);
       onClose();
     }
   };
 
-  const handleSignUp = async (e) => {
-    e.preventDefault();
-    if (!email || !password) {
-      setError('Email and password are required');
-      return;
-    }
-    const { error, data } = await supabase.auth.signUp({ email, password });
-    if (error) setError(error.message);
-    else {
-      const { error: insertError } = await supabase.from('users').insert({ email, password_hash: '', is_guest: false, username: email.split('@')[0] });
-      if (insertError) setError(insertError.message);
+  const handleGuest = async () => {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: process.env.REACT_APP_GUEST_EMAIL,
+        password: process.env.REACT_APP_GUEST_PASSWORD, // If set post-creation
+      });
+      console.log('Login with:', data.session);
+      if (error) setError(error.message);
       else {
-        console.log('Sign-up successful, session:', data.session);
-        dispatch(stateMachine.event.SELECTERA);
-        onClose();
+          console.log('Guest logged in:', data.user);
+          dispatch(stateMachine.event.SELECTERA);
+          onClose();
       }
-    }
   };
 
-  const handleGuest = async () => {
-    // Temporary bypass: Use user_id to trigger transition without authentication
-    console.log('Using guest user_id for temporary bypass');
-    dispatch(stateMachine.event.SELECTERA); // Fire transition directly
-    onClose(); // Exit dialog
-  };
+    const handleSignUp = async (e) => {
+      e.preventDefault();
+      if (!email || !password) {
+        setError('Email and password are required');
+        return;
+      }
+      console.log(`${version}: Attempting user signup with email:', ${email}`);
+      const { error, data } = await supabase.auth.signUp({ email, password });
+      if (error) setError(error.message);
+      else {
+          console.log('Sign-up successful, user:', data.user);
+          dispatch(stateMachine.event.SELECTERA);
+          onClose();
+      }
+    };
 
   return (
     <div className="login-dialog">

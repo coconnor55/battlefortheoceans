@@ -6,7 +6,7 @@ const fs = require('fs').promises;
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseKey = process.env.REACT_APP_SUPABASE_KEY;
+const supabaseKey = process.env.REACT_APP_SUPABASE_SECRET_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('Supabase URL or Key not found in .env file');
@@ -48,7 +48,8 @@ async function updateEraConfigs() {
         cols: eraConfig.cols,
         boundary: eraConfig.boundary,
         max_players: eraConfig.max_players,
-        fleet: eraConfig.fleet,
+        playerfleet: eraConfig.playerfleet,
+        opponentfleet: eraConfig.opponentfleet,
         terrain: eraConfig.terrain,
         ai_captains: eraConfig.ai_captains,
         messages: eraConfig.messages
