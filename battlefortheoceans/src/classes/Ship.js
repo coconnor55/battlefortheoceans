@@ -1,4 +1,4 @@
-// src/classes/Ship.js (v0.1.3)
+// src/classes/Ship.js (v0.1.4)
 // Copyright(c) 2025, Clint H. O’Connor
 // LOCKED: Do not modify without confirmation
 
@@ -12,9 +12,18 @@ class Ship {
     this.damage = 0; // Total damage across all cells
   }
 
-  hit(damage = 1.0) {
-    this.damage += damage; // Accumulate total damage
-    return damage; // For external tracking
+  hit(damage = 1.0, row, col) {
+      const cell = this.cells.find(c => c.row === row && c.col === col);
+      if (cell) {
+        if (cell.damage >= 1.0) {
+          console.warn('Ship (v0.1.4): No further hits on cell', { row, col, currentDamage: cell.damage, attemptedDamage: damage });
+          return 0; // No additional damage
+        }
+        cell.damage += damage;
+        this.damage += damage;
+        return damage; // Successful damage applied
+      }
+      return 0; // No cell found
   }
 
   resetDamage() {
