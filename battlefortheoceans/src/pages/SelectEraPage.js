@@ -14,8 +14,9 @@ const SelectEraPage = () => {
   const [eras, setEras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-    const [selectedId, setSelectedId] = useState(null);
-    
+  const [selectedId, setSelectedId] = useState(null);
+  const [selectedOpponent, setSelectedOpponent] = useState(null); // Added to mirror selectedEra
+        
   const handleCloseDialog = () => {
     if (dispatch) {
       console.log(version, 'SelectEraPage', 'Firing PLACEMENT event from handleCloseDialog');
@@ -53,8 +54,6 @@ const SelectEraPage = () => {
     fetchEras();
   }, []); // Empty dependency array to prevent infinite loop
 
-  if (loading) return <div>Loading eras...</div>;
-  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="select-page">
@@ -71,12 +70,11 @@ const SelectEraPage = () => {
             <h3>Opponents</h3>
             <div className="opponent-slider">
               {selectedEra.ai_captains.slice(0, 3).map((opponent, index) => (
-                <div key={index} className="opponent-item" onClick={() => {/* Add opponent selection logic later */}}>
-                  {opponent.name} ({opponent.strategy})
-                </div>
-              ))}
+                 <div key={index} className={`opponent-item ${selectedOpponent?.name === opponent.name ? 'selected' : ''}`} onClick={() => { setSelectedOpponent(opponent);  }}>
+                  </div>
+))}
             </div>
-            <button className="play-now" disabled={!selectedEra} onClick={handleCloseDialog}>Play Now</button>
+            <button className="select-button" disabled={!selectedEra || !selectedOpponent} onClick={handleCloseDialog}>Play Now</button>
           </div>
         )}
       </div>

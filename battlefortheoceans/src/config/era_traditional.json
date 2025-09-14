@@ -40,10 +40,10 @@
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
   ],
-   "ai_captains": [
-    { "name": "Captain Robert", "description": "A novice commander who fires randomly across the board.", "strategy": "random_shots" },
-    { "name": "Captain Jack", "description": "A savvy commander who fires methodically.", "strategy": "methodical_hunting" },
-    { "name": "Captain Blood", "description": "A ruthless commander who targets aggressively.", "strategy": "aggressive_targeting" }
+  "ai_captains": [
+    { "name": "Captain Robert", "description": "A novice commander who fires randomly across the board.", "strategy": "random_shots", "difficulty": 0.7 },
+    { "name": "Captain Jack", "description": "A savvy commander who fires methodically.", "strategy": "methodical_hunting", "difficulty": 1.0 },
+    { "name": "Captain Blood", "description": "A ruthless commander who targets aggressively.", "strategy": "aggressive_targeting", "difficulty": 1.2 }
   ],
   "messages": {
     "transition": [

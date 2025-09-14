@@ -1,4 +1,4 @@
-/* src/pages/SelectEraPage.css (v0.1.4) */
+/* src/pages/SelectEraPage.css (v0.1.5) */
 /* Copyright(c) 2025, Clint H. O'Connor */
 
 .select-page {
@@ -7,7 +7,7 @@
   background-size: cover;
   background-repeat: no-repeat;
   background-attachment: scroll;
-  background-position: center top;
+  background-position: center -325px;
   background-color: #e0e0e0; /* Fallback if image fails */
   width: 100vw;
   height: 2000px;
@@ -17,26 +17,29 @@
 }
 
 .select-content {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 50vw;
-  min-width: 50vw;
-  background-color: rgba(120, 158, 185, 0.6); /* Translucent blue frame */
-  border: 2px solid #FFFFFF;
-  border-radius: 8px;
-  padding: 20px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 50vw;
+    min-width: 50vw;
+    background-color: rgba(120, 158, 185, 0.6); /* Translucent blue frame */
+    border: 2px solid #FFFFFF;
+    border-radius: 8px;
+    padding: 20px;
+/*    overflow: hidden;*/
 }
 
 .select-button {
+  position: relative;
   background-color: #E6C200;
   color: #1A3C6D;
   border: none;
+  margin: 30px;
   padding: 12px 24px;
   font-size: 18px;
   font-weight: bold;
@@ -48,33 +51,33 @@
 }
 
 .select-button:hover {
-  background-color: #FFD700;
+  background-color: #FFE700;
 }
 
 
 .era-list {
-  max-height: 300px; /* Adjustable height for scrolling */
+  max-height: 200px; /* Adjustable height for scrolling */
   overflow-y: auto;
-  gap: 5px;
-  background-color: #1A3C6D;
+  background-color: #1A3C6DC0;
   border: 1px solid #FFFFFF;
   border-radius: 8px;
 }
 
 .era-item {
+  margin: 3px;
   padding: 10px;
   cursor: pointer;
-  background-color: #E6C200C0;
+  background-color: #D2B48CD0;
   border: 0.5px solid #FFFFFF;
   border-radius: 8px;
 }
 
 .era-item:hover {
-  background-color: #FFD700;
+  background-color: #D2B48CFF;
 }
 
 .era-item.selected {
-  background-color: #FFD700;
+  background-color: #D2B48CFF;
 }
 
 .era-name {
@@ -82,21 +85,44 @@
 }
 
 .opponent-slider {
+  max-width: 80%;
   overflow-x: auto;
-  white-space: nowrap;
-  display: flex;
-  gap: 5px;
+/*  overflow-y: none;*/
+  display: inline-flex;
+/*  white-space: nowrap;*/
+/*  display: flex;*/
+/*  flex-wrap: wrap;*/
+/*  gap: 5px;*/
 /*  background-color: #E6C200C0;*/
-  border: 0.5px solid #FFFFFF;
-  border-radius: 8px;
+background-color: #1A3C6DC0;
+border: 1px solid #FFFFFF;
+border-radius: 8px;
+overflow: hidden;
 }
 
 .opponent-item {
-  display: inline-flex;
-  padding: 10px;
-  cursor: pointer;
-  background-color: #E6C200C0;
-  border: 0.5px solid #FFFFFF;
-  border-radius: 8px;
+    /*  display: inline-flex;*/
+    margin: 3px;
+    padding: 10px;
+    cursor: pointer;
+    background-color: #FF6347D0;
+    /*  background-color: #E6C200C0;*/
+    border: 0.5px solid #FFFFFF;
+    border-radius: 8px;
+    max-width: 200px;
+    /*  max-width: 150%;*/
+    /*  box-sizing: border-box;*/
+    /*  overflow: hidden;*/
+    /*  text-overflow: ellipsis;*/
+    /*  white-space: nowrap;*/
 }
+.opponent-item:hover {
+  background-color: #FF6347FF;
+}
+
+.opponent-item.selected {
+  background-color: #FF6347FF;
+}
+
+
 /* EOF - EOF - EOF */

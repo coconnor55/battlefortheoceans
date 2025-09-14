@@ -7,7 +7,7 @@
   background-size: cover;
   background-repeat: no-repeat;
   background-attachment: scroll;
-  background-position: center top;
+  background-position: center -325px;
   background-color: #e0e0e0; /* Fallback if image fails */
   width: 100vw;
   height: 2000px;
@@ -42,7 +42,7 @@
 }
 
 .launch-button:hover {
-  background-color: #FFD700;
+  background-color: #FFE700;
 }
 
 /* EOF - EOF - EOF */

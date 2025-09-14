@@ -7,7 +7,7 @@
   background-size: cover;
   background-repeat: no-repeat;
   background-attachment: scroll;
-  background-position: center top;
+  background-position: center -325px;
   background-color: #e0e0e0; /* Fallback if image fails */
   width: 100vw;
   height: 2000px;
@@ -29,6 +29,10 @@
   border: 2px solid #FFFFFF;
   border-radius: 8px;
   padding: 20px;
+}
+
+.login-content h2 {
+  text-shadow: 2px 2px 4px #FFFFFF80; /* Added drop shadow to h2 within login-content */
 }
 
 .login-dialog {
@@ -69,7 +73,7 @@
 .login-dialog-guest {
   background-color: #E6C200; /* Gold */
   color: #1A3C6D; /* Dark blue */
-  border: none;
+  margin: 10px;
   padding: 10px 20px;
   font-size: 16px;
   font-weight: bold;
@@ -82,7 +86,7 @@
 .login-dialog-login:hover,
 .login-dialog-signup:hover,
 .login-dialog-guest:hover {
-  background-color: #FFD700; /* Lighter gold on hover */
+  background-color: #FFE700; /* Lighter gold on hover */
 }
 
 .login-button {
@@ -100,49 +104,5 @@
 .login-button:hover {
   background-color: #789EA2; /* Lighter blue on hover */
 }
-
-/*.launch-page {
-  position: relative;
-  width: 100vw;
-  height: auto;
-  overflow: auto;
-  margin: 0;
-  padding: 0;
-  background-color: #e0e0e0;
-}
-
-.launch-content {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  z-index: 1;
-}
-
-.login-page {
-  background-image: url('https://raw.githubusercontent.com/coconnor55/battlefortheoceans/refs/heads/main/battlefortheoceans/public/images/battlefortheoceans.jpg');
-  background-repeat: no-repeat;
-  background-attachment: scroll;
-  background-position: center top;
-  position: relative;
-  width: 100vw;
-  height: auto;
-  overflow: auto;
-  margin: 0;
-  padding: 0;
-  background-color: #e0e0e0;
-}
-
-.login-content {
-    width: inherit;
-    position: fixed;
-    padding: 10px;
-}
-*/
 
 /* EOF - EOF - EOF */
