@@ -1,9 +1,8 @@
 // src/pages/PlacementPage.js (v0.1.4)
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useGame } from '../context/GameContext';
-import Debug from '../utils/Debug';
 import Placer from '../classes/Placer';
 import PlacerRenderer from '../components/PlacerRenderer';
 import Board from '../classes/Board';

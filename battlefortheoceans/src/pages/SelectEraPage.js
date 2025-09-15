@@ -1,4 +1,4 @@
-// src/pages/SelectEraPage.js (v0.1.13)
+// src/pages/SelectEraPage.js (v0.1.14)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -6,17 +6,17 @@ import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 import './SelectEraPage.css';
 
-const version = 'v0.1.13';
+const version = 'v0.1.15';
 
 const SelectEraPage = () => {
-  const { dispatch, stateMachine, setSelectedEra, clearGameData } = useGame();
+  const { dispatch, stateMachine, setSelectedEra } = useGame();
   const [selectedEra, setSelectedEraLocal] = useState(null);
   const [eras, setEras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
-        
+
   const handleCloseDialog = () => {
     if (dispatch && selectedEra && selectedOpponent) {
       console.log(version, 'SelectEraPage', 'Storing era and opponent in GameContext');
@@ -30,10 +30,8 @@ const SelectEraPage = () => {
     }
   };
 
+  // No clearGameData call needed - should be done in OverPage before transition
   useEffect(() => {
-    // Clear any previous game data when entering era selection
-    clearGameData();
-    
     const fetchEras = async () => {
       setLoading(true);
       console.log(version, 'Fetching eras from era_configs');
@@ -59,7 +57,7 @@ const SelectEraPage = () => {
       setLoading(false);
     };
     fetchEras();
-  }, []); // Empty dependency array to prevent infinite loop
+  }, []); // Simple fetch on mount, no state clearing
 
   const handleEraSelection = (era) => {
     setSelectedId(era.id);

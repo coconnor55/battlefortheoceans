@@ -1,7 +1,7 @@
-// src/context/GameContext.js (v0.1.12)
+// src/context/GameContext.js (v0.1.13)
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { StateMachine } from '../classes/StateMachine';
 import { supabase } from '../utils/supabaseClient';
 
@@ -52,19 +52,19 @@ export const GameProvider = ({ children }) => {
   }, []);
 
   const dispatch = (event) => {
-    console.log('v0.1.12: Dispatching event to state machine', event);
+    console.log('v0.1.13: Dispatching event to state machine', event);
     gameStateMachine.transition(event);
     contextVersion += 1;
     setVersion(contextVersion); // Force context value change
   };
 
-  // Game state update functions
-  const updateGameState = (updates) => {
+  // Game state update functions with useCallback to prevent infinite loops
+  const updateGameState = useCallback((updates) => {
     console.log('GameContext: Updating game state:', updates);
     setGameState(prev => ({ ...prev, ...updates }));
-  };
+  }, []);
 
-  const setSelectedEra = (era, opponent) => {
+  const setSelectedEra = useCallback((era, opponent) => {
     console.log('GameContext: Setting selected era and opponent:', era?.name, opponent?.name);
     updateGameState({
       selectedEra: era,
@@ -76,9 +76,9 @@ export const GameProvider = ({ children }) => {
         ships: era.ships
       } : null
     });
-  };
+  }, [updateGameState]);
 
-  const clearGameData = () => {
+  const clearGameData = useCallback(() => {
     console.log('GameContext: Clearing game data for new game');
     updateGameState({
       selectedEra: null,
@@ -88,15 +88,15 @@ export const GameProvider = ({ children }) => {
       fleet: null,
       gameId: null
     });
-  };
+  }, [updateGameState]);
 
-  const setBoard = (board) => {
+  const setBoard = useCallback((board) => {
     updateGameState({ board });
-  };
+  }, [updateGameState]);
 
-  const setFleet = (fleet) => {
+  const setFleet = useCallback((fleet) => {
     updateGameState({ fleet });
-  };
+  }, [updateGameState]);
 
   const contextValue = {
     stateMachine: gameStateMachine,

@@ -1,17 +1,17 @@
-// src/components/LoginDialog.js
-// Copyright(c) 2025, Clint H. O’Connor
+// src/components/LoginDialog.js (v0.1.29)
+// Copyright(c) 2025, Clint H. O'Connor
 // LOCKED: Do not modify without confirmation
 
-import { useState, useContext } from 'react';
+import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.28'
+const version = 'v0.1.29'
 const LoginDialog = ({ onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
-  const { stateMachine, dispatch, setPlayerId } = useGame();
+  const { stateMachine, dispatch } = useGame();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -24,7 +24,7 @@ const LoginDialog = ({ onClose }) => {
     if (error) setError(error.message);
     else {
       console.log('Login successful, user:', data.user);
-      setPlayerId(data.user.id); // Persist player ID
+      // GameContext will automatically capture playerId from auth state change
       dispatch(stateMachine.event.SELECTERA);
       onClose();
     }
@@ -33,13 +33,13 @@ const LoginDialog = ({ onClose }) => {
   const handleGuest = async () => {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: process.env.REACT_APP_GUEST_EMAIL,
-        password: process.env.REACT_APP_GUEST_PASSWORD, // If set post-creation
+        password: process.env.REACT_APP_GUEST_PASSWORD,
       });
       console.log('Login with:', data.session);
       if (error) setError(error.message);
       else {
           console.log('Guest logged in:', data.user);
-          setPlayerId(data.user.id); // Persist player ID
+          // GameContext will automatically capture playerId from auth state change
           dispatch(stateMachine.event.SELECTERA);
           onClose();
       }
@@ -56,7 +56,7 @@ const LoginDialog = ({ onClose }) => {
       if (error) setError(error.message);
       else {
           console.log('Sign-up successful, user:', data.user);
-          setPlayerId(data.user.id); // Persist player ID
+          // GameContext will automatically capture playerId from auth state change
           dispatch(stateMachine.event.SELECTERA);
           onClose();
       }
