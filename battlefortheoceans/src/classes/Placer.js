@@ -1,177 +1,154 @@
-// src/classes/Placer.js (v0.1.6)
+// src/classes/Placer.js (v0.1.6 - FIXED)
 // Copyright(c) 2025, Clint H. O'Connor
 // LOCKED: Do not modify without confirmation
 
 import Ship from './Ship';
-import Debug from '../utils/Debug';
 
 class Placer {
   constructor(board, fleetConfig, userId) {
     this.board = board;
     this.userId = userId;
+    
+    // fleetConfig should be an array of ship configurations
+    if (!Array.isArray(fleetConfig)) {
+      throw new Error('Placer: fleetConfig must be an array of ship configurations');
+    }
+    
     this.fleet = fleetConfig.map(cfg => new Ship(cfg.name, cfg.size, cfg.terrain));
     this.currentShip = null;
     this.placedShips = [];
-    
-    // New state for tap-swipe interaction
-    this.dragState = {
-      isActive: false,
-      startCell: null,
-      currentCell: null,
-      previewCells: [],
-      isValid: false,
-      direction: null
-    };
   }
 
   getCurrentShip() {
     return this.currentShip || this.fleet.find(ship => !this.placedShips.includes(ship));
   }
 
-  // Start drag interaction
-  startDrag(row, col) {
+  startPlacement(row, col) {
     const ship = this.getCurrentShip();
     if (!ship) return false;
-
     this.currentShip = ship;
-    this.dragState = {
-      isActive: true,
-      startCell: { row, col },
-      currentCell: { row, col },
-      previewCells: [{ row, col }],
-      isValid: this.isValidCell(row, col, ship),
-      direction: null
-    };
-
-    Debug.log('v0.1.6', 'Drag started', { row, col, ship: ship.name });
+    this.currentShip.cells = []; // Clear any existing cells
+    this.currentShip.start = { row, col };
+    console.log('v0.1.6', 'Placement started', { row, col, ship: ship.name });
     return true;
   }
 
-  // Update drag position and calculate preview
-  updateDrag(row, col) {
-    if (!this.dragState.isActive || !this.currentShip) return false;
-
-    this.dragState.currentCell = { row, col };
+  // This method is now primarily for validation - PlacerRenderer handles the actual cell calculation
+  swipe(row, col, direction) {
+    if (!this.currentShip || !this.currentShip.start) return false;
     
-    // Calculate direction based on drag distance
-    const startRow = this.dragState.startCell.row;
-    const startCol = this.dragState.startCell.col;
-    const deltaRow = Math.abs(row - startRow);
-    const deltaCol = Math.abs(col - startCol);
+    const startRow = this.currentShip.start.row;
+    const startCol = this.currentShip.start.col;
     
-    // Determine direction (prefer the axis with more movement)
-    const direction = deltaCol > deltaRow ? 'horizontal' : 'vertical';
-    this.dragState.direction = direction;
-    
-    // Calculate preview cells for ship placement
-    const previewCells = this.calculateShipCells(startRow, startCol, direction, this.currentShip.size);
-    this.dragState.previewCells = previewCells;
-    
-    // Validate the placement
-    this.dragState.isValid = this.validatePreviewCells(previewCells, this.currentShip);
-    
-    Debug.log('v0.1.6', 'Drag updated', {
-      row, col, direction,
-      previewCells: previewCells.length,
-      isValid: this.dragState.isValid
-    });
-    
-    return true;
-  }
-
-  // Calculate ship cells based on start position and direction
-  calculateShipCells(startRow, startCol, direction, size) {
-    const cells = [];
+    // Direction calculation based on swipe
     const dr = direction === 'horizontal' ? 0 : 1;
     const dc = direction === 'horizontal' ? 1 : 0;
+    const cells = [];
     
-    for (let i = 0; i < size; i++) {
+    for (let i = 0; i < this.currentShip.size; i++) {
       const r = startRow + dr * i;
       const c = startCol + dc * i;
       cells.push({ row: r, col: c });
     }
     
-    return cells;
-  }
-
-  // Validate preview cells
-  validatePreviewCells(cells, ship) {
-    return cells.every(cell => this.isValidCell(cell.row, cell.col, ship));
-  }
-
-  // Check if a single cell is valid for ship placement
-  isValidCell(row, col, ship) {
-    // Bounds check
-    if (row < 0 || row >= this.board.rows || col < 0 || col >= this.board.cols) {
+    // Validate all cells are in bounds
+    if (!cells.every(cell =>
+      cell.row >= 0 && cell.row < this.board.rows &&
+      cell.col >= 0 && cell.col < this.board.cols
+    )) {
+      console.warn('v0.1.6', 'Swipe out of bounds', { cells, ship: this.currentShip.name });
       return false;
     }
     
-    // Terrain check
-    const cell = this.board.grid[row][col];
-    if (cell.terrain === 'excluded') return false;
-    if (!ship.terrain.includes(cell.terrain)) return false;
+    // Validate terrain
+    if (!cells.every(cell =>
+      this.board.grid[cell.row][cell.col].terrain !== 'excluded' &&
+      this.currentShip.terrain.includes(this.board.grid[cell.row][cell.col].terrain)
+    )) {
+      console.warn('v0.1.6', 'Invalid terrain for swipe', { cells, terrain: this.currentShip.terrain });
+      return false;
+    }
     
-    // Occupancy check
-    return cell.state === 'empty' && cell.userId === null;
+    // Validate no overlap with existing ships
+    if (cells.some(cell => this.board.grid[cell.row][cell.col].state !== 'empty')) {
+      console.warn('v0.1.6', 'Swipe overlaps existing ship', { cells });
+      return false;
+    }
+    
+    this.currentShip.cells = cells;
+    console.log('v0.1.6', 'Swipe validated', { cells, ship: this.currentShip.name });
+    return true;
   }
 
-  // Confirm the current drag as a placed ship
+  // Set ship cells directly (used by PlacerRenderer)
+  setShipCells(cells) {
+    if (!this.currentShip) return false;
+    
+    // Validate the cells
+    if (!Array.isArray(cells) || cells.length !== this.currentShip.size) {
+      console.warn('v0.1.6', 'Invalid cells array', { cells, expectedSize: this.currentShip.size });
+      return false;
+    }
+    
+    // Validate all cells are in bounds
+    if (!cells.every(cell =>
+      cell.row >= 0 && cell.row < this.board.rows &&
+      cell.col >= 0 && cell.col < this.board.cols
+    )) {
+      console.warn('v0.1.6', 'Cells out of bounds', { cells });
+      return false;
+    }
+    
+    // Validate terrain
+    if (!cells.every(cell =>
+      this.board.grid[cell.row][cell.col].terrain !== 'excluded' &&
+      this.currentShip.terrain.includes(this.board.grid[cell.row][cell.col].terrain)
+    )) {
+      console.warn('v0.1.6', 'Invalid terrain for cells', { cells, terrain: this.currentShip.terrain });
+      return false;
+    }
+    
+    // Validate no overlap with existing ships
+    if (cells.some(cell => this.board.grid[cell.row][cell.col].state !== 'empty')) {
+      console.warn('v0.1.6', 'Cells overlap existing ship', { cells });
+      return false;
+    }
+    
+    this.currentShip.cells = cells;
+    console.log('v0.1.6', 'Ship cells set', { cells, ship: this.currentShip.name });
+    return true;
+  }
+
   confirmPlacement() {
-    if (!this.dragState.isActive || !this.dragState.isValid || !this.currentShip) {
-      Debug.warn('v0.1.6', 'Cannot confirm invalid placement');
+    if (!this.currentShip || !this.currentShip.cells || this.currentShip.cells.length !== this.currentShip.size) {
+      console.warn('v0.1.6', 'Cannot confirm placement - invalid ship state', {
+        hasShip: !!this.currentShip,
+        cellCount: this.currentShip?.cells?.length,
+        expectedSize: this.currentShip?.size
+      });
       return false;
     }
 
-    // Set ship cells and place on board
-    this.currentShip.cells = [...this.dragState.previewCells];
-    this.currentShip.start = this.dragState.startCell;
-    
     if (this.board.placeShip(this.currentShip, this.userId)) {
       this.placedShips.push(this.currentShip);
-      this.clearDragState();
-      Debug.log('v0.1.6', 'Ship placement confirmed', { ship: this.currentShip.name });
+      const placedShip = this.currentShip;
       this.currentShip = null;
+      console.log('v0.1.6', 'Placement confirmed', { ship: placedShip.name, cells: placedShip.cells });
       return true;
+    } else {
+      console.warn('v0.1.6', 'Board rejected ship placement');
+      return false;
     }
-    
-    return false;
-  }
-
-  // Cancel current drag
-  cancelDrag() {
-    Debug.log('v0.1.6', 'Drag cancelled');
-    this.clearDragState();
-  }
-
-  // Clear drag state
-  clearDragState() {
-    this.dragState = {
-      isActive: false,
-      startCell: null,
-      currentCell: null,
-      previewCells: [],
-      isValid: false,
-      direction: null
-    };
-  }
-
-  // Get current drag state for rendering
-  getDragState() {
-    return { ...this.dragState };
   }
 
   isComplete() {
-    return this.fleet.every(ship => this.placedShips.includes(ship));
-  }
-
-  // Legacy methods for backward compatibility
-  startPlacement(row, col) {
-    return this.startDrag(row, col);
-  }
-
-  swipe(row, col, direction) {
-    this.updateDrag(row, col);
-    return this.dragState.isValid;
+    const complete = this.fleet.every(ship => this.placedShips.includes(ship));
+    console.log('v0.1.6', 'Placement complete check', {
+      complete,
+      placedCount: this.placedShips.length,
+      totalCount: this.fleet.length
+    });
+    return complete;
   }
 }
 

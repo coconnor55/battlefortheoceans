@@ -1,4 +1,4 @@
-// src/pages/SelectEraPage.js (v0.1.14)
+// src/pages/SelectEraPage.js (v0.1.13)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -6,31 +6,37 @@ import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 import './SelectEraPage.css';
 
-const version = 'v0.1.15';
+const version = 'v0.1.13';
 
 const SelectEraPage = () => {
-  const { dispatch, stateMachine, setSelectedEra } = useGame();
-  const [selectedEra, setSelectedEraLocal] = useState(null);
+  const { dispatch, stateMachine, updateEraConfig, updateSelectedOpponent } = useGame();
+  const [selectedEra, setSelectedEra] = useState(null);
   const [eras, setEras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
-
+        
   const handleCloseDialog = () => {
-    if (dispatch && selectedEra && selectedOpponent) {
-      console.log(version, 'SelectEraPage', 'Storing era and opponent in GameContext');
-      // Store the selected era and opponent in GameContext
-      setSelectedEra(selectedEra, selectedOpponent);
+    if (selectedEra && selectedOpponent) {
+      // Store the era config and opponent in GameContext
+      updateEraConfig(selectedEra);
+      updateSelectedOpponent(selectedOpponent);
       
-      console.log(version, 'SelectEraPage', 'Firing PLACEMENT event from handleCloseDialog');
-      dispatch(stateMachine.event.PLACEMENT);
+      console.log(version, 'SelectEraPage', 'Storing era config and firing PLACEMENT event');
+      console.log(version, 'Era config:', selectedEra.name);
+      console.log(version, 'Selected opponent:', selectedOpponent.name);
+      
+      if (dispatch) {
+        dispatch(stateMachine.event.PLACEMENT);
+      } else {
+        console.error(version, 'SelectEraPage', 'Dispatch is not available in handleCloseDialog');
+      }
     } else {
-      console.error(version, 'SelectEraPage', 'Cannot proceed - missing era, opponent, or dispatch');
+      console.error(version, 'SelectEraPage', 'Missing era or opponent selection');
     }
   };
 
-  // No clearGameData call needed - should be done in OverPage before transition
   useEffect(() => {
     const fetchEras = async () => {
       setLoading(true);
@@ -57,31 +63,36 @@ const SelectEraPage = () => {
       setLoading(false);
     };
     fetchEras();
-  }, []); // Simple fetch on mount, no state clearing
+  }, []); // Empty dependency array to prevent infinite loop
 
-  const handleEraSelection = (era) => {
-    setSelectedId(era.id);
-    setSelectedEraLocal(era);
-    setSelectedOpponent(null); // Reset opponent when era changes
-  };
+  if (loading) {
+    return (
+      <div className="select-page">
+        <div className="select-content">
+          <h2>Loading Eras...</h2>
+        </div>
+      </div>
+    );
+  }
 
-  const handleOpponentSelection = (opponent) => {
-    setSelectedOpponent(opponent);
-  };
+  if (error) {
+    return (
+      <div className="select-page">
+        <div className="select-content">
+          <h2>Error Loading Eras</h2>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="select-page">
       <div className="select-content">
         <h2>Select Era</h2>
-        {loading && <p>Loading eras...</p>}
-        {error && <p>Error: {error}</p>}
         <div className="era-list">
           {eras.map((era) => (
-            <div
-              key={era.id}
-              className={`era-item ${selectedId === era.id ? 'selected' : ''}`}
-              onClick={() => handleEraSelection(era)}
-            >
+            <div key={era.id} className={`era-item ${selectedId === era.id ? 'selected' : ''}`} onClick={() => { setSelectedId(era.id); setSelectedEra(era); }}>
               <span className="era-name">{era.name}</span> - {era.era_description}
             </div>
           ))}
@@ -90,24 +101,14 @@ const SelectEraPage = () => {
           <div className="opponent-list">
             <h3>Opponents</h3>
             <div className="opponent-slider">
-              {selectedEra.ai_captains && selectedEra.ai_captains.slice(0, 3).map((opponent, index) => (
-                 <div
-                   key={index}
-                   className={`opponent-item ${selectedOpponent?.name === opponent.name ? 'selected' : ''}`}
-                   onClick={() => handleOpponentSelection(opponent)}
-                 >
-                   <span className="opponent-name">{opponent.name}</span>
-                   {opponent.description && <p className="opponent-description">{opponent.description}</p>}
+              {selectedEra.ai_captains.slice(0, 3).map((opponent, index) => (
+                 <div key={index} className={`opponent-item ${selectedOpponent?.name === opponent.name ? 'selected' : ''}`} onClick={() => { setSelectedOpponent(opponent); }}>
+                   <div className="opponent-name">{opponent.name}</div>
+                   <div className="opponent-description">{opponent.description}</div>
                  </div>
               ))}
             </div>
-            <button
-              className="select-button"
-              disabled={!selectedEra || !selectedOpponent}
-              onClick={handleCloseDialog}
-            >
-              Play Now
-            </button>
+            <button className="select-button" disabled={!selectedEra || !selectedOpponent} onClick={handleCloseDialog}>Play Now</button>
           </div>
         )}
       </div>

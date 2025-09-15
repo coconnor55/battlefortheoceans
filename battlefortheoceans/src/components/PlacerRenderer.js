@@ -1,256 +1,254 @@
-// src/components/PlacerRenderer.js (v0.1.4)
+// src/components/PlacerRenderer.js (v0.1.4 - FIXED)
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import Debug from '../utils/Debug';
+import React, { useEffect, useRef, useState } from 'react';
+import Placer from '../classes/Placer';
 
-const PlacerRenderer = ({ placer, userId, onClose }) => {
+const PlacerRenderer = ({ placer, userId, onClose, rows, cols, terrain }) => {
   const canvasRef = useRef(null);
-  const [dragState, setDragState] = useState(null);
+  const [isPlacing, setIsPlacing] = useState(false);
+  const [startCell, setStartCell] = useState(null);
   const cellSize = 30;
   const labelSize = 20;
 
-  // Get board dimensions from placer
-  const rows = placer?.board?.rows || 10;
-  const cols = placer?.board?.cols || 10;
-
-  // Force re-render when drag state changes
-  const updateRender = useCallback(() => {
-    const newDragState = placer?.getDragState();
-    setDragState(newDragState);
-  }, [placer]);
-
-  // Main rendering effect
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
+    drawCanvas();
+  }, [placer, rows, cols, terrain]);
+
+  const drawCanvas = () => {
+    const ctx = canvasRef.current?.getContext('2d');
     if (!placer?.board || !ctx) return;
 
-    // Set canvas size
-    canvas.width = cols * cellSize + labelSize;
-    canvas.height = rows * cellSize + labelSize;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.canvas.width = cols * cellSize + labelSize;
+    ctx.canvas.height = rows * cellSize + labelSize;
+
+    // Draw row labels (numbers)
+    ctx.fillStyle = '#000';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    for (let row = 0; row < rows; row++) {
+      ctx.fillText((row + 1).toString(), labelSize / 2, row * cellSize + labelSize + cellSize / 2 + 4);
+    }
+
+    // Draw column labels (letters)
+    for (let col = 0; col < cols; col++) {
+      const letter = String.fromCharCode(65 + col); // A, B, C, etc.
+      ctx.fillText(letter, col * cellSize + labelSize + cellSize / 2, labelSize / 2 + 4);
+    }
 
     // Draw grid lines
-    drawGrid(ctx);
-    
-    // Draw terrain
-    drawTerrain(ctx);
-    
-    // Draw placed ships
-    drawPlacedShips(ctx);
-    
-    // Draw current drag preview
-    drawDragPreview(ctx);
-    
-    // Draw labels
-    drawLabels(ctx);
-    
-  }, [placer, dragState, rows, cols]);
-
-  const drawGrid = (ctx) => {
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
-    
-    // Horizontal lines
     for (let row = 0; row <= rows; row++) {
       ctx.beginPath();
       ctx.moveTo(labelSize, row * cellSize + labelSize);
       ctx.lineTo(cols * cellSize + labelSize, row * cellSize + labelSize);
       ctx.stroke();
     }
-    
-    // Vertical lines
     for (let col = 0; col <= cols; col++) {
       ctx.beginPath();
       ctx.moveTo(col * cellSize + labelSize, labelSize);
       ctx.lineTo(col * cellSize + labelSize, rows * cellSize + labelSize);
       ctx.stroke();
     }
-  };
 
-  const drawTerrain = (ctx) => {
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const cell = placer.board.grid[row][col];
-        if (cell.terrain !== 'excluded') {
-          ctx.fillStyle = getTerrainColor(cell.terrain);
-          ctx.fillRect(
-            col * cellSize + labelSize + 1,
-            row * cellSize + labelSize + 1,
-            cellSize - 2,
-            cellSize - 2
-          );
-        }
-      }
-    }
-  };
-
-  const drawPlacedShips = (ctx) => {
+    // Draw terrain and ships
     const playerBoard = placer.board.getPlayerBoard(userId);
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const cell = playerBoard[row][col];
+        
+        // Draw terrain
+        if (cell.terrain !== 'excluded') {
+          ctx.fillStyle = getTerrainColor(cell.terrain);
+          ctx.fillRect(col * cellSize + labelSize + 1, row * cellSize + labelSize + 1, cellSize - 2, cellSize - 2);
+        }
+        
+        // Draw ships
         if (cell.state === 'ship') {
-          ctx.fillStyle = 'rgba(0, 0, 255, 0.6)'; // Blue for placed ships
-          ctx.fillRect(
-            col * cellSize + labelSize + 1,
-            row * cellSize + labelSize + 1,
-            cellSize - 2,
-            cellSize - 2
-          );
+          ctx.fillStyle = 'rgba(0, 0, 255, 0.5)'; // Semi-transparent blue for placed ships
+          ctx.fillRect(col * cellSize + labelSize + 1, row * cellSize + labelSize + 1, cellSize - 2, cellSize - 2);
         }
       }
     }
-  };
 
-  const drawDragPreview = (ctx) => {
-    if (!dragState?.isActive || !dragState.previewCells) return;
-    
-    // Draw preview cells with green (valid) or red (invalid) color
-    const color = dragState.isValid ? 'rgba(0, 255, 0, 0.6)' : 'rgba(255, 0, 0, 0.6)';
-    ctx.fillStyle = color;
-    
-    dragState.previewCells.forEach(({ row, col }) => {
-      if (row >= 0 && row < rows && col >= 0 && col < cols) {
-        ctx.fillRect(
-          col * cellSize + labelSize + 1,
-          row * cellSize + labelSize + 1,
-          cellSize - 2,
-          cellSize - 2
-        );
-      }
-    });
-  };
-
-  const drawLabels = (ctx) => {
-    ctx.fillStyle = '#000';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    
-    // Column labels (A, B, C...)
-    for (let col = 0; col < cols; col++) {
-      const letter = String.fromCharCode(65 + col);
-      ctx.fillText(letter, col * cellSize + labelSize + cellSize/2, 15);
-    }
-    
-    // Row labels (1, 2, 3...)
-    ctx.textAlign = 'right';
-    for (let row = 0; row < rows; row++) {
-      ctx.fillText((row + 1).toString(), 15, row * cellSize + labelSize + cellSize/2 + 4);
+    // Draw current ship preview if placing
+    if (placer.currentShip && placer.currentShip.cells && placer.currentShip.cells.length > 0) {
+      const isValid = placer.currentShip.cells.length === placer.currentShip.size;
+      ctx.fillStyle = isValid ? 'rgba(0, 255, 0, 0.6)' : 'rgba(255, 0, 0, 0.6)'; // Green if valid, red if invalid
+      
+      placer.currentShip.cells.forEach(({ row, col }) => {
+        if (row >= 0 && row < rows && col >= 0 && col < cols) {
+          ctx.fillRect(col * cellSize + labelSize + 1, row * cellSize + labelSize + 1, cellSize - 2, cellSize - 2);
+        }
+      });
     }
   };
 
   const getTerrainColor = (terrain) => {
+    // NOAA Chart 1 colors
     switch (terrain) {
-      case 'deep': return '#000080';
-      case 'shallow': return '#ADD8E6';
-      case 'shoal': return '#87CEEB';
-      case 'marsh': return '#9ACD32';
-      case 'land': return '#8B4513';
-      case 'rock': return '#A52A2A';
-      case 'excluded': return 'transparent';
-      default: return '#FFFFFF';
+      case 'deep': return '#FFFFFF'; // White for deep water
+      case 'shallow': return '#B3D9FF'; // Light blue for shallow water
+      case 'shoal': return '#87CEEB'; // Sky blue for shoal water
+      case 'marsh': return '#90EE90'; // Light green for marsh
+      case 'land': return '#DEB887'; // Burlywood/buff for land
+      case 'rock': return '#A9A9A9'; // Dark gray for rock
+      case 'excluded': return 'transparent'; // Transparent for excluded
+      default: return '#FFFFFF'; // White for unknown
     }
   };
 
-  const getGridCoordinates = (clientX, clientY) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+  const getIndices = (x, y) => {
     const col = Math.floor((x - labelSize) / cellSize);
     const row = Math.floor((y - labelSize) / cellSize);
-    return { row, col };
+    return [row, col];
   };
 
-  // Touch/Mouse event handlers
-  const handleStart = (clientX, clientY) => {
-    const { row, col } = getGridCoordinates(clientX, clientY);
+  const handleStart = (e) => {
+    const currentShip = placer.getCurrentShip();
+    if (!currentShip) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clientX = e.clientX || e.touches[0].clientX;
+    const clientY = e.clientY || e.touches[0].clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const [row, col] = getIndices(x, y);
+
     if (row >= 0 && row < rows && col >= 0 && col < cols) {
-      placer.startDrag(row, col);
-      updateRender();
+      setIsPlacing(true);
+      setStartCell({ row, col });
+      placer.startPlacement(row, col);
+      console.log('v0.1.4', 'Started placement at', { row, col });
+      drawCanvas();
     }
   };
 
-  const handleMove = (clientX, clientY) => {
-    if (!dragState?.isActive) return;
-    const { row, col } = getGridCoordinates(clientX, clientY);
-    placer.updateDrag(row, col);
-    updateRender();
+  const handleMove = (e) => {
+    if (!isPlacing || !startCell || !placer.currentShip) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clientX = e.clientX || e.touches[0].clientX;
+    const clientY = e.clientY || e.touches[0].clientY;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const [row, col] = getIndices(x, y);
+
+    if (row >= 0 && row < rows && col >= 0 && col < cols) {
+      // Calculate direction based on movement from start cell
+      const deltaRow = row - startCell.row;
+      const deltaCol = col - startCell.col;
+      
+      // Determine direction: if more horizontal movement, it's horizontal, otherwise vertical
+      const direction = Math.abs(deltaCol) > Math.abs(deltaRow) ? 'horizontal' : 'vertical';
+      
+      // For horizontal: positive deltaCol = right, negative = left
+      // For vertical: positive deltaRow = down, negative = up
+      let shipDirection = direction;
+      if (direction === 'horizontal' && deltaCol < 0) {
+        // Moving left - place ship extending left from start
+        shipDirection = 'horizontal-left';
+      } else if (direction === 'vertical' && deltaRow < 0) {
+        // Moving up - place ship extending up from start
+        shipDirection = 'vertical-up';
+      }
+
+      // Calculate ship cells based on direction
+      const shipCells = [];
+      for (let i = 0; i < placer.currentShip.size; i++) {
+        let cellRow, cellCol;
+        
+        switch (shipDirection) {
+          case 'horizontal-left':
+            cellRow = startCell.row;
+            cellCol = startCell.col - i;
+            break;
+          case 'vertical-up':
+            cellRow = startCell.row - i;
+            cellCol = startCell.col;
+            break;
+          case 'vertical':
+            cellRow = startCell.row + i;
+            cellCol = startCell.col;
+            break;
+          default: // horizontal (right)
+            cellRow = startCell.row;
+            cellCol = startCell.col + i;
+            break;
+        }
+        
+        shipCells.push({ row: cellRow, col: cellCol });
+      }
+
+      // Validate placement
+      const isValid = shipCells.every(cell =>
+        cell.row >= 0 && cell.row < rows &&
+        cell.col >= 0 && cell.col < cols &&
+        placer.board.grid[cell.row][cell.col].terrain !== 'excluded' &&
+        placer.currentShip.terrain.includes(placer.board.grid[cell.row][cell.col].terrain) &&
+        placer.board.grid[cell.row][cell.col].state === 'empty'
+      );
+
+      if (isValid) {
+        placer.currentShip.cells = shipCells;
+        console.log('v0.1.4', 'Valid placement preview', { direction: shipDirection, cells: shipCells });
+      } else {
+        placer.currentShip.cells = shipCells; // Show invalid placement in red
+        console.log('v0.1.4', 'Invalid placement preview', { direction: shipDirection, cells: shipCells });
+      }
+
+      drawCanvas();
+    }
   };
 
-  const handleEnd = () => {
-    if (!dragState?.isActive) return;
-    
-    if (dragState.isValid) {
-      const success = placer.confirmPlacement();
-      if (success && placer.isComplete()) {
-        onClose(); // All ships placed, trigger transition
+  const handleEnd = (e) => {
+    if (!isPlacing || !placer.currentShip || !placer.currentShip.cells) return;
+
+    const isValidPlacement = placer.currentShip.cells.length === placer.currentShip.size;
+
+    if (isValidPlacement && placer.confirmPlacement()) {
+      console.log('v0.1.4', 'Ship placed successfully');
+      if (placer.isComplete()) {
+        console.log('v0.1.4', 'All ships placed - triggering completion');
+        onClose(); // Trigger transition to play state
       }
     } else {
-      placer.cancelDrag();
+      console.log('v0.1.4', 'Invalid placement - clearing current ship');
+      if (placer.currentShip) {
+        placer.currentShip.cells = [];
+      }
     }
-    updateRender();
-  };
 
-  // Mouse events
-  const onMouseDown = (e) => {
-    e.preventDefault();
-    handleStart(e.clientX, e.clientY);
+    setIsPlacing(false);
+    setStartCell(null);
+    drawCanvas();
   };
-
-  const onMouseMove = (e) => {
-    e.preventDefault();
-    handleMove(e.clientX, e.clientY);
-  };
-
-  const onMouseUp = (e) => {
-    e.preventDefault();
-    handleEnd();
-  };
-
-  // Touch events
-  const onTouchStart = (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    handleStart(touch.clientX, touch.clientY);
-  };
-
-  const onTouchMove = (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    handleMove(touch.clientX, touch.clientY);
-  };
-
-  const onTouchEnd = (e) => {
-    e.preventDefault();
-    handleEnd();
-  };
-
-  const currentShip = placer?.getCurrentShip();
-  const message = currentShip
-    ? `Place your ${currentShip.name} (${currentShip.size} squares). Tap stern, swipe to bow.`
-    : 'All ships placed! Ready for battle.';
 
   return (
     <div>
       <canvas
         ref={canvasRef}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        onMouseDown={handleStart}
+        onMouseMove={handleMove}
+        onMouseUp={handleEnd}
+        onTouchStart={(e) => { e.preventDefault(); handleStart(e); }}
+        onTouchMove={(e) => { e.preventDefault(); handleMove(e); }}
+        onTouchEnd={(e) => { e.preventDefault(); handleEnd(e); }}
         style={{
-          border: '1px solid #000',
-          cursor: 'crosshair',
-          touchAction: 'none' // Prevent scroll/zoom on touch
+          margin: 0,
+          padding: 0,
+          pointerEvents: 'auto',
+          zIndex: 1000,
+          border: '1px solid #ccc',
+          cursor: isPlacing ? 'crosshair' : 'pointer'
         }}
       />
-      <div className="message-console" style={{ marginTop: '10px', fontSize: '14px' }}>
-        {message}
+      <div className="message-console">
+        {placer?.getCurrentShip() ?
+          `Place your ${placer.getCurrentShip().name} (${placer.getCurrentShip().size} squares). Tap and drag to orient.` :
+          'All ships placed! Ready for battle!'}
       </div>
     </div>
   );

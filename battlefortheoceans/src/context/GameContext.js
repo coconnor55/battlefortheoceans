@@ -1,9 +1,8 @@
-// src/context/GameContext.js (v0.1.13)
+// src/context/GameContext.js (v0.1.12)
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { StateMachine } from '../classes/StateMachine';
-import { supabase } from '../utils/supabaseClient';
 
 const GameState = createContext();
 
@@ -12,126 +11,58 @@ let contextVersion = 0;
 
 export const GameProvider = ({ children }) => {
   const [version, setVersion] = useState(contextVersion);
-  
-  // Game state data
-  const [gameState, setGameState] = useState({
-    playerId: null,
-    player: null,
-    selectedEra: null,
-    selectedOpponent: null,
-    eraConfig: null,
-    board: null,
-    fleet: null,
-    gameId: null
-  });
-
-  // Listen for auth state changes to capture playerId
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('GameContext: Auth state changed:', event, session?.user?.id);
-      if (session?.user) {
-        setGameState(prev => ({
-          ...prev,
-          playerId: session.user.id,
-          player: {
-            id: session.user.id,
-            email: session.user.email,
-            isGuest: session.user.email === process.env.REACT_APP_GUEST_EMAIL
-          }
-        }));
-      } else {
-        setGameState(prev => ({
-          ...prev,
-          playerId: null,
-          player: null
-        }));
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const [eraConfig, setEraConfig] = useState(null);
+  const [selectedOpponent, setSelectedOpponent] = useState(null);
+  const [player, setPlayer] = useState(null);
 
   const dispatch = (event) => {
-    console.log('v0.1.13: Dispatching event to state machine', event);
+    console.log('v0.1.12: Dispatching event to state machine', event);
     gameStateMachine.transition(event);
     contextVersion += 1;
     setVersion(contextVersion); // Force context value change
   };
 
-  // Game state update functions with useCallback to prevent infinite loops
-  const updateGameState = useCallback((updates) => {
-    console.log('GameContext: Updating game state:', updates);
-    setGameState(prev => ({ ...prev, ...updates }));
-  }, []);
+  const updateEraConfig = (config) => {
+    console.log('v0.1.12: Updating era config', config?.name);
+    setEraConfig(config);
+    contextVersion += 1;
+    setVersion(contextVersion);
+  };
 
-  const setSelectedEra = useCallback((era, opponent) => {
-    console.log('GameContext: Setting selected era and opponent:', era?.name, opponent?.name);
-    updateGameState({
-      selectedEra: era,
-      selectedOpponent: opponent,
-      eraConfig: era ? {
-        rows: era.rows,
-        cols: era.cols,
-        terrain: era.terrain,
-        ships: era.ships
-      } : null
-    });
-  }, [updateGameState]);
+  const updateSelectedOpponent = (opponent) => {
+    console.log('v0.1.12: Updating selected opponent', opponent?.name);
+    setSelectedOpponent(opponent);
+    contextVersion += 1;
+    setVersion(contextVersion);
+  };
 
-  const clearGameData = useCallback(() => {
-    console.log('GameContext: Clearing game data for new game');
-    updateGameState({
-      selectedEra: null,
-      selectedOpponent: null,
-      eraConfig: null,
-      board: null,
-      fleet: null,
-      gameId: null
-    });
-  }, [updateGameState]);
-
-  const setBoard = useCallback((board) => {
-    updateGameState({ board });
-  }, [updateGameState]);
-
-  const setFleet = useCallback((fleet) => {
-    updateGameState({ fleet });
-  }, [updateGameState]);
-
-  const contextValue = {
-    stateMachine: gameStateMachine,
-    dispatch,
-    version,
-    // Game state
-    gameState,
-    playerId: gameState.playerId,
-    player: gameState.player,
-    selectedEra: gameState.selectedEra,
-    selectedOpponent: gameState.selectedOpponent,
-    eraConfig: gameState.eraConfig,
-    board: gameState.board,
-    fleet: gameState.fleet,
-    // State update functions
-    updateGameState,
-    setSelectedEra,
-    clearGameData,
-    setBoard,
-    setFleet
+  const updatePlayer = (playerData) => {
+    console.log('v0.1.12: Updating player', playerData?.id);
+    setPlayer(playerData);
+    contextVersion += 1;
+    setVersion(contextVersion);
   };
 
   return (
-    <GameState.Provider value={contextValue}>
+    <GameState.Provider value={{
+      stateMachine: gameStateMachine,
+      dispatch,
+      version,
+      eraConfig,
+      selectedOpponent,
+      player,
+      updateEraConfig,
+      updateSelectedOpponent,
+      updatePlayer
+    }}>
       {children}
     </GameState.Provider>
   );
 };
 
-export const useGame = () => {
-  const context = useContext(GameState);
-  if (!context) {
-    throw new Error('useGame must be used within a GameProvider');
-  }
-  return context;
-};
+export const useGame = () => useContext(GameState);
+
+// Export the context for direct use if needed
+export { GameState as GameContext };
 
 // EOF - EOF - EOF
