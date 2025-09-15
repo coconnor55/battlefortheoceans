@@ -1,19 +1,25 @@
-// src/pages/PlacementPage.js (v0.1.3)
-// Copyright(c) 2025, Clint H. O’Connor
+// src/pages/PlacementPage.js (v0.1.4)
+// Copyright(c) 2025, Clint H. O'Connor
 
-import React, { useContext } from 'react';
-import { GameContext } from '../context/GameContext';
+import React, { useEffect } from 'react';
+import { useGame } from '../context/GameContext';
 import Debug from '../utils/Debug';
 import Placer from '../classes/Placer';
-import PlacerRenderer from '../classes/PlacerRenderer';
+import PlacerRenderer from '../components/PlacerRenderer';
+import Board from '../classes/Board';
 import './PlacementPage.css';
 
-const version = 'v0.1.3';
+const version = 'v0.1.4';
 
 const PlacementPage = () => {
-  const { dispatch, stateMachine } = useContext(GameContext);
-  const userId = stateMachine.context.player?.id || 'defaultPlayer';
-  const { rows, cols, terrain, ships: fleetConfig } = stateMachine.context.config || { rows: 10, cols: 10, terrain: [], ships: [] };
+  const {
+    dispatch,
+    stateMachine,
+    playerId,
+    eraConfig,
+    selectedEra,
+    selectedOpponent
+  } = useGame();
 
   const handleCloseDialog = () => {
     if (dispatch) {
@@ -24,16 +30,75 @@ const PlacementPage = () => {
     }
   };
 
-  useEffect(() => {
-    const placer = new Placer(new Board(rows, cols, terrain), fleetConfig, userId);
-    const renderer = new PlacerRenderer(placer, userId);
-    // Assuming PlacerRenderer integrates with the page; adjust if needed
-  }, [rows, cols, terrain, fleetConfig, userId]);
+  // Validate required data
+  if (!playerId) {
+    return (
+      <div className="placement-page">
+        <div className="error-message">
+          <h2>Authentication Required</h2>
+          <p>Player ID not found. Please log in again.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!eraConfig) {
+    return (
+      <div className="placement-page">
+        <div className="error-message">
+          <h2>Era Not Selected</h2>
+          <p>No era configuration found. Please select an era first.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { rows, cols, terrain, ships: fleetConfig } = eraConfig;
+
+  // Validate era config completeness
+  if (!rows || !cols || !terrain || !fleetConfig) {
+    return (
+      <div className="placement-page">
+        <div className="error-message">
+          <h2>Invalid Era Configuration</h2>
+          <p>Era configuration is incomplete. Missing: {
+            [
+              !rows && 'rows',
+              !cols && 'cols',
+              !terrain && 'terrain',
+              !fleetConfig && 'ships'
+            ].filter(Boolean).join(', ')
+          }</p>
+        </div>
+      </div>
+    );
+  }
+
+  console.log(version, 'PlacementPage initialized with:', {
+    playerId,
+    era: selectedEra?.name,
+    opponent: selectedOpponent?.name,
+    gridSize: `${rows}x${cols}`,
+    shipCount: fleetConfig.length,
+    terrainCount: terrain.length
+  });
 
   return (
     <div className="placement-page">
+      <div className="placement-header">
+        <h2>Place Your Fleet</h2>
+        <div className="game-info">
+          <span className="era-name">{selectedEra?.name}</span>
+          <span className="vs">vs</span>
+          <span className="opponent-name">{selectedOpponent?.name}</span>
+        </div>
+      </div>
       <div className="game-board">
-        <PlacerRenderer placer={new Placer(new Board(rows, cols, terrain), fleetConfig, userId)} userId={userId} onClose={handleCloseDialog} />
+        <PlacerRenderer
+          placer={new Placer(new Board(rows, cols, terrain), fleetConfig, playerId)}
+          userId={playerId}
+          onClose={handleCloseDialog}
+        />
       </div>
     </div>
   );
