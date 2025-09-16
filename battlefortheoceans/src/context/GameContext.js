@@ -1,8 +1,10 @@
-// src/context/GameContext.js (v0.1.13)
+// src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { createContext, useContext, useState } from 'react';
 import { StateMachine } from '../classes/StateMachine';
+
+const version = "v0.1.16";
 
 const GameState = createContext();
 
@@ -13,39 +15,47 @@ export const GameProvider = ({ children }) => {
   const [version, setVersion] = useState(contextVersion);
   const [eraConfig, setEraConfig] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
+  const [selectedGameMode, setSelectedGameMode] = useState(null);
   const [player, setPlayer] = useState(null);
   const [placementBoard, setPlacementBoard] = useState(null);
 
   const dispatch = (event) => {
-    console.log('v0.1.13: Dispatching event to state machine', event);
+    console.log('v0.1.16: Dispatching event to state machine', event);
     gameStateMachine.transition(event);
     contextVersion += 1;
     setVersion(contextVersion); // Force context value change
   };
 
   const updateEraConfig = (config) => {
-    console.log('v0.1.13: Updating era config', config?.name);
+    console.log('v0.1.16: Updating era config', config?.name);
     setEraConfig(config);
     contextVersion += 1;
     setVersion(contextVersion);
   };
 
   const updateSelectedOpponent = (opponent) => {
-    console.log('v0.1.13: Updating selected opponent', opponent?.name);
+    console.log('v0.1.16: Updating selected opponent', opponent?.name);
     setSelectedOpponent(opponent);
     contextVersion += 1;
     setVersion(contextVersion);
   };
 
+  const updateGameMode = (gameMode) => {
+    console.log('v0.1.16: Updating game mode', gameMode?.name);
+    setSelectedGameMode(gameMode);
+    contextVersion += 1;
+    setVersion(contextVersion);
+  };
+
   const updatePlayer = (playerData) => {
-    console.log('v0.1.13: Updating player', playerData?.id);
+    console.log('v0.1.16: Updating player', playerData?.id);
     setPlayer(playerData);
     contextVersion += 1;
     setVersion(contextVersion);
   };
 
   const updatePlacementBoard = (board) => {
-    console.log('v0.1.13: Storing placement board');
+    console.log('v0.1.16: Storing placement board');
     setPlacementBoard(board);
     contextVersion += 1;
     setVersion(contextVersion);
@@ -58,10 +68,12 @@ export const GameProvider = ({ children }) => {
       version,
       eraConfig,
       selectedOpponent,
+      selectedGameMode,
       player,
       placementBoard,
       updateEraConfig,
       updateSelectedOpponent,
+      updateGameMode,
       updatePlayer,
       updatePlacementBoard
     }}>
@@ -75,4 +87,4 @@ export const useGame = () => useContext(GameState);
 // Export the context for direct use if needed
 export { GameState as GameContext };
 
-// EOF - EOF - EOF
+// EOF

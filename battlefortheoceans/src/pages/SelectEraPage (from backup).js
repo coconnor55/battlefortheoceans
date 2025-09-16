@@ -1,4 +1,4 @@
-// src/pages/SelectEraPage.js
+// src/pages/SelectEraPage.js (v0.1.13)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -6,23 +6,34 @@ import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 import './SelectEraPage.css';
 
-const version = 'v0.1.12';
+const version = 'v0.1.13';
 
 const SelectEraPage = () => {
-  const { dispatch, stateMachine } = useGame();
+  const { dispatch, stateMachine, updateEraConfig, updateSelectedOpponent } = useGame();
   const [selectedEra, setSelectedEra] = useState(null);
   const [eras, setEras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
-  const [selectedOpponent, setSelectedOpponent] = useState(null); // Added to mirror selectedEra
+  const [selectedOpponent, setSelectedOpponent] = useState(null);
         
   const handleCloseDialog = () => {
-    if (dispatch) {
-      console.log(version, 'SelectEraPage', 'Firing PLACEMENT event from handleCloseDialog');
-      dispatch(stateMachine.event.PLACEMENT);
+    if (selectedEra && selectedOpponent) {
+      // Store the era config and opponent in GameContext
+      updateEraConfig(selectedEra);
+      updateSelectedOpponent(selectedOpponent);
+      
+      console.log(version, 'SelectEraPage', 'Storing era config and firing PLACEMENT event');
+      console.log(version, 'Era config:', selectedEra.name);
+      console.log(version, 'Selected opponent:', selectedOpponent.name);
+      
+      if (dispatch) {
+        dispatch(stateMachine.event.PLACEMENT);
+      } else {
+        console.error(version, 'SelectEraPage', 'Dispatch is not available in handleCloseDialog');
+      }
     } else {
-      console.error(version, 'SelectEraPage', 'Dispatch is not available in handleCloseDialog');
+      console.error(version, 'SelectEraPage', 'Missing era or opponent selection');
     }
   };
 
@@ -54,6 +65,26 @@ const SelectEraPage = () => {
     fetchEras();
   }, []); // Empty dependency array to prevent infinite loop
 
+  if (loading) {
+    return (
+      <div className="select-page">
+        <div className="select-content">
+          <h2>Loading Eras...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="select-page">
+        <div className="select-content">
+          <h2>Error Loading Eras</h2>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="select-page">
@@ -62,17 +93,20 @@ const SelectEraPage = () => {
         <div className="era-list">
           {eras.map((era) => (
             <div key={era.id} className={`era-item ${selectedId === era.id ? 'selected' : ''}`} onClick={() => { setSelectedId(era.id); setSelectedEra(era); }}>
-              <span className="era-name">{era.name}</span> - {era.era_description} 
+              <span className="era-name">{era.name}</span> - {era.era_description}
             </div>
-          ))}        </div>
+          ))}
+        </div>
         {selectedEra && (
           <div className="opponent-list">
             <h3>Opponents</h3>
             <div className="opponent-slider">
               {selectedEra.ai_captains.slice(0, 3).map((opponent, index) => (
-                 <div key={index} className={`opponent-item ${selectedOpponent?.name === opponent.name ? 'selected' : ''}`} onClick={() => { setSelectedOpponent(opponent);  }}>
-                  </div>
-))}
+                 <div key={index} className={`opponent-item ${selectedOpponent?.name === opponent.name ? 'selected' : ''}`} onClick={() => { setSelectedOpponent(opponent); }}>
+                   <div className="opponent-name">{opponent.name}</div>
+                   <div className="opponent-description">{opponent.description}</div>
+                 </div>
+              ))}
             </div>
             <button className="select-button" disabled={!selectedEra || !selectedOpponent} onClick={handleCloseDialog}>Play Now</button>
           </div>

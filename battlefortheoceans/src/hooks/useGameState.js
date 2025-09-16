@@ -1,421 +1,229 @@
-// src/hooks/useGameState.js (v0.1.9)
+// src/hooks/useGameState.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-import { useState, useEffect, useContext, useCallback, useRef } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { GameContext } from '../context/GameContext';
-import MessageHelper from '../utils/MessageHelper';
+import Game from '../classes/Game';
 
-const useGameState = (gameMode = 'turnBased') => {
-  const { eraConfig, selectedOpponent, player, dispatch, stateMachine, placementBoard } = useContext(GameContext);
+const version = "v0.1.15";
+
+const useGameState = () => {
+  const {
+    eraConfig,
+    selectedOpponent,
+    player,
+    placementBoard,
+    getCurrentGameMode,
+    dispatch,
+    stateMachine
+  } = useContext(GameContext);
   
-  const [gameBoard, setGameBoard] = useState(null);
+  const [game, setGame] = useState(null);
   const [gameState, setGameState] = useState({
     isPlayerTurn: true,
+    currentPlayer: null,
+    message: 'Starting game...',
     shots: [],
-    message: 'Click on any square to attack! Your ships have blue corners.',
     playerHits: 0,
     opponentHits: 0,
-    gameMode,
-    isGameActive: true
+    isGameActive: false,
+    gamePhase: 'setup'
   });
-  
-  // Reference to battle board for recording opponent shots
-  const battleBoardRef = useRef(null);
 
-  const userId = player?.id;
+  // Initialize game when all required data is available
+  useEffect(() => {
+    if (!eraConfig || !selectedOpponent || !placementBoard) {
+      console.log('v0.1.15: Waiting for game initialization data');
+      return;
+    }
 
-  const placeOpponentShips = useCallback((board) => {
-    if (!eraConfig?.opponentfleet?.ships) return;
-
-    console.log('Placing opponent ships:', eraConfig.opponentfleet.ships.map(s => `${s.name}(${s.size})`));
-
-    eraConfig.opponentfleet.ships.forEach(shipConfig => {
-      let placed = false;
-      let attempts = 0;
-
-      while (!placed && attempts < 100) {
-        const row = Math.floor(Math.random() * eraConfig.rows);
-        const col = Math.floor(Math.random() * eraConfig.cols);
-        const horizontal = Math.random() > 0.5;
-
-        const cells = [];
-        for (let i = 0; i < shipConfig.size; i++) {
-          const r = horizontal ? row : row + i;
-          const c = horizontal ? col + i : col;
-          cells.push({ row: r, col: c });
-        }
-
-        // Check if all cells are valid AND not adjacent to existing ships
-        const isValid = cells.every(cell =>
-          cell.row >= 0 && cell.row < eraConfig.rows &&
-          cell.col >= 0 && cell.col < eraConfig.cols &&
-          board.grid[cell.row][cell.col].terrain !== 'excluded' &&
-          shipConfig.terrain.includes(board.grid[cell.row][cell.col].terrain) &&
-          board.grid[cell.row][cell.col].state === 'empty' &&
-          !hasAdjacentShip(board, cell.row, cell.col) // Prevent adjacent placement
-        );
-
-        if (isValid) {
-          const ship = {
-            name: shipConfig.name,
-            size: shipConfig.size,
-            terrain: shipConfig.terrain,
-            cells: cells,
-            start: null,
-            damage: 0,
-            
-            resetDamage() {
-              this.damage = 0;
-            },
-            
-            hit(damage = 1.0, row, col) {
-              const cell = this.cells.find(c => c.row === row && c.col === col);
-              if (cell) {
-                if (cell.damage >= 1.0) {
-                  console.warn('Ship: No further hits on cell', { row, col, currentDamage: cell.damage, attemptedDamage: damage });
-                  return 0;
-                }
-                cell.damage = (cell.damage || 0) + damage;
-                this.damage += damage;
-                return damage;
-              }
-              return 0;
-            },
-            
-            isSunk() {
-              return this.damage >= this.size;
-            },
-            
-            getDamage() {
-              return this.damage;
-            }
-          };
-
-          if (board.placeShip(ship, 'opponent')) {
-            placed = true;
-            console.log('useGameState: Placed opponent ship:', shipConfig.name, 'size:', shipConfig.size, 'at cells:', cells);
-          }
-        }
-        attempts++;
-      }
-      
-      if (!placed) {
-        console.warn('Failed to place opponent ship:', shipConfig.name, 'after 100 attempts');
-      }
-    });
-  }, [eraConfig]);
-
-  // Helper function to check if a cell has adjacent ships
-  const hasAdjacentShip = (board, row, col) => {
-    const adjacent = [
-      { row: row - 1, col: col - 1 }, { row: row - 1, col }, { row: row - 1, col: col + 1 },
-      { row, col: col - 1 },                                   { row, col: col + 1 },
-      { row: row + 1, col: col - 1 }, { row: row + 1, col }, { row: row + 1, col: col + 1 }
-    ];
+    const gameMode = getCurrentGameMode();
+    console.log('v0.1.15: Initializing new Game instance with mode:', gameMode.name);
     
-    return adjacent.some(({ row: r, col: c }) => {
-      if (r >= 0 && r < eraConfig.rows && c >= 0 && c < eraConfig.cols) {
-        return board.grid[r][c].state === 'ship';
-      }
-      return false;
+    // Create new game instance
+    const newGame = new Game(eraConfig, gameMode.id);
+    
+    // Add human player
+    const humanPlayerId = player?.id || 'defaultPlayer';
+    newGame.addPlayer(humanPlayerId, 'human', player?.name || 'You');
+    
+    // Add AI opponent
+    newGame.addPlayer(selectedOpponent.id, 'ai', selectedOpponent.name);
+    
+    // Set the placement board (from placement phase)
+    if (placementBoard) {
+      newGame.setBoard(placementBoard);
+      console.log('v0.1.15: Board set from placement phase');
+    }
+    
+    // Start the game
+    newGame.startGame()
+      .then(() => {
+        console.log('v0.1.15: Game started successfully');
+        setGame(newGame);
+        updateGameState(newGame);
+      })
+      .catch(error => {
+        console.error('v0.1.15: Game start failed:', error);
+        setGameState(prev => ({
+          ...prev,
+          message: `Game start failed: ${error.message}`,
+          isGameActive: false
+        }));
+      });
+
+  }, [eraConfig, selectedOpponent, player, placementBoard, getCurrentGameMode]);
+
+  // Update local game state when game instance changes
+  const updateGameState = (gameInstance) => {
+    if (!gameInstance) return;
+
+    const currentPlayer = gameInstance.getCurrentPlayer();
+    const humanPlayer = gameInstance.players.find(p => p.type === 'human');
+    const aiPlayer = gameInstance.players.find(p => p.type === 'ai');
+
+    setGameState({
+      isPlayerTurn: currentPlayer?.type === 'human',
+      currentPlayer: currentPlayer,
+      message: generateGameMessage(gameInstance, currentPlayer),
+      shots: gameInstance.gameLog.filter(entry => entry.type === 'attack'),
+      playerHits: humanPlayer ? humanPlayer.getHits() : 0,
+      opponentHits: aiPlayer ? aiPlayer.getHits() : 0,
+      isGameActive: gameInstance.state === 'playing',
+      gamePhase: gameInstance.state,
+      winner: gameInstance.winner
     });
   };
 
-  // Use existing placement board instead of creating new one
-  useEffect(() => {
-    if (!placementBoard || !eraConfig) return;
+  // Generate appropriate game message
+  const generateGameMessage = (gameInstance, currentPlayer) => {
+    if (gameInstance.state === 'finished') {
+      const winner = gameInstance.winner;
+      if (winner?.type === 'human') {
+        return 'Victory! You sank the enemy fleet!';
+      } else {
+        return 'Defeat! Your fleet has been sunk.';
+      }
+    }
 
-    console.log('useGameState: Using placement board with player ships already placed');
-    
-    // Place opponent ships on the existing board that already has player ships
-    placeOpponentShips(placementBoard);
-    
-    // Use the placement board as the game board
-    setGameBoard(placementBoard);
-
-    // Set initial game message
-    setGameState(prev => ({
-      ...prev,
-      message: 'Click on any square to attack! Your ships have blue corners.'
-    }));
-
-    console.log('useGameState: Board initialized for', gameMode, 'with existing player ships');
-  }, [placementBoard, eraConfig, gameMode, placeOpponentShips]);
-
-  const findShipAtCell = useCallback((board, row, col) => {
-    // Find which ship occupies this cell
-    for (let r = 0; r < eraConfig.rows; r++) {
-      for (let c = 0; c < eraConfig.cols; c++) {
-        const cell = board.grid[r][c];
-        if (cell.state === 'ship' || cell.state === 'hit') {
-          // This is a ship cell, check if it's part of a ship containing our target
-          const shipCells = findShipCells(board, r, c);
-          if (shipCells.some(shipCell => shipCell.row === row && shipCell.col === col)) {
-            // Found the ship, determine its name from opponent fleet
-            const shipSize = shipCells.length;
-            const matchingShip = eraConfig.opponentfleet.ships.find(ship => ship.size === shipSize);
-            return matchingShip?.name || 'Ship';
-          }
+    if (gameInstance.state === 'playing') {
+      if (currentPlayer?.type === 'human') {
+        const gameMode = getCurrentGameMode();
+        if (gameMode?.id === 'rapid') {
+          return 'Rapid Fire! Click to fire continuously!';
+        } else {
+          return 'Your turn - click to fire!';
         }
+      } else {
+        return `${currentPlayer?.name || 'Opponent'} is taking their turn...`;
       }
     }
-    return null;
-  }, [eraConfig]);
 
-  const fireShot = useCallback((row, col) => {
-    if (!gameState.isPlayerTurn || !gameBoard || !gameState.isGameActive) return null;
+    return gameInstance.state === 'setup' ? 'Preparing game...' : 'Game starting...';
+  };
 
-    const cell = gameBoard.grid[row][col];
-    if (cell.state === 'hit' || cell.state === 'miss') {
-      setGameState(prev => ({
-        ...prev,
-        message: 'Already fired at that location!'
-      }));
-      return null;
+  // Handle player attack
+  const handleAttack = async (row, col) => {
+    if (!game || !game.isValidAttack(row, col)) {
+      console.log('v0.1.15: Invalid attack attempt:', { row, col });
+      return false;
     }
 
-    // Friendly fire - lose turn (traditional battleship rule)
-    if (cell.state === 'ship' && cell.userId === userId) {
-      setGameState(prev => ({
-        ...prev,
-        message: 'You fired on your own ship! Turn lost.',
-        isPlayerTurn: gameMode === 'turnBased' ? false : true
-      }));
+    try {
+      console.log('v0.1.15: Processing attack:', { row, col });
       
-      // In turn-based mode, trigger opponent turn after friendly fire
-      if (gameMode === 'turnBased') {
-        setTimeout(() => {
-          opponentTurn();
-        }, 1500);
-      }
+      // Execute the attack through the game instance
+      const result = await game.processPlayerAction('attack', { row, col });
       
-      return { result: 'friendly-fire', row, col };
-    }
-
-    const result = gameBoard.receiveAttack(row, col);
-    
-    if (result === 'hit') {
-      // Check if it's an opponent ship hit
-      if (cell.userId === 'opponent') {
-        const shipName = findShipAtCell(gameBoard, row, col);
+      // Update our local state
+      updateGameState(game);
+      
+      // Handle AI turn if it's turn-based and game is still active
+      if (game.state === 'playing' &&
+          getCurrentGameMode()?.id === 'turn' &&
+          game.getCurrentPlayer()?.type === 'ai') {
         
-        setGameState(prev => ({
-          ...prev,
-          message: MessageHelper.getAttackMessage(eraConfig, 'hit', row, col, shipName),
-          playerHits: prev.playerHits + 1
-        }));
-
-        // Check for sunk ship and game end
-        setTimeout(() => {
-          if (isShipSunk(gameBoard, row, col)) {
-            const sunkMessage = MessageHelper.getMessage(
-              eraConfig?.messages?.ship_sunk,
-              { ship: shipName, cell: MessageHelper.formatCell(row, col) }
-            );
-            setGameState(prev => ({ ...prev, message: sunkMessage || 'Ship SUNK! Keep firing!' }));
+        // Small delay for better UX
+        setTimeout(async () => {
+          try {
+            const aiResult = await game.processAITurn();
+            console.log('v0.1.15: AI turn completed:', aiResult);
+            updateGameState(game);
+          } catch (error) {
+            console.error('v0.1.15: AI turn failed:', error);
           }
-          checkGameEnd();
-        }, 100);
+        }, 1000);
       }
-
-    } else if (result === 'miss') {
-      const missMessage = MessageHelper.getAttackMessage(eraConfig, 'miss', row, col);
       
+      return result;
+      
+    } catch (error) {
+      console.error('v0.1.15: Attack processing failed:', error);
       setGameState(prev => ({
         ...prev,
-        message: missMessage || (gameMode === 'turnBased' ? 'Miss! Opponent\'s turn...' : 'Miss! Keep firing!'),
-        isPlayerTurn: gameMode === 'turnBased' ? false : true
+        message: `Attack failed: ${error.message}`
       }));
-
-      // In turn-based mode, trigger opponent turn
-      if (gameMode === 'turnBased') {
-        setTimeout(() => {
-          opponentTurn();
-        }, 1500);
-      }
+      return false;
     }
+  };
 
-    return { result, row, col };
-  }, [gameState.isPlayerTurn, gameBoard, gameState.isGameActive, gameMode, userId, eraConfig, findShipAtCell]);
-
-  const opponentTurn = useCallback(() => {
-    if (!gameBoard || !gameState.isGameActive) return;
-
-    // AI targets player ships only
-    let row, col;
-    let attempts = 0;
-    do {
-      row = Math.floor(Math.random() * eraConfig.rows);
-      col = Math.floor(Math.random() * eraConfig.cols);
-      attempts++;
-    } while (
-      (gameBoard.grid[row][col].state === 'hit' ||
-       gameBoard.grid[row][col].state === 'miss' ||
-       (gameBoard.grid[row][col].state === 'ship' && gameBoard.grid[row][col].userId === 'opponent')) &&
-      attempts < 100
-    );
-
-    const result = gameBoard.receiveAttack(row, col);
-
-    // Record opponent shot in battle board for visual feedback
-    if (battleBoardRef.current?.recordOpponentShot) {
-      battleBoardRef.current.recordOpponentShot(row, col, result);
+  // Reset game (for restart)
+  const resetGame = () => {
+    if (game) {
+      game.reset();
+      updateGameState(game);
     }
+  };
 
-    if (result === 'hit') {
-      const shipName = findShipAtCell(gameBoard, row, col);
-      const hitMessage = MessageHelper.getOpponentAttackMessage(
-        eraConfig,
-        selectedOpponent,
-        'hit',
-        row,
-        col,
-        shipName
-      );
-
-      setGameState(prev => ({
-        ...prev,
-        message: hitMessage || `${selectedOpponent?.name || 'Opponent'} hit your ship at ${MessageHelper.formatCell(row, col)}!`,
-        opponentHits: prev.opponentHits + 1
-      }));
-
-      // Opponent gets another turn on hit
-      setTimeout(() => {
-        if (gameState.isGameActive && !checkGameEnd()) {
-          opponentTurn();
-        }
-      }, 1500);
-    } else {
-      setGameState(prev => ({
-        ...prev,
-        message: `${selectedOpponent?.name || 'Opponent'} missed. Your turn!`,
-        isPlayerTurn: true
-      }));
-    }
-  }, [gameBoard, gameState.isGameActive, eraConfig, selectedOpponent, findShipAtCell]);
-
-  const isShipSunk = useCallback((board, row, col) => {
-    const cell = board.grid[row][col];
-    if (cell.state !== 'hit') return false;
-
-    // Find all cells belonging to this ship
-    const shipCells = findShipCells(board, row, col);
+  // Get board state for rendering
+  const getBoardState = () => {
+    if (!game?.board) return null;
     
-    // Check if ALL cells of this ship are hit
-    const allHit = shipCells.every(({ row: r, col: c }) => {
-      const shipCell = board.grid[r][c];
-      return shipCell.state === 'hit';
-    });
+    return {
+      board: game.board,
+      shots: gameState.shots,
+      gamePhase: gameState.gamePhase
+    };
+  };
 
-    console.log('Ship sunk check:', {
-      shipCells: shipCells.length,
-      hitCells: shipCells.filter(({row: r, col: c}) => board.grid[r][c].state === 'hit').length,
-      allHit
-    });
+  // Get game statistics
+  const getGameStats = () => {
+    if (!game) return null;
+    
+    return game.getGameStats();
+  };
 
-    return allHit;
-  }, []);
+  // Check if position is valid for attack
+  const isValidAttack = (row, col) => {
+    return game ? game.isValidAttack(row, col) : false;
+  };
 
-  const findShipCells = useCallback((board, startRow, startCol) => {
-    const visited = new Set();
-    const shipCells = [];
-    const queue = [{ row: startRow, col: startCol }];
-
-    while (queue.length > 0) {
-      const { row, col } = queue.shift();
-      const key = `${row},${col}`;
-
-      if (visited.has(key)) continue;
-      visited.add(key);
-
-      const cell = board.grid[row][col];
-      if (cell.state === 'ship' || cell.state === 'hit') {
-        shipCells.push({ row, col });
-
-        const adjacent = [
-          { row: row - 1, col },
-          { row: row + 1, col },
-          { row, col: col - 1 },
-          { row, col: col + 1 }
-        ];
-
-        adjacent.forEach(({ row: r, col: c }) => {
-          if (
-            r >= 0 && r < eraConfig.rows &&
-            c >= 0 && c < eraConfig.cols &&
-            !visited.has(`${r},${c}`)
-          ) {
-            const adjCell = board.grid[r][c];
-            if (adjCell.state === 'ship' || adjCell.state === 'hit') {
-              queue.push({ row: r, col: c });
-            }
-          }
-        });
-      }
-    }
-
-    return shipCells;
-  }, [eraConfig]);
-
-  const checkGameEnd = useCallback(() => {
-    if (!eraConfig) return false;
-
-    const opponentShipCells = eraConfig.opponentfleet.ships.reduce((total, ship) => total + ship.size, 0);
-    const playerShipCells = eraConfig.playerfleet.ships.reduce((total, ship) => total + ship.size, 0);
-
-    if (gameState.playerHits >= opponentShipCells) {
-      const winMessage = MessageHelper.getEndGameMessage(eraConfig, selectedOpponent, true);
-      setGameState(prev => ({
-        ...prev,
-        message: winMessage || 'You WIN! All enemy ships destroyed!',
-        isGameActive: false
-      }));
-      setTimeout(() => {
-        dispatch(stateMachine.event.OVER);
-      }, 3000);
-      return true;
-    }
-
-    if (gameState.opponentHits >= playerShipCells) {
-      const loseMessage = MessageHelper.getEndGameMessage(eraConfig, selectedOpponent, false);
-      setGameState(prev => ({
-        ...prev,
-        message: loseMessage || 'You LOSE! All your ships are sunk!',
-        isGameActive: false
-      }));
-      setTimeout(() => {
-        dispatch(stateMachine.event.OVER);
-      }, 3000);
-      return true;
-    }
-
-    return false;
-  }, [eraConfig, gameState.playerHits, gameState.opponentHits, dispatch, stateMachine, selectedOpponent]);
+  console.log('v0.1.15: useGameState render', {
+    hasGame: !!game,
+    gameState: gameState.gamePhase,
+    isPlayerTurn: gameState.isPlayerTurn,
+    isGameActive: gameState.isGameActive
+  });
 
   return {
-    // State
-    gameState: !userId ? {
-      isPlayerTurn: false,
-      message: 'Player session lost. Please log in again.',
-      isGameActive: false,
-      gameMode
-    } : { ...gameState, userId },
-    gameBoard,
-    eraConfig,
-    selectedOpponent,
-    userId,
+    // Game state
+    ...gameState,
+    gameMode: getCurrentGameMode(),
     
     // Actions
-    fireShot,
-    isShipSunk,
+    handleAttack,
+    resetGame,
     
-    // Visual integration
-    battleBoardRef,
+    // Data accessors
+    getBoardState,
+    getGameStats,
+    isValidAttack,
     
-    // Computed values
-    isReady: !!(eraConfig && gameBoard && userId),
-    error: !userId ? 'Player session lost' : null
+    // Game instance (for advanced use)
+    game
   };
 };
 
 export default useGameState;
+
+// EOF

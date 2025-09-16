@@ -1,4 +1,4 @@
-// src/pages/SelectEraPage.js (v0.1.13)
+// src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -6,10 +6,10 @@ import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 import './SelectEraPage.css';
 
-const version = 'v0.1.13';
+const version = 'v0.1.17';
 
 const SelectEraPage = () => {
-  const { dispatch, stateMachine, updateEraConfig, updateSelectedOpponent } = useGame();
+  const { dispatch, stateMachine, updateEraConfig, updateSelectedOpponent, updateGameMode } = useGame();
   const [selectedEra, setSelectedEra] = useState(null);
   const [eras, setEras] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +22,14 @@ const SelectEraPage = () => {
       // Store the era config and opponent in GameContext
       updateEraConfig(selectedEra);
       updateSelectedOpponent(selectedOpponent);
+      
+      // Auto-set the game mode from era config
+      if (selectedEra.game_modes?.default) {
+        const defaultMode = selectedEra.game_modes.available.find(mode => mode.id === selectedEra.game_modes.default);
+        if (defaultMode) {
+          updateGameMode(defaultMode);
+        }
+      }
       
       console.log(version, 'SelectEraPage', 'Storing era config and firing PLACEMENT event');
       console.log(version, 'Era config:', selectedEra.name);
@@ -109,7 +117,7 @@ const SelectEraPage = () => {
               ))}
             </div>
             <button className="select-button" disabled={!selectedEra || !selectedOpponent} onClick={handleCloseDialog}>Play Now</button>
-          </div>
+                      </div>
         )}
       </div>
     </div>
@@ -118,4 +126,4 @@ const SelectEraPage = () => {
 
 export default SelectEraPage;
 
-// EOF - EOF - EOF
+// EOF

@@ -1,8 +1,9 @@
-// src/hooks/useBattleBoard.js (v0.1.3)
+// src/hooks/useBattleBoard.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import { useState, useEffect, useRef } from 'react';
 
+const version = "v0.1.5"
 const useBattleBoard = (eraConfig, gameState, gameBoard) => {
   const canvasRef = useRef(null);
   const [animations, setAnimations] = useState([]);
@@ -30,13 +31,7 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
     
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    // Draw board title with era name
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 16px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(eraConfig.name || 'Battle Waters', boardWidth / 2 + 20, 20);
-
-    // Draw the single game board
+    // Draw the single game board (no era title)
     drawBoard(ctx, gameBoard, 20, 30);
 
     // Draw animations (temporary effects)
@@ -100,20 +95,11 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
           ctx.fillRect(x, y, size, size);
         }
 
-        // Draw player ships with light blue background
+        // Draw player ships with light blue background (always preserve)
         if (cell.state === 'ship' && cell.userId === gameState.userId) {
           // Light blue background for player ships
-          ctx.fillStyle = 'rgba(173, 216, 230, 0.6)'; // Light blue
+          ctx.fillStyle = 'rgba(173, 216, 230, 0.7)';
           ctx.fillRect(x, y, size, size);
-          
-          // Blue corner indicator
-          ctx.fillStyle = '#0066CC';
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(x + 8, y);
-          ctx.lineTo(x, y + 8);
-          ctx.closePath();
-          ctx.fill();
         }
 
         // Get shot history for this cell
@@ -122,11 +108,21 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
 
         // Draw enhanced attack results
         if (cell.state === 'hit') {
-          // Don't override ship background for player ships
-          if (!(cell.userId === gameState.userId)) {
-            if (gameState.isShipSunk && gameState.isShipSunk(board, row, col)) {
-              // Sunk ship - dark grey background (enemy ships only)
-              ctx.fillStyle = '#404040';
+          // Check if ship is sunk and apply background accordingly
+          const isSunk = gameState.isShipSunk && gameState.isShipSunk(board, row, col);
+          
+          if (cell.userId === gameState.userId) {
+            // Player ship hit - keep light blue background, add medium grey if sunk
+            if (isSunk) {
+              ctx.fillStyle = '#808080'; // Medium grey for sunk player ships
+              ctx.fillRect(x, y, size, size);
+            } else {
+              // Keep the light blue background already drawn above
+            }
+          } else {
+            // Enemy ship hit
+            if (isSunk) {
+              ctx.fillStyle = '#808080'; // Medium grey for sunk enemy ships
               ctx.fillRect(x, y, size, size);
             }
           }
@@ -134,9 +130,8 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
           // Draw hit indicator based on who shot
           const isPlayerShot = shotInfo?.shooter === 'player';
           ctx.fillStyle = isPlayerShot ? '#CC0000' : '#0066FF'; // Red for player, blue for opponent
-          ctx.beginRadius = isPlayerShot ? size * 0.4 : size * 0.3; // Slightly smaller for opponent hits
           ctx.beginPath();
-          ctx.arc(centerX, centerY, isPlayerShot ? size * 0.4 : size * 0.3, 0, 2 * Math.PI);
+          ctx.arc(centerX, centerY, isPlayerShot ? size * 0.4 : size * 0.35, 0, 2 * Math.PI);
           ctx.fill();
           
           // Add white center for contrast
@@ -148,7 +143,7 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
         } else if (cell.state === 'miss') {
           // Always show player misses as persistent grey circles
           if (shotInfo?.shooter === 'player') {
-            ctx.fillStyle = '#999999';
+            ctx.fillStyle = '#666666';
             ctx.beginPath();
             ctx.arc(centerX, centerY, 4, 0, 2 * Math.PI);
             ctx.fill();
@@ -186,17 +181,18 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
       ctx.stroke();
       
     } else if (anim.type === 'opponent-miss') {
-      // Orange circle that fades for opponent misses
-      ctx.fillStyle = anim.color;
+      // Orange ring that fades for opponent misses - hollow center to avoid collision
+      ctx.strokeStyle = anim.color;
+      ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(anim.x, anim.y, anim.radius, 0, 2 * Math.PI);
-      ctx.fill();
+      ctx.stroke();
       
-      // Add slight border
-      ctx.strokeStyle = 'rgba(255, 140, 0, 0.8)';
+      // Inner ring for visibility
+      ctx.strokeStyle = 'rgba(255, 140, 0, 0.6)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.arc(anim.x, anim.y, anim.radius, 0, 2 * Math.PI);
+      ctx.arc(anim.x, anim.y, anim.radius - 2, 0, 2 * Math.PI);
       ctx.stroke();
     }
     
@@ -334,22 +330,22 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
         requestAnimationFrame(animateSplash);
         
       } else {
-        // Opponent misses: show temporary visual feedback then disappear
+        // Opponent misses: show temporary visual feedback with clear center to avoid collision
         const animation = {
           id: animId,
           type: 'opponent-miss',
           x: animX,
           y: animY,
-          radius: 6,
+          radius: 8,
           color: 'rgba(255, 179, 71, 0.8)', // Orange color for opponent
           progress: 0
         };
         
         setAnimations(prev => [...prev, animation]);
         
-        // Show opponent miss for 1 second then fade
+        // Show opponent miss for 1.5 seconds then fade
         const startTime = Date.now();
-        const duration = 1000;
+        const duration = 1500;
         
         const animateOpponentMiss = () => {
           const elapsed = Date.now() - startTime;
@@ -383,3 +379,4 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
 };
 
 export default useBattleBoard;
+// EOF

@@ -1,5 +1,5 @@
 {
-  "version": "0.1.4",
+  "version": "0.1.5",
   "era": "traditional2",
   "name": "Traditional Battleship 2",
   "era_description": "Battleship, a classic pencil-and-paper game from World War I, was popularized in the 1930s. Players strategically place and sink fleets on a 10x10 grid in this timeless naval duel.",
@@ -8,6 +8,28 @@
   "cols": 10,
   "boundary": [],
   "max_players": 2,
+  "game_modes": {
+    "default": "turn",
+    "available": [
+      {
+        "id": "turn",
+        "name": "Turn-Based",
+        "description": "Traditional battleship rules - players take turns firing single shots. Hit to continue, miss to end turn.",
+        "turn_on_hit": true,
+        "turn_on_miss": false,
+        "simultaneous_fire": false
+      },
+      {
+        "id": "rapid",
+        "name": "Rapid Fire",
+        "description": "Fast-paced action - keep firing until you miss. All hits allow another shot.",
+        "turn_on_hit": true,
+        "turn_on_miss": false,
+        "simultaneous_fire": false,
+        "rapid_fire": true
+      }
+    ]
+  },
   "playerfleet": {
     "count": 5,
     "ships": [
@@ -54,7 +76,7 @@
     "player_win": [
       "You sank all enemy ships! Victory!",
       "All opponent vessels destroyed! You win!",
-      "Total naval dominance! You’re the champion!"
+      "Total naval dominance! You're the champion!"
     ],
     "player_lose": [
       "Your fleet is sunk! Opponent wins!",
@@ -64,7 +86,7 @@
     "opponent_win": [
       "{opponent}: My fleet triumphs!",
       "{opponent}: Your ships are at the bottom of the sea!",
-      "{opponent}: I’ve outmaneuvered you!"
+      "{opponent}: I've outmaneuvered you!"
     ],
     "opponent_lose": [
       "{opponent}: My fleet is sunk! You win!",

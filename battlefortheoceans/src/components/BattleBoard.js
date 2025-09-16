@@ -1,9 +1,10 @@
-// src/components/BattleBoard.js (v0.1.4)
+// src/components/BattleBoard.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useEffect } from 'react';
 import useBattleBoard from '../hooks/useBattleBoard';
 
+const version = 'v0.1.4'
 const BattleBoard = ({ eraConfig, gameState, gameBoard, onShotFired }) => {
   const {
     canvasRef,
@@ -47,7 +48,7 @@ const BattleBoard = ({ eraConfig, gameState, gameBoard, onShotFired }) => {
           <span>Your hits</span>
         </div>
         <div className="legend-item">
-          <div className="legend-color orange-hit"></div>
+          <div className="legend-color blue-hit"></div>
           <span>Enemy hits</span>
         </div>
         <div className="legend-item">
@@ -60,3 +61,4 @@ const BattleBoard = ({ eraConfig, gameState, gameBoard, onShotFired }) => {
 };
 
 export default BattleBoard;
+// EOF

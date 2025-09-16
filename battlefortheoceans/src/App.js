@@ -11,38 +11,39 @@ import PlayingPage from './pages/PlayingPage';
 import OverPage from './pages/OverPage';
 import './App.css';
 
-const version = 'v0.1.45';
+const version = 'v0.1.46';
+
+const SceneRenderer = () => {
+  const { stateMachine } = useGame();
+  
+  const currentState = stateMachine.getCurrentState();
+  console.log(version, 'Rendering scene for', currentState);
+  
+  return (
+    <div className="scene">
+      {(() => {
+        switch (currentState) {
+          case 'launch':
+            return <LaunchPage />;
+          case 'login':
+            return <LoginPage />;
+          case 'era':
+            return <SelectEraPage />;
+          case 'placement':
+            return <PlacementPage />;
+          case 'play':
+            return <PlayingPage />;
+          case 'over':
+            return <OverPage />;
+          default:
+            return <div>Unknown state: {currentState}</div>;
+        }
+      })()}
+    </div>
+  );
+};
 
 const App = () => {
-  const { stateMachine } = useGame();
-
-  const SceneRenderer = () => {
-    const currentState = stateMachine.getCurrentState();
-    console.log(version, 'Rendering scene for', currentState);
-    return (
-      <div className="scene">
-        {(() => {
-          switch (currentState) {
-            case 'launch':
-              return <LaunchPage />;
-            case 'login':
-              return <LoginPage />;
-            case 'era':
-              return <SelectEraPage />;
-            case 'placement':
-              return <PlacementPage />;
-            case 'play':
-              return <PlayingPage />;
-            case 'over':
-              return <OverPage />;
-            default:
-              return <div>Unknown state</div>;
-          }
-        })()}
-      </div>
-    );
-  };
-
   return (
     <div className="App">
       <main>
@@ -60,4 +61,4 @@ const WrappedApp = () => (
 
 export default WrappedApp;
 
-// EOF - EOF - EOF
+// EOF
