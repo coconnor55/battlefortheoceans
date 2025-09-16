@@ -1,21 +1,19 @@
-// src/components/PlacerRenderer.js (v0.1.4 - FIXED)
+// src/components/PlacerRenderer.js (v0.1.6)
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { useEffect, useRef, useState } from 'react';
-import Placer from '../classes/Placer';
+import React, { useEffect, useRef, useState, useContext, useCallback } from 'react';
+import { GameContext } from '../context/GameContext';
+import MessageHelper from '../utils/MessageHelper';
 
 const PlacerRenderer = ({ placer, userId, onClose, rows, cols, terrain }) => {
+  const { eraConfig } = useContext(GameContext);
   const canvasRef = useRef(null);
   const [isPlacing, setIsPlacing] = useState(false);
   const [startCell, setStartCell] = useState(null);
   const cellSize = 30;
   const labelSize = 20;
 
-  useEffect(() => {
-    drawCanvas();
-  }, [placer, rows, cols, terrain]);
-
-  const drawCanvas = () => {
+  const drawCanvas = useCallback(() => {
     const ctx = canvasRef.current?.getContext('2d');
     if (!placer?.board || !ctx) return;
 
@@ -84,7 +82,11 @@ const PlacerRenderer = ({ placer, userId, onClose, rows, cols, terrain }) => {
         }
       });
     }
-  };
+  }, [placer, userId, rows, cols, cellSize, labelSize]);
+
+  useEffect(() => {
+    drawCanvas();
+  }, [placer, rows, cols, terrain, drawCanvas]);
 
   const getTerrainColor = (terrain) => {
     // NOAA Chart 1 colors
@@ -121,7 +123,7 @@ const PlacerRenderer = ({ placer, userId, onClose, rows, cols, terrain }) => {
       setIsPlacing(true);
       setStartCell({ row, col });
       placer.startPlacement(row, col);
-      console.log('v0.1.4', 'Started placement at', { row, col });
+      console.log('v0.1.6', 'Started placement at', { row, col });
       drawCanvas();
     }
   };
@@ -193,10 +195,10 @@ const PlacerRenderer = ({ placer, userId, onClose, rows, cols, terrain }) => {
 
       if (isValid) {
         placer.currentShip.cells = shipCells;
-        console.log('v0.1.4', 'Valid placement preview', { direction: shipDirection, cells: shipCells });
+        console.log('v0.1.6', 'Valid placement preview', { direction: shipDirection, cells: shipCells });
       } else {
         placer.currentShip.cells = shipCells; // Show invalid placement in red
-        console.log('v0.1.4', 'Invalid placement preview', { direction: shipDirection, cells: shipCells });
+        console.log('v0.1.6', 'Invalid placement preview', { direction: shipDirection, cells: shipCells });
       }
 
       drawCanvas();
@@ -209,13 +211,13 @@ const PlacerRenderer = ({ placer, userId, onClose, rows, cols, terrain }) => {
     const isValidPlacement = placer.currentShip.cells.length === placer.currentShip.size;
 
     if (isValidPlacement && placer.confirmPlacement()) {
-      console.log('v0.1.4', 'Ship placed successfully');
+      console.log('v0.1.6', 'Ship placed successfully');
       if (placer.isComplete()) {
-        console.log('v0.1.4', 'All ships placed - triggering completion');
+        console.log('v0.1.6', 'All ships placed - triggering completion');
         onClose(); // Trigger transition to play state
       }
     } else {
-      console.log('v0.1.4', 'Invalid placement - clearing current ship');
+      console.log('v0.1.6', 'Invalid placement - clearing current ship');
       if (placer.currentShip) {
         placer.currentShip.cells = [];
       }
@@ -224,6 +226,18 @@ const PlacerRenderer = ({ placer, userId, onClose, rows, cols, terrain }) => {
     setIsPlacing(false);
     setStartCell(null);
     drawCanvas();
+  };
+
+  // Get current message for placement
+  const getCurrentMessage = () => {
+    const currentShip = placer?.getCurrentShip();
+    if (currentShip) {
+      return `Place your ${currentShip.name} (${currentShip.size} squares). Tap and drag to orient.`;
+    } else if (placer?.isComplete()) {
+      // Use dynamic transition message from era config
+      return MessageHelper.getTransitionMessage(eraConfig) || 'All ships placed! Ready for battle!';
+    }
+    return 'Place your fleet';
   };
 
   return (
@@ -246,14 +260,10 @@ const PlacerRenderer = ({ placer, userId, onClose, rows, cols, terrain }) => {
         }}
       />
       <div className="message-console">
-        {placer?.getCurrentShip() ?
-          `Place your ${placer.getCurrentShip().name} (${placer.getCurrentShip().size} squares). Tap and drag to orient.` :
-          'All ships placed! Ready for battle!'}
+        {getCurrentMessage()}
       </div>
     </div>
   );
 };
 
 export default PlacerRenderer;
-
-// EOF - EOF - EOF

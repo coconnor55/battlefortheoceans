@@ -1,17 +1,15 @@
-// src/components/LoginDialog.js (v0.1.29)
+// src/components/LoginDialog.js (v0.1.30)
 // Copyright(c) 2025, Clint H. O'Connor
-// LOCKED: Do not modify without confirmation
 
 import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.29'
+const version = 'v0.1.30';
+
 const LoginDialog = ({ onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
-  const { stateMachine, dispatch } = useGame();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -19,48 +17,48 @@ const LoginDialog = ({ onClose }) => {
       setError('Email and password are required');
       return;
     }
-    console.log(`${version}: Attempting user login with email:', ${email}`);
+    console.log(`${version}: Attempting user login with email:`, email);
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
-    else {
+    if (error) {
+      setError(error.message);
+    } else {
       console.log('Login successful, user:', data.user);
-      // GameContext will automatically capture playerId from auth state change
-      dispatch(stateMachine.event.SELECTERA);
-      onClose();
+      // Pass user data back to LoginPage
+      onClose(data.user);
     }
   };
 
   const handleGuest = async () => {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: process.env.REACT_APP_GUEST_EMAIL,
-        password: process.env.REACT_APP_GUEST_PASSWORD,
-      });
-      console.log('Login with:', data.session);
-      if (error) setError(error.message);
-      else {
-          console.log('Guest logged in:', data.user);
-          // GameContext will automatically capture playerId from auth state change
-          dispatch(stateMachine.event.SELECTERA);
-          onClose();
-      }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: process.env.REACT_APP_GUEST_EMAIL,
+      password: process.env.REACT_APP_GUEST_PASSWORD,
+    });
+    console.log('Login with:', data.session);
+    if (error) {
+      setError(error.message);
+    } else {
+      console.log('Guest logged in:', data.user);
+      // Pass user data back to LoginPage
+      onClose(data.user);
+    }
   };
 
-    const handleSignUp = async (e) => {
-      e.preventDefault();
-      if (!email || !password) {
-        setError('Email and password are required');
-        return;
-      }
-      console.log(`${version}: Attempting user signup with email:', ${email}`);
-      const { error, data } = await supabase.auth.signUp({ email, password });
-      if (error) setError(error.message);
-      else {
-          console.log('Sign-up successful, user:', data.user);
-          // GameContext will automatically capture playerId from auth state change
-          dispatch(stateMachine.event.SELECTERA);
-          onClose();
-      }
-    };
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError('Email and password are required');
+      return;
+    }
+    console.log(`${version}: Attempting user signup with email:`, email);
+    const { error, data } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      setError(error.message);
+    } else {
+      console.log('Sign-up successful, user:', data.user);
+      // Pass user data back to LoginPage
+      onClose(data.user);
+    }
+  };
 
   return (
     <div className="login-dialog">

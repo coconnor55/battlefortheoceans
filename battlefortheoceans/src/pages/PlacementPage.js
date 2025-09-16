@@ -1,27 +1,33 @@
-// src/pages/PlacementPage.js (v0.1.4)
+// src/pages/PlacementPage.js (v0.1.7)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useContext, useEffect, useState } from 'react';
 import { GameContext } from '../context/GameContext';
 import Board from '../classes/Board';
-import Ship from '../classes/Ship';
 import Placer from '../classes/Placer';
 import PlacerRenderer from '../components/PlacerRenderer';
 import './PlacementPage.css';
 
-const version = 'v0.1.4';
+const version = 'v0.1.7';
 
 const PlacementPage = () => {
-  const { dispatch, stateMachine, eraConfig, player } = useContext(GameContext);
+  const { dispatch, stateMachine, eraConfig, player, updatePlacementBoard } = useContext(GameContext);
   const [placer, setPlacer] = useState(null);
   const [error, setError] = useState(null);
 
-  const userId = player?.id || 'defaultPlayer';
+  const userId = player?.id;
 
   useEffect(() => {
     console.log(version, 'PlacementPage useEffect triggered');
     console.log(version, 'Era config:', eraConfig?.name);
+    console.log(version, 'Player ID:', userId);
     
+    // Early return if no player - this shouldn't happen after login
+    if (!userId) {
+      setError('Player session lost. Please log in again.');
+      return;
+    }
+
     // Validate era configuration
     if (!eraConfig) {
       setError('Era configuration not found. Please select an era first.');
@@ -67,8 +73,11 @@ const PlacementPage = () => {
   }, [eraConfig, userId]);
 
   const handlePlacementComplete = () => {
+    // Store the board with placed ships in GameContext
+    updatePlacementBoard(placer.board);
+    
     if (dispatch) {
-      console.log(version, 'Firing PLAY event from handlePlacementComplete');
+      console.log(version, 'Firing PLAY event with placement board');
       dispatch(stateMachine.event.PLAY);
     } else {
       console.error(version, 'Dispatch is not available in handlePlacementComplete');

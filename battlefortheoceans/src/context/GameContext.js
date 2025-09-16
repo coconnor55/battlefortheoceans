@@ -1,4 +1,4 @@
-// src/context/GameContext.js (v0.1.12)
+// src/context/GameContext.js (v0.1.13)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { createContext, useContext, useState } from 'react';
@@ -14,31 +14,39 @@ export const GameProvider = ({ children }) => {
   const [eraConfig, setEraConfig] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
   const [player, setPlayer] = useState(null);
+  const [placementBoard, setPlacementBoard] = useState(null);
 
   const dispatch = (event) => {
-    console.log('v0.1.12: Dispatching event to state machine', event);
+    console.log('v0.1.13: Dispatching event to state machine', event);
     gameStateMachine.transition(event);
     contextVersion += 1;
     setVersion(contextVersion); // Force context value change
   };
 
   const updateEraConfig = (config) => {
-    console.log('v0.1.12: Updating era config', config?.name);
+    console.log('v0.1.13: Updating era config', config?.name);
     setEraConfig(config);
     contextVersion += 1;
     setVersion(contextVersion);
   };
 
   const updateSelectedOpponent = (opponent) => {
-    console.log('v0.1.12: Updating selected opponent', opponent?.name);
+    console.log('v0.1.13: Updating selected opponent', opponent?.name);
     setSelectedOpponent(opponent);
     contextVersion += 1;
     setVersion(contextVersion);
   };
 
   const updatePlayer = (playerData) => {
-    console.log('v0.1.12: Updating player', playerData?.id);
+    console.log('v0.1.13: Updating player', playerData?.id);
     setPlayer(playerData);
+    contextVersion += 1;
+    setVersion(contextVersion);
+  };
+
+  const updatePlacementBoard = (board) => {
+    console.log('v0.1.13: Storing placement board');
+    setPlacementBoard(board);
     contextVersion += 1;
     setVersion(contextVersion);
   };
@@ -51,9 +59,11 @@ export const GameProvider = ({ children }) => {
       eraConfig,
       selectedOpponent,
       player,
+      placementBoard,
       updateEraConfig,
       updateSelectedOpponent,
-      updatePlayer
+      updatePlayer,
+      updatePlacementBoard
     }}>
       {children}
     </GameState.Provider>

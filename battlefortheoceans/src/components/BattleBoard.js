@@ -1,20 +1,28 @@
-// src/components/BattleBoard.js (v0.1.0)
+// src/components/BattleBoard.js (v0.1.4)
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import useBattleBoard from '../hooks/useBattleBoard';
 
-const BattleBoard = ({ eraConfig, gameState, boards, onShotFired }) => {
+const BattleBoard = ({ eraConfig, gameState, gameBoard, onShotFired }) => {
   const {
     canvasRef,
     handleCanvasClick,
+    recordOpponentShot,
     isReady
-  } = useBattleBoard(eraConfig, gameState, boards);
+  } = useBattleBoard(eraConfig, gameState, gameBoard);
+
+  // Connect battle board to game state for opponent shot tracking
+  useEffect(() => {
+    if (gameState.battleBoardRef) {
+      gameState.battleBoardRef.current = { recordOpponentShot };
+    }
+  }, [recordOpponentShot, gameState.battleBoardRef]);
 
   if (!isReady) {
     return (
       <div className="battle-board loading">
-        <p>Preparing battle boards...</p>
+        <p>Preparing battle board...</p>
       </div>
     );
   }
@@ -32,13 +40,23 @@ const BattleBoard = ({ eraConfig, gameState, boards, onShotFired }) => {
           cursor: gameState.isPlayerTurn && gameState.isGameActive ? 'crosshair' : 'not-allowed'
         }}
       />
-      <div className="battle-instructions">
-        <p>Click on the enemy waters (left board) to fire your shots!</p>
+
+      <div className="visual-legend">
+        <div className="legend-item">
+          <div className="legend-color red-hit"></div>
+          <span>Your hits</span>
+        </div>
+        <div className="legend-item">
+          <div className="legend-color orange-hit"></div>
+          <span>Enemy hits</span>
+        </div>
+        <div className="legend-item">
+          <div className="legend-color grey-miss"></div>
+          <span>Your misses</span>
+        </div>
       </div>
     </div>
   );
 };
 
 export default BattleBoard;
-
-// EOF - EOF - EOF

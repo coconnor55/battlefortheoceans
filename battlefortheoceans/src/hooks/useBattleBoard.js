@@ -1,65 +1,59 @@
-// src/hooks/useBattleBoard.js (v0.1.0)
+// src/hooks/useBattleBoard.js (v0.1.3)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import { useState, useEffect, useRef } from 'react';
 
-const useBattleBoard = (eraConfig, gameState, boards) => {
+const useBattleBoard = (eraConfig, gameState, gameBoard) => {
   const canvasRef = useRef(null);
   const [animations, setAnimations] = useState([]);
+  const [shotHistory, setShotHistory] = useState(new Map()); // Track all shots with metadata
   
   const cellSize = 30;
   const labelSize = 20;
-  const boardSpacing = 50;
 
   // Calculate board dimensions
   const boardWidth = eraConfig ? eraConfig.cols * cellSize + labelSize : 0;
   const boardHeight = eraConfig ? eraConfig.rows * cellSize + labelSize : 0;
 
   useEffect(() => {
-    if (boards.opponentBoard && eraConfig) {
+    if (gameBoard && eraConfig) {
       drawCanvas();
     }
-  }, [boards.opponentBoard, boards.playerBoard, gameState, animations, eraConfig]);
+  }, [gameBoard, gameState, animations, eraConfig, shotHistory]);
 
   const drawCanvas = () => {
     const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx || !boards.opponentBoard || !eraConfig) return;
+    if (!ctx || !gameBoard || !eraConfig) return;
 
-    ctx.canvas.width = boardWidth * 2 + boardSpacing;
+    ctx.canvas.width = boardWidth + 40; // Single board with padding
     ctx.canvas.height = boardHeight + 40;
     
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    // Draw board labels
+    // Draw board title with era name
     ctx.fillStyle = '#000';
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('Enemy Waters', boardWidth / 2, 20);
-    ctx.fillText('Your Fleet', boardWidth + boardSpacing + boardWidth / 2, 20);
+    ctx.fillText(eraConfig.name || 'Battle Waters', boardWidth / 2 + 20, 20);
 
-    // Draw opponent board (left side)
-    drawBoard(ctx, boards.opponentBoard, 0, 30, false);
-    
-    // Draw player board (right side)
-    if (boards.playerBoard) {
-      drawBoard(ctx, boards.playerBoard, boardWidth + boardSpacing, 30, true);
-    }
+    // Draw the single game board
+    drawBoard(ctx, gameBoard, 20, 30);
 
-    // Draw animations
+    // Draw animations (temporary effects)
     animations.forEach(anim => {
       drawAnimation(ctx, anim);
     });
   };
 
-  const drawBoard = (ctx, board, offsetX, offsetY, showShips) => {
+  const drawBoard = (ctx, board, offsetX, offsetY) => {
     // Draw row labels (numbers)
     ctx.fillStyle = '#000';
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
     for (let row = 0; row < eraConfig.rows; row++) {
       ctx.fillText(
-        (row + 1).toString(), 
-        offsetX + labelSize / 2, 
+        (row + 1).toString(),
+        offsetX + labelSize / 2,
         offsetY + row * cellSize + labelSize + cellSize / 2 + 4
       );
     }
@@ -68,8 +62,8 @@ const useBattleBoard = (eraConfig, gameState, boards) => {
     for (let col = 0; col < eraConfig.cols; col++) {
       const letter = String.fromCharCode(65 + col);
       ctx.fillText(
-        letter, 
-        offsetX + col * cellSize + labelSize + cellSize / 2, 
+        letter,
+        offsetX + col * cellSize + labelSize + cellSize / 2,
         offsetY + labelSize / 2 + 4
       );
     }
@@ -90,13 +84,15 @@ const useBattleBoard = (eraConfig, gameState, boards) => {
       ctx.stroke();
     }
 
-    // Draw cells
+    // Draw cells with enhanced visual feedback
     for (let row = 0; row < eraConfig.rows; row++) {
       for (let col = 0; col < eraConfig.cols; col++) {
         const cell = board.grid[row][col];
         const x = offsetX + col * cellSize + labelSize + 1;
         const y = offsetY + row * cellSize + labelSize + 1;
         const size = cellSize - 2;
+        const centerX = x + size / 2;
+        const centerY = y + size / 2;
 
         // Draw terrain
         if (cell.terrain !== 'excluded') {
@@ -104,33 +100,107 @@ const useBattleBoard = (eraConfig, gameState, boards) => {
           ctx.fillRect(x, y, size, size);
         }
 
-        // Draw cell state
-        if (cell.state === 'ship' && showShips) {
-          ctx.fillStyle = 'rgba(0, 0, 255, 0.5)';
+        // Draw player ships with light blue background
+        if (cell.state === 'ship' && cell.userId === gameState.userId) {
+          // Light blue background for player ships
+          ctx.fillStyle = 'rgba(173, 216, 230, 0.6)'; // Light blue
           ctx.fillRect(x, y, size, size);
-        } else if (cell.state === 'hit') {
-          if (gameState.isShipSunk && gameState.isShipSunk(board, row, col)) {
-            ctx.fillStyle = '#404040'; // Dark grey for sunk ships
-          } else {
-            ctx.fillStyle = '#CC0000'; // Red for hits
-          }
-          ctx.fillRect(x, y, size, size);
-        } else if (cell.state === 'miss') {
-          // Small grey circle for misses
-          ctx.fillStyle = '#999999';
+          
+          // Blue corner indicator
+          ctx.fillStyle = '#0066CC';
           ctx.beginPath();
-          ctx.arc(x + size/2, y + size/2, 4, 0, 2 * Math.PI);
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + 8, y);
+          ctx.lineTo(x, y + 8);
+          ctx.closePath();
           ctx.fill();
+        }
+
+        // Get shot history for this cell
+        const shotKey = `${row}-${col}`;
+        const shotInfo = shotHistory.get(shotKey);
+
+        // Draw enhanced attack results
+        if (cell.state === 'hit') {
+          // Don't override ship background for player ships
+          if (!(cell.userId === gameState.userId)) {
+            if (gameState.isShipSunk && gameState.isShipSunk(board, row, col)) {
+              // Sunk ship - dark grey background (enemy ships only)
+              ctx.fillStyle = '#404040';
+              ctx.fillRect(x, y, size, size);
+            }
+          }
+          
+          // Draw hit indicator based on who shot
+          const isPlayerShot = shotInfo?.shooter === 'player';
+          ctx.fillStyle = isPlayerShot ? '#CC0000' : '#0066FF'; // Red for player, blue for opponent
+          ctx.beginRadius = isPlayerShot ? size * 0.4 : size * 0.3; // Slightly smaller for opponent hits
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, isPlayerShot ? size * 0.4 : size * 0.3, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Add white center for contrast
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, size * 0.12, 0, 2 * Math.PI);
+          ctx.fill();
+
+        } else if (cell.state === 'miss') {
+          // Always show player misses as persistent grey circles
+          if (shotInfo?.shooter === 'player') {
+            ctx.fillStyle = '#999999';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 4, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+          // Opponent misses: show temporarily via animation only, no permanent indicator
         }
       }
     }
   };
 
   const drawAnimation = (ctx, anim) => {
-    ctx.fillStyle = anim.color;
-    ctx.beginPath();
-    ctx.arc(anim.x, anim.y, anim.radius, 0, 2 * Math.PI);
-    ctx.fill();
+    // Blooming circle animation
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - anim.progress);
+    
+    if (anim.type === 'hit') {
+      // Expanding red circle for hits
+      ctx.fillStyle = anim.color;
+      ctx.beginPath();
+      ctx.arc(anim.x, anim.y, anim.radius * (1 + anim.progress), 0, 2 * Math.PI);
+      ctx.fill();
+      
+      // Inner white flash
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.beginPath();
+      ctx.arc(anim.x, anim.y, anim.radius * (0.5 + anim.progress * 0.3), 0, 2 * Math.PI);
+      ctx.fill();
+      
+    } else if (anim.type === 'miss') {
+      // Quick splash effect for player misses
+      ctx.strokeStyle = anim.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(anim.x, anim.y, anim.radius * (1 + anim.progress * 2), 0, 2 * Math.PI);
+      ctx.stroke();
+      
+    } else if (anim.type === 'opponent-miss') {
+      // Orange circle that fades for opponent misses
+      ctx.fillStyle = anim.color;
+      ctx.beginPath();
+      ctx.arc(anim.x, anim.y, anim.radius, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      // Add slight border
+      ctx.strokeStyle = 'rgba(255, 140, 0, 0.8)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(anim.x, anim.y, anim.radius, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+    
+    ctx.restore();
   };
 
   const getTerrainColor = (terrain) => {
@@ -147,54 +217,158 @@ const useBattleBoard = (eraConfig, gameState, boards) => {
   };
 
   const handleCanvasClick = (e, onShotFired) => {
-    if (!gameState.isPlayerTurn || !boards.opponentBoard || !eraConfig) return;
+    if (!gameState.isPlayerTurn || !gameBoard || !eraConfig) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Check if click is on opponent board (left side)
-    if (x < boardWidth && y > 30) {
-      const col = Math.floor((x - labelSize) / cellSize);
-      const row = Math.floor((y - 30 - labelSize) / cellSize);
+    // Calculate click position on the single board
+    const col = Math.floor((x - 20 - labelSize) / cellSize);
+    const row = Math.floor((y - 30 - labelSize) / cellSize);
 
-      if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
-        const shotResult = onShotFired(row, col);
+    if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
+      const shotResult = onShotFired(row, col);
+      
+      if (shotResult) {
+        // Record this shot in history
+        const shotKey = `${row}-${col}`;
+        setShotHistory(prev => new Map(prev.set(shotKey, {
+          shooter: 'player',
+          result: shotResult.result,
+          timestamp: Date.now()
+        })));
         
-        if (shotResult) {
-          showShotAnimation(shotResult);
-        }
+        showShotAnimation(shotResult, 'player');
       }
     }
   };
 
-  const showShotAnimation = ({ result, row, col }) => {
-    const animX = col * cellSize + labelSize + cellSize / 2;
+  const recordOpponentShot = (row, col, result) => {
+    const shotKey = `${row}-${col}`;
+    setShotHistory(prev => new Map(prev.set(shotKey, {
+      shooter: 'opponent',
+      result: result,
+      timestamp: Date.now()
+    })));
+    
+    showShotAnimation({ result, row, col }, 'opponent');
+  };
+
+  const showShotAnimation = ({ result, row, col }, shooter) => {
+    const animX = 20 + col * cellSize + labelSize + cellSize / 2;
     const animY = 30 + row * cellSize + labelSize + cellSize / 2;
-    const animId = Date.now();
+    const animId = Date.now() + Math.random();
 
     if (result === 'hit') {
-      setAnimations(prev => [...prev, {
+      const animation = {
         id: animId,
+        type: 'hit',
         x: animX,
         y: animY,
         radius: 12,
-        color: 'rgba(204, 0, 0, 0.8)'
-      }]);
+        color: shooter === 'player' ? 'rgba(204, 0, 0, 0.9)' : 'rgba(255, 179, 71, 0.9)',
+        progress: 0
+      };
+      
+      setAnimations(prev => [...prev, animation]);
+      
+      // Animate the bloom effect
+      const startTime = Date.now();
+      const duration = 800; // 800ms animation
+      
+      const animateBloom = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        setAnimations(prev => prev.map(anim =>
+          anim.id === animId ? { ...anim, progress } : anim
+        ));
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateBloom);
+        } else {
+          // Remove animation when complete
+          setTimeout(() => {
+            setAnimations(prev => prev.filter(anim => anim.id !== animId));
+          }, 200);
+        }
+      };
+      
+      requestAnimationFrame(animateBloom);
+      
     } else if (result === 'miss') {
-      setAnimations(prev => [...prev, {
-        id: animId,
-        x: animX,
-        y: animY,
-        radius: 8,
-        color: 'rgba(153, 153, 153, 0.6)'
-      }]);
+      if (shooter === 'player') {
+        // Player misses: brief animation only, permanent indicator handled in drawBoard
+        const animation = {
+          id: animId,
+          type: 'miss',
+          x: animX,
+          y: animY,
+          radius: 8,
+          color: 'rgba(153, 153, 153, 0.7)',
+          progress: 0
+        };
+        
+        setAnimations(prev => [...prev, animation]);
+        
+        // Quick splash animation
+        const startTime = Date.now();
+        const duration = 400;
+        
+        const animateSplash = () => {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          
+          setAnimations(prev => prev.map(anim =>
+            anim.id === animId ? { ...anim, progress } : anim
+          ));
+          
+          if (progress < 1) {
+            requestAnimationFrame(animateSplash);
+          } else {
+            setAnimations(prev => prev.filter(anim => anim.id !== animId));
+          }
+        };
+        
+        requestAnimationFrame(animateSplash);
+        
+      } else {
+        // Opponent misses: show temporary visual feedback then disappear
+        const animation = {
+          id: animId,
+          type: 'opponent-miss',
+          x: animX,
+          y: animY,
+          radius: 6,
+          color: 'rgba(255, 179, 71, 0.8)', // Orange color for opponent
+          progress: 0
+        };
+        
+        setAnimations(prev => [...prev, animation]);
+        
+        // Show opponent miss for 1 second then fade
+        const startTime = Date.now();
+        const duration = 1000;
+        
+        const animateOpponentMiss = () => {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          
+          setAnimations(prev => prev.map(anim =>
+            anim.id === animId ? { ...anim, progress } : anim
+          ));
+          
+          if (progress < 1) {
+            requestAnimationFrame(animateOpponentMiss);
+          } else {
+            setAnimations(prev => prev.filter(anim => anim.id !== animId));
+          }
+        };
+        
+        requestAnimationFrame(animateOpponentMiss);
+      }
     }
-
-    // Remove animation after 2 seconds
-    setTimeout(() => {
-      setAnimations(prev => prev.filter(anim => anim.id !== animId));
-    }, 2000);
   };
 
   return {
@@ -203,10 +377,9 @@ const useBattleBoard = (eraConfig, gameState, boards) => {
     drawCanvas,
     boardWidth,
     boardHeight,
-    isReady: !!(eraConfig && boards.opponentBoard)
+    recordOpponentShot, // New method for tracking opponent shots
+    isReady: !!(eraConfig && gameBoard)
   };
 };
 
 export default useBattleBoard;
-
-// EOF - EOF - EOF

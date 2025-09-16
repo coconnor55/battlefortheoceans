@@ -1,25 +1,24 @@
-// src/pages/PlayingPage.js (v0.1.1)
+// src/pages/PlayingPage.js (v0.1.4)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React from 'react';
 import useGameState from '../hooks/useGameState';
 import BattleBoard from '../components/BattleBoard';
-import GameInfo from '../components/GameInfo';
 import './PlayingPage.css';
 
-const version = 'v0.1.1';
+const version = 'v0.1.4';
 
 const PlayingPage = ({ gameMode = 'turnBased' }) => {
   const {
     gameState,
-    opponentBoard,
-    playerBoard,
+    gameBoard,
     eraConfig,
     selectedOpponent,
     fireShot,
     isShipSunk,
     isReady,
-    error
+    error,
+    battleBoardRef
   } = useGameState(gameMode);
 
   // Error state - player session lost
@@ -37,43 +36,48 @@ const PlayingPage = ({ gameMode = 'turnBased' }) => {
     );
   }
 
-  // Loading state
+  // Loading state with era-specific title
   if (!isReady) {
     return (
       <div className="playing-page loading">
         <div className="loading-message">
-          <p>Preparing battle...</p>
+          <h2>{eraConfig?.name || 'Battle Waters'}</h2>
+          <p>Preparing battle boards...</p>
         </div>
       </div>
     );
   }
 
-  // Prepare board data for components
-  const boards = {
-    opponentBoard,
-    playerBoard
-  };
-
   // Enhanced game state with additional methods
   const enhancedGameState = {
     ...gameState,
-    isShipSunk
+    isShipSunk,
+    battleBoardRef
   };
 
   return (
     <div className="playing-page">
-      <GameInfo
-        gameState={enhancedGameState}
-        eraConfig={eraConfig}
-        selectedOpponent={selectedOpponent}
-      />
+      <div className="game-header">
+        <h2>{eraConfig?.name || 'Battle Waters'}</h2>
+        <div className="opponent-info">
+          <p>vs {selectedOpponent?.name || 'Unknown Opponent'}</p>
+        </div>
+        <div className="game-stats">
+          <span className="player-hits">Your Hits: {gameState.playerHits}</span>
+          <span className="opponent-hits">Enemy Hits: {gameState.opponentHits}</span>
+        </div>
+      </div>
       
       <BattleBoard
         eraConfig={eraConfig}
         gameState={enhancedGameState}
-        boards={boards}
+        gameBoard={gameBoard}
         onShotFired={fireShot}
       />
+      
+      <div className="game-message">
+        <p>{gameState.message}</p>
+      </div>
     </div>
   );
 };
