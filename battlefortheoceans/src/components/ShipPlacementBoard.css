@@ -1,0 +1,169 @@
+/* src/components/ShipPlacementBoard.css (v0.1.3)
+   Copyright(c) 2025, Clint H. O'Connor */
+
+.ship-placement-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background: none; /* Remove background square */
+}
+
+.board-grid {
+  display: grid;
+  gap: 2px;
+  background: none; /* Remove background square */
+  border: 2px solid #dee2e6; /* Light grey border */
+  user-select: none;
+  touch-action: none;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.cell {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #FFFAFA; /* Snow white cell background */
+  border: 1px solid #e9ecef; /* Light grey cell borders */
+  border-radius: 2px;
+}
+
+.cell:hover {
+  background-color: #f1f3f4;
+  transform: scale(1.05);
+}
+
+.cell-coord {
+  font-size: 10px;
+  color: #6c757d; /* Medium grey coordinates */
+  pointer-events: none;
+  font-weight: 500;
+  font-family: monospace;
+}
+
+/* Terrain types based on NOAA Chart 1 convention - using snow white base */
+.terrain-deep {
+  background-color: #FFFAFA; /* Snow white for deep water */
+}
+
+.terrain-shallow {
+  background-color: #E6F3FF; /* Light blue */
+}
+
+.terrain-shoal {
+  background-color: #B3D9FF; /* Medium blue */
+}
+
+.terrain-marsh {
+  background-color: #90EE90; /* Light green */
+}
+
+.terrain-land {
+  background-color: #F5DEB3; /* Buff/wheat color */
+}
+
+.terrain-rock {
+  background-color: #A9A9A9; /* Grey */
+}
+
+/* Ship placement states */
+.has-ship {
+  background-color: #ADD8E6 !important; /* Light blue after placement */
+  color: #2F4F4F;
+}
+
+.has-ship .cell-coord {
+  color: #2F4F4F;
+}
+
+.has-ship::after {
+  content: "⚓";
+  font-size: 16px;
+  position: absolute;
+  color: #2F4F4F;
+}
+
+.preview-valid {
+  background-color: #90EE90 !important; /* Medium green for valid placement */
+  color: #2F4F4F;
+  box-shadow: 0 0 8px rgba(34, 139, 34, 0.5);
+}
+
+.preview-valid .cell-coord {
+  color: #2F4F4F;
+}
+
+.preview-invalid {
+  background-color: #FFB3B3 !important; /* Medium red for invalid placement */
+  color: #2F4F4F;
+  box-shadow: 0 0 8px rgba(220, 20, 60, 0.5);
+}
+
+.preview-invalid .cell-coord {
+  color: #2F4F4F;
+}
+
+.preview-valid::after,
+.preview-invalid::after {
+  content: "⚓";
+  font-size: 14px;
+  position: absolute;
+  color: #2F4F4F;
+}
+
+.placement-instructions {
+  text-align: center;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  border-radius: 8px;
+  max-width: 400px;
+}
+
+.placement-instructions p {
+  margin: 5px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .cell {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .cell-coord {
+    font-size: 8px;
+  }
+  
+  .has-ship::after,
+  .preview-valid::after,
+  .preview-invalid::after {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cell {
+    width: 25px;
+    height: 25px;
+  }
+  
+  .cell-coord {
+    font-size: 6px;
+  }
+  
+  .placement-instructions {
+    font-size: 12px;
+    padding: 10px;
+  }
+}
+
+/* EOF */

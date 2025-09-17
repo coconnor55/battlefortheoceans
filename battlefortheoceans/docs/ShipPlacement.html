@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ship Placement Board CSS</title>
+    <style>
+        /* Ship Placement Board Styles */
+        .ship-placement-board {
+            position: relative;
+            display: inline-block;
+            background: transparent; /* Remove any background box */
+            padding: 0;
+            margin: 0;
+        }
+
+        /* Grid container */
+        .placement-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--grid-cols, 10), 1fr);
+            grid-template-rows: repeat(var(--grid-rows, 10), 1fr);
+            gap: 2px;
+            background: transparent;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 8px;
+        }
+
+        /* Individual grid cells */
+        .grid-cell {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* Default state - snow white for deep water */
+        .grid-cell.deep-water {
+            background-color: #FFFAFA; /* Snow white */
+        }
+
+        /* Terrain types based on NOAA Chart 1 convention */
+        .grid-cell.shallow-water {
+            background-color: #E6F3FF; /* Light blue */
+        }
+
+        .grid-cell.shoal-water {
+            background-color: #B3D9FF; /* Medium blue */
+        }
+
+        .grid-cell.marsh {
+            background-color: #90EE90; /* Light green */
+        }
+
+        .grid-cell.land {
+            background-color: #F5DEB3; /* Buff/wheat color */
+        }
+
+        .grid-cell.rock {
+            background-color: #A9A9A9; /* Grey */
+        }
+
+        .grid-cell.excluded {
+            background-color: transparent;
+            border: none;
+            pointer-events: none;
+        }
+
+        /* Placement preview states */
+        .grid-cell.placement-preview-valid {
+            background-color: #90EE90 !important; /* Medium green for valid placement */
+            border-color: #228B22;
+            box-shadow: 0 0 8px rgba(34, 139, 34, 0.5);
+        }
+
+        .grid-cell.placement-preview-invalid {
+            background-color: #FFB3B3 !important; /* Medium red for invalid placement */
+            border-color: #DC143C;
+            box-shadow: 0 0 8px rgba(220, 20, 60, 0.5);
+        }
+
+        /* Ship placed state */
+        .grid-cell.ship-placed {
+            background-color: #ADD8E6 !important; /* Light blue after placement */
+            border-color: #4682B4;
+            box-shadow: inset 0 0 4px rgba(70, 130, 180, 0.3);
+        }
+
+        /* Hover effects */
+        .grid-cell:hover:not(.excluded):not(.ship-placed) {
+            border-color: #666;
+            transform: scale(1.05);
+        }
+
+        /* Ship type indicators */
+        .grid-cell.ship-placed::after {
+            content: attr(data-ship-type);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 8px;
+            color: #2F4F4F;
+            pointer-events: none;
+        }
+
+        /* Row and column labels */
+        .grid-labels {
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .row-labels {
+            left: -30px;
+            top: 8px;
+            height: calc(100% - 16px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .col-labels {
+            top: -30px;
+            left: 8px;
+            width: calc(100% - 16px);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Message console styling */
+        .message-console {
+            margin-top: 20px;
+            padding: 12px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        /* Action button styling */
+        .placement-actions {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .go-button {
+            padding: 12px 24px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .go-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .go-button:not(:disabled):hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .grid-cell {
+                width: 28px;
+                height: 28px;
+                font-size: 10px;
+            }
+            
+            .label {
+                font-size: 12px;
+                width: 18px;
+                height: 18px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .grid-cell {
+                width: 24px;
+                height: 24px;
+                font-size: 8px;
+            }
+            
+            .placement-grid {
+                gap: 1px;
+                padding: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div style="padding: 20px; background: #f0f0f0; min-height: 100vh;">
+        <h2>Ship Placement Board CSS Updates</h2>
+        <p>This CSS provides the styling for your ShipPlacementBoard component with:</p>
+        <ul>
+            <li><strong>Snow white background</strong> (#FFFAFA) for default deep water cells</li>
+            <li><strong>Medium green</strong> (#90EE90) for valid placement preview</li>
+            <li><strong>Medium red</strong> (#FFB3B3) for invalid placement preview</li>
+            <li><strong>Light blue</strong> (#ADD8E6) for cells with placed ships</li>
+            <li><strong>No background box</strong> behind the grid</li>
+            <li><strong>NOAA Chart 1 terrain colors</strong> for different water types</li>
+            <li><strong>Responsive design</strong> for mobile devices</li>
+        </ul>
+
+        <!-- Example grid demonstration -->
+        <div class="ship-placement-board" style="margin-top: 30px;">
+            <div class="placement-grid" style="--grid-cols: 10; --grid-rows: 10;">
+                <!-- Example cells showing different states -->
+                <div class="grid-cell deep-water" title="Default deep water"></div>
+                <div class="grid-cell deep-water placement-preview-valid" title="Valid placement preview"></div>
+                <div class="grid-cell deep-water placement-preview-invalid" title="Invalid placement preview"></div>
+                <div class="grid-cell deep-water ship-placed" data-ship-type="C" title="Ship placed"></div>
+                <div class="grid-cell shallow-water" title="Shallow water"></div>
+                <div class="grid-cell shoal-water" title="Shoal water"></div>
+                <div class="grid-cell marsh" title="Marsh"></div>
+                <div class="grid-cell land" title="Land"></div>
+                <div class="grid-cell rock" title="Rock"></div>
+                <div class="grid-cell excluded" title="Excluded area"></div>
+                <!-- Fill remaining cells for demo -->
+                <div class="grid-cell deep-water"></div>
+                <div class="grid-cell deep-water"></div>
+                <div class="grid-cell deep-water"></div>
+                <div class="grid-cell deep-water"></div>
+                <div class="grid-cell deep-water"></div>
+                <div class="grid-cell deep-water"></div>
+                <div class="grid-cell deep-water"></div>
+                <div class="grid-cell deep-water"></div>
+                <div class="grid-cell deep-water"></div>
+                <div class="grid-cell deep-water"></div>
+                <!-- Continue pattern for remaining rows... -->
+            </div>
+            
+            <!-- Grid labels -->
+            <div class="grid-labels row-labels">
+                <div class="label">1</div>
+                <div class="label">2</div>
+                <div class="label">3</div>
+                <div class="label">4</div>
+                <div class="label">5</div>
+                <div class="label">6</div>
+                <div class="label">7</div>
+                <div class="label">8</div>
+                <div class="label">9</div>
+                <div class="label">10</div>
+            </div>
+            
+            <div class="grid-labels col-labels">
+                <div class="label">A</div>
+                <div class="label">B</div>
+                <div class="label">C</div>
+                <div class="label">D</div>
+                <div class="label">E</div>
+                <div class="label">F</div>
+                <div class="label">G</div>
+                <div class="label">H</div>
+                <div class="label">I</div>
+                <div class="label">J</div>
+            </div>
+        </div>
+
+        <div class="message-console">
+            Place your Carrier (5 squares)
+        </div>
+
+        <div class="placement-actions">
+            <button class="go-button" disabled>Go!</button>
+        </div>
+    </div>
+</body>
+</html>

@@ -44,8 +44,8 @@ const useGameState = () => {
     const newGame = new Game(eraConfig, gameMode.id);
     
     // Add human player
-    const humanPlayerId = player?.id || 'defaultPlayer';
-    newGame.addPlayer(humanPlayerId, 'human', player?.name || 'You');
+    const humanPlayerId = humanPlayer?.id || 'defaultPlayer';
+    newGame.addPlayer(humanPlayerId, 'human', humanPlayer?.name || humanPlayer?.email || 'You');
     
     // Add AI opponent
     newGame.addPlayer(selectedOpponent.id, 'ai', selectedOpponent.name);
@@ -72,7 +72,7 @@ const useGameState = () => {
         }));
       });
 
-  }, [eraConfig, selectedOpponent, player, placementBoard, getCurrentGameMode]);
+  }, [eraConfig, selectedOpponent, humanPlayer, placementBoard, getCurrentGameMode]);
 
   // Update local game state when game instance changes
   const updateGameState = (gameInstance) => {

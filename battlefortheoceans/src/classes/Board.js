@@ -1,7 +1,7 @@
 // src/classes/Board.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.1.16"
+const version = "v0.1.17";
 
 class Board {
   constructor(rows, cols, terrain) {
@@ -11,29 +11,18 @@ class Board {
     
     this.rows = rows;
     this.cols = cols;
+    this.terrain = terrain;
     
-    // Create grid with individual cell objects (not shared references)
-    this.grid = Array(rows).fill().map(() =>
-      Array(cols).fill().map(() => ({
-        terrain: null,
-        ship: null,        // Reference to Ship object (not ship state)
-        owner: null,       // 'player' or 'opponent' (who placed ship here)
-        shotResult: null   // 'hit', 'miss', null (last shot result at this cell)
-      }))
-    );
+    // Ship-based architecture with sparse grid index
+    this.ships = new Map(); // shipId -> ship object
+    this.hitIndex = new Map(); // "row,col" -> {ships: [shipIds], shots: [{player, result}]}
+    this.shotHistory = []; // [{row, col, player, result, timestamp}]
     
-    // Set terrain for each cell individually
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        this.grid[row][col].terrain = terrain[row][col];
-      }
-    }
-    
-    console.log('Board: Created board', { rows, cols, gridCreated: true });
+    console.log('Board: Created board', { rows, cols, architecture: 'ship-based-sparse' });
   }
 
   /**
-   * Place a ship on the board
+   * Place a ship on the board using ship-based storage
    */
   placeShip(ship, owner) {
     if (!ship || !ship.cells || !ship.isPlaced) {
@@ -41,16 +30,22 @@ class Board {
       return false;
     }
 
-    // Validate placement
+    // Validate placement (bounds and terrain only, no collision check)
     if (!this.canPlaceShip(ship)) {
       console.warn('Board: Invalid ship placement', { ship: ship.name, cells: ship.cells });
       return false;
     }
 
-    // Place ship references on board
+    // Store ship in ship map
+    this.ships.set(ship.id, { ship, owner });
+
+    // Update sparse hit index
     ship.cells.forEach(({ row, col }) => {
-      this.grid[row][col].ship = ship;
-      this.grid[row][col].owner = owner;
+      const key = `${row},${col}`;
+      if (!this.hitIndex.has(key)) {
+        this.hitIndex.set(key, { ships: [], shots: [] });
+      }
+      this.hitIndex.get(key).ships.push(ship.id);
       console.log(`Board: Placed ${ship.name} at ${String.fromCharCode(65 + col)}${row + 1}`);
     });
 
@@ -59,7 +54,7 @@ class Board {
   }
 
   /**
-   * Check if a ship can be placed on the board
+   * Check if a ship can be placed (bounds and terrain only)
    */
   canPlaceShip(ship) {
     if (!ship.cells || !Array.isArray(ship.cells) || ship.cells.length === 0) {
@@ -74,31 +69,19 @@ class Board {
         return false;
       }
       
-      const cell = this.grid[row][col];
-      
       // Check terrain exclusions
-      if (cell.terrain === 'excluded') {
+      if (this.terrain[row][col] === 'excluded') {
         console.warn('Board: Ship placement on excluded terrain', { row, col, ship: ship.name });
         return false;
       }
       
       // Check terrain compatibility
-      if (!ship.terrain.includes(cell.terrain)) {
+      if (!ship.terrain.includes(this.terrain[row][col])) {
         console.warn('Board: Ship terrain restriction violated', {
           row, col,
           shipTerrain: ship.terrain,
-          cellTerrain: cell.terrain,
+          cellTerrain: this.terrain[row][col],
           ship: ship.name
-        });
-        return false;
-      }
-      
-      // Check if cell is already occupied
-      if (cell.ship !== null) {
-        console.warn('Board: Cell already occupied', {
-          row, col,
-          occupiedBy: cell.ship.name,
-          attemptedBy: ship.name
         });
         return false;
       }
@@ -108,189 +91,260 @@ class Board {
   }
 
   /**
-   * Process an attack at specific coordinates
+   * Process attack using sparse grid lookup
    */
   receiveAttack(row, col, attacker = 'unknown') {
     // Validate coordinates
     if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) {
       console.warn('Board: Attack coordinates out of bounds', { row, col });
-      return 'invalid';
+      return { result: 'invalid', ships: [] };
     }
 
-    const cell = this.grid[row][col];
     const cellName = `${String.fromCharCode(65 + col)}${row + 1}`;
+    const key = `${row},${col}`;
 
     // Check for excluded terrain
-    if (cell.terrain === 'excluded') {
+    if (this.terrain[row][col] === 'excluded') {
       console.warn('Board: Attack on excluded terrain', { row, col });
-      return 'invalid';
+      return { result: 'invalid', ships: [] };
     }
 
-    // Check if there's a ship at this location
-    if (cell.ship === null) {
-      // Miss
-      cell.shotResult = 'miss';
+    // Check sparse hit index for ships at this location
+    const cellData = this.hitIndex.get(key);
+    if (!cellData || cellData.ships.length === 0) {
+      // Miss - no ships at this location
+      if (!cellData) {
+        this.hitIndex.set(key, { ships: [], shots: [] });
+      }
+      this.hitIndex.get(key).shots.push({ attacker, result: 'miss', timestamp: Date.now() });
+      this.shotHistory.push({ row, col, attacker, result: 'miss', timestamp: Date.now() });
+      
       console.log(`Board: Miss at ${cellName} by ${attacker}`);
-      return 'miss';
+      return { result: 'miss', ships: [] };
     }
 
-    // There's a ship here - delegate to the ship for hit processing
-    const ship = cell.ship;
-    const hitResult = ship.hit(row, col);
-    
-    if (!hitResult) {
-      // Cell already hit
-      console.log(`Board: Already hit ${cellName} (${ship.name}) by ${attacker}`);
-      return 'already-hit';
+    // Hit - process all ships at this location
+    const hitResults = [];
+    let anyNewHits = false;
+
+    cellData.ships.forEach(shipId => {
+      const shipData = this.ships.get(shipId);
+      if (!shipData) return;
+
+      const ship = shipData.ship;
+      const hitResult = ship.hit(row, col);
+      
+      if (hitResult) {
+        anyNewHits = true;
+        const result = ship.isSunk() ? 'sunk' : 'hit';
+        hitResults.push({ ship, result, owner: shipData.owner });
+        
+        if (ship.isSunk()) {
+          console.log(`Board: SUNK - ${ship.name} at ${cellName} by ${attacker}`);
+        } else {
+          console.log(`Board: HIT - ${ship.name} at ${cellName} by ${attacker}`);
+        }
+      }
+    });
+
+    if (!anyNewHits) {
+      // All ships at this location already hit at this cell
+      console.log(`Board: Already hit ${cellName} by ${attacker}`);
+      return { result: 'already-hit', ships: hitResults };
     }
 
-    // Successful hit
-    cell.shotResult = 'hit';
-    
-    if (ship.isSunk()) {
-      console.log(`Board: SUNK - ${ship.name} at ${cellName} by ${attacker}`);
-      return 'sunk';
-    } else {
-      console.log(`Board: HIT - ${ship.name} at ${cellName} by ${attacker}`);
-      return 'hit';
-    }
+    // Record the successful hit
+    const overallResult = hitResults.some(r => r.result === 'sunk') ? 'sunk' : 'hit';
+    cellData.shots.push({ attacker, result: overallResult, timestamp: Date.now() });
+    this.shotHistory.push({ row, col, attacker, result: overallResult, ships: hitResults.length, timestamp: Date.now() });
+
+    return { result: overallResult, ships: hitResults };
   }
 
   /**
-   * Get ship at specific coordinates
+   * Get all ships at specific coordinates
    */
-  getShipAt(row, col) {
-    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) {
-      return null;
-    }
-    return this.grid[row][col].ship;
+  getShipsAt(row, col) {
+    const key = `${row},${col}`;
+    const cellData = this.hitIndex.get(key);
+    
+    if (!cellData) return [];
+    
+    return cellData.ships.map(shipId => {
+      const shipData = this.ships.get(shipId);
+      return shipData ? { ship: shipData.ship, owner: shipData.owner } : null;
+    }).filter(Boolean);
   }
 
   /**
-   * Check if a cell has been shot at
+   * Check if a cell has been attacked
    */
   wasAttacked(row, col) {
-    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) {
-      return false;
-    }
-    return this.grid[row][col].shotResult !== null;
+    const key = `${row},${col}`;
+    const cellData = this.hitIndex.get(key);
+    return cellData ? cellData.shots.length > 0 : false;
   }
 
   /**
    * Get shot result at coordinates
    */
   getShotResult(row, col) {
-    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) {
-      return null;
-    }
-    return this.grid[row][col].shotResult;
+    const key = `${row},${col}`;
+    const cellData = this.hitIndex.get(key);
+    
+    if (!cellData || cellData.shots.length === 0) return null;
+    
+    // Return most recent shot result
+    return cellData.shots[cellData.shots.length - 1].result;
   }
 
   /**
    * Get all ships on the board
    */
   getAllShips() {
-    const ships = new Set();
-    
-    for (let row = 0; row < this.rows; row++) {
-      for (let col = 0; col < this.cols; col++) {
-        const ship = this.grid[row][col].ship;
-        if (ship) {
-          ships.add(ship);
-        }
-      }
-    }
-    
-    return Array.from(ships);
+    return Array.from(this.ships.values()).map(data => data.ship);
   }
 
   /**
    * Get ships by owner
    */
   getShipsByOwner(owner) {
-    return this.getAllShips().filter(ship => ship.owner === owner);
+    return Array.from(this.ships.values())
+      .filter(data => data.owner === owner)
+      .map(data => data.ship);
   }
 
   /**
-   * Get board state for specific player (hides opponent ships)
+   * Get player view (hides opponent ships unless sunk)
    */
   getPlayerView(playerId) {
-    return this.grid.map(row =>
-      row.map(cell => ({
-        terrain: cell.terrain,
-        hasOwnShip: cell.ship && cell.owner === playerId,
-        hasEnemyShip: cell.ship && cell.owner !== playerId && cell.ship.isSunk(), // Only show sunk enemy ships
-        shotResult: cell.shotResult,
-        owner: cell.ship ? cell.owner : null
-      }))
-    );
+    const view = Array(this.rows).fill().map(() => Array(this.cols).fill().map(() => ({
+      terrain: null,
+      hasOwnShip: false,
+      hasEnemyShip: false,
+      shotResult: null,
+      ships: []
+    })));
+
+    // Set terrain
+    for (let row = 0; row < this.rows; row++) {
+      for (let col = 0; col < this.cols; col++) {
+        view[row][col].terrain = this.terrain[row][col];
+      }
+    }
+
+    // Add ship and shot information
+    this.hitIndex.forEach((cellData, key) => {
+      const [row, col] = key.split(',').map(Number);
+      
+      // Add own ships
+      const ownShips = cellData.ships.filter(shipId => {
+        const shipData = this.ships.get(shipId);
+        return shipData && shipData.owner === playerId;
+      });
+      view[row][col].hasOwnShip = ownShips.length > 0;
+      
+      // Add sunk enemy ships only
+      const sunkEnemyShips = cellData.ships.filter(shipId => {
+        const shipData = this.ships.get(shipId);
+        return shipData && shipData.owner !== playerId && shipData.ship.isSunk();
+      });
+      view[row][col].hasEnemyShip = sunkEnemyShips.length > 0;
+      
+      // Add shot result
+      if (cellData.shots.length > 0) {
+        view[row][col].shotResult = cellData.shots[cellData.shots.length - 1].result;
+      }
+    });
+
+    return view;
   }
 
   /**
    * Get complete board state (debug/admin view)
    */
   getFullState() {
-    return this.grid.map(row =>
-      row.map(cell => ({
-        terrain: cell.terrain,
-        ship: cell.ship ? {
-          id: cell.ship.id,
-          name: cell.ship.name,
-          owner: cell.ship.owner,
-          hitCount: cell.ship.hitCount,
-          isSunk: cell.ship.isSunk()
-        } : null,
-        owner: cell.owner,
-        shotResult: cell.shotResult
-      }))
-    );
+    const state = Array(this.rows).fill().map(() => Array(this.cols).fill().map(() => ({
+      terrain: null,
+      ships: [],
+      shots: []
+    })));
+
+    // Set terrain
+    for (let row = 0; row < this.rows; row++) {
+      for (let col = 0; col < this.cols; col++) {
+        state[row][col].terrain = this.terrain[row][col];
+      }
+    }
+
+    // Add ship and shot data
+    this.hitIndex.forEach((cellData, key) => {
+      const [row, col] = key.split(',').map(Number);
+      
+      state[row][col].ships = cellData.ships.map(shipId => {
+        const shipData = this.ships.get(shipId);
+        return shipData ? {
+          id: shipData.ship.id,
+          name: shipData.ship.name,
+          owner: shipData.owner,
+          hitCount: shipData.ship.hitCount,
+          isSunk: shipData.ship.isSunk()
+        } : null;
+      }).filter(Boolean);
+      
+      state[row][col].shots = cellData.shots;
+    });
+
+    return state;
   }
 
   /**
    * Clear all shots (keep ships)
    */
   clearShots() {
-    for (let row = 0; row < this.rows; row++) {
-      for (let col = 0; col < this.cols; col++) {
-        this.grid[row][col].shotResult = null;
-      }
-    }
+    this.shotHistory = [];
+    
+    // Reset shots in hit index
+    this.hitIndex.forEach(cellData => {
+      cellData.shots = [];
+    });
     
     // Reset ship damage
     this.getAllShips().forEach(ship => ship.reset());
   }
 
   /**
-   * Clear everything (ships and shots)
+   * Clear everything
    */
   clear() {
-    for (let row = 0; row < this.rows; row++) {
-      for (let col = 0; col < this.cols; col++) {
-        this.grid[row][col].ship = null;
-        this.grid[row][col].owner = null;
-        this.grid[row][col].shotResult = null;
-      }
-    }
+    this.ships.clear();
+    this.hitIndex.clear();
+    this.shotHistory = [];
   }
 
   /**
-   * Legacy compatibility methods (deprecated)
+   * Debug print for placement restrictions
    */
-  getPublicState() {
-    console.warn('Board.getPublicState() is deprecated, use getPlayerView()');
-    return this.getPlayerView('unknown');
+  debugPrint(message) {
+    console.log(`[DEBUG Board v${version}]: ${message}`);
   }
 
-  getCellStyle(userId) {
-    console.warn('Board.getCellStyle() is deprecated, use getPlayerView()');
-    return (row, col) => this.getPlayerView(userId)[row][col];
-  }
-
-  getPlayerBoard(userId) {
-    console.warn('Board.getPlayerBoard() is deprecated, use getPlayerView()');
-    return this.getPlayerView(userId);
+  /**
+   * Check placement restriction boundaries for large grids
+   */
+  checkPlacementRestriction(eraConfig, playerId) {
+    if (this.rows > 10 || this.cols > 10) {
+      this.debugPrint(`Large grid detected (${this.rows}x${this.cols}). Placement restriction: ${eraConfig.game_rules?.placement_restriction || 'none'}`);
+      
+      if (eraConfig.game_rules?.placement_restriction) {
+        const restriction = eraConfig.game_rules.placement_restriction;
+        this.debugPrint(`Player ${playerId} ships must fit within ${restriction}x${restriction} area`);
+        // TODO: Implement placement area enforcement
+      }
+    }
   }
 }
 
 export default Board;
+
 // EOF

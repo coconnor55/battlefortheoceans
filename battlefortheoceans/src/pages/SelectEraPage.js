@@ -6,7 +6,7 @@ import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 import './SelectEraPage.css';
 
-const version = 'v0.1.17';
+const version = 'v0.1.19';
 
 const SelectEraPage = () => {
   const { dispatch, stateMachine, updateEraConfig, updateSelectedOpponent, updateGameMode } = useGame();
@@ -89,6 +89,22 @@ const SelectEraPage = () => {
         <div className="select-content">
           <h2>Error Loading Eras</h2>
           <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loading && eras.length === 0) {
+    return (
+      <div className="select-page">
+        <div className="select-content">
+          <h2>Select Era</h2>
+          <div className="error-message">
+            <p>Cannot load era configurations - try again later.</p>
+            <button onClick={() => window.location.reload()} className="retry-button">
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );

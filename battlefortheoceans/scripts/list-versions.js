@@ -1,70 +1,161 @@
-// scripts/list-versions.js (v0.1.6)
+// scripts/list-versions.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 const fs = require('fs');
 const path = require('path');
 
-// Check if we're in scripts directory or parent directory
-const currentDir = __dirname;
-const isInScriptsDir = path.basename(currentDir) === 'scripts';
-const rootDir = isInScriptsDir ? path.resolve(__dirname, '..') : __dirname;
+const version = "v0.1.8";
 
-function getAllFiles(dir, fileList = []) {
-  const files = fs.readdirSync(dir);
-  files.forEach(file => {
-    const filePath = path.join(dir, file);
-    const stat = fs.statSync(filePath);
-    if (stat.isDirectory() && file !== 'node_modules' && file !== '.git') {
-      getAllFiles(filePath, fileList);
-    } else if (stat.isFile() && (file.endsWith('.js') || file.endsWith('.css'))) {
-      fileList.push(filePath);
+function scanDirectory(dirPath, basePath = '') {
+  const items = fs.readdirSync(dirPath, { withFileTypes: true });
+  const results = [];
+
+  for (const item of items) {
+    const fullPath = path.join(dirPath, item.name);
+    const relativePath = path.join(basePath, item.name);
+
+    if (item.isDirectory()) {
+      // Skip common directories that don't contain versioned files
+      if (['node_modules', '.git', 'build', 'dist', '.next'].includes(item.name)) {
+        continue;
+      }
+      results.push(...scanDirectory(fullPath, relativePath));
+    } else if (item.isFile() && (item.name.endsWith('.js') || item.name.endsWith('.css'))) {
+      const fileInfo = analyzeFile(fullPath, relativePath);
+      if (fileInfo) {
+        results.push(fileInfo);
+      }
     }
-  });
-  return fileList;
+  }
+
+  return results;
 }
 
-const allFiles = getAllFiles(rootDir);
+function analyzeFile(filePath, relativePath) {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+    
+    let version = null;
+    let hasEOF = false;
+    let versionSource = 'missing';
+    
+    // Check for version in different formats - increased from 10 to 20 lines
+    for (let i = 0; i < Math.min(20, lines.length); i++) {
+      const line = lines[i].trim();
+      
+      // Look for const version = "vx.y.z" format (preferred)
+      const constMatch = line.match(/const\s+version\s*=\s*["']([^"']+)["']/);
+      if (constMatch) {
+        version = constMatch[1];
+        versionSource = 'const';
+        break;
+      }
+      
+      // Look for old comment format as fallback
+      const commentMatch = line.match(/\/\/.*\(([v]\d+\.\d+\.\d+[^)]*)\)/);
+      if (commentMatch) {
+        version = commentMatch[1];
+        versionSource = 'comment';
+        break;
+      }
+      
+      // CSS version format /* ... (vx.y.z) */
+      const cssMatch = line.match(/\/\*.*\(([v]\d+\.\d+\.\d+[^)]*)\)/);
+      if (cssMatch) {
+        version = cssMatch[1];
+        versionSource = 'css-comment';
+        break;
+      }
+    }
+    
+    // Check for EOF marker
+    const lastLines = lines.slice(-5); // Check last 5 lines
+    for (const line of lastLines) {
+      const trimmed = line.trim();
+      if (trimmed === '// EOF' || trimmed === '// EOF - EOF - EOF' ||
+          trimmed === '/* EOF */' || trimmed === '/* EOF - EOF - EOF */') {
+        hasEOF = true;
+        break;
+      }
+    }
+    
+    // Determine status
+    let status;
+    if (version && hasEOF) {
+      status = 'ok';
+    } else if (version && !hasEOF) {
+      status = 'missing-eof';
+    } else if (!version && hasEOF) {
+      status = 'missing-version';
+    } else {
+      status = 'missing-both';
+    }
+    
+    return {
+      path: relativePath,
+      version: version || '?',
+      status: status,
+      versionSource: versionSource
+    };
+    
+  } catch (error) {
+    return {
+      path: relativePath,
+      version: 'error',
+      status: 'read-error',
+      versionSource: 'error'
+    };
+  }
+}
 
-const now = new Date();
-const options = {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/London'
-};
-const formattedDate = now.toLocaleString('en-GB', options).replace(/,/g, '');
-console.log(`Generated: ${formattedDate} BST`);
-console.log(`Scanning from: ${rootDir}`);
-
-allFiles.forEach(filePath => {
-  const relative = path.relative(rootDir, filePath).replace(/\\/g, '/');
-  const content = fs.readFileSync(filePath, 'utf8');
-  const lines = content.split(/\r?\n/);
-  const firstLine = lines[0].trim();
-  let version = 'unknown';
-  let eofExpected;
+function formatResults(results) {
+  const now = new Date();
+  const timeString = now.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/London',
+    timeZoneName: 'short'
+  });
   
-  if (filePath.endsWith('.js')) {
-    const match = firstLine.match(/^\/\/\s*.+\s*\(v([\d\.]+)\)$/);
-    if (match) {
-      version = match[1];
-    }
-    eofExpected = '// EOF - EOF - EOF';
-  } else if (filePath.endsWith('.css')) {
-    const match = firstLine.match(/^\/\*\s*.+\s*\(v([\d\.]+)\)\s*\*\//);
-    if (match) {
-      version = match[1];
-    }
-    eofExpected = '/* EOF - EOF - EOF */';
+  console.log(`Generated: ${timeString}`);
+  console.log(`Scanning from: ${process.cwd()}`);
+  
+  // Sort results by path
+  results.sort((a, b) => a.path.localeCompare(b.path));
+  
+  for (const result of results) {
+    const versionDisplay = result.version === '?' ? '(?)' : `(${result.version})`;
+    console.log(`${result.path} ${versionDisplay} ${result.status}`);
   }
   
-  const nonEmptyLines = lines.filter(line => line.trim().length > 0);
-  const lastNonEmptyLine = nonEmptyLines[nonEmptyLines.length - 1]?.trim() || '';
-  const eofStatus = lastNonEmptyLine === eofExpected ? 'ok' : 'missing-eof';
+  // Summary statistics
+  const stats = {
+    total: results.length,
+    ok: results.filter(r => r.status === 'ok').length,
+    missingEOF: results.filter(r => r.status === 'missing-eof').length,
+    missingVersion: results.filter(r => r.status === 'missing-version').length,
+    missingBoth: results.filter(r => r.status === 'missing-both').length,
+    errors: results.filter(r => r.status === 'read-error').length
+  };
   
-  console.log(`${relative} (v${version === 'unknown' ? '?' : version}) ${eofStatus}`);
-});
+  console.log('\nSummary:');
+  console.log(`Total files: ${stats.total}`);
+  console.log(`Complete (version + EOF): ${stats.ok}`);
+  console.log(`Missing EOF: ${stats.missingEOF}`);
+  console.log(`Missing version: ${stats.missingVersion}`);
+  console.log(`Missing both: ${stats.missingBoth}`);
+  if (stats.errors > 0) {
+    console.log(`Read errors: ${stats.errors}`);
+  }
+}
 
-// EOF - EOF - EOF
+// Main execution
+const startPath = process.cwd();
+const results = scanDirectory(startPath);
+formatResults(results);
+
+// EOF

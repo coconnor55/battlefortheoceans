@@ -1,20 +1,20 @@
-// src/pages/LoginPage.js (v0.1.34)
+// src/pages/LoginPage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import { useGame } from '../context/GameContext';
 import LoginDialog from '../components/LoginDialog';
 import './LoginPage.css';
 
-const version = 'v0.1.34';
+const version = 'v0.1.35';
 
 const LoginPage = () => {
-  const { dispatch, stateMachine, updatePlayer } = useGame();
+  const { dispatch, stateMachine, updateHumanPlayer } = useGame();
   
   const handleCloseDialog = (userData = null) => {
     // Store player data in GameContext if provided
     if (userData) {
-      updatePlayer(userData);
-      console.log(version, 'Player data stored in GameContext:', userData.id);
+      updateHumanPlayer(userData);
+      console.log(version, 'HumanPlayer instance created in GameContext:', userData.id);
     }
     
     if (dispatch) {
@@ -36,4 +36,4 @@ const LoginPage = () => {
 
 export default LoginPage;
 
-// EOF - EOF - EOF
+// EOF
