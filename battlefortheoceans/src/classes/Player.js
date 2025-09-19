@@ -3,14 +3,13 @@
 
 import Fleet from './Fleet.js';
 
-const version = "v0.1.0"
+const version = "v0.1.4"
 
 class Player {
   constructor(id, name, playerType = 'human') {
     this.id = id;
     this.name = name;
     this.type = playerType; // 'human', 'ai'
-    this.fleet = null;
     
     // Game state
     this.isActive = true;
@@ -31,61 +30,10 @@ class Player {
   }
 
   /**
-   * Assign a fleet to this player
-   */
-  assignFleet(fleet) {
-    if (!(fleet instanceof Fleet)) {
-      throw new Error('Player.assignFleet() requires a Fleet instance');
-    }
-    
-    this.fleet = fleet;
-    fleet.owner = this.id;
-    console.log(`Player ${this.name} assigned fleet with ${fleet.length} ships`);
-  }
-
-  /**
-   * Create fleet from era configuration
-   */
-  createFleet(eraConfig) {
-    this.fleet = Fleet.fromEraConfig(this.id, eraConfig);
-    console.log(`Player ${this.name} created fleet from era config`);
-    return this.fleet;
-  }
-
-  /**
    * Take a shot at coordinates (to be overridden by subclasses)
    */
   async selectTarget(gameState, availableTargets) {
     throw new Error('Player.selectTarget() must be implemented by subclass');
-  }
-
-  /**
-   * Process being attacked by another player
-   */
-  receiveAttack(attacker, row, col) {
-    if (!this.fleet) {
-      return { result: 'invalid', message: 'No fleet to attack' };
-    }
-
-    const attackResult = this.fleet.receiveAttack(row, col);
-    
-    // Update player stats
-    if (attackResult.result !== 'miss') {
-      // Track ships lost when they sink
-      if (attackResult.result === 'sunk' && !attackResult.wasAlreadySunk) {
-        this.shipsLost++;
-      }
-    }
-
-    // Check if player is eliminated
-    if (this.fleet.isDefeated() && !this.isEliminated) {
-      this.eliminate();
-    }
-
-    // Call reaction method (can be overridden)
-    this.onAttacked(attacker, attackResult);
-    
-    return attackResult;
   }
 
   /**
@@ -100,24 +48,6 @@ class Player {
   }
 
   /**
-   * Execute a shot (common logic for all player types)
-   */
-  fireShot(target, row, col) {
-    this.shotsFired++;
-    this.lastActionAt = Date.now();
-    
-    const result = target.receiveAttack(this, row, col);
-    
-    if (result.result === 'hit' || result.result === 'sunk') {
-      this.shotsHit++;
-      this.score += result.result === 'sunk' ? 10 : 1;
-    }
-    
-    console.log(`Player ${this.name} fired at ${target.name}: ${result.result}`);
-    return result;
-  }
-
-  /**
    * Mark player as eliminated
    */
   eliminate() {
@@ -128,18 +58,36 @@ class Player {
   }
 
   /**
-   * Check if player can still play
+   * Check if player can still play (requires gameInstance for fleet access)
    */
-  canPlay() {
-    return this.isActive && !this.isEliminated && this.fleet && !this.fleet.isDefeated();
+  canPlay(gameInstance = null) {
+    if (!this.isActive || this.isEliminated) {
+      return false;
+    }
+    
+    // If no gameInstance provided, assume player can play (basic check)
+    if (!gameInstance) {
+      return true;
+    }
+    
+    // Check fleet status through gameInstance
+    const fleet = gameInstance.playerFleets.get(this.id);
+    return fleet && !fleet.isDefeated();
   }
 
   /**
-   * Get player statistics
+   * Get player statistics (requires gameInstance for fleet status)
    */
-  getStats() {
+  getStats(gameInstance = null) {
     const accuracy = this.shotsFired > 0 ? (this.shotsHit / this.shotsFired) * 100 : 0;
     const survivalTime = (this.eliminatedAt || Date.now()) - this.joinedAt;
+    
+    // Get fleet status if gameInstance provided
+    let fleetStatus = null;
+    if (gameInstance) {
+      const fleet = gameInstance.playerFleets.get(this.id);
+      fleetStatus = fleet ? fleet.getStats() : null;
+    }
     
     return {
       id: this.id,
@@ -152,18 +100,25 @@ class Player {
       shipsLost: this.shipsLost,
       isEliminated: this.isEliminated,
       survivalTime: survivalTime,
-      fleetStatus: this.fleet ? this.fleet.getStats() : null
+      fleetStatus: fleetStatus
     };
   }
 
   /**
-   * Get available targets for this player (to be customized by game rules)
+   * Get available targets for this player (requires gameInstance for fleet status)
    */
-  getAvailableTargets(allPlayers) {
-    return allPlayers.filter(player =>
-      player.id !== this.id &&
-      player.canPlay()
-    );
+  getAvailableTargets(allPlayers, gameInstance = null) {
+    return allPlayers.filter(player => {
+      if (player.id === this.id) return false; // Can't target self
+      
+      // Basic check without fleet status
+      if (!gameInstance) {
+        return player.isActive && !player.isEliminated;
+      }
+      
+      // Full check with fleet status
+      return player.canPlay(gameInstance);
+    });
   }
 
   /**
@@ -192,39 +147,47 @@ class Player {
     this.eliminatedAt = null;
     this.lastActionAt = null;
     
-    if (this.fleet) {
-      this.fleet.reset();
-    }
-    
     console.log(`Player ${this.name} reset for new game`);
   }
 
   /**
-   * Serialize player data for network/storage
+   * Serialize player data for network/storage (requires gameInstance for fleet data)
    */
-  serialize() {
+  serialize(gameInstance = null) {
+    // Get fleet status if gameInstance provided
+    let fleetData = null;
+    if (gameInstance) {
+      const fleet = gameInstance.playerFleets.get(this.id);
+      fleetData = fleet ? fleet.getDetailedStatus() : null;
+    }
+    
     return {
       id: this.id,
       name: this.name,
       type: this.type,
       color: this.color,
-      stats: this.getStats(),
-      fleet: this.fleet ? this.fleet.getDetailedStatus() : null
+      stats: this.getStats(gameInstance),
+      fleet: fleetData
     };
   }
 
   /**
    * Create appropriate player subclass from data
+   * Note: Dynamic imports used to avoid circular dependency
    */
-  static fromData(data) {
+  static async fromData(data) {
     switch (data.type) {
       case 'ai':
-        return new AIPlayer(data.id, data.name, data.strategy || 'random');
+        const AiPlayer = (await import('./AiPlayer.js')).default;
+        return new AiPlayer(data.id, data.name, data.strategy || 'random');
       case 'human':
       default:
+        const HumanPlayer = (await import('./HumanPlayer.js')).default;
         return new HumanPlayer(data.id, data.name);
     }
   }
+
+
 }
 
 export default Player;

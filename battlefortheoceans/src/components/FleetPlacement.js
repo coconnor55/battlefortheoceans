@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import './FleetPlacement.css';
 
-const version = 'v0.1.8';
+const version = 'v0.1.10';
 
 const FleetPlacement = ({ board, currentShip, onShipPlaced, eraConfig }) => {
   const [previewCells, setPreviewCells] = useState([]);
@@ -13,7 +13,7 @@ const FleetPlacement = ({ board, currentShip, onShipPlaced, eraConfig }) => {
   const [startCell, setStartCell] = useState(null);
   const [endCell, setEndCell] = useState(null);
   
-  const { gameInstance, registerShipPlacement } = useGame();
+  const { gameInstance, registerShipPlacement, humanPlayer } = useGame();
 
   // Clear preview when ship changes
   useEffect(() => {
@@ -27,16 +27,23 @@ const FleetPlacement = ({ board, currentShip, onShipPlaced, eraConfig }) => {
     const terrain = eraConfig.terrain[row][col];
     let classes = [`cell`, `terrain-${terrain}`];
     
-    // Show placed ships using Game instance data
-    if (gameInstance) {
-      const shipDataArray = board.getShipDataAt(row, col);
-      const hasPlayerShip = shipDataArray.some(shipData => {
-        const ownerId = gameInstance.shipOwnership.get(shipData.shipId);
-        return ownerId === gameInstance.players.find(p => p.type === 'human')?.id;
-      });
-      
-      if (hasPlayerShip) {
-        classes.push('has-ship');
+    // Show placed ships - check if game instance and required data are available
+    if (gameInstance && gameInstance.shipOwnership && gameInstance.players && humanPlayer) {
+      try {
+        const shipDataArray = board.getShipDataAt(row, col);
+        if (shipDataArray && shipDataArray.length > 0) {
+          const hasPlayerShip = shipDataArray.some(shipData => {
+            const ownerId = gameInstance.shipOwnership.get(shipData.shipId);
+            return ownerId === humanPlayer.id;
+          });
+          
+          if (hasPlayerShip) {
+            classes.push('has-ship');
+          }
+        }
+      } catch (error) {
+        console.warn(version, 'Error checking ship data at', row, col, ':', error);
+        // Don't add has-ship class if there's an error
       }
     }
     
@@ -90,12 +97,17 @@ const FleetPlacement = ({ board, currentShip, onShipPlaced, eraConfig }) => {
         return false;
       }
       
-      // Check for existing ship overlaps using Game instance
-      if (gameInstance) {
-        const shipDataArray = board.getShipDataAt(cell.row, cell.col);
-        const hasExistingShip = shipDataArray.length > 0;
-        if (hasExistingShip) {
-          return false;
+      // Check for existing ship overlaps - be more defensive about game instance
+      if (gameInstance && gameInstance.shipOwnership && humanPlayer) {
+        try {
+          const shipDataArray = board.getShipDataAt(cell.row, cell.col);
+          const hasExistingShip = shipDataArray && shipDataArray.length > 0;
+          if (hasExistingShip) {
+            return false;
+          }
+        } catch (error) {
+          console.warn(version, 'Error checking ship overlap at', cell.row, cell.col, ':', error);
+          // Assume no overlap if we can't check
         }
       }
     }
@@ -229,6 +241,16 @@ const FleetPlacement = ({ board, currentShip, onShipPlaced, eraConfig }) => {
     handleCellMouseUp(row, col);
   };
 
+  // Debug logging to help track rendering issues - REMOVED to prevent excessive logging
+  // Only log when there are actual issues
+  if (!board || !eraConfig) {
+    console.warn(version, 'FleetPlacement missing critical props:', {
+      hasBoard: !!board,
+      hasEraConfig: !!eraConfig
+    });
+  }
+
+  // Render the board grid
   return (
     <div className="ship-placement-board">
       <div

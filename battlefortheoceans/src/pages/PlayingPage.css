@@ -1,9 +1,212 @@
-/* src/pages/PlayingPage.css (v0.1.1) */
-/* Copyright(c) 2025, Clint H. O'Connor */
+/* src/pages/PlayingPage.css (v0.1.3)
+   Copyright(c) 2025, Clint H. O'Connor */
 
-/* Page-specific styles only - common styles in Pages.css */
+/* Battle-specific attack result overlays */
+.battle-grid .your-hit {
+  background-color: #FF6B6B !important; /* Red for your hits */
+  color: white;
+  box-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
+}
 
-/* Any placement-specific adjustments would go here */
-/* Currently none needed - Pages.css handles everything */
+.battle-grid .your-hit::before {
+  content: "💥";
+  font-size: 16px;
+  position: absolute;
+  z-index: 2;
+}
+
+.battle-grid .enemy-hit {
+  background-color: #4ECDC4 !important; /* Teal for enemy hits on your ships */
+  color: white;
+  box-shadow: 0 0 8px rgba(78, 205, 196, 0.6);
+}
+
+.battle-grid .enemy-hit::before {
+  content: "🔥";
+  font-size: 16px;
+  position: absolute;
+  z-index: 2;
+}
+
+.battle-grid .your-miss {
+  background-color: #95A5A6 !important; /* Grey for your misses */
+  color: white;
+}
+
+.battle-grid .your-miss::before {
+  content: "💧";
+  font-size: 14px;
+  position: absolute;
+  z-index: 2;
+}
+
+.battle-grid .enemy-miss {
+  background-color: #BDC3C7 !important; /* Light grey for enemy misses */
+  color: #2C3E50;
+}
+
+.battle-grid .enemy-miss::before {
+  content: "○";
+  font-size: 12px;
+  position: absolute;
+  z-index: 2;
+  font-weight: bold;
+}
+
+/* Battle legend */
+.battle-legend {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 15px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+}
+
+.battle-legend .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+.battle-legend .legend-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  border: 1px solid #999;
+  position: relative;
+}
+
+.battle-legend .legend-icon.has-ship {
+  background-color: #ADD8E6;
+}
+
+.battle-legend .legend-icon.has-ship::after {
+  content: "⚓";
+  font-size: 8px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.battle-legend .legend-icon.your-hit {
+  background-color: #FF6B6B;
+}
+
+.battle-legend .legend-icon.your-hit::before {
+  content: "💥";
+  font-size: 8px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.battle-legend .legend-icon.enemy-hit {
+  background-color: #4ECDC4;
+}
+
+.battle-legend .legend-icon.enemy-hit::before {
+  content: "🔥";
+  font-size: 8px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.battle-legend .legend-icon.your-miss {
+  background-color: #95A5A6;
+}
+
+.battle-legend .legend-icon.your-miss::before {
+  content: "💧";
+  font-size: 8px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Game over controls */
+.game-over-controls {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.message-log-display {
+  margin-top: 20px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.log-content {
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.log-entry {
+  margin: 2px 0;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.log-entry.info {
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+.log-entry.hit {
+  background-color: rgba(255, 0, 0, 0.1);
+}
+
+.log-entry.miss {
+  background-color: rgba(108, 117, 125, 0.1);
+}
+
+.log-time {
+  color: #6c757d;
+  margin-right: 8px;
+}
+
+.log-turn {
+  color: #007bff;
+  margin-right: 8px;
+  font-weight: bold;
+}
+
+.log-message {
+  color: #212529;
+}
+
+/* Battle-specific responsive adjustments */
+@media (max-width: 768px) {
+  .battle-legend {
+    gap: 10px;
+    font-size: 12px;
+  }
+  
+  .battle-legend .legend-icon {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .battle-legend {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+}
 
 /* EOF */

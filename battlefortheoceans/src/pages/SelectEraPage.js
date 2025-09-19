@@ -7,16 +7,24 @@ import { useGame } from '../context/GameContext';
 import './Pages.css';
 import './SelectEraPage.css';
 
-const version = 'v0.1.21';
+const version = 'v0.1.22';
 
 const SelectEraPage = () => {
-  const { dispatch, stateMachine, updateEraConfig, updateSelectedOpponent } = useGame();
-  const [selectedEra, setSelectedEra] = useState(null);
+  const {
+    dispatch,
+    stateMachine,
+    updateEraConfig,
+    updateSelectedOpponent,
+    eraConfig,
+    selectedOpponent,
+    uiVersion  // Track gameLogic changes
+  } = useGame();
+  
+  // Local UI state only - not business logic
+  const [selectedEraId, setSelectedEraId] = useState(null);
   const [eras, setEras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
-  const [selectedOpponent, setSelectedOpponent] = useState(null);
 
   // Handle opponent selection and create complete opponent object with ID
   const handleOpponentSelect = (opponent) => {
@@ -29,17 +37,26 @@ const SelectEraPage = () => {
     };
     
     console.log(version, 'Created AI opponent with ID:', completeOpponent.id);
-    setSelectedOpponent(completeOpponent);
+    
+    // Update gameLogic directly
+    updateSelectedOpponent(completeOpponent);
+  };
+
+  // Handle era selection
+  const handleEraSelect = (era) => {
+    setSelectedEraId(era.id);
+    
+    // Update gameLogic directly
+    updateEraConfig(era);
+    
+    // Clear opponent selection when era changes
+    updateSelectedOpponent(null);
   };
         
   const handleCloseDialog = () => {
-    if (selectedEra && selectedOpponent) {
-      // Store the era config and opponent in GameContext
-      updateEraConfig(selectedEra);
-      updateSelectedOpponent(selectedOpponent);
-      
+    if (eraConfig && selectedOpponent) {
       console.log(version, 'Storing era config and firing PLACEMENT event');
-      console.log(version, 'Era config:', selectedEra.name);
+      console.log(version, 'Era config:', eraConfig.name);
       console.log(version, 'Selected opponent:', selectedOpponent.name, 'with ID:', selectedOpponent.id);
       
       if (dispatch) {
@@ -88,6 +105,13 @@ const SelectEraPage = () => {
     
     fetchEras();
   }, []);
+
+  // Sync local selectedEraId with gameLogic eraConfig
+  useEffect(() => {
+    if (eraConfig && eraConfig.id !== selectedEraId) {
+      setSelectedEraId(eraConfig.id);
+    }
+  }, [eraConfig, uiVersion]);
 
   // Loading state
   if (loading) {
@@ -156,12 +180,8 @@ const SelectEraPage = () => {
             {eras.map((era) => (
               <div
                 key={era.id}
-                className={`era-item ${selectedId === era.id ? 'selected' : ''}`}
-                onClick={() => {
-                  setSelectedId(era.id);
-                  setSelectedEra(era);
-                  setSelectedOpponent(null); // Reset opponent selection
-                }}
+                className={`era-item ${selectedEraId === era.id ? 'selected' : ''}`}
+                onClick={() => handleEraSelect(era)}
               >
                 <div className="era-header">
                   <span className="era-name">{era.name}</span>
@@ -176,7 +196,7 @@ const SelectEraPage = () => {
             ))}
           </div>
 
-          {selectedEra && (
+          {eraConfig && (
             <div className="opponent-selection">
               <div className="game-info">
                 <h3>Choose Your Opponent</h3>
@@ -184,7 +204,7 @@ const SelectEraPage = () => {
               </div>
               
               <div className="opponent-slider">
-                {selectedEra.ai_captains.slice(0, 3).map((opponent, index) => (
+                {eraConfig.ai_captains.slice(0, 3).map((opponent, index) => (
                   <div
                     key={index}
                     className={`opponent-item ${selectedOpponent?.name === opponent.name ? 'selected' : ''}`}
@@ -204,7 +224,7 @@ const SelectEraPage = () => {
               
               <button
                 className="btn btn-primary btn-large"
-                disabled={!selectedEra || !selectedOpponent}
+                disabled={!eraConfig || !selectedOpponent}
                 onClick={handleCloseDialog}
               >
                 Begin Battle

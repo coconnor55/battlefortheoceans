@@ -7,7 +7,7 @@ import AiPlayer from './AiPlayer.js';
 import Fleet from './Fleet.js';
 import Alliance from './Alliance.js';
 
-const version = "v0.1.10";
+const version = "v0.1.16";
 
 class Game {
   constructor(eraConfig, gameMode = 'turnBased') {
@@ -52,12 +52,47 @@ class Game {
     this.turnTimeout = null;
     this.maxTurnTime = 30000; // 30 seconds per turn
     
+    // Callback for UI updates
+    this.uiUpdateCallback = null;
+    
+    // UI communication for opponent shots
+    this.battleBoardRef = null;
+    
     this.log(`Game created: ${this.id}, Mode: ${gameMode}`);
   }
 
   /**
-   * Add player to the game with optional strategy and difficulty for AI
+   * Set callback for UI updates
    */
+  setUIUpdateCallback(callback) {
+    this.uiUpdateCallback = callback;
+  }
+
+  /**
+   * Set battle board reference for opponent shot visualization
+   */
+  setBattleBoardRef(ref) {
+    this.battleBoardRef = ref;
+  }
+
+  /**
+   * Notify UI of state changes
+   */
+  notifyUIUpdate() {
+    if (this.uiUpdateCallback) {
+      this.uiUpdateCallback();
+    }
+  }
+
+  /**
+   * Notify battle board of opponent shots for visual feedback
+   */
+  notifyOpponentShot(row, col, result) {
+    if (this.battleBoardRef?.current?.recordOpponentShot) {
+      this.battleBoardRef.current.recordOpponentShot(row, col, result);
+    }
+  }
+
   addPlayer(id, type = 'human', name = 'Player', strategy = 'methodical_hunting', difficulty = 1) {
     if (this.players.length >= (this.eraConfig.max_players || 2)) {
       throw new Error(`Maximum ${this.eraConfig.max_players || 2} players allowed`);
@@ -142,6 +177,17 @@ class Game {
     const cellData = this.cellContents.get(cellKey);
     if (!cellData || cellData.length === 0) {
       this.log(`Miss at ${cellName} by ${firingPlayer.name}`);
+      
+      // Record shot in board for visual feedback
+      if (this.board) {
+        this.board.recordShot(row, col, firingPlayer, 'miss');
+      }
+      
+      // Notify UI of opponent miss for visual feedback
+      if (firingPlayer.type === 'ai') {
+        this.notifyOpponentShot(row, col, 'miss');
+      }
+      
       return { result: 'miss', ships: [] };
     }
 
@@ -196,10 +242,31 @@ class Game {
     }
 
     if (!anyValidHits) {
+      // Record blocked shot in board
+      if (this.board) {
+        this.board.recordShot(row, col, firingPlayer, 'blocked');
+      }
+      
+      // Notify UI of opponent blocked shot
+      if (firingPlayer.type === 'ai') {
+        this.notifyOpponentShot(row, col, 'blocked');
+      }
+      
       return { result: 'blocked', ships: [] };
     }
 
     const overallResult = hitResults.some(r => r.result === 'sunk') ? 'sunk' : 'hit';
+    
+    // Record successful hit/sunk in board for visual feedback
+    if (this.board) {
+      this.board.recordShot(row, col, firingPlayer, overallResult);
+    }
+    
+    // Notify UI of opponent hit/sunk for visual feedback
+    if (firingPlayer.type === 'ai') {
+      this.notifyOpponentShot(row, col, overallResult);
+    }
+    
     return { result: overallResult, ships: hitResults };
   }
 
@@ -260,15 +327,16 @@ class Game {
 
   /**
    * Register ship placement for hit resolution mapping
+   * FIXED: Now accepts position data as parameters instead of reading from ship
    */
-  registerShipPlacement(ship, playerId) {
-    if (!ship.isPlaced || !ship.cells) return false;
+  registerShipPlacement(ship, shipCells, orientation, playerId) {
+    console.log(`[Game] Registering ship placement: ${ship.name} for ${playerId}`);
     
     // Update ship ownership
     this.shipOwnership.set(ship.id, playerId);
     
-    // Update cell contents mapping
-    ship.cells.forEach((cell, index) => {
+    // Update cell contents mapping using provided position data
+    shipCells.forEach((cell, index) => {
       const cellKey = `${cell.row},${cell.col}`;
       
       if (!this.cellContents.has(cellKey)) {
@@ -281,6 +349,7 @@ class Game {
       });
     });
     
+    console.log(`[Game] Ship ${ship.name} registered at ${shipCells.length} cells`);
     return true;
   }
 
@@ -324,12 +393,8 @@ class Game {
         await this.autoPlaceShips(player);
       }
       
-      // Register all placed ships for hit resolution
-      fleet.ships.forEach(ship => {
-        if (ship.isPlaced) {
-          this.registerShipPlacement(ship, player.id);
-        }
-      });
+      // Note: Manual ship placements are already registered via registerShipPlacement()
+      // during the placement phase, so no need to re-register here
     }
 
     this.state = 'playing';
@@ -337,11 +402,16 @@ class Game {
     this.currentPlayerIndex = 0; // Human player goes first
     
     this.log('Game started');
+    
+    // Check if first player is AI and trigger their turn
+    this.checkAndTriggerAITurn();
+    
     return true;
   }
 
   /**
    * Auto-place ships for AI players
+   * FIXED: Uses new architecture - position data passed to registerShipPlacement
    */
   async autoPlaceShips(player) {
     const fleet = this.playerFleets.get(player.id);
@@ -375,9 +445,20 @@ class Game {
 
         if (isValid) {
           try {
-            ship.place(cells, horizontal ? 'horizontal' : 'vertical');
-            placed = true;
-            this.log(`${player.name}: Placed ${ship.name} at ${row},${col} ${horizontal ? 'H' : 'V'}`);
+            // Register placement with Game (position mapping)
+            const registered = this.registerShipPlacement(
+              ship,
+              cells,
+              horizontal ? 'horizontal' : 'vertical',
+              player.id
+            );
+            
+            if (registered) {
+              // Mark ship as placed after successful registration
+              ship.place();
+              placed = true;
+              this.log(`${player.name}: Placed ${ship.name} at ${row},${col} ${horizontal ? 'H' : 'V'}`);
+            }
           } catch (error) {
             ship.reset();
           }
@@ -478,6 +559,55 @@ class Game {
     if (!shouldContinue) {
       this.nextTurn();
     }
+    
+    // After handling turn progression, check if we need to trigger AI move
+    this.checkAndTriggerAITurn();
+  }
+
+  /**
+   * Check if it's an AI's turn and automatically trigger their move
+   */
+  async checkAndTriggerAITurn() {
+    if (this.state !== 'playing') return;
+    
+    const currentPlayer = this.getCurrentPlayer();
+    if (currentPlayer?.type === 'ai') {
+      // Small delay for better UX, then trigger AI move
+      setTimeout(async () => {
+        try {
+          await this.executeAITurn(currentPlayer);
+        } catch (error) {
+          console.error(`AI turn failed for ${currentPlayer.name}:`, error);
+          // Force turn to next player if AI fails
+          this.nextTurn();
+          this.checkAndTriggerAITurn(); // Check if next player is also AI
+        }
+      }, 1000);
+    }
+  }
+
+  /**
+   * Execute AI turn and handle consecutive moves if turn_on_hit is true
+   */
+  async executeAITurn(aiPlayer) {
+    if (!aiPlayer.makeMove) {
+      throw new Error(`AI Player ${aiPlayer.name} missing makeMove method`);
+    }
+    
+    const result = await aiPlayer.makeMove(this);
+    console.log(`AI ${aiPlayer.name} turn result:`, result.result);
+    
+    // Notify UI that AI turn completed
+    this.notifyUIUpdate();
+    
+    // Check if game ended
+    if (this.state !== 'playing') {
+      return;
+    }
+    
+    // Check if AI should continue (turn_on_hit logic already handled in handleTurnProgression)
+    // If it's still this AI's turn, they'll get called again via checkAndTriggerAITurn
+    this.checkAndTriggerAITurn();
   }
 
   /**
@@ -563,6 +693,37 @@ class Game {
     });
     
     this.log('Game reset');
+  }
+
+  /**
+   * Get game statistics
+   */
+  getGameStats() {
+    const duration = this.endTime ?
+      Math.floor((this.endTime - this.startTime) / 1000) :
+      Math.floor((Date.now() - (this.startTime || Date.now())) / 1000);
+    
+    const playerStats = this.players.map(player => {
+      const fleet = this.playerFleets.get(player.id);
+      return {
+        name: player.name,
+        type: player.type,
+        shotsFired: player.shotsFired,
+        shotsHit: player.shotsHit,
+        accuracy: player.shotsFired > 0 ? (player.shotsHit / player.shotsFired * 100).toFixed(1) : 0,
+        shipsRemaining: fleet ? fleet.ships.filter(s => !s.isSunk()).length : 0,
+        score: player.score
+      };
+    });
+
+    return {
+      gameId: this.id,
+      duration: duration,
+      totalTurns: this.currentTurn,
+      winner: this.winner?.name || null,
+      state: this.state,
+      players: playerStats
+    };
   }
 
   /**

@@ -1,7 +1,7 @@
 // src/classes/Alliance.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.1.1"
+const version = "v0.1.2"
 
 class Alliance {
   constructor(name, owner, avatar = null) {
@@ -47,6 +47,29 @@ class Alliance {
     const previousOwner = this.owner;
     this.owner = newOwnerId;
     console.log(`Alliance ${this.name} ownership changed from ${previousOwner} to ${newOwnerId}`);
+    return true;
+  }
+
+  /**
+   * Get display name for alliance (substitutes player name for single-member alliances)
+   */
+  getName() {
+    // If alliance has exactly one player, use player's name
+    if (this.players.length === 1) {
+      return this.players[0].name;
+    }
+    
+    // Otherwise use configured alliance name
+    return this.name;
+  }
+
+  /**
+   * Set alliance name (for player-initiated renaming)
+   */
+  setName(newName) {
+    const oldName = this.name;
+    this.name = newName;
+    console.log(`Alliance renamed from "${oldName}" to "${newName}"`);
     return true;
   }
 

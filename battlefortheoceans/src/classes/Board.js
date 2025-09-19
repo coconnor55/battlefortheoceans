@@ -1,7 +1,7 @@
 // src/classes/Board.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.1.18";
+const version = "v0.1.19";
 
 class Board {
   constructor(rows, cols, terrain) {
@@ -45,33 +45,33 @@ class Board {
 
   /**
    * Check if a ship can be placed (bounds and terrain only)
+   * FIXED: Now accepts position data as parameters instead of reading from ship
    */
-  canPlaceShip(ship) {
-    if (!ship.cells || !Array.isArray(ship.cells) || ship.cells.length === 0) {
-      console.warn('Board: Ship has no cells defined', { ship: ship.name });
+  canPlaceShip(shipCells, shipTerrain) {
+    if (!shipCells || !Array.isArray(shipCells) || shipCells.length === 0) {
+      console.warn('Board: No ship cells provided for placement validation');
       return false;
     }
     
-    return ship.cells.every(({ row, col }) => {
+    return shipCells.every(({ row, col }) => {
       // Check bounds
       if (!this.isValidCoordinate(row, col)) {
-        console.warn('Board: Ship placement out of bounds', { row, col, ship: ship.name });
+        console.warn('Board: Ship placement out of bounds', { row, col });
         return false;
       }
       
       // Check terrain exclusions
       if (this.isExcludedTerrain(row, col)) {
-        console.warn('Board: Ship placement on excluded terrain', { row, col, ship: ship.name });
+        console.warn('Board: Ship placement on excluded terrain', { row, col });
         return false;
       }
       
       // Check terrain compatibility
-      if (!ship.terrain.includes(this.terrain[row][col])) {
+      if (!shipTerrain.includes(this.terrain[row][col])) {
         console.warn('Board: Ship terrain restriction violated', {
           row, col,
-          shipTerrain: ship.terrain,
-          cellTerrain: this.terrain[row][col],
-          ship: ship.name
+          shipTerrain: shipTerrain,
+          cellTerrain: this.terrain[row][col]
         });
         return false;
       }
@@ -81,22 +81,20 @@ class Board {
   }
 
   /**
-   * Register ship placement for spatial queries (called by Game)
+   * Register ship placement for spatial queries (called by GameContext)
+   * FIXED: Now accepts position data as parameters instead of reading from ship
    */
-  registerShipPlacement(ship) {
-    if (!ship.isPlaced || !ship.cells) {
-      console.warn('Board: Cannot register unplaced ship', { ship: ship?.name });
-      return false;
-    }
-
-    // Validate placement first
-    if (!this.canPlaceShip(ship)) {
+  registerShipPlacement(ship, shipCells) {
+    console.log(`[Board] Registering ship placement: ${ship.name}`);
+    
+    // Validate placement first using provided position data
+    if (!this.canPlaceShip(shipCells, ship.terrain)) {
       console.warn('Board: Invalid ship placement during registration', { ship: ship.name });
       return false;
     }
 
-    // Register ship cells in spatial mapping
-    ship.cells.forEach((cell, index) => {
+    // Register ship cells in spatial mapping using provided position data
+    shipCells.forEach((cell, index) => {
       const key = `${cell.row},${cell.col}`;
       
       if (!this.cellContents.has(key)) {
@@ -111,7 +109,7 @@ class Board {
       console.log(`Board: Registered ${ship.name} at ${String.fromCharCode(65 + cell.col)}${cell.row + 1}`);
     });
 
-    console.log('Board: Ship placement registered', { ship: ship.name, cellCount: ship.cells.length });
+    console.log('Board: Ship placement registered', { ship: ship.name, cellCount: shipCells.length });
     return true;
   }
 

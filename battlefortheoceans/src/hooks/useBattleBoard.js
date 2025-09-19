@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-const version = "v0.1.7"
+const version = "v0.1.9"
 
 const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
   const canvasRef = useRef(null);
@@ -114,7 +114,7 @@ const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
         const shotInfo = shotHistory.get(shotKey);
         const shotResult = board.getLastShotResult(row, col);
 
-        // Draw enhanced attack results
+        // Enhanced sunk ship visualization
         if (shotResult === 'hit' || shotResult === 'sunk') {
           // Get ship data at this location from Game instance
           const shipDataArray = board.getShipDataAt(row, col);
@@ -127,8 +127,8 @@ const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
             return ownerId !== gameState.userId;
           });
           
-          // Check if any ships are sunk
-          const isSunk = shipDataArray.some(shipData => {
+          // Check if any ships are sunk at this location
+          const anySunkShips = shipDataArray.some(shipData => {
             const ownerId = gameInstance.shipOwnership.get(shipData.shipId);
             const fleet = gameInstance.playerFleets.get(ownerId);
             const ship = fleet?.ships.find(s => s.id === shipData.shipId);
@@ -136,30 +136,45 @@ const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
           });
           
           if (hasPlayerShip) {
-            // Player ship hit - keep light blue background, add medium grey if sunk
-            if (isSunk) {
-              ctx.fillStyle = '#808080'; // Medium grey for sunk player ships
+            // Player ship hit - keep light blue background, add darker overlay if sunk
+            if (anySunkShips) {
+              ctx.fillStyle = 'rgba(128, 128, 128, 0.8)'; // Dark grey overlay for sunk player ships
               ctx.fillRect(x, y, size, size);
+              
+              // Add sunk ship icon
+              ctx.fillStyle = '#FFFFFF';
+              ctx.font = 'bold 16px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText('⚓', centerX, centerY + 4);
             }
-            // Light blue background already drawn above
-          } else if (hasEnemyShip && isSunk) {
-            // Enemy ship hit and sunk
-            ctx.fillStyle = '#808080'; // Medium grey for sunk enemy ships
+          } else if (hasEnemyShip && anySunkShips) {
+            // Enemy ship hit and sunk - show full enemy ship with dark grey
+            ctx.fillStyle = 'rgba(128, 128, 128, 0.9)'; // Dark grey for sunk enemy ships
             ctx.fillRect(x, y, size, size);
+            
+            // Add sunk enemy ship icon
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('💀', centerX, centerY + 4);
           }
           
           // Draw hit indicator based on who shot
           const isPlayerShot = shotInfo?.shooter === 'player';
-          ctx.fillStyle = isPlayerShot ? '#CC0000' : '#0066FF'; // Red for player, blue for opponent
-          ctx.beginPath();
-          ctx.arc(centerX, centerY, isPlayerShot ? size * 0.4 : size * 0.35, 0, 2 * Math.PI);
-          ctx.fill();
           
-          // Add white center for contrast
-          ctx.fillStyle = '#FFFFFF';
-          ctx.beginPath();
-          ctx.arc(centerX, centerY, size * 0.12, 0, 2 * Math.PI);
-          ctx.fill();
+          if (!anySunkShips) {
+            // Only show hit indicators if ship is not sunk
+            ctx.fillStyle = isPlayerShot ? '#CC0000' : '#0066FF'; // Red for player, blue for opponent
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, isPlayerShot ? size * 0.4 : size * 0.35, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Add white center for contrast
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size * 0.12, 0, 2 * Math.PI);
+            ctx.fill();
+          }
 
         } else if (shotResult === 'miss') {
           // Always show player misses as persistent grey circles
@@ -202,18 +217,26 @@ const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
       ctx.stroke();
       
     } else if (anim.type === 'opponent-miss') {
-      // Orange ring that fades for opponent misses - hollow center to avoid collision
-      ctx.strokeStyle = anim.color;
-      ctx.lineWidth = 3;
+      // Enhanced opponent miss animation - grey filled circle that fades
+      const alpha = Math.max(0, 1 - anim.progress);
+      
+      // Outer grey circle
+      ctx.fillStyle = `rgba(128, 128, 128, ${alpha * 0.8})`;
       ctx.beginPath();
       ctx.arc(anim.x, anim.y, anim.radius, 0, 2 * Math.PI);
-      ctx.stroke();
+      ctx.fill();
       
-      // Inner ring for visibility
-      ctx.strokeStyle = 'rgba(255, 140, 0, 0.6)';
-      ctx.lineWidth = 1;
+      // Inner white circle for contrast
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.beginPath();
-      ctx.arc(anim.x, anim.y, anim.radius - 2, 0, 2 * Math.PI);
+      ctx.arc(anim.x, anim.y, anim.radius * 0.4, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      // Border ring
+      ctx.strokeStyle = `rgba(100, 100, 100, ${alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(anim.x, anim.y, anim.radius, 0, 2 * Math.PI);
       ctx.stroke();
     }
     
@@ -257,7 +280,7 @@ const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
         })));
         
         // Record shot in Board for persistence
-        board.recordShot(row, col, { name: 'Player' }, shotResult.result);
+        gameBoard.recordShot(row, col, { name: 'Player' }, shotResult.result);
         
         showShotAnimation(shotResult, 'player');
       }
@@ -273,7 +296,7 @@ const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
     })));
     
     // Record shot in Board for persistence
-    board.recordShot(row, col, { name: 'Opponent' }, result);
+    gameBoard.recordShot(row, col, { name: 'Opponent' }, result);
     
     showShotAnimation({ result, row, col }, 'opponent');
   };
@@ -357,32 +380,42 @@ const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
         requestAnimationFrame(animateSplash);
         
       } else {
-        // Opponent misses: show temporary visual feedback with clear center to avoid collision
+        // Enhanced opponent miss animation - larger, more visible grey circle
         const animation = {
           id: animId,
           type: 'opponent-miss',
           x: animX,
           y: animY,
-          radius: 8,
-          color: 'rgba(255, 179, 71, 0.8)', // Orange color for opponent
+          radius: 12, // Larger radius for better visibility
+          color: 'rgba(128, 128, 128, 0.9)', // More opaque grey
           progress: 0
         };
         
         setAnimations(prev => [...prev, animation]);
         
-        // Show opponent miss for 1.5 seconds then fade
+        // Show opponent miss for 3 seconds then fade over 1 second
         const startTime = Date.now();
-        const duration = 1500;
+        const holdDuration = 3000; // Hold for 3 seconds
+        const fadeDuration = 1000; // Fade over 1 second
+        const totalDuration = holdDuration + fadeDuration;
         
         const animateOpponentMiss = () => {
           const elapsed = Date.now() - startTime;
-          const progress = Math.min(elapsed / duration, 1);
+          let progress;
+          
+          if (elapsed < holdDuration) {
+            progress = 0; // Hold at full opacity
+          } else {
+            progress = (elapsed - holdDuration) / fadeDuration; // Start fading
+          }
+          
+          progress = Math.min(progress, 1);
           
           setAnimations(prev => prev.map(anim =>
             anim.id === animId ? { ...anim, progress } : anim
           ));
           
-          if (progress < 1) {
+          if (elapsed < totalDuration) {
             requestAnimationFrame(animateOpponentMiss);
           } else {
             setAnimations(prev => prev.filter(anim => anim.id !== animId));

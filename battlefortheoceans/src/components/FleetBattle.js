@@ -6,7 +6,7 @@ import { useGame } from '../context/GameContext';
 import useBattleBoard from '../hooks/useBattleBoard';
 import './FleetBattle.css';
 
-const version = 'v0.1.7'
+const version = 'v0.1.8'
 
 const FleetBattle = ({ eraConfig, gameState, gameBoard, onShotFired }) => {
   const { gameInstance } = useGame();
@@ -24,6 +24,14 @@ const FleetBattle = ({ eraConfig, gameState, gameBoard, onShotFired }) => {
       gameState.battleBoardRef.current = { recordOpponentShot };
     }
   }, [recordOpponentShot, gameState.battleBoardRef]);
+
+  // Connect battle board to Game instance for AI shot visualization
+  useEffect(() => {
+    if (gameInstance && recordOpponentShot) {
+      // Set up reference so Game can notify battle board of opponent shots
+      gameInstance.setBattleBoardRef({ current: { recordOpponentShot } });
+    }
+  }, [gameInstance, recordOpponentShot]);
 
   if (!isReady) {
     return (
@@ -59,6 +67,10 @@ const FleetBattle = ({ eraConfig, gameState, gameBoard, onShotFired }) => {
         <div className="legend-item">
           <div className="legend-color grey-miss"></div>
           <span>Your misses</span>
+        </div>
+        <div className="legend-item">
+          <div className="legend-color sunk-ship"></div>
+          <span>Sunk ships</span>
         </div>
       </div>
     </div>

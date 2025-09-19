@@ -1,4 +1,4 @@
-/* src/pages/Pages.css (v0.1.0) */
+/* src/pages/Pages.css (v0.1.1) */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Common styling for all pages - responsive design for PWA */
 
@@ -204,6 +204,188 @@
   text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
 }
 
+/* Shared grid system for both placement and battle */
+.ship-placement-board,
+.battle-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 0;
+  background: transparent;
+}
+
+.ship-placement-board .board-grid,
+.battle-grid .board-grid {
+  display: grid;
+  gap: 1px;
+  background: grey;
+  user-select: none;
+  touch-action: none;
+  padding: 0;
+  border: 2px solid grey;
+  border-radius: 0;
+}
+
+.ship-placement-board .cell,
+.battle-grid .cell {
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #FFFAFA; /* Snow white cell background */
+  border: 1px solid #e9ecef;
+  border-radius: 2px;
+}
+
+.ship-placement-board .cell:hover,
+.battle-grid .cell:hover {
+  background-color: #f1f3f4;
+  transform: scale(1.05);
+}
+
+.ship-placement-board .cell-coord,
+.battle-grid .cell-coord {
+  font-size: 10px;
+  color: #6c757d;
+  pointer-events: none;
+  font-weight: 500;
+  font-family: monospace;
+}
+
+/* Terrain types based on NOAA Chart 1 convention */
+.ship-placement-board .terrain-deep,
+.battle-grid .terrain-deep {
+  background-color: #FFFAFA; /* Snow white for deep water */
+}
+
+.ship-placement-board .terrain-shallow,
+.battle-grid .terrain-shallow {
+  background-color: #E6F3FF; /* Light blue */
+}
+
+.ship-placement-board .terrain-shoal,
+.battle-grid .terrain-shoal {
+  background-color: #B3D9FF; /* Medium blue */
+}
+
+.ship-placement-board .terrain-marsh,
+.battle-grid .terrain-marsh {
+  background-color: #90EE90; /* Light green */
+}
+
+.ship-placement-board .terrain-land,
+.battle-grid .terrain-land {
+  background-color: #F5DEB3; /* Buff/wheat color */
+}
+
+.ship-placement-board .terrain-rock,
+.battle-grid .terrain-rock {
+  background-color: #A9A9A9; /* Grey */
+}
+
+/* Ship display states */
+.ship-placement-board .has-ship,
+.battle-grid .has-ship {
+  background-color: #ADD8E6 !important; /* Light blue for ships */
+  color: #2F4F4F;
+}
+
+.ship-placement-board .has-ship .cell-coord,
+.battle-grid .has-ship .cell-coord {
+  color: #2F4F4F;
+}
+
+.ship-placement-board .has-ship::after,
+.battle-grid .has-ship::after {
+  content: "⚓";
+  font-size: 16px;
+  position: absolute;
+  color: #2F4F4F;
+}
+
+/* Placement-specific preview states */
+.ship-placement-board .preview-valid {
+  background-color: #90EE90 !important; /* Medium green for valid placement */
+  color: #2F4F4F;
+  box-shadow: 0 0 8px rgba(34, 139, 34, 0.5);
+}
+
+.ship-placement-board .preview-valid .cell-coord {
+  color: #2F4F4F;
+}
+
+.ship-placement-board .preview-invalid {
+  background-color: #FFB3B3 !important; /* Medium red for invalid placement */
+  color: #2F4F4F;
+  box-shadow: 0 0 8px rgba(220, 20, 60, 0.5);
+}
+
+.ship-placement-board .preview-invalid .cell-coord {
+  color: #2F4F4F;
+}
+
+.ship-placement-board .preview-valid::after,
+.ship-placement-board .preview-invalid::after {
+  content: "⚓";
+  font-size: 14px;
+  position: absolute;
+  color: #2F4F4F;
+}
+
+/* Placement instructions */
+.placement-instructions {
+  text-align: center;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  border-radius: 8px;
+  max-width: 400px;
+}
+
+.placement-instructions p {
+  margin: 5px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+/* Add these to Pages.css - missing shot result classes */
+.your-hit {
+  background-color: #ff4444 !important; /* Red for your hits */
+  color: white !important;
+}
+
+.your-miss {
+  background-color: #666666 !important; /* Gray for your misses */
+  color: white !important;
+}
+
+.enemy-hit {
+  background-color: #ff8888 !important; /* Light red for enemy hits */
+  color: white !important;
+}
+
+.enemy-miss {
+  background-color: #999999 !important; /* Light gray for enemy misses */
+  color: white !important;
+}
+
+.your-sunk { background-color: #ff0000; } /* Bright red for your sinks */
+.enemy-sunk { background-color: #ff6666; } /* Light red for enemy sinks */
+.your-blocked { background-color: #888888; } /* Gray for blocked shots */
+.enemy-blocked { background-color: #aaaaaa; } /* Light gray */
+.enemy-recent {
+  animation: fade-out 2s ease-out forwards;
+}
+
+@keyframes fade-out {
+  0% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+
 /* Responsive Design - Mobile First */
 
 /* Mobile phones (up to 480px) */
@@ -248,6 +430,23 @@
     margin: 10px 0;
   }
   
+  /* Grid responsive */
+  .ship-placement-board .cell,
+  .battle-grid .cell {
+    width: 25px;
+    height: 25px;
+  }
+  
+  .ship-placement-board .cell-coord,
+  .battle-grid .cell-coord {
+    font-size: 6px;
+  }
+  
+  .placement-instructions {
+    font-size: 12px;
+    padding: 10px;
+  }
+  
   /* Adjust background for mobile */
   .page-base {
     background-attachment: scroll;
@@ -277,6 +476,25 @@
   
   .game-stats {
     gap: 25px;
+  }
+  
+  /* Grid responsive */
+  .ship-placement-board .cell,
+  .battle-grid .cell {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .ship-placement-board .cell-coord,
+  .battle-grid .cell-coord {
+    font-size: 8px;
+  }
+  
+  .ship-placement-board .has-ship::after,
+  .battle-grid .has-ship::after,
+  .ship-placement-board .preview-valid::after,
+  .ship-placement-board .preview-invalid::after {
+    font-size: 12px;
   }
 }
 

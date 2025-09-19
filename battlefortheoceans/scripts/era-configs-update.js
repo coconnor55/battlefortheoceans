@@ -1,4 +1,4 @@
-// scripts/era-configs-update.js (v0.1.4)
+// scripts/era-configs-update.js (v0.1.5)
 // Copyright(c) 2025, Clint H. O'Connor
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
@@ -38,22 +38,13 @@ async function updateEraConfigs() {
         throw fetchError;
       }
 
-      const newConfig = {
-        version: eraConfig.version,
-        era: eraConfig.era,
-        name: eraConfig.name,
-        era_description: eraConfig.era_description,
-        free: eraConfig.free,
-        rows: eraConfig.rows,
-        cols: eraConfig.cols,
-        boundary: eraConfig.boundary,
-        max_players: eraConfig.max_players,
-        playerfleet: eraConfig.playerfleet,
-        opponentfleet: eraConfig.opponentfleet,
-        terrain: eraConfig.terrain,
-        ai_captains: eraConfig.ai_captains,
-        messages: eraConfig.messages
-      };
+      // FIXED: Copy ALL fields from era config to future-proof the script
+      // This ensures no fields are missed when the JSON structure evolves
+      const newConfig = { ...eraConfig };
+      
+      // Ensure backward compatibility fields exist (even if null)
+      if (!newConfig.playerfleet) newConfig.playerfleet = null;
+      if (!newConfig.opponentfleet) newConfig.opponentfleet = null;
 
       if (existingConfig) {
         // Normalize JSON for consistent comparison

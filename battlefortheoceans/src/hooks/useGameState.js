@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = "v0.1.19";
+const version = "v0.1.25";
 
 const useGameState = () => {
   const {
@@ -14,8 +14,7 @@ const useGameState = () => {
     humanPlayer,
     gameInstance,
     board,
-    initializeGame,
-    addPlayerToGame
+    uiVersion  // Use gameLogic instead of React state
   } = useGame();
   
   const [gameState, setGameState] = useState({
@@ -28,64 +27,6 @@ const useGameState = () => {
     isGameActive: false,
     gamePhase: 'setup'
   });
-
-  // Initialize game when ready for battle phase
-  useEffect(() => {
-    if (!eraConfig || !selectedOpponent || !humanPlayer || gameInstance) {
-      return; // Wait for all data or game already exists
-    }
-
-    console.log(version + ': Initializing game for battle phase');
-    
-    // Initialize game instance through GameContext
-    const game = initializeGame(selectedGameMode?.id || 'turnBased');
-    if (!game) {
-      console.error(version + ': Failed to initialize game');
-      return;
-    }
-
-    // Add human player to game and assign to alliance
-    const humanPlayerId = humanPlayer.id || 'human-player';
-    addPlayerToGame(humanPlayerId, 'human', humanPlayer.name || 'Player', 'Player Alliance');
-
-    // Add AI opponent and assign to alliance
-    const aiId = selectedOpponent.id || 'ai-opponent';
-    const aiStrategy = selectedOpponent.strategy || 'methodical_hunting';
-    const aiDifficulty = selectedOpponent.difficulty || 1.0;
-    addPlayerToGame(aiId, 'ai', selectedOpponent.name, 'Opponent Alliance');
-
-    console.log(version + ': Players added to game with alliance assignments');
-
-  }, [eraConfig, selectedOpponent, humanPlayer, selectedGameMode, gameInstance, initializeGame, addPlayerToGame]);
-
-  // Start game when both players are added and ships are placed
-  useEffect(() => {
-    if (!gameInstance || gameInstance.state !== 'setup') return;
-
-    // Check if all players have fleets and ships are placed
-    const allPlayersReady = gameInstance.players.every(player => {
-      const fleet = gameInstance.playerFleets.get(player.id);
-      return fleet && fleet.isPlaced();
-    });
-
-    if (allPlayersReady) {
-      console.log(version + ': All players ready, starting game');
-      
-      gameInstance.startGame()
-        .then(() => {
-          console.log(version + ': Game started successfully');
-          updateGameState(gameInstance);
-        })
-        .catch(error => {
-          console.error(version + ': Game start failed:', error);
-          setGameState(prev => ({
-            ...prev,
-            message: `Game start failed: ${error.message}`,
-            isGameActive: false
-          }));
-        });
-    }
-  }, [gameInstance]);
 
   // Update local game state when game instance changes
   const updateGameState = useCallback((game) => {
@@ -106,7 +47,7 @@ const useGameState = () => {
       gamePhase: game.state,
       winner: game.winner
     });
-  }, [eraConfig]);
+  }, []);
 
   // Generate appropriate game message
   const generateGameMessage = useCallback((game, currentPlayer) => {
@@ -135,38 +76,29 @@ const useGameState = () => {
     return game.state === 'setup' ? 'Preparing game...' : 'Game starting...';
   }, []);
 
-  // Handle player attack using Game's hit resolution
+  // Handle player attack using Game's unified turn management
   const handleAttack = useCallback(async (row, col) => {
     if (!gameInstance || !gameInstance.isValidAttack(row, col)) {
       console.log(version + ': Invalid attack attempt:', { row, col });
       return false;
     }
 
+    // Only allow human attacks when it's the human's turn
+    const currentPlayer = gameInstance.getCurrentPlayer();
+    if (currentPlayer?.type !== 'human') {
+      console.log(version + ': Attack blocked - not human turn');
+      return false;
+    }
+
     try {
-      console.log(version + ': Processing attack through Game instance:', { row, col });
+      console.log(version + ': Processing human attack through Game instance:', { row, col });
       
-      // Execute attack through Game's enhanced hit resolution
+      // Execute attack through Game's unified processing
+      // Game will handle turn progression and trigger AI moves automatically
       const result = await gameInstance.processPlayerAction('attack', { row, col });
       
-      // Update our local state
+      // Update our local state to reflect changes
       updateGameState(gameInstance);
-      
-      // Handle AI turn if turn-based and game still active
-      if (gameInstance.state === 'playing' &&
-          gameInstance.gameRules.turn_required &&
-          gameInstance.getCurrentPlayer()?.type === 'ai') {
-        
-        // Small delay for better UX
-        setTimeout(async () => {
-          try {
-            const aiResult = await gameInstance.processAITurn();
-            console.log(version + ': AI turn completed:', aiResult);
-            updateGameState(gameInstance);
-          } catch (error) {
-            console.error(version + ': AI turn failed:', error);
-          }
-        }, 1000);
-      }
       
       return result;
       
@@ -179,6 +111,13 @@ const useGameState = () => {
       return false;
     }
   }, [gameInstance, updateGameState]);
+
+  // Listen to game instance changes - use uiVersion to track gameLogic changes
+  useEffect(() => {
+    if (gameInstance) {
+      updateGameState(gameInstance);
+    }
+  }, [gameInstance, updateGameState, uiVersion]);
 
   // Reset game
   const resetGame = useCallback(() => {
@@ -214,7 +153,8 @@ const useGameState = () => {
     hasBoard: !!board,
     gamePhase: gameState.gamePhase,
     isPlayerTurn: gameState.isPlayerTurn,
-    isGameActive: gameState.isGameActive
+    isGameActive: gameState.isGameActive,
+    currentPlayerType: gameState.currentPlayer?.type
   });
 
   return {

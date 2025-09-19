@@ -1,7 +1,7 @@
 // src/classes/Ship.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.1.7"
+const version = "v0.1.8"
 
 class Ship {
   constructor(name, size, terrain) {
@@ -14,6 +14,15 @@ class Ship {
     this.isPlaced = false;
     this.health = Array(size).fill(1.0); // Array of floats, 1.0 = undamaged, 0.0 = destroyed
     this.sunkAt = null; // timestamp when ship was sunk (initially null)
+  }
+
+  /**
+   * Place ship (called by GameContext after successful Game/Board registration)
+   * Ship only needs to know it was placed - Game/Board handle all position mapping
+   */
+  place() {
+    this.isPlaced = true;
+    console.log(`Ship ${this.name} placed successfully`);
   }
 
   /**
@@ -77,3 +86,4 @@ class Ship {
 
 export default Ship;
 // EOF
+

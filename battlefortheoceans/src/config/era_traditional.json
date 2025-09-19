@@ -1,5 +1,5 @@
 {
-  "version": "0.1.7",
+  "version": "0.1.8",
   "era": "traditional",
   "name": "Traditional Battleship",
   "era_description": "Battleship, a classic pencil-and-paper game from World War I, was popularized in the 1930s. Players strategically place and sink fleets on a 10x10 grid in this timeless naval duel.",
@@ -9,30 +9,33 @@
   "boundary": [],
   "max_players": 2,
   "game_rules": {
+    "friendly_fire": false,
+    "change_alliance": false,
+    "ship_capture": false,
+    "capture_chance": 0.0,
     "turn_required": true,
+    "create_alliance": false,
     "turn_on_hit": true,
+    "turn_on_miss": false,
     "placement_restriction": 10
   },
-  "playerfleet": {
-    "count": 5,
-    "ships": [
-      { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
-      { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
-      { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
-      { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
-      { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
-    ]
-  },
-  "opponentfleet": {
-    "count": 5,
-    "ships": [
-      { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
-      { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
-      { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
-      { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
-      { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
-    ]
-  },
+  "alliances": [
+    {
+      "name": "Player",
+      "avatar": "player-icon.png"
+    },
+    {
+      "name": "Opponent",
+      "avatar": "opponent-icon.png"
+    }
+  ],
+  "ships": [
+    { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+    { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
+    { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+    { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+    { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
+  ],
   "terrain": [
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
@@ -46,9 +49,27 @@
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
   ],
   "ai_captains": [
-    { "name": "Captain Robert", "description": "A novice commander who fires randomly across the board.", "strategy": "random_shots", "difficulty": 0.7 },
-    { "name": "Captain Jack", "description": "A savvy commander who fires methodically.", "strategy": "methodical_hunting", "difficulty": 1.0 },
-    { "name": "Captain Blood", "description": "A ruthless commander who targets aggressively.", "strategy": "aggressive_targeting", "difficulty": 1.2 }
+    {
+      "id": "captain-robert",
+      "name": "Captain Robert",
+      "description": "A novice commander who fires randomly across the board.",
+      "strategy": "random_shots",
+      "difficulty": 0.7
+    },
+    {
+      "id": "captain-jack",
+      "name": "Captain Jack",
+      "description": "A savvy commander who fires methodically.",
+      "strategy": "methodical_hunting",
+      "difficulty": 1.0
+    },
+    {
+      "id": "captain-blood",
+      "name": "Captain Blood",
+      "description": "A ruthless commander who targets aggressively.",
+      "strategy": "aggressive_targeting",
+      "difficulty": 1.2
+    }
   ],
   "messages": {
     "transition": [

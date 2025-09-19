@@ -7,7 +7,7 @@ import FleetPlacement from '../components/FleetPlacement';
 import './Pages.css';
 import './PlacementPage.css';
 
-const version = 'v0.1.15';
+const version = 'v0.1.21';
 
 const PlacementPage = () => {
   const {
@@ -18,9 +18,8 @@ const PlacementPage = () => {
     selectedOpponent,
     gameInstance,
     board,
-    initializeGame,
-    addPlayerToGame,
-    registerShipPlacement
+    registerShipPlacement,
+    uiVersion  // Use gameLogic via uiVersion
   } = useGame();
   
   const [currentShipIndex, setCurrentShipIndex] = useState(0);
@@ -28,94 +27,56 @@ const PlacementPage = () => {
   const [error, setError] = useState(null);
   const [isReady, setIsReady] = useState(false);
 
-  // Initialize game and players when component mounts
+  // Check if game is ready for ship placement - FIXED: removed isReady from dependencies
   useEffect(() => {
+    console.log(version, 'useEffect triggered - checking game readiness');
+
     if (!eraConfig || !humanPlayer || !selectedOpponent) {
-      setError('Missing game configuration. Please select era and opponent.');
-      return;
-    }
-
-    if (gameInstance) {
-      console.log(version, 'Game instance already exists, checking player setup');
-      checkPlayerSetup();
-      return;
-    }
-
-    console.log(version, 'Initializing game for placement phase');
-    
-    try {
-      // Initialize game through GameContext
-      const game = initializeGame(selectedOpponent.gameMode || 'turnBased');
+      const missingItems = [];
+      if (!eraConfig) missingItems.push('eraConfig');
+      if (!humanPlayer) missingItems.push('humanPlayer');
+      if (!selectedOpponent) missingItems.push('selectedOpponent');
       
-      if (!game) {
-        throw new Error('Failed to initialize game instance');
+      setError(`Missing game configuration: ${missingItems.join(', ')}`);
+      setIsReady(false);
+      return;
+    }
+
+    // Clear any previous error
+    setError(null);
+
+    // Check if we have the minimum required components using gameLogic data
+    if (gameInstance && board && gameInstance.players && gameInstance.players.length > 0) {
+      console.log(version, 'Game instance and board available, checking for player fleet...');
+      
+      // Check for player fleet
+      if (gameInstance.playerFleets && gameInstance.playerFleets.has(humanPlayer.id)) {
+        const fleet = gameInstance.playerFleets.get(humanPlayer.id);
+        console.log(version, 'Found player fleet with', fleet.count, 'ships');
+        
+        setPlayerFleet(fleet);
+        // Only reset ship index if we don't have a fleet yet or it's a different fleet
+        if (!playerFleet || playerFleet !== fleet) {
+          setCurrentShipIndex(0);
+        }
+        setIsReady(true);
+      } else {
+        console.log(version, 'Player fleet not yet available');
+        setIsReady(false);
       }
-
-      console.log(version, 'Game initialized, adding players');
-      
-    } catch (err) {
-      console.error(version, 'Error initializing game:', err);
-      setError(`Failed to initialize game: ${err.message}`);
-    }
-  }, [eraConfig, humanPlayer, selectedOpponent, gameInstance, initializeGame]);
-
-  // Set up players and fleets once game is initialized
-  useEffect(() => {
-    if (!gameInstance || gameInstance.players.length > 0) return;
-
-    console.log(version, 'Setting up players and fleets');
-
-    try {
-      // Add human player and assign to alliance
-      const humanPlayerId = humanPlayer.id;
-      addPlayerToGame(humanPlayerId, 'human', humanPlayer.name || 'Player', 'Player Alliance');
-
-      // Add AI opponent and assign to alliance
-      const aiId = selectedOpponent.id || `ai-${Date.now()}`;
-      const aiStrategy = selectedOpponent.strategy || 'methodical_hunting';
-      const aiDifficulty = selectedOpponent.difficulty || 1.0;
-      addPlayerToGame(aiId, 'ai', selectedOpponent.name, 'Opponent Alliance');
-
-      console.log(version, 'Players added successfully');
-
-    } catch (err) {
-      console.error(version, 'Error setting up players:', err);
-      setError(`Failed to set up players: ${err.message}`);
-    }
-  }, [gameInstance, humanPlayer, selectedOpponent, addPlayerToGame]);
-
-  // Check if players are ready and get human player's fleet
-  const checkPlayerSetup = () => {
-    if (!gameInstance) return;
-
-    const humanPlayerId = humanPlayer.id;
-    const fleet = gameInstance.playerFleets.get(humanPlayerId);
-    
-    if (fleet) {
-      setPlayerFleet(fleet);
-      setCurrentShipIndex(0);
-      setIsReady(true);
-      console.log(version, 'Player fleet ready with', fleet.count, 'ships');
     } else {
-      console.log(version, 'Waiting for player fleet...');
+      console.log(version, 'Waiting for game instance or board setup...');
+      setIsReady(false);
     }
-  };
-
-  // Update ready state when game changes
-  useEffect(() => {
-    checkPlayerSetup();
-  }, [gameInstance]);
+  }, [eraConfig, humanPlayer, selectedOpponent, gameInstance, board, uiVersion]); // FIXED: removed isReady
 
   // Handle ship placement
   const handleShipPlaced = (ship, shipCells, orientation) => {
     try {
       console.log(version, `Placing ${ship.name} with ${shipCells.length} cells`);
       
-      // Set ship's position and cells
-      ship.place(shipCells, orientation);
-      
-      // Register ship placement with both Game and Board
-      const success = registerShipPlacement(ship, humanPlayer.id);
+      // Register ship placement with Game and Board (includes position data)
+      const success = registerShipPlacement(ship, shipCells, orientation, humanPlayer.id);
       
       if (success) {
         console.log(version, `Successfully placed ${ship.name}`);
@@ -167,6 +128,7 @@ const PlacementPage = () => {
 
   // Error state
   if (error) {
+    console.log(version, 'Showing error state:', error);
     return (
       <div className="page-base">
         <div className="page-content">
@@ -185,8 +147,16 @@ const PlacementPage = () => {
     );
   }
 
-  // Loading state
-  if (!isReady || !board || !playerFleet) {
+  // Loading state - be more specific about what we're waiting for
+  if (!isReady || !board || !playerFleet || !gameInstance) {
+    const waitingFor = [];
+    if (!isReady) waitingFor.push('ready state');
+    if (!board) waitingFor.push('board');
+    if (!playerFleet) waitingFor.push('player fleet');
+    if (!gameInstance) waitingFor.push('game instance');
+
+    console.log(version, 'Showing loading state, waiting for:', waitingFor);
+    
     return (
       <div className="page-base">
         <div className="page-content">

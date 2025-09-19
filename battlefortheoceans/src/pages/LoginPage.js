@@ -6,23 +6,19 @@ import LoginDialog from '../components/LoginDialog';
 import './Pages.css';
 import './LoginPage.css';
 
-const version = 'v0.1.36';
+const version = 'v0.1.38';
 
 const LoginPage = () => {
-  const { dispatch, stateMachine, updateHumanPlayer } = useGame();
+  const { dispatch, stateMachine } = useGame();
   
   const handleCloseDialog = (userData = null) => {
-    // Store player data in GameContext if provided
     if (userData) {
-      updateHumanPlayer(userData);
-      console.log(version, 'HumanPlayer instance created in GameContext:', userData.id);
-    }
-    
-    if (dispatch) {
-      console.log(version, 'Firing SELECTERA event from handleCloseDialog');
-      dispatch(stateMachine.event.SELECTERA);
+      console.log(version, 'User authenticated, transitioning with user data:', userData.id);
+      
+      // Pass user data directly to dispatch for immediate business logic processing
+      dispatch(stateMachine.event.SELECTERA, { userData });
     } else {
-      console.error(version, 'Dispatch is not available in handleCloseDialog');
+      console.log(version, 'Dialog closed without authentication');
     }
   };
 

@@ -3,7 +3,7 @@
 
 import Player from './Player.js';
 
-const version = "v0.1.0"
+const version = "v0.1.3"
 
 class AiPlayer extends Player {
   constructor(id, name, strategy = 'random', difficulty = 1.0) {
@@ -31,17 +31,73 @@ class AiPlayer extends Player {
   }
 
   /**
+   * Main AI move method - called by useGameState
+   */
+  async makeMove(gameInstance) {
+    if (!gameInstance || gameInstance.state !== 'playing') {
+      throw new Error(`AiPlayer ${this.name}: Cannot make move - invalid game state`);
+    }
+
+    try {
+      // Simulate AI thinking time
+      await this.simulateThinking();
+      
+      // Find available targets (other players who aren't eliminated)
+      const availableTargets = gameInstance.players.filter(player => {
+        if (player.id === this.id) return false; // Can't target self
+        
+        // Check if player has a fleet and it's not defeated
+        const fleet = gameInstance.playerFleets.get(player.id);
+        if (!fleet) return false;
+        
+        // Player is valid target if their fleet isn't defeated
+        return !fleet.isDefeated() && !player.isEliminated;
+      });
+      
+      if (availableTargets.length === 0) {
+        console.error(`AiPlayer ${this.name}: No available targets found`);
+        console.error('All players:', gameInstance.players.map(p => ({
+          id: p.id,
+          name: p.name,
+          eliminated: p.isEliminated,
+          hasFleet: !!gameInstance.playerFleets.get(p.id)
+        })));
+        throw new Error(`AiPlayer ${this.name}: No available targets`);
+      }
+      
+      // Select target and coordinates
+      const targetSelection = await this.selectTarget(gameInstance, availableTargets);
+      const { player: targetPlayer, row, col } = targetSelection;
+      
+      // Execute attack through game instance
+      const attackResult = await gameInstance.processPlayerAction('attack', { row, col });
+      
+      // Update AI memory with attack result
+      this.processAttackResult(targetPlayer, row, col, attackResult);
+      
+      console.log(`AiPlayer ${this.name}: Attacked ${targetPlayer.name} at ${String.fromCharCode(65 + col)}${row + 1} - ${attackResult.result}`);
+      
+      return attackResult;
+      
+    } catch (error) {
+      console.error(`AiPlayer ${this.name}: Move failed:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * AI target selection with strategy implementation
    */
-  async selectTarget(gameState, availableTargets) {
-    // Simulate AI thinking time
-    await this.simulateThinking();
-    
-    const target = this.pickTarget(availableTargets);
-    const coordinates = this.selectCoordinates(target, gameState);
+  async selectTarget(gameInstance, availableTargets) {
+    const target = this.pickTarget(availableTargets, gameInstance);
+    const coordinates = this.selectCoordinates(target, gameInstance);
     
     // Update AI memory
-    this.memory.lastTargets.push({ target: target.id, ...coordinates, timestamp: Date.now() });
+    this.memory.lastTargets.push({
+      target: target.id,
+      ...coordinates,
+      timestamp: Date.now()
+    });
     if (this.memory.lastTargets.length > 10) {
       this.memory.lastTargets.shift();
     }
@@ -54,7 +110,7 @@ class AiPlayer extends Player {
   /**
    * Pick target player based on strategy
    */
-  pickTarget(availableTargets) {
+  pickTarget(availableTargets, gameInstance) {
     if (availableTargets.length === 0) {
       throw new Error(`AiPlayer ${this.name}: No available targets`);
     }
@@ -66,23 +122,33 @@ class AiPlayer extends Player {
     switch (this.strategy) {
       case 'aggressive':
         // Target player with most ships remaining
-        return availableTargets.reduce((best, current) =>
-          current.fleet.getAfloatShips().length > best.fleet.getAfloatShips().length ? current : best
-        );
+        return availableTargets.reduce((best, current) => {
+          const currentFleet = gameInstance.playerFleets.get(current.id);
+          const bestFleet = gameInstance.playerFleets.get(best.id);
+          const currentAlive = currentFleet ? currentFleet.ships.filter(s => !s.isSunk()).length : 0;
+          const bestAlive = bestFleet ? bestFleet.ships.filter(s => !s.isSunk()).length : 0;
+          return currentAlive > bestAlive ? current : best;
+        });
         
       case 'opportunistic':
         // Target player with most damaged ships
         return availableTargets.reduce((best, current) => {
-          const currentDamaged = current.fleet.ships.filter(ship => ship.hitCount > 0 && !ship.isSunk()).length;
-          const bestDamaged = best.fleet.ships.filter(ship => ship.hitCount > 0 && !ship.isSunk()).length;
+          const currentFleet = gameInstance.playerFleets.get(current.id);
+          const bestFleet = gameInstance.playerFleets.get(best.id);
+          const currentDamaged = currentFleet ? currentFleet.ships.filter(ship => ship.hitCount > 0 && !ship.isSunk()).length : 0;
+          const bestDamaged = bestFleet ? bestFleet.ships.filter(ship => ship.hitCount > 0 && !ship.isSunk()).length : 0;
           return currentDamaged > bestDamaged ? current : best;
         });
         
       case 'defensive':
         // Target weakest player (fewest ships)
-        return availableTargets.reduce((weakest, current) =>
-          current.fleet.getAfloatShips().length < weakest.fleet.getAfloatShips().length ? current : weakest
-        );
+        return availableTargets.reduce((weakest, current) => {
+          const currentFleet = gameInstance.playerFleets.get(current.id);
+          const weakestFleet = gameInstance.playerFleets.get(weakest.id);
+          const currentAlive = currentFleet ? currentFleet.ships.filter(s => !s.isSunk()).length : 0;
+          const weakestAlive = weakestFleet ? weakestFleet.ships.filter(s => !s.isSunk()).length : 0;
+          return currentAlive < weakestAlive ? current : weakest;
+        });
         
       case 'random':
       default:
@@ -93,13 +159,15 @@ class AiPlayer extends Player {
   /**
    * Select coordinates to attack based on strategy and memory
    */
-  selectCoordinates(target, gameState) {
-    const board = gameState.board;
-    const boardSize = { rows: board.rows, cols: board.cols };
+  selectCoordinates(target, gameInstance) {
+    const boardSize = {
+      rows: gameInstance.eraConfig.rows,
+      cols: gameInstance.eraConfig.cols
+    };
     
     // If we're hunting a specific ship, continue the hunt
     if (this.memory.huntMode && this.memory.huntTarget) {
-      const huntCoords = this.continueHunt(target, boardSize);
+      const huntCoords = this.continueHunt(target, boardSize, gameInstance);
       if (huntCoords) {
         return huntCoords;
       } else {
@@ -112,21 +180,21 @@ class AiPlayer extends Player {
     // Apply strategy-specific coordinate selection
     switch (this.strategy) {
       case 'methodical_hunting':
-        return this.methodicalHunting(target, boardSize);
+        return this.methodicalHunting(target, boardSize, gameInstance);
         
       case 'aggressive_targeting':
-        return this.aggressiveTargeting(target, boardSize);
+        return this.aggressiveTargeting(target, boardSize, gameInstance);
         
       case 'random_shots':
       default:
-        return this.randomTargeting(target, boardSize);
+        return this.randomTargeting(target, boardSize, gameInstance);
     }
   }
 
   /**
    * Continue hunting a damaged ship
    */
-  continueHunt(target, boardSize) {
+  continueHunt(target, boardSize, gameInstance) {
     const targetId = target.id;
     const hits = this.memory.targetHits.get(targetId) || [];
     
@@ -145,7 +213,7 @@ class AiPlayer extends Player {
       ];
       
       neighbors.forEach(neighbor => {
-        if (this.isValidTarget(neighbor, targetId, boardSize)) {
+        if (this.isValidTarget(neighbor, targetId, boardSize, gameInstance)) {
           adjacentCells.push(neighbor);
         }
       });
@@ -161,13 +229,13 @@ class AiPlayer extends Player {
   /**
    * Methodical hunting pattern (checkerboard, then systematic)
    */
-  methodicalHunting(target, boardSize) {
+  methodicalHunting(target, boardSize, gameInstance) {
     const targetId = target.id;
     
     // First pass: checkerboard pattern
     for (let row = 0; row < boardSize.rows; row++) {
       for (let col = 0; col < boardSize.cols; col++) {
-        if ((row + col) % 2 === 0 && this.isValidTarget({ row, col }, targetId, boardSize)) {
+        if ((row + col) % 2 === 0 && this.isValidTarget({ row, col }, targetId, boardSize, gameInstance)) {
           return { row, col };
         }
       }
@@ -176,20 +244,20 @@ class AiPlayer extends Player {
     // Second pass: fill in gaps
     for (let row = 0; row < boardSize.rows; row++) {
       for (let col = 0; col < boardSize.cols; col++) {
-        if (this.isValidTarget({ row, col }, targetId, boardSize)) {
+        if (this.isValidTarget({ row, col }, targetId, boardSize, gameInstance)) {
           return { row, col };
         }
       }
     }
     
     // Fallback to random if no methodical targets
-    return this.randomTargeting(target, boardSize);
+    return this.randomTargeting(target, boardSize, gameInstance);
   }
 
   /**
    * Aggressive targeting (focus on high-probability areas)
    */
-  aggressiveTargeting(target, boardSize) {
+  aggressiveTargeting(target, boardSize, gameInstance) {
     const targetId = target.id;
     
     // Target center areas first (ships often placed there)
@@ -199,7 +267,7 @@ class AiPlayer extends Player {
     const centerTargets = [];
     for (let r = centerRow - 2; r <= centerRow + 2; r++) {
       for (let c = centerCol - 2; c <= centerCol + 2; c++) {
-        if (this.isValidTarget({ row: r, col: c }, targetId, boardSize)) {
+        if (this.isValidTarget({ row: r, col: c }, targetId, boardSize, gameInstance)) {
           const distance = Math.abs(r - centerRow) + Math.abs(c - centerCol);
           centerTargets.push({ row: r, col: c, distance });
         }
@@ -211,13 +279,13 @@ class AiPlayer extends Player {
       return { row: centerTargets[0].row, col: centerTargets[0].col };
     }
     
-    return this.randomTargeting(target, boardSize);
+    return this.randomTargeting(target, boardSize, gameInstance);
   }
 
   /**
-   * Random targeting with some intelligence
+   * Random targeting with intelligence
    */
-  randomTargeting(target, boardSize) {
+  randomTargeting(target, boardSize, gameInstance) {
     const targetId = target.id;
     const attempts = [];
     
@@ -226,7 +294,7 @@ class AiPlayer extends Player {
       const row = Math.floor(Math.random() * boardSize.rows);
       const col = Math.floor(Math.random() * boardSize.cols);
       
-      if (this.isValidTarget({ row, col }, targetId, boardSize)) {
+      if (this.isValidTarget({ row, col }, targetId, boardSize, gameInstance)) {
         attempts.push({ row, col });
       }
     }
@@ -238,7 +306,7 @@ class AiPlayer extends Player {
     // Emergency fallback: find any valid target
     for (let row = 0; row < boardSize.rows; row++) {
       for (let col = 0; col < boardSize.cols; col++) {
-        if (this.isValidTarget({ row, col }, targetId, boardSize)) {
+        if (this.isValidTarget({ row, col }, targetId, boardSize, gameInstance)) {
           return { row, col };
         }
       }
@@ -250,13 +318,25 @@ class AiPlayer extends Player {
   /**
    * Check if coordinates are a valid target
    */
-  isValidTarget({ row, col }, targetId, boardSize) {
+  isValidTarget({ row, col }, targetId, boardSize, gameInstance) {
     // Check bounds
     if (row < 0 || row >= boardSize.rows || col < 0 || col >= boardSize.cols) {
       return false;
     }
     
-    // Check if already targeted
+    // Check terrain if available
+    if (gameInstance.eraConfig.terrain &&
+        gameInstance.eraConfig.terrain[row] &&
+        gameInstance.eraConfig.terrain[row][col] === 'excluded') {
+      return false;
+    }
+    
+    // Check if already targeted (use game's attack validation)
+    if (!gameInstance.isValidAttack(row, col)) {
+      return false;
+    }
+    
+    // Check if already attacked by this AI
     const cellKey = `${targetId}-${row}-${col}`;
     if (this.memory.avoidedCells.has(cellKey)) {
       return false;
@@ -274,6 +354,7 @@ class AiPlayer extends Player {
     // AI learning: remember who attacked us and how
     if (attackResult.result === 'hit' || attackResult.result === 'sunk') {
       console.log(`AiPlayer ${this.name}: Learning from attack by ${attacker.name}`);
+      // Could implement counter-attack strategies here
     }
   }
 
@@ -292,16 +373,22 @@ class AiPlayer extends Player {
       if (!this.memory.targetHits.has(targetId)) {
         this.memory.targetHits.set(targetId, []);
       }
-      this.memory.targetHits.get(targetId).push({ row, col, result: result.result });
+      this.memory.targetHits.get(targetId).push({
+        row,
+        col,
+        result: result.result
+      });
       
       // Enter hunt mode if we hit something and it's not sunk
       if (result.result === 'hit') {
         this.memory.huntMode = true;
-        this.memory.huntTarget = result.ship;
+        this.memory.huntTarget = result.ships?.[0]?.ship || null;
+        console.log(`AiPlayer ${this.name}: Entering hunt mode`);
       } else if (result.result === 'sunk') {
         // Ship sunk, exit hunt mode
         this.memory.huntMode = false;
         this.memory.huntTarget = null;
+        console.log(`AiPlayer ${this.name}: Ship sunk, exiting hunt mode`);
       }
     }
   }
@@ -311,16 +398,16 @@ class AiPlayer extends Player {
    */
   calculateReactionTime() {
     // Harder AI thinks faster, easier AI thinks slower
-    const baseTime = 1000; // 1 second
+    const baseTime = 500; // 0.5 seconds
     const difficultyMultiplier = Math.max(0.1, 2.0 - this.difficulty);
-    return baseTime * difficultyMultiplier + Math.random() * 500;
+    return baseTime * difficultyMultiplier;
   }
 
   /**
    * Simulate AI thinking time
    */
   async simulateThinking() {
-    const thinkTime = this.reactionTime + Math.random() * 1000;
+    const thinkTime = this.reactionTime + Math.random() * 500;
     return new Promise(resolve => setTimeout(resolve, thinkTime));
   }
 
