@@ -1,16 +1,19 @@
-// src/components/ShipPlacementBoard.js
+// src/components/FleetPlacement.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
-import './ShipPlacementBoard.css';
+import { useGame } from '../context/GameContext';
+import './FleetPlacement.css';
 
-const version = 'v0.1.7';
+const version = 'v0.1.8';
 
-const ShipPlacementBoard = ({ board, currentShip, onShipPlaced, eraConfig }) => {
+const FleetPlacement = ({ board, currentShip, onShipPlaced, eraConfig }) => {
   const [previewCells, setPreviewCells] = useState([]);
   const [isValidPlacement, setIsValidPlacement] = useState(false);
   const [startCell, setStartCell] = useState(null);
   const [endCell, setEndCell] = useState(null);
+  
+  const { gameInstance, registerShipPlacement } = useGame();
 
   // Clear preview when ship changes
   useEffect(() => {
@@ -24,11 +27,17 @@ const ShipPlacementBoard = ({ board, currentShip, onShipPlaced, eraConfig }) => 
     const terrain = eraConfig.terrain[row][col];
     let classes = [`cell`, `terrain-${terrain}`];
     
-    // Show only player ships during placement using sparse grid lookup
-    const ships = board.getShipsAt(row, col);
-    const hasPlayerShip = ships.some(s => s.owner === 'player');
-    if (hasPlayerShip) {
-      classes.push('has-ship');
+    // Show placed ships using Game instance data
+    if (gameInstance) {
+      const shipDataArray = board.getShipDataAt(row, col);
+      const hasPlayerShip = shipDataArray.some(shipData => {
+        const ownerId = gameInstance.shipOwnership.get(shipData.shipId);
+        return ownerId === gameInstance.players.find(p => p.type === 'human')?.id;
+      });
+      
+      if (hasPlayerShip) {
+        classes.push('has-ship');
+      }
     }
     
     // Check if cell is in preview
@@ -60,27 +69,34 @@ const ShipPlacementBoard = ({ board, currentShip, onShipPlaced, eraConfig }) => 
     return cells;
   };
 
-  const isValidShipPlacement = (cells) => {
+  const isValidFleetPlacement = (cells) => {
     if (!cells || cells.length === 0) return false;
     
-    // Check all cells are within bounds
+    // Check all cells are within bounds and meet terrain requirements
     for (const cell of cells) {
       if (cell.row < 0 || cell.row >= eraConfig.rows ||
           cell.col < 0 || cell.col >= eraConfig.cols) {
         return false;
       }
       
-      // Check terrain allows ship placement
-      const terrain = eraConfig.terrain[cell.row][cell.col];
-      if (terrain !== 'deep') { // Assuming ships can only be placed in deep water
+      // Use Board's terrain validation
+      if (board.isExcludedTerrain(cell.row, cell.col)) {
         return false;
       }
       
-      // Check for own ship overlaps (you can't overlap your own ships)
-      const ships = board.getShipsAt(cell.row, cell.col);
-      const hasOwnShip = ships.some(s => s.owner === 'player');
-      if (hasOwnShip) {
+      // Check terrain compatibility with ship requirements
+      const terrain = board.getTerrainAt(cell.row, cell.col);
+      if (!currentShip.terrain.includes(terrain)) {
         return false;
+      }
+      
+      // Check for existing ship overlaps using Game instance
+      if (gameInstance) {
+        const shipDataArray = board.getShipDataAt(cell.row, cell.col);
+        const hasExistingShip = shipDataArray.length > 0;
+        if (hasExistingShip) {
+          return false;
+        }
       }
     }
     
@@ -96,7 +112,7 @@ const ShipPlacementBoard = ({ board, currentShip, onShipPlaced, eraConfig }) => 
     // Show single cell preview
     const cells = [{ row, col }];
     setPreviewCells(cells);
-    setIsValidPlacement(isValidShipPlacement(cells));
+    setIsValidPlacement(isValidFleetPlacement(cells));
   };
 
   const handleCellMouseMove = (row, col) => {
@@ -119,7 +135,7 @@ const ShipPlacementBoard = ({ board, currentShip, onShipPlaced, eraConfig }) => 
     }
     
     setPreviewCells(cells);
-    setIsValidPlacement(isValidShipPlacement(cells));
+    setIsValidPlacement(isValidFleetPlacement(cells));
   };
 
   const handleCellMouseUp = (row, col) => {
@@ -159,15 +175,24 @@ const ShipPlacementBoard = ({ board, currentShip, onShipPlaced, eraConfig }) => 
       finalCol = startCell.col;
     }
     
+    // Create the final ship cells array
+    const shipCells = [];
+    for (let i = 0; i < currentShip.size; i++) {
+      const cellRow = isHorizontal ? finalRow : finalRow + i;
+      const cellCol = isHorizontal ? finalCol + i : finalCol;
+      shipCells.push({ row: cellRow, col: cellCol });
+    }
+    
     console.log(version, 'Final placement:', {
       finalRow,
       finalCol,
       isHorizontal,
-      shipSize: currentShip.size
+      shipSize: currentShip.size,
+      shipCells
     });
     
-    // Attempt to place the ship
-    const success = onShipPlaced(currentShip, finalRow, finalCol, isHorizontal);
+    // Place the ship (this will call onShipPlaced and handle registration)
+    const success = onShipPlaced(currentShip, shipCells, isHorizontal ? 'horizontal' : 'vertical');
     
     if (success) {
       console.log(version, `Ship placed successfully: ${currentShip.name} at ${finalRow},${finalCol} ${isHorizontal ? 'H' : 'V'}`);
@@ -237,12 +262,13 @@ const ShipPlacementBoard = ({ board, currentShip, onShipPlaced, eraConfig }) => 
         <div className="placement-instructions">
           <p>Tap and drag to place {currentShip.name} ({currentShip.size} squares)</p>
           <p>Drag horizontally or vertically to set orientation</p>
+          <p>Allowed terrain: {currentShip.terrain.join(', ')}</p>
         </div>
       )}
     </div>
   );
 };
 
-export default ShipPlacementBoard;
+export default FleetPlacement;
 
 // EOF

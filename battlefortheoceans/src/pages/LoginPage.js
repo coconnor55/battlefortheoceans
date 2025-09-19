@@ -3,9 +3,10 @@
 
 import { useGame } from '../context/GameContext';
 import LoginDialog from '../components/LoginDialog';
+import './Pages.css';
 import './LoginPage.css';
 
-const version = 'v0.1.35';
+const version = 'v0.1.36';
 
 const LoginPage = () => {
   const { dispatch, stateMachine, updateHumanPlayer } = useGame();
@@ -26,9 +27,11 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-content">
-        <LoginDialog onClose={handleCloseDialog} />
+    <div className="page-base">
+      <div className="page-content">
+        <div className="content-frame">
+          <LoginDialog onClose={handleCloseDialog} />
+        </div>
       </div>
     </div>
   );

@@ -1,17 +1,22 @@
-// src/components/BattleBoard.js
+// src/components/FleetBattle.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useEffect } from 'react';
+import { useGame } from '../context/GameContext';
 import useBattleBoard from '../hooks/useBattleBoard';
+import './FleetBattle.css';
 
-const version = 'v0.1.4'
-const BattleBoard = ({ eraConfig, gameState, gameBoard, onShotFired }) => {
+const version = 'v0.1.7'
+
+const FleetBattle = ({ eraConfig, gameState, gameBoard, onShotFired }) => {
+  const { gameInstance } = useGame();
+  
   const {
     canvasRef,
     handleCanvasClick,
     recordOpponentShot,
     isReady
-  } = useBattleBoard(eraConfig, gameState, gameBoard);
+  } = useBattleBoard(eraConfig, gameState, gameBoard, gameInstance);
 
   // Connect battle board to game state for opponent shot tracking
   useEffect(() => {
@@ -60,5 +65,5 @@ const BattleBoard = ({ eraConfig, gameState, gameBoard, onShotFired }) => {
   );
 };
 
-export default BattleBoard;
+export default FleetBattle;
 // EOF

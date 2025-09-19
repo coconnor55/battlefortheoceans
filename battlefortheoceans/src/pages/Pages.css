@@ -1,0 +1,389 @@
+/* src/pages/Pages.css (v0.1.0) */
+/* Copyright(c) 2025, Clint H. O'Connor */
+/* Common styling for all pages - responsive design for PWA */
+
+/* Base page layout - all pages inherit this */
+.page-base {
+  position: relative;
+  background-image: url('https://battlefortheoceans.b-cdn.net/battlefortheoceans.jpg');
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-position: center;
+  background-color: #e0e0e0; /* Fallback if image fails */
+  min-height: 100vh;
+  width: 100vw;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Content container - centers content with responsive margins */
+.page-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* Translucent content frame - used by most pages */
+.content-frame {
+  background-color: rgba(120, 158, 185, 0.85);
+  border: 2px solid #FFFFFF;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Page headers */
+.page-header {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #000000;
+}
+
+.page-header h1,
+.page-header h2 {
+  text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.8);
+  margin: 0 0 10px 0;
+}
+
+.page-header h1 {
+  font-size: 2.5rem;
+}
+
+.page-header h2 {
+  font-size: 2rem;
+}
+
+.page-header p {
+  margin: 5px 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+/* Error and loading states */
+.error-message {
+  text-align: center;
+  padding: 30px;
+  background: rgba(248, 215, 218, 0.95);
+  border: 2px solid #f5c6cb;
+  border-radius: 8px;
+  color: #721c24;
+  max-width: 500px;
+  margin: 20px auto;
+}
+
+.error-message h2 {
+  margin: 0 0 15px 0;
+  color: #721c24;
+  text-shadow: none;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 40px;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+/* Common button styles */
+.btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+.btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary {
+  background: linear-gradient(45deg, #4CAF50, #45a049);
+  color: white;
+}
+
+.btn-secondary {
+  background: linear-gradient(45deg, #2196F3, #1976D2);
+  color: white;
+}
+
+.btn-danger {
+  background: linear-gradient(45deg, #f44336, #d32f2f);
+  color: white;
+}
+
+.btn-warning {
+  background: linear-gradient(45deg, #FF9800, #F57C00);
+  color: white;
+}
+
+/* Game board container */
+.game-board-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  backdrop-filter: blur(5px);
+}
+
+/* Message console */
+.message-console {
+  text-align: center;
+  padding: 15px;
+  margin: 15px 0;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  border-left: 4px solid #4CAF50;
+  font-size: 1.1rem;
+  color: #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Game info displays */
+.game-info {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #000000;
+}
+
+.game-info h3 {
+  margin: 0 0 10px 0;
+  color: #007bff;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.game-info p {
+  margin: 5px 0;
+  color: #555;
+  font-size: 1rem;
+}
+
+/* Game stats */
+.game-stats {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin: 20px 0;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  backdrop-filter: blur(5px);
+}
+
+.game-stats .score {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+/* Responsive Design - Mobile First */
+
+/* Mobile phones (up to 480px) */
+@media (max-width: 480px) {
+  .page-content {
+    padding: 10px;
+  }
+  
+  .content-frame {
+    padding: 20px;
+    margin: 10px;
+    border-radius: 8px;
+  }
+  
+  .page-header h1 {
+    font-size: 1.8rem;
+  }
+  
+  .page-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .page-header p {
+    font-size: 1rem;
+  }
+  
+  .btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    width: 100%;
+    margin: 5px 0;
+  }
+  
+  .game-stats {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  
+  .game-board-container {
+    padding: 10px;
+    margin: 10px 0;
+  }
+  
+  /* Adjust background for mobile */
+  .page-base {
+    background-attachment: scroll;
+    background-position: center top;
+  }
+}
+
+/* Tablets (481px to 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  .content-frame {
+    padding: 25px;
+    max-width: 90%;
+  }
+  
+  .page-header h1 {
+    font-size: 2.2rem;
+  }
+  
+  .page-header h2 {
+    font-size: 1.8rem;
+  }
+  
+  .btn {
+    padding: 11px 22px;
+    font-size: 15px;
+  }
+  
+  .game-stats {
+    gap: 25px;
+  }
+}
+
+/* Desktop (769px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .content-frame {
+    max-width: 80%;
+  }
+  
+  .game-board-container {
+    padding: 25px;
+  }
+}
+
+/* Large desktop (1025px and up) */
+@media (min-width: 1025px) {
+  .content-frame {
+    max-width: 70%;
+  }
+  
+  .page-content {
+    padding: 40px;
+  }
+}
+
+/* Landscape orientation adjustments */
+@media (orientation: landscape) and (max-height: 600px) {
+  .page-content {
+    padding: 10px;
+  }
+  
+  .content-frame {
+    padding: 15px;
+  }
+  
+  .page-header h1,
+  .page-header h2 {
+    margin: 0 0 5px 0;
+  }
+  
+  .game-board-container {
+    margin: 10px 0;
+    padding: 10px;
+  }
+}
+
+/* High DPI / Retina display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .btn {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  
+  .content-frame {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .content-frame {
+    background-color: rgba(60, 80, 100, 0.85);
+    border-color: #444;
+  }
+  
+  .page-header h1,
+  .page-header h2 {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  }
+  
+  .message-console {
+    background: rgba(40, 40, 40, 0.9);
+    color: #eee;
+  }
+}
+
+/* PWA specific - safe areas for devices with notches */
+@supports (padding: max(0px)) {
+  .page-content {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+  
+  .btn:hover {
+    transform: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .page-base {
+    background: white;
+  }
+  
+  .content-frame {
+    background: white;
+    border: 1px solid #000;
+    box-shadow: none;
+  }
+}
+
+/* EOF */

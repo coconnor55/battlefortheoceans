@@ -3,8 +3,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-const version = "v0.1.5"
-const useBattleBoard = (eraConfig, gameState, gameBoard) => {
+const version = "v0.1.7"
+
+const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
   const canvasRef = useRef(null);
   const [animations, setAnimations] = useState([]);
   const [shotHistory, setShotHistory] = useState(new Map()); // Track all shots with metadata
@@ -17,21 +18,21 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
   const boardHeight = eraConfig ? eraConfig.rows * cellSize + labelSize : 0;
 
   useEffect(() => {
-    if (gameBoard && eraConfig) {
+    if (gameBoard && eraConfig && gameInstance) {
       drawCanvas();
     }
-  }, [gameBoard, gameState, animations, eraConfig, shotHistory]);
+  }, [gameBoard, gameState, animations, eraConfig, shotHistory, gameInstance]);
 
   const drawCanvas = () => {
     const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx || !gameBoard || !eraConfig) return;
+    if (!ctx || !gameBoard || !eraConfig || !gameInstance) return;
 
     ctx.canvas.width = boardWidth + 40; // Single board with padding
     ctx.canvas.height = boardHeight + 40;
     
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    // Draw the single game board (no era title)
+    // Draw the single game board
     drawBoard(ctx, gameBoard, 20, 30);
 
     // Draw animations (temporary effects)
@@ -79,10 +80,17 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
       ctx.stroke();
     }
 
+    // Get player view using new Board architecture
+    const playerView = board.getPlayerView(
+      gameState.userId,
+      gameInstance.playerFleets,
+      gameInstance.shipOwnership
+    );
+
     // Draw cells with enhanced visual feedback
     for (let row = 0; row < eraConfig.rows; row++) {
       for (let col = 0; col < eraConfig.cols; col++) {
-        const cell = board.grid[row][col];
+        const cellView = playerView[row][col];
         const x = offsetX + col * cellSize + labelSize + 1;
         const y = offsetY + row * cellSize + labelSize + 1;
         const size = cellSize - 2;
@@ -90,14 +98,13 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
         const centerY = y + size / 2;
 
         // Draw terrain
-        if (cell.terrain !== 'excluded') {
-          ctx.fillStyle = getTerrainColor(cell.terrain);
+        if (cellView.terrain !== 'excluded') {
+          ctx.fillStyle = getTerrainColor(cellView.terrain);
           ctx.fillRect(x, y, size, size);
         }
 
-        // Draw player ships with light blue background (always preserve)
-        if (cell.state === 'ship' && cell.userId === gameState.userId) {
-          // Light blue background for player ships
+        // Draw player ships with light blue background
+        if (cellView.hasOwnShip) {
           ctx.fillStyle = 'rgba(173, 216, 230, 0.7)';
           ctx.fillRect(x, y, size, size);
         }
@@ -105,26 +112,40 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
         // Get shot history for this cell
         const shotKey = `${row}-${col}`;
         const shotInfo = shotHistory.get(shotKey);
+        const shotResult = board.getLastShotResult(row, col);
 
         // Draw enhanced attack results
-        if (cell.state === 'hit') {
-          // Check if ship is sunk and apply background accordingly
-          const isSunk = gameState.isShipSunk && gameState.isShipSunk(board, row, col);
+        if (shotResult === 'hit' || shotResult === 'sunk') {
+          // Get ship data at this location from Game instance
+          const shipDataArray = board.getShipDataAt(row, col);
+          const hasPlayerShip = shipDataArray.some(shipData => {
+            const ownerId = gameInstance.shipOwnership.get(shipData.shipId);
+            return ownerId === gameState.userId;
+          });
+          const hasEnemyShip = shipDataArray.some(shipData => {
+            const ownerId = gameInstance.shipOwnership.get(shipData.shipId);
+            return ownerId !== gameState.userId;
+          });
           
-          if (cell.userId === gameState.userId) {
+          // Check if any ships are sunk
+          const isSunk = shipDataArray.some(shipData => {
+            const ownerId = gameInstance.shipOwnership.get(shipData.shipId);
+            const fleet = gameInstance.playerFleets.get(ownerId);
+            const ship = fleet?.ships.find(s => s.id === shipData.shipId);
+            return ship?.isSunk();
+          });
+          
+          if (hasPlayerShip) {
             // Player ship hit - keep light blue background, add medium grey if sunk
             if (isSunk) {
               ctx.fillStyle = '#808080'; // Medium grey for sunk player ships
               ctx.fillRect(x, y, size, size);
-            } else {
-              // Keep the light blue background already drawn above
             }
-          } else {
-            // Enemy ship hit
-            if (isSunk) {
-              ctx.fillStyle = '#808080'; // Medium grey for sunk enemy ships
-              ctx.fillRect(x, y, size, size);
-            }
+            // Light blue background already drawn above
+          } else if (hasEnemyShip && isSunk) {
+            // Enemy ship hit and sunk
+            ctx.fillStyle = '#808080'; // Medium grey for sunk enemy ships
+            ctx.fillRect(x, y, size, size);
           }
           
           // Draw hit indicator based on who shot
@@ -140,7 +161,7 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
           ctx.arc(centerX, centerY, size * 0.12, 0, 2 * Math.PI);
           ctx.fill();
 
-        } else if (cell.state === 'miss') {
+        } else if (shotResult === 'miss') {
           // Always show player misses as persistent grey circles
           if (shotInfo?.shooter === 'player') {
             ctx.fillStyle = '#666666';
@@ -235,6 +256,9 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
           timestamp: Date.now()
         })));
         
+        // Record shot in Board for persistence
+        board.recordShot(row, col, { name: 'Player' }, shotResult.result);
+        
         showShotAnimation(shotResult, 'player');
       }
     }
@@ -248,6 +272,9 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
       timestamp: Date.now()
     })));
     
+    // Record shot in Board for persistence
+    board.recordShot(row, col, { name: 'Opponent' }, result);
+    
     showShotAnimation({ result, row, col }, 'opponent');
   };
 
@@ -256,7 +283,7 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
     const animY = 30 + row * cellSize + labelSize + cellSize / 2;
     const animId = Date.now() + Math.random();
 
-    if (result === 'hit') {
+    if (result === 'hit' || result === 'sunk') {
       const animation = {
         id: animId,
         type: 'hit',
@@ -373,8 +400,8 @@ const useBattleBoard = (eraConfig, gameState, gameBoard) => {
     drawCanvas,
     boardWidth,
     boardHeight,
-    recordOpponentShot, // New method for tracking opponent shots
-    isReady: !!(eraConfig && gameBoard)
+    recordOpponentShot,
+    isReady: !!(eraConfig && gameBoard && gameInstance)
   };
 };
 

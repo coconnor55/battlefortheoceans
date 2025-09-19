@@ -1,180 +1,77 @@
 // src/classes/Ship.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.1.5"
+const version = "v0.1.7"
 
 class Ship {
-  constructor(name, size, terrain, owner = null) {
+  constructor(name, size, terrain) {
     this.id = `ship-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.name = name;
     this.size = size;
-    this.terrain = terrain;
-    this.owner = owner; // 'player' or 'opponent' or userId
+    this.terrain = terrain; // allowed terrain types array
     
-    // Ship placement and state
-    this.cells = []; // [{row, col, isHit: false}, ...]
+    // Ship state
     this.isPlaced = false;
-    this.orientation = null; // 'horizontal' or 'vertical'
-    
-    // Damage tracking
-    this.hitCount = 0;
-    this.sunkAt = null; // timestamp when ship was sunk
+    this.health = Array(size).fill(1.0); // Array of floats, 1.0 = undamaged, 0.0 = destroyed
+    this.sunkAt = null; // timestamp when ship was sunk (initially null)
   }
 
   /**
-   * Place the ship on the board with specific cells
+   * Receive hit at specific cell index with damage amount
+   * @param {number} index - Cell index (0 to size-1)
+   * @param {number} damage - Damage amount (default 1.0)
+   * @returns {number} - Current health after hit
    */
-  place(cells, orientation = 'horizontal') {
-    if (cells.length !== this.size) {
-      throw new Error(`Ship ${this.name} requires ${this.size} cells, got ${cells.length}`);
-    }
-    
-    this.cells = cells.map(({row, col}) => ({
-      row,
-      col,
-      isHit: false
-    }));
-    
-    this.isPlaced = true;
-    this.orientation = orientation;
-    this.hitCount = 0;
-    this.sunkAt = null;
-    
-    console.log(`Ship ${this.name} placed at:`, this.cells.map(c => `${String.fromCharCode(65 + c.col)}${c.row + 1}`).join(', '));
-  }
-
-  /**
-   * Attempt to hit this ship at specific coordinates
-   */
-  hit(row, col) {
-    if (!this.isPlaced) {
-      console.warn(`Attempted to hit unplaced ship ${this.name}`);
-      return false;
+  receiveHit(index, damage = 1.0) {
+    if (index < 0 || index >= this.size) {
+      console.warn(`Invalid cell index ${index} for ship ${this.name} (size: ${this.size})`);
+      return this.getHealth();
     }
 
-    const targetCell = this.cells.find(cell => cell.row === row && cell.col === col);
+    // Apply damage (health cannot go below 0)
+    this.health[index] = Math.max(0, this.health[index] - damage);
     
-    if (!targetCell) {
-      // This coordinate is not part of this ship
-      return false;
-    }
-
-    if (targetCell.isHit) {
-      console.warn(`Cell ${row},${col} on ship ${this.name} already hit`);
-      return false;
-    }
-
-    // Apply hit
-    targetCell.isHit = true;
-    this.hitCount++;
-    
-    const cellName = `${String.fromCharCode(65 + col)}${row + 1}`;
-    console.log(`Ship ${this.name} hit at ${cellName} (${this.hitCount}/${this.size})`);
+    console.log(`Ship ${this.name} hit at index ${index} (health: ${this.health[index].toFixed(2)})`);
 
     // Check if ship is now sunk
     if (this.isSunk() && !this.sunkAt) {
       this.sunkAt = Date.now();
-      console.log(`Ship ${this.name} SUNK!`);
+      console.log(`Ship ${this.name} SUNK! Total health: ${this.getHealth().toFixed(2)}`);
     }
 
-    return true;
+    return this.getHealth();
+  }
+
+  /**
+   * Get ship's overall health as percentage (0.0 = destroyed, 1.0 = perfect)
+   * @returns {number} - Sum of health array divided by size (0.0-1.0 scale)
+   */
+  getHealth() {
+    return this.health.reduce((sum, cellHealth) => sum + cellHealth, 0) / this.size;
   }
 
   /**
    * Check if this ship is completely sunk
+   * @returns {boolean} - True if health <= 0 OR sunkAt !== null
    */
   isSunk() {
-    return this.isPlaced && this.hitCount >= this.size;
+    return this.getHealth() <= 0 || this.sunkAt !== null;
   }
 
   /**
-   * Get all cells that have been hit
-   */
-  getHitCells() {
-    return this.cells.filter(cell => cell.isHit);
-  }
-
-  /**
-   * Get all cells that haven't been hit
-   */
-  getIntactCells() {
-    return this.cells.filter(cell => !cell.isHit);
-  }
-
-  /**
-   * Check if this ship occupies a specific coordinate
-   */
-  occupiesCell(row, col) {
-    return this.cells.some(cell => cell.row === row && cell.col === col);
-  }
-
-  /**
-   * Get damage percentage (0-1)
-   */
-  getDamageRatio() {
-    return this.isPlaced ? this.hitCount / this.size : 0;
-  }
-
-  /**
-   * Reset ship to unplaced, undamaged state
+   * Reset ship to initial state
    */
   reset() {
-    this.cells = [];
     this.isPlaced = false;
-    this.orientation = null;
-    this.hitCount = 0;
+    this.health = Array(this.size).fill(1.0);
     this.sunkAt = null;
-  }
-
-  /**
-   * Get ship status for debugging
-   */
-  getStatus() {
-    return {
-      id: this.id,
-      name: this.name,
-      size: this.size,
-      owner: this.owner,
-      isPlaced: this.isPlaced,
-      hitCount: this.hitCount,
-      isSunk: this.isSunk(),
-      cells: this.cells.map(cell => ({
-        position: `${String.fromCharCode(65 + cell.col)}${cell.row + 1}`,
-        isHit: cell.isHit
-      }))
-    };
-  }
-
-  /**
-   * Validate ship placement against terrain requirements
-   */
-  canPlaceOnTerrain(boardCells) {
-    return this.cells.every(({row, col}) => {
-      const boardCell = boardCells[row]?.[col];
-      return boardCell &&
-             boardCell.terrain !== 'excluded' &&
-             this.terrain.includes(boardCell.terrain);
-    });
   }
 
   /**
    * Create ship from config object
    */
-  static fromConfig(config, owner = null) {
-    return new Ship(config.name, config.size, config.terrain, owner);
-  }
-
-  /**
-   * Legacy compatibility methods (to be removed after full refactor)
-   */
-  resetDamage() {
-    console.warn('Ship.resetDamage() is deprecated, use Ship.reset()');
-    this.reset();
-  }
-
-  getDamage() {
-    console.warn('Ship.getDamage() is deprecated, use Ship.hitCount');
-    return this.hitCount;
+  static fromConfig(config) {
+    return new Ship(config.name, config.size, config.terrain);
   }
 }
 

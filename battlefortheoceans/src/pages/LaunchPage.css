@@ -1,48 +1,8 @@
-/* src/pages/LaunchPage.css (v0.1.11) */
-/* Copyright(c) 2025, Clint H. O'Connor */
+/* src/pages/LaunchPage.css (v0.1.2) */
 
-.launch-page {
-  position: relative;
-  background-image: url('https://battlefortheoceans.b-cdn.net/battlefortheoceans.jpg');
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-attachment: scroll;
-  background-position: center -325px;
-  background-color: #e0e0e0; /* Fallback if image fails */
-  width: 100vw;
-  height: 2000px;
-  overflow: auto;
-  margin: 0;
-  padding: 0;
-}
+/* Page-specific styles only - common styles in Pages.css */
 
-.launch-content {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
+/* Any placement-specific adjustments would go here */
+/* Currently none needed - Pages.css handles everything */
 
-.launch-button {
-  background-color: #E6C200;
-  color: #1A3C6D;
-  border: none;
-  padding: 12px 24px;
-  font-size: 18px;
-  font-weight: bold;
-  cursor: pointer;
-  border-radius: 20px 8px;
-  border: 3px solid #DFB600;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-  transition: background-color 0.3s ease;
-}
-
-.launch-button:hover {
-  background-color: #FFE700;
-}
-
-/* EOF - EOF - EOF */
+/* EOF */

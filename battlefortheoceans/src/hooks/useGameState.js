@@ -1,28 +1,27 @@
 // src/hooks/useGameState.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-import { useState, useEffect, useContext } from 'react';
-import { GameContext } from '../context/GameContext';
-import Game from '../classes/Game';
+import { useState, useEffect, useCallback } from 'react';
+import { useGame } from '../context/GameContext';
 
-const version = "v0.1.15";
+const version = "v0.1.19";
 
 const useGameState = () => {
   const {
     eraConfig,
     selectedOpponent,
-    player,
-    placementBoard,
-    getCurrentGameMode,
-    dispatch,
-    stateMachine
-  } = useContext(GameContext);
+    selectedGameMode,
+    humanPlayer,
+    gameInstance,
+    board,
+    initializeGame,
+    addPlayerToGame
+  } = useGame();
   
-  const [game, setGame] = useState(null);
   const [gameState, setGameState] = useState({
     isPlayerTurn: true,
     currentPlayer: null,
-    message: 'Starting game...',
+    message: 'Initializing game...',
     shots: [],
     playerHits: 0,
     opponentHits: 0,
@@ -30,75 +29,89 @@ const useGameState = () => {
     gamePhase: 'setup'
   });
 
-  // Initialize game when all required data is available
+  // Initialize game when ready for battle phase
   useEffect(() => {
-    if (!eraConfig || !selectedOpponent || !placementBoard) {
-      console.log('v0.1.15: Waiting for game initialization data');
+    if (!eraConfig || !selectedOpponent || !humanPlayer || gameInstance) {
+      return; // Wait for all data or game already exists
+    }
+
+    console.log(version + ': Initializing game for battle phase');
+    
+    // Initialize game instance through GameContext
+    const game = initializeGame(selectedGameMode?.id || 'turnBased');
+    if (!game) {
+      console.error(version + ': Failed to initialize game');
       return;
     }
 
-    const gameMode = getCurrentGameMode();
-    console.log('v0.1.15: Initializing new Game instance with mode:', gameMode.name);
-    
-    // Create new game instance
-    const newGame = new Game(eraConfig, gameMode.id);
-    
-    // Add human player
-    const humanPlayerId = humanPlayer?.id || 'defaultPlayer';
-    newGame.addPlayer(humanPlayerId, 'human', humanPlayer?.name || humanPlayer?.email || 'You');
-    
-    // Add AI opponent
-    newGame.addPlayer(selectedOpponent.id, 'ai', selectedOpponent.name);
-    
-    // Set the placement board (from placement phase)
-    if (placementBoard) {
-      newGame.setBoard(placementBoard);
-      console.log('v0.1.15: Board set from placement phase');
-    }
-    
-    // Start the game
-    newGame.startGame()
-      .then(() => {
-        console.log('v0.1.15: Game started successfully');
-        setGame(newGame);
-        updateGameState(newGame);
-      })
-      .catch(error => {
-        console.error('v0.1.15: Game start failed:', error);
-        setGameState(prev => ({
-          ...prev,
-          message: `Game start failed: ${error.message}`,
-          isGameActive: false
-        }));
-      });
+    // Add human player to game and assign to alliance
+    const humanPlayerId = humanPlayer.id || 'human-player';
+    addPlayerToGame(humanPlayerId, 'human', humanPlayer.name || 'Player', 'Player Alliance');
 
-  }, [eraConfig, selectedOpponent, humanPlayer, placementBoard, getCurrentGameMode]);
+    // Add AI opponent and assign to alliance
+    const aiId = selectedOpponent.id || 'ai-opponent';
+    const aiStrategy = selectedOpponent.strategy || 'methodical_hunting';
+    const aiDifficulty = selectedOpponent.difficulty || 1.0;
+    addPlayerToGame(aiId, 'ai', selectedOpponent.name, 'Opponent Alliance');
+
+    console.log(version + ': Players added to game with alliance assignments');
+
+  }, [eraConfig, selectedOpponent, humanPlayer, selectedGameMode, gameInstance, initializeGame, addPlayerToGame]);
+
+  // Start game when both players are added and ships are placed
+  useEffect(() => {
+    if (!gameInstance || gameInstance.state !== 'setup') return;
+
+    // Check if all players have fleets and ships are placed
+    const allPlayersReady = gameInstance.players.every(player => {
+      const fleet = gameInstance.playerFleets.get(player.id);
+      return fleet && fleet.isPlaced();
+    });
+
+    if (allPlayersReady) {
+      console.log(version + ': All players ready, starting game');
+      
+      gameInstance.startGame()
+        .then(() => {
+          console.log(version + ': Game started successfully');
+          updateGameState(gameInstance);
+        })
+        .catch(error => {
+          console.error(version + ': Game start failed:', error);
+          setGameState(prev => ({
+            ...prev,
+            message: `Game start failed: ${error.message}`,
+            isGameActive: false
+          }));
+        });
+    }
+  }, [gameInstance]);
 
   // Update local game state when game instance changes
-  const updateGameState = (gameInstance) => {
-    if (!gameInstance) return;
+  const updateGameState = useCallback((game) => {
+    if (!game) return;
 
-    const currentPlayer = gameInstance.getCurrentPlayer();
-    const humanPlayer = gameInstance.players.find(p => p.type === 'human');
-    const aiPlayer = gameInstance.players.find(p => p.type === 'ai');
+    const currentPlayer = game.getCurrentPlayer();
+    const humanPlayerInGame = game.players.find(p => p.type === 'human');
+    const aiPlayer = game.players.find(p => p.type === 'ai');
 
     setGameState({
       isPlayerTurn: currentPlayer?.type === 'human',
       currentPlayer: currentPlayer,
-      message: generateGameMessage(gameInstance, currentPlayer),
-      shots: gameInstance.gameLog.filter(entry => entry.type === 'attack'),
-      playerHits: humanPlayer ? humanPlayer.getHits() : 0,
-      opponentHits: aiPlayer ? aiPlayer.getHits() : 0,
-      isGameActive: gameInstance.state === 'playing',
-      gamePhase: gameInstance.state,
-      winner: gameInstance.winner
+      message: generateGameMessage(game, currentPlayer),
+      shots: game.gameLog.filter(entry => entry.message.includes('attack')),
+      playerHits: humanPlayerInGame?.shotsHit || 0,
+      opponentHits: aiPlayer?.shotsHit || 0,
+      isGameActive: game.state === 'playing',
+      gamePhase: game.state,
+      winner: game.winner
     });
-  };
+  }, [eraConfig]);
 
   // Generate appropriate game message
-  const generateGameMessage = (gameInstance, currentPlayer) => {
-    if (gameInstance.state === 'finished') {
-      const winner = gameInstance.winner;
+  const generateGameMessage = useCallback((game, currentPlayer) => {
+    if (game.state === 'finished') {
+      const winner = game.winner;
       if (winner?.type === 'human') {
         return 'Victory! You sank the enemy fleet!';
       } else {
@@ -106,10 +119,10 @@ const useGameState = () => {
       }
     }
 
-    if (gameInstance.state === 'playing') {
+    if (game.state === 'playing') {
       if (currentPlayer?.type === 'human') {
-        const gameMode = getCurrentGameMode();
-        if (gameMode?.id === 'rapid') {
+        const gameRules = game.gameRules;
+        if (!gameRules.turn_required) {
           return 'Rapid Fire! Click to fire continuously!';
         } else {
           return 'Your turn - click to fire!';
@@ -119,38 +132,38 @@ const useGameState = () => {
       }
     }
 
-    return gameInstance.state === 'setup' ? 'Preparing game...' : 'Game starting...';
-  };
+    return game.state === 'setup' ? 'Preparing game...' : 'Game starting...';
+  }, []);
 
-  // Handle player attack
-  const handleAttack = async (row, col) => {
-    if (!game || !game.isValidAttack(row, col)) {
-      console.log('v0.1.15: Invalid attack attempt:', { row, col });
+  // Handle player attack using Game's hit resolution
+  const handleAttack = useCallback(async (row, col) => {
+    if (!gameInstance || !gameInstance.isValidAttack(row, col)) {
+      console.log(version + ': Invalid attack attempt:', { row, col });
       return false;
     }
 
     try {
-      console.log('v0.1.15: Processing attack:', { row, col });
+      console.log(version + ': Processing attack through Game instance:', { row, col });
       
-      // Execute the attack through the game instance
-      const result = await game.processPlayerAction('attack', { row, col });
+      // Execute attack through Game's enhanced hit resolution
+      const result = await gameInstance.processPlayerAction('attack', { row, col });
       
       // Update our local state
-      updateGameState(game);
+      updateGameState(gameInstance);
       
-      // Handle AI turn if it's turn-based and game is still active
-      if (game.state === 'playing' &&
-          getCurrentGameMode()?.id === 'turn' &&
-          game.getCurrentPlayer()?.type === 'ai') {
+      // Handle AI turn if turn-based and game still active
+      if (gameInstance.state === 'playing' &&
+          gameInstance.gameRules.turn_required &&
+          gameInstance.getCurrentPlayer()?.type === 'ai') {
         
         // Small delay for better UX
         setTimeout(async () => {
           try {
-            const aiResult = await game.processAITurn();
-            console.log('v0.1.15: AI turn completed:', aiResult);
-            updateGameState(game);
+            const aiResult = await gameInstance.processAITurn();
+            console.log(version + ': AI turn completed:', aiResult);
+            updateGameState(gameInstance);
           } catch (error) {
-            console.error('v0.1.15: AI turn failed:', error);
+            console.error(version + ': AI turn failed:', error);
           }
         }, 1000);
       }
@@ -158,49 +171,48 @@ const useGameState = () => {
       return result;
       
     } catch (error) {
-      console.error('v0.1.15: Attack processing failed:', error);
+      console.error(version + ': Attack processing failed:', error);
       setGameState(prev => ({
         ...prev,
         message: `Attack failed: ${error.message}`
       }));
       return false;
     }
-  };
+  }, [gameInstance, updateGameState]);
 
-  // Reset game (for restart)
-  const resetGame = () => {
-    if (game) {
-      game.reset();
-      updateGameState(game);
+  // Reset game
+  const resetGame = useCallback(() => {
+    if (gameInstance) {
+      gameInstance.reset();
+      updateGameState(gameInstance);
     }
-  };
-
-  // Get board state for rendering
-  const getBoardState = () => {
-    if (!game?.board) return null;
-    
-    return {
-      board: game.board,
-      shots: gameState.shots,
-      gamePhase: gameState.gamePhase
-    };
-  };
+  }, [gameInstance, updateGameState]);
 
   // Get game statistics
-  const getGameStats = () => {
-    if (!game) return null;
-    
-    return game.getGameStats();
-  };
+  const getGameStats = useCallback(() => {
+    return gameInstance ? gameInstance.getGameStats() : null;
+  }, [gameInstance]);
 
   // Check if position is valid for attack
-  const isValidAttack = (row, col) => {
-    return game ? game.isValidAttack(row, col) : false;
-  };
+  const isValidAttack = useCallback((row, col) => {
+    return gameInstance ? gameInstance.isValidAttack(row, col) : false;
+  }, [gameInstance]);
 
-  console.log('v0.1.15: useGameState render', {
-    hasGame: !!game,
-    gameState: gameState.gamePhase,
+  // Get player view from Board for UI rendering
+  const getPlayerView = useCallback((playerId) => {
+    if (!board || !gameInstance) return null;
+    
+    return board.getPlayerView(
+      playerId,
+      gameInstance.playerFleets,
+      gameInstance.shipOwnership
+    );
+  }, [board, gameInstance]);
+
+  console.log(version + ': useGameState render', {
+    hasGameInstance: !!gameInstance,
+    hasBoard: !!board,
+    gamePhase: gameState.gamePhase,
     isPlayerTurn: gameState.isPlayerTurn,
     isGameActive: gameState.isGameActive
   });
@@ -208,19 +220,28 @@ const useGameState = () => {
   return {
     // Game state
     ...gameState,
-    gameMode: getCurrentGameMode(),
+    gameMode: selectedGameMode,
+    userId: humanPlayer?.id,
+    
+    // Single board instance (used by both placement and battle)
+    gameBoard: board,
     
     // Actions
+    fireShot: handleAttack, // Alias for compatibility
     handleAttack,
     resetGame,
     
     // Data accessors
-    getBoardState,
     getGameStats,
     isValidAttack,
+    getPlayerView,
     
-    // Game instance (for advanced use)
-    game
+    // Game instance access
+    game: gameInstance,
+    
+    // Context data
+    eraConfig,
+    selectedOpponent
   };
 };
 

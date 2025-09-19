@@ -1,14 +1,13 @@
 // src/pages/PlacementPage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { useContext, useEffect, useState } from 'react';
-import { GameContext } from '../context/GameContext';
-import Board from '../classes/Board';
-import AiPlayer from '../classes/AiPlayer';
-import ShipPlacementBoard from '../components/ShipPlacementBoard';
+import React, { useState, useEffect } from 'react';
+import { useGame } from '../context/GameContext';
+import FleetPlacement from '../components/FleetPlacement';
+import './Pages.css';
 import './PlacementPage.css';
 
-const version = 'v0.1.13';
+const version = 'v0.1.15';
 
 const PlacementPage = () => {
   const {
@@ -17,182 +16,113 @@ const PlacementPage = () => {
     eraConfig,
     humanPlayer,
     selectedOpponent,
-    updatePlacementBoard
-  } = useContext(GameContext);
+    gameInstance,
+    board,
+    initializeGame,
+    addPlayerToGame,
+    registerShipPlacement
+  } = useGame();
   
-  const [board, setBoard] = useState(null);
-  const [aiPlayer, setAiPlayer] = useState(null);
   const [currentShipIndex, setCurrentShipIndex] = useState(0);
-  const [isPlacingShips, setIsPlacingShips] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [playerFleet, setPlayerFleet] = useState(null);
   const [error, setError] = useState(null);
+  const [isReady, setIsReady] = useState(false);
 
+  // Initialize game and players when component mounts
   useEffect(() => {
-    // Prevent multiple initializations
-    if (isInitialized) {
-      console.log(version, 'PlacementPage already initialized, skipping');
+    if (!eraConfig || !humanPlayer || !selectedOpponent) {
+      setError('Missing game configuration. Please select era and opponent.');
       return;
     }
 
-    console.log(version, 'PlacementPage useEffect triggered');
-    console.log(version, 'Era config:', eraConfig?.name);
-    console.log(version, 'HumanPlayer:', humanPlayer?.id);
-    console.log(version, 'Selected opponent:', selectedOpponent?.name);
+    if (gameInstance) {
+      console.log(version, 'Game instance already exists, checking player setup');
+      checkPlayerSetup();
+      return;
+    }
+
+    console.log(version, 'Initializing game for placement phase');
     
-    // Validate required data
-    if (!humanPlayer?.id) {
-      setError('Player session lost. Please log in again.');
-      return;
-    }
+    try {
+      // Initialize game through GameContext
+      const game = initializeGame(selectedOpponent.gameMode || 'turnBased');
+      
+      if (!game) {
+        throw new Error('Failed to initialize game instance');
+      }
 
-    if (!eraConfig) {
-      setError('Era configuration not found. Please select an era first.');
-      return;
+      console.log(version, 'Game initialized, adding players');
+      
+    } catch (err) {
+      console.error(version, 'Error initializing game:', err);
+      setError(`Failed to initialize game: ${err.message}`);
     }
+  }, [eraConfig, humanPlayer, selectedOpponent, gameInstance, initializeGame]);
 
-    if (!selectedOpponent) {
-      setError('No opponent selected. Please select an opponent first.');
-      return;
-    }
+  // Set up players and fleets once game is initialized
+  useEffect(() => {
+    if (!gameInstance || gameInstance.players.length > 0) return;
 
-    // Check for required era properties
-    const required = ['rows', 'cols', 'terrain', 'playerfleet'];
-    const missing = required.filter(prop => !eraConfig[prop]);
-    
-    if (missing.length > 0) {
-      setError(`Invalid Era Configuration - Missing: ${missing.join(', ')}`);
-      return;
-    }
-
-    // Check for ships in playerfleet
-    if (!eraConfig.playerfleet.ships || !Array.isArray(eraConfig.playerfleet.ships)) {
-      setError('Invalid Era Configuration - Missing: ships in playerfleet');
-      return;
-    }
+    console.log(version, 'Setting up players and fleets');
 
     try {
-      const { rows, cols, terrain, playerfleet } = eraConfig;
-      
-      console.log(version, 'Creating board with dimensions:', rows, 'x', cols);
-      console.log(version, 'Fleet ships:', playerfleet.ships.map(s => `${s.name}(${s.size})`));
-      
-      // Create the game board
-      const gameBoard = new Board(rows, cols, terrain);
-      setBoard(gameBoard);
-      
-      // Create AI player with generated ID
-      const aiId = `ai-${selectedOpponent.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
-      const ai = new AiPlayer(aiId, selectedOpponent.name, selectedOpponent.strategy, selectedOpponent.difficulty);
-      setAiPlayer(ai);
-      
-      // Initialize human player's fleet with ships from era config (only once)
-      if (!humanPlayer.fleet || humanPlayer.fleet.ships.length === 0) {
-        humanPlayer.createFleet(eraConfig);
-        console.log(version, 'Human fleet created with', humanPlayer.fleet.ships.length, 'ships');
-      } else if (humanPlayer.fleet.ships.some(ship => ship.isPlaced)) {
-        console.log(version, 'Human fleet already has placed ships, preserving state');
-      } else {
-        humanPlayer.fleet.reset();
-        console.log(version, 'Human fleet reset to initial state');
-      }
-      console.log(version, 'AI player created:', ai.name);
-      
-      // Auto-place AI ships
-      autoPlaceAIShips(ai, gameBoard);
-      
-      setIsPlacingShips(true);
+      // Add human player and assign to alliance
+      const humanPlayerId = humanPlayer.id;
+      addPlayerToGame(humanPlayerId, 'human', humanPlayer.name || 'Player', 'Player Alliance');
+
+      // Add AI opponent and assign to alliance
+      const aiId = selectedOpponent.id || `ai-${Date.now()}`;
+      const aiStrategy = selectedOpponent.strategy || 'methodical_hunting';
+      const aiDifficulty = selectedOpponent.difficulty || 1.0;
+      addPlayerToGame(aiId, 'ai', selectedOpponent.name, 'Opponent Alliance');
+
+      console.log(version, 'Players added successfully');
+
+    } catch (err) {
+      console.error(version, 'Error setting up players:', err);
+      setError(`Failed to set up players: ${err.message}`);
+    }
+  }, [gameInstance, humanPlayer, selectedOpponent, addPlayerToGame]);
+
+  // Check if players are ready and get human player's fleet
+  const checkPlayerSetup = () => {
+    if (!gameInstance) return;
+
+    const humanPlayerId = humanPlayer.id;
+    const fleet = gameInstance.playerFleets.get(humanPlayerId);
+    
+    if (fleet) {
+      setPlayerFleet(fleet);
       setCurrentShipIndex(0);
-      setError(null);
-      setIsInitialized(true);
-      
-    } catch (err) {
-      console.error(version, 'Error creating placement setup:', err);
-      setError(`Failed to initialize placement: ${err.message}`);
-    }
-  }, [eraConfig, humanPlayer, selectedOpponent, isInitialized]);
-
-  const autoPlaceAIShips = async (ai, gameBoard) => {
-    try {
-      console.log(version, 'Auto-placing AI ships');
-      
-      // Create AI fleet if it doesn't exist
-      if (!ai.fleet) {
-        ai.createFleet(eraConfig);
-      }
-      
-      console.log(version, 'AI fleet created with', ai.fleet.ships.length, 'ships');
-
-      // Place each AI ship randomly
-      for (const ship of ai.fleet.ships) {
-        let placed = false;
-        let attempts = 0;
-        
-        while (!placed && attempts < 100) {
-          const row = Math.floor(Math.random() * eraConfig.rows);
-          const col = Math.floor(Math.random() * eraConfig.cols);
-          const horizontal = Math.random() > 0.5;
-          
-          // Calculate cells for this ship placement
-          const cells = [];
-          for (let i = 0; i < ship.size; i++) {
-            const cellRow = horizontal ? row : row + i;
-            const cellCol = horizontal ? col + i : col;
-            cells.push({ row: cellRow, col: cellCol });
-          }
-          
-          // Check if placement is valid (within bounds)
-          const isValid = cells.every(cell =>
-            cell.row >= 0 && cell.row < eraConfig.rows &&
-            cell.col >= 0 && cell.col < eraConfig.cols
-          );
-          
-          if (isValid) {
-            try {
-              // Place ship (set its position)
-              ship.place(cells, horizontal ? 'horizontal' : 'vertical');
-              
-              // Place on board
-              if (gameBoard.placeShip(ship, 'ai')) {
-                placed = true;
-                console.log(version, `AI placed ${ship.name} at ${row},${col} ${horizontal ? 'H' : 'V'}`);
-              } else {
-                // Reset ship and try again
-                ship.reset();
-              }
-            } catch (error) {
-              // Reset ship and try again
-              ship.reset();
-            }
-          }
-          
-          attempts++;
-        }
-        
-        if (!placed) {
-          console.warn(version, `Failed to place AI ship: ${ship.name}`);
-        }
-      }
-      
-      console.log(version, 'AI ship placement complete');
-      
-    } catch (err) {
-      console.error(version, 'Error placing AI ships:', err);
+      setIsReady(true);
+      console.log(version, 'Player fleet ready with', fleet.count, 'ships');
+    } else {
+      console.log(version, 'Waiting for player fleet...');
     }
   };
 
-  const handleShipPlaced = (ship, row, col, horizontal) => {
+  // Update ready state when game changes
+  useEffect(() => {
+    checkPlayerSetup();
+  }, [gameInstance]);
+
+  // Handle ship placement
+  const handleShipPlaced = (ship, shipCells, orientation) => {
     try {
-      console.log(version, `Attempting to place ${ship.name} at ${row},${col} ${horizontal ? 'H' : 'V'}`);
+      console.log(version, `Placing ${ship.name} with ${shipCells.length} cells`);
       
-      const success = board.placeShip(ship, row, col, horizontal);
+      // Set ship's position and cells
+      ship.place(shipCells, orientation);
+      
+      // Register ship placement with both Game and Board
+      const success = registerShipPlacement(ship, humanPlayer.id);
       
       if (success) {
         console.log(version, `Successfully placed ${ship.name}`);
         
         // Move to next ship
         const nextIndex = currentShipIndex + 1;
-        if (nextIndex >= humanPlayer.fleet.ships.length) {
-          // All ships placed
+        if (nextIndex >= playerFleet.count) {
           handlePlacementComplete();
         } else {
           setCurrentShipIndex(nextIndex);
@@ -200,58 +130,70 @@ const PlacementPage = () => {
         
         return true;
       } else {
-        console.log(version, `Failed to place ${ship.name} - invalid position`);
+        console.log(version, `Failed to register placement for ${ship.name}`);
+        ship.reset();
         return false;
       }
       
     } catch (err) {
       console.error(version, 'Error placing ship:', err);
+      ship.reset();
       return false;
     }
   };
 
+  // Complete placement phase
   const handlePlacementComplete = () => {
-    console.log(version, 'All ships placed, completing placement phase');
+    console.log(version, 'All ships placed, transitioning to battle phase');
     
-    // Store the board with all placed ships in GameContext
-    updatePlacementBoard(board);
-    
-    if (dispatch) {
-      console.log(version, 'Firing PLAY event with placement board');
+    if (dispatch && stateMachine) {
       dispatch(stateMachine.event.PLAY);
     } else {
-      console.error(version, 'Dispatch is not available in handlePlacementComplete');
+      console.error(version, 'Cannot transition - missing dispatch or stateMachine');
     }
   };
 
+  // Get current ship to place
   const getCurrentShip = () => {
-    return humanPlayer?.fleet.ships[currentShipIndex] || null;
+    if (!playerFleet || currentShipIndex >= playerFleet.count) return null;
+    return playerFleet.ships[currentShipIndex];
   };
 
+  // Get placement progress
   const getPlacementProgress = () => {
-    const total = humanPlayer?.fleet.ships.length || 0;
+    const total = playerFleet?.count || 0;
     return `${currentShipIndex} / ${total}`;
   };
 
+  // Error state
   if (error) {
     return (
-      <div className="placement-page error">
-        <div className="error-message">
-          <h2>Configuration Error</h2>
-          <p>{error}</p>
-          <button onClick={() => dispatch(stateMachine.event.ERA)}>
-            Back to Era Selection
-          </button>
+      <div className="page-base">
+        <div className="page-content">
+          <div className="error-message">
+            <h2>Configuration Error</h2>
+            <p>{error}</p>
+            <button
+              className="btn btn-primary"
+              onClick={() => dispatch(stateMachine.event.ERA)}
+            >
+              Back to Era Selection
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!board || !isPlacingShips || !humanPlayer) {
+  // Loading state
+  if (!isReady || !board || !playerFleet) {
     return (
-      <div className="placement-page loading">
-        <div className="loading-message">
-          <p>Setting up placement board...</p>
+      <div className="page-base">
+        <div className="page-content">
+          <div className="loading-message">
+            <h2>Setting up fleet placement...</h2>
+            <p>Preparing your ships and battle board</p>
+          </div>
         </div>
       </div>
     );
@@ -260,26 +202,43 @@ const PlacementPage = () => {
   const currentShip = getCurrentShip();
 
   return (
-    <div className="placement-page">
-      <div className="game-info">
-        <h2>Place Your Fleet</h2>
-        <p>Era: {eraConfig.name}</p>
-        <p>vs {selectedOpponent.name}</p>
-        {currentShip && (
-          <div className="current-ship-info">
-            <h3>Place: {currentShip.name} ({currentShip.size} squares)</h3>
-            <p>Progress: {getPlacementProgress()}</p>
+    <div className="page-base">
+      <div className="page-content">
+        <div className="content-frame">
+          <div className="page-header">
+            <h2>Place Your Fleet</h2>
+            <p>Era: {eraConfig.name}</p>
+            <p>vs {selectedOpponent.name}</p>
           </div>
-        )}
-      </div>
-      
-      <div className="game-board">
-        <ShipPlacementBoard
-          board={board}
-          currentShip={currentShip}
-          onShipPlaced={handleShipPlaced}
-          eraConfig={eraConfig}
-        />
+
+          {currentShip && (
+            <div className="game-info">
+              <h3>Place: {currentShip.name} ({currentShip.size} squares)</h3>
+              <p>Progress: {getPlacementProgress()}</p>
+              <p>Allowed terrain: {currentShip.terrain.join(', ')}</p>
+            </div>
+          )}
+
+          <div className="game-board-container">
+            <FleetPlacement
+              board={board}
+              currentShip={currentShip}
+              onShipPlaced={handleShipPlaced}
+              eraConfig={eraConfig}
+            />
+          </div>
+
+          <div className="message-console">
+            {currentShip ? (
+              <>
+                <p>Tap and drag to place {currentShip.name}</p>
+                <p>Drag horizontally or vertically to set orientation</p>
+              </>
+            ) : (
+              <p>All ships placed! Preparing for battle...</p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

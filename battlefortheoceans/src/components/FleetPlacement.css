@@ -1,4 +1,4 @@
-/* src/components/ShipPlacementBoard.css (v0.1.3)
+/* src/components/FleetPlacement.css (v0.1.3)
    Copyright(c) 2025, Clint H. O'Connor */
 
 .ship-placement-board {
@@ -6,24 +6,24 @@
   flex-direction: column;
   align-items: center;
   gap: 20px;
-  padding: 20px;
-  background: none; /* Remove background square */
+  padding: 0; /* Remove all padding */
+  background: transparent; /* Completely transparent */
 }
 
 .board-grid {
   display: grid;
-  gap: 2px;
-  background: none; /* Remove background square */
-  border: 2px solid #dee2e6; /* Light grey border */
+  gap: 1px;
+  background: grey; /* Completely transparent */
   user-select: none;
   touch-action: none;
-  padding: 4px;
-  border-radius: 4px;
+  padding: 0; /* Remove all padding */
+  border: 2px solid grey; /* Remove all borders */
+  border-radius: 0; /* Remove border radius */
 }
 
 .cell {
-  width: 40px;
-  height: 40px;
+  width: 35px;
+  height: 35px;
   display: flex;
   align-items: center;
   justify-content: center;

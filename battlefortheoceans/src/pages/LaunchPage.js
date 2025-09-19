@@ -2,9 +2,10 @@
 // Copyright(c) 2025, Clint H. O'Connor
 
 import { useGame } from '../context/GameContext';
+import './Pages.css';
 import './LaunchPage.css';
 
-const version = 'v0.1.12';
+const version = 'v0.1.13';
 
 const LaunchPage = () => {
   const { dispatch, stateMachine } = useGame();
@@ -19,14 +20,26 @@ const LaunchPage = () => {
   };
 
   return (
-      <div className="launch-page">
-          <div className="launch-content">
-                <button className="launch-button" onClick={handleCloseDialog}>Play Game</button>
+    <div className="page-base">
+      <div className="page-content">
+        <div className="content-frame">
+          <div className="page-header">
+            <h1>Battle for the Oceans</h1>
+            <p>Strategic Naval Combat</p>
           </div>
+          
+          <button
+            className="btn btn-primary btn-large"
+            onClick={handleCloseDialog}
+          >
+            Play Game
+          </button>
+        </div>
       </div>
-    );
+    </div>
+  );
 };
 
 export default LaunchPage;
 
-// EOF - EOF - EOF
+// EOF

@@ -2,63 +2,63 @@
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState } from 'react';
+import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
-import BattleBoard from '../components/BattleBoard';
+import FleetBattle from '../components/FleetBattle';
+import './Pages.css';
 import './PlayingPage.css';
 
-const version = 'v0.1.6';
+const version = 'v0.1.8';
 
-const PlayingPage = ({ gameMode = 'turnBased' }) => {
+const PlayingPage = () => {
+  const { gameInstance, eraConfig, selectedOpponent, dispatch, stateMachine } = useGame();
+  
   const {
-    gameState,
+    isPlayerTurn,
+    currentPlayer,
+    message,
+    playerHits,
+    opponentHits,
+    isGameActive,
+    gamePhase,
+    winner,
     gameBoard,
-    eraConfig,
-    selectedOpponent,
-    fireShot,
-    isShipSunk,
-    isReady,
-    error,
-    battleBoardRef,
-    messageLog,
-    dispatch,
-    stateMachine
-  } = useGameState(gameMode);
+    gameMode,
+    userId,
+    handleAttack
+  } = useGameState();
 
   const [showMessageLog, setShowMessageLog] = useState(false);
 
-  // Error state - player session lost
-  if (error) {
+  // Loading state - no game instance yet
+  if (!gameInstance || !gameBoard) {
     return (
-      <div className="playing-page error">
-        <div className="error-message">
-          <h2>Session Error</h2>
-          <p>{gameState.message}</p>
-          <button onClick={() => window.location.reload()}>
-            Reload Game
-          </button>
+      <div className="page-base">
+        <div className="page-content">
+          <div className="loading-message">
+            <h2>{eraConfig?.name || 'Battle Waters'}</h2>
+            <p>Preparing battle boards...</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Loading state with era-specific title
-  if (!isReady) {
-    return (
-      <div className="playing-page loading">
-        <div className="loading-message">
-          <h2>{eraConfig?.name || 'Battle Waters'}</h2>
-          <p>Preparing battle boards...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Enhanced game state with additional methods
-  const enhancedGameState = {
-    ...gameState,
-    isShipSunk,
-    battleBoardRef
+  // Enhanced game state for FleetBattle
+  const gameState = {
+    isPlayerTurn,
+    currentPlayer,
+    message,
+    playerHits,
+    opponentHits,
+    isGameActive,
+    gamePhase,
+    winner,
+    userId
   };
+
+  // Get message log from Game instance
+  const messageLog = gameInstance.gameLog || [];
 
   // Format message log for display/export
   const formatMessageLog = () => {
@@ -68,7 +68,7 @@ const PlayingPage = ({ gameMode = 'turnBased' }) => {
     
     const entries = messageLog.map(entry => {
       const time = new Date(entry.timestamp).toLocaleTimeString();
-      return `[${time}] ${entry.turn.toUpperCase()}: ${entry.message}`;
+      return `[${time}] Turn ${entry.turn}: ${entry.message}`;
     }).join('\n');
     
     return header + entries;
@@ -85,7 +85,7 @@ const PlayingPage = ({ gameMode = 'turnBased' }) => {
     });
   };
 
-  // Email message log (opens default email client)
+  // Email message log
   const emailMessageLog = () => {
     const logText = formatMessageLog();
     const subject = encodeURIComponent(`Battleship Game Log - ${eraConfig?.name || 'Game'}`);
@@ -94,98 +94,119 @@ const PlayingPage = ({ gameMode = 'turnBased' }) => {
     window.open(mailtoLink);
   };
 
-  // Handle manual game over transition
+  // Handle game over transition
   const handleGameOver = () => {
     if (dispatch && stateMachine) {
       dispatch(stateMachine.event.OVER);
     }
   };
 
-  // Game Over state - show final board with controls
-  if (!gameState.isGameActive) {
+  // Game Over state
+  if (!isGameActive) {
     return (
-      <div className="playing-page game-over">
-        <div className="game-header">
-          <h2>{eraConfig?.name || 'Battle Waters'}</h2>
-          <div className="opponent-info">
-            <p>vs {selectedOpponent?.name || 'Unknown Opponent'}</p>
-          </div>
-        </div>
-        
-        <BattleBoard
-          eraConfig={eraConfig}
-          gameState={enhancedGameState}
-          gameBoard={gameBoard}
-          onShotFired={() => null} // Disable shooting
-        />
-        
-        <div className="game-over-controls">
-          <div className="game-message final">
-            <p><strong>{gameState.message}</strong></p>
-            <p>Final Score - Your Hits: {gameState.playerHits} | Enemy Hits: {gameState.opponentHits}</p>
-          </div>
-          
-          <div className="game-over-buttons">
-            <button 
-              className="log-button" 
-              onClick={() => setShowMessageLog(!showMessageLog)}
-            >
-              {showMessageLog ? 'Hide' : 'Show'} Message Log
-            </button>
-            
-            <button className="copy-button" onClick={copyMessageLog}>
-              Copy Log
-            </button>
-            
-            <button className="email-button" onClick={emailMessageLog}>
-              Email Log
-            </button>
-            
-            <button className="continue-button primary" onClick={handleGameOver}>
-              Continue
-            </button>
-          </div>
-        </div>
-
-        {showMessageLog && (
-          <div className="message-log-display">
-            <h3>Game Message Log</h3>
-            <div className="log-content">
-              {messageLog.map((entry, index) => (
-                <div key={index} className={`log-entry ${entry.type}`}>
-                  <span className="log-time">
-                    {new Date(entry.timestamp).toLocaleTimeString()}
-                  </span>
-                  <span className="log-turn">[{entry.turn.toUpperCase()}]</span>
-                  <span className="log-message">{entry.message}</span>
-                </div>
-              ))}
+      <div className="page-base">
+        <div className="page-content">
+          <div className="content-frame">
+            <div className="page-header">
+              <h2>{eraConfig?.name || 'Battle Waters'}</h2>
+              <p>vs {selectedOpponent?.name || 'Unknown Opponent'}</p>
             </div>
+            
+            <div className="game-board-container">
+              <FleetBattle
+                eraConfig={eraConfig}
+                gameState={gameState}
+                gameBoard={gameBoard}
+                onShotFired={() => null} // Disable shooting
+              />
+            </div>
+            
+            <div className="message-console">
+              <p><strong>{message}</strong></p>
+              <p>Final Score - Your Hits: {playerHits} | Enemy Hits: {opponentHits}</p>
+            </div>
+            
+            <div className="game-over-controls">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowMessageLog(!showMessageLog)}
+              >
+                {showMessageLog ? 'Hide' : 'Show'} Message Log
+              </button>
+              
+              <button
+                className="btn btn-warning"
+                onClick={copyMessageLog}
+              >
+                Copy Log
+              </button>
+              
+              <button
+                className="btn btn-secondary"
+                onClick={emailMessageLog}
+              >
+                Email Log
+              </button>
+              
+              <button
+                className="btn btn-primary"
+                onClick={handleGameOver}
+              >
+                Continue
+              </button>
+            </div>
+
+            {showMessageLog && (
+              <div className="message-log-display">
+                <h3>Game Message Log</h3>
+                <div className="log-content">
+                  {messageLog.map((entry, index) => (
+                    <div key={index} className={`log-entry ${entry.type || 'info'}`}>
+                      <span className="log-time">
+                        {new Date(entry.timestamp).toLocaleTimeString()}
+                      </span>
+                      <span className="log-turn">[T{entry.turn || '0'}]</span>
+                      <span className="log-message">{entry.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     );
   }
 
   // Active game state
   return (
-    <div className="playing-page">
-      <div className="game-header">
-        <h2>{eraConfig?.name || 'Battle Waters'}</h2>
-        <div className="opponent-info">
-          <p>vs {selectedOpponent?.name || 'Unknown Opponent'}</p>
+    <div className="page-base">
+      <div className="page-content">
+        <div className="content-frame">
+          <div className="page-header">
+            <h2>{eraConfig?.name || 'Battle Waters'}</h2>
+            <p>vs {selectedOpponent?.name || 'Unknown Opponent'}</p>
+            <span className="game-mode">({gameMode?.name || 'Turn Based'})</span>
+          </div>
+          
+          <div className="game-board-container">
+            <FleetBattle
+              eraConfig={eraConfig}
+              gameState={gameState}
+              gameBoard={gameBoard}
+              onShotFired={handleAttack}
+            />
+          </div>
+          
+          <div className="message-console">
+            <p>{message}</p>
+          </div>
+          
+          <div className="game-stats">
+            <div className="score">Your Hits: {playerHits}</div>
+            <div className="score">Enemy Hits: {opponentHits}</div>
+          </div>
         </div>
-      </div>
-      
-      <BattleBoard
-        eraConfig={eraConfig}
-        gameState={enhancedGameState}
-        gameBoard={gameBoard}
-        onShotFired={fireShot}
-      />
-      
-      <div className="game-message">
-        <p>{gameState.message}</p>
       </div>
     </div>
   );
