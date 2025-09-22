@@ -8,7 +8,7 @@ import FleetBattle from '../components/FleetBattle';
 import './Pages.css';
 import './PlayingPage.css';
 
-const version = 'v0.2.2';
+const version = 'v0.2.3';
 
 const PlayingPage = () => {
   const {
@@ -42,28 +42,8 @@ const PlayingPage = () => {
   // Force re-render trigger for observer pattern
   const [, setRenderTrigger] = useState(0);
 
-  // Subscribe to game logic updates
-  useEffect(() => {
-    const unsubscribe = subscribeToUpdates(() => {
-      setRenderTrigger(prev => prev + 1);
-    });
-    return unsubscribe;
-  }, [subscribeToUpdates]);
-
-  // Memoized game state to prevent unnecessary re-renders
-  const gameState = React.useMemo(() => ({
-    isPlayerTurn,
-    currentPlayer,
-    battleMessage,      // NEW: Battle console message
-    uiMessage,         // NEW: UI console message
-    playerHits,
-    opponentHits,
-    isGameActive,
-    gamePhase,
-    winner,
-    userId: humanPlayer?.id
-  }), [isPlayerTurn, currentPlayer, battleMessage, uiMessage, playerHits, opponentHits, isGameActive, gamePhase, winner, humanPlayer?.id]);
-
+  // FIXED: Move all useCallback hooks BEFORE any early returns
+  
   // Stable shot handler to prevent retriggering
   const handleShotFired = useCallback((row, col) => {
     // Only allow shots during player turn
@@ -76,25 +56,9 @@ const PlayingPage = () => {
     return handleAttack(row, col);
   }, [isPlayerTurn, isGameActive, handleAttack]);
 
-  // Loading state - no game instance yet
-  if (!gameInstance || !gameBoard) {
-    return (
-      <div className="page-base">
-        <div className="page-content">
-          <div className="loading-message">
-            <h2>{eraConfig?.name || 'Battle Waters'}</h2>
-            <p>Preparing battle boards...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Get message log from Game instance
-  const messageLog = gameInstance.gameLog || [];
-
   // Format message log for display/export
   const formatMessageLog = useCallback(() => {
+    const messageLog = gameInstance?.gameLog || [];
     const header = `Game Log: ${eraConfig?.name || 'Battleship'}\n` +
                    `Opponent: ${selectedOpponent?.name || 'Unknown'}\n` +
                    `Date: ${new Date().toISOString()}\n\n`;
@@ -105,7 +69,7 @@ const PlayingPage = () => {
     }).join('\n');
     
     return header + entries;
-  }, [eraConfig?.name, selectedOpponent?.name, messageLog]);
+  }, [eraConfig?.name, selectedOpponent?.name, gameInstance?.gameLog]);
 
   // Copy message log to clipboard
   const copyMessageLog = useCallback(() => {
@@ -133,6 +97,45 @@ const PlayingPage = () => {
       dispatch(stateMachine.event.OVER);
     }
   }, [dispatch, stateMachine]);
+
+  // Subscribe to game logic updates
+  useEffect(() => {
+    const unsubscribe = subscribeToUpdates(() => {
+      setRenderTrigger(prev => prev + 1);
+    });
+    return unsubscribe;
+  }, [subscribeToUpdates]);
+
+  // Memoized game state to prevent unnecessary re-renders
+  const gameState = React.useMemo(() => ({
+    isPlayerTurn,
+    currentPlayer,
+    battleMessage,      // NEW: Battle console message
+    uiMessage,         // NEW: UI console message
+    playerHits,
+    opponentHits,
+    isGameActive,
+    gamePhase,
+    winner,
+    userId: humanPlayer?.id
+  }), [isPlayerTurn, currentPlayer, battleMessage, uiMessage, playerHits, opponentHits, isGameActive, gamePhase, winner, humanPlayer?.id]);
+
+  // Loading state - no game instance yet
+  if (!gameInstance || !gameBoard) {
+    return (
+      <div className="page-base">
+        <div className="page-content">
+          <div className="loading-message">
+            <h2>{eraConfig?.name || 'Battle Waters'}</h2>
+            <p>Preparing battle boards...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Get message log from Game instance
+  const messageLog = gameInstance.gameLog || [];
 
   // Game Over state
   if (!isGameActive && gamePhase === 'finished') {
