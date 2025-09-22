@@ -1,7 +1,7 @@
 // src/App.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import LaunchPage from './pages/LaunchPage';
 import LoginPage from './pages/LoginPage';
@@ -11,10 +11,21 @@ import PlayingPage from './pages/PlayingPage';
 import OverPage from './pages/OverPage';
 import './App.css';
 
-const version = 'v0.1.46';
+const version = 'v0.2.0';
 
 const SceneRenderer = () => {
-  const { stateMachine } = useGame();
+  const { stateMachine, subscribeToUpdates } = useGame();
+  
+  // Force re-render trigger when game logic changes
+  const [, setRenderTrigger] = useState(0);
+
+  // Subscribe to game logic updates for state machine transitions
+  useEffect(() => {
+    const unsubscribe = subscribeToUpdates(() => {
+      setRenderTrigger(prev => prev + 1);
+    });
+    return unsubscribe;
+  }, [subscribeToUpdates]);
   
   const currentState = stateMachine.getCurrentState();
   console.log(version, 'Rendering scene for', currentState);
@@ -36,7 +47,15 @@ const SceneRenderer = () => {
           case 'over':
             return <OverPage />;
           default:
-            return <div>Unknown state: {currentState}</div>;
+            return (
+              <div className="error-state">
+                <h2>Unknown State: {currentState}</h2>
+                <p>The application is in an unexpected state.</p>
+                <button onClick={() => window.location.reload()}>
+                  Reload Application
+                </button>
+              </div>
+            );
         }
       })()}
     </div>

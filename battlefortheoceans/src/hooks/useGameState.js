@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = "v0.1.25";
+const version = "v0.2.3";
 
 const useGameState = () => {
   const {
@@ -14,67 +14,51 @@ const useGameState = () => {
     humanPlayer,
     gameInstance,
     board,
-    uiVersion  // Use gameLogic instead of React state
+    getUIState,
+    getPlacementProgress
   } = useGame();
   
-  const [gameState, setGameState] = useState({
-    isPlayerTurn: true,
-    currentPlayer: null,
-    message: 'Initializing game...',
-    shots: [],
-    playerHits: 0,
-    opponentHits: 0,
-    isGameActive: false,
-    gamePhase: 'setup'
+  // Message state from Game's Message system
+  const [messages, setMessages] = useState({
+    console: '',
+    ui: '',
+    system: '',
+    turn: ''
   });
+  
+  // Force re-render trigger for observer pattern
+  const [, setRenderTrigger] = useState(0);
+  const forceUpdate = useCallback(() => setRenderTrigger(prev => prev + 1), []);
 
-  // Update local game state when game instance changes
-  const updateGameState = useCallback((game) => {
-    if (!game) return;
-
-    const currentPlayer = game.getCurrentPlayer();
-    const humanPlayerInGame = game.players.find(p => p.type === 'human');
-    const aiPlayer = game.players.find(p => p.type === 'ai');
-
-    setGameState({
-      isPlayerTurn: currentPlayer?.type === 'human',
-      currentPlayer: currentPlayer,
-      message: generateGameMessage(game, currentPlayer),
-      shots: game.gameLog.filter(entry => entry.message.includes('attack')),
-      playerHits: humanPlayerInGame?.shotsHit || 0,
-      opponentHits: aiPlayer?.shotsHit || 0,
-      isGameActive: game.state === 'playing',
-      gamePhase: game.state,
-      winner: game.winner
-    });
-  }, []);
-
-  // Generate appropriate game message
-  const generateGameMessage = useCallback((game, currentPlayer) => {
-    if (game.state === 'finished') {
-      const winner = game.winner;
-      if (winner?.type === 'human') {
-        return 'Victory! You sank the enemy fleet!';
-      } else {
-        return 'Defeat! Your fleet has been sunk.';
-      }
+  // Subscribe to Message system updates
+  useEffect(() => {
+    if (gameInstance?.message) {
+      console.log(version + ': Subscribing to Message system');
+      
+      const unsubscribe = gameInstance.message.subscribe((newMessages) => {
+        console.log(version + ': Message system update:', newMessages);
+        setMessages(newMessages);
+      });
+      
+      // Get initial messages
+      const initialMessages = gameInstance.message.getCurrentMessages();
+      setMessages(initialMessages);
+      
+      return unsubscribe;
+    } else {
+      // Clear messages if no game instance
+      setMessages({
+        console: '',
+        ui: '',
+        system: '',
+        turn: ''
+      });
     }
+  }, [gameInstance]);
 
-    if (game.state === 'playing') {
-      if (currentPlayer?.type === 'human') {
-        const gameRules = game.gameRules;
-        if (!gameRules.turn_required) {
-          return 'Rapid Fire! Click to fire continuously!';
-        } else {
-          return 'Your turn - click to fire!';
-        }
-      } else {
-        return `${currentPlayer?.name || 'Opponent'} is taking their turn...`;
-      }
-    }
-
-    return game.state === 'setup' ? 'Preparing game...' : 'Game starting...';
-  }, []);
+  // Get computed state directly from game logic
+  const uiState = getUIState();
+  const placementProgress = getPlacementProgress();
 
   // Handle player attack using Game's unified turn management
   const handleAttack = useCallback(async (row, col) => {
@@ -97,47 +81,38 @@ const useGameState = () => {
       // Game will handle turn progression and trigger AI moves automatically
       const result = await gameInstance.processPlayerAction('attack', { row, col });
       
-      // Update our local state to reflect changes
-      updateGameState(gameInstance);
+      // Canvas (useBattleBoard) will handle visual updates automatically
+      // Messages will be handled by Message system automatically
       
+      console.log(version + ': Attack completed:', result.result);
       return result;
       
     } catch (error) {
       console.error(version + ': Attack processing failed:', error);
-      setGameState(prev => ({
-        ...prev,
-        message: `Attack failed: ${error.message}`
-      }));
       return false;
     }
-  }, [gameInstance, updateGameState]);
-
-  // Listen to game instance changes - use uiVersion to track gameLogic changes
-  useEffect(() => {
-    if (gameInstance) {
-      updateGameState(gameInstance);
-    }
-  }, [gameInstance, updateGameState, uiVersion]);
+  }, [gameInstance]);
 
   // Reset game
   const resetGame = useCallback(() => {
     if (gameInstance) {
       gameInstance.reset();
-      updateGameState(gameInstance);
+      // Canvas will handle visual updates automatically
+      // Message system will clear messages automatically
     }
-  }, [gameInstance, updateGameState]);
+  }, [gameInstance]);
 
-  // Get game statistics
+  // Get game statistics - computed directly from game instance
   const getGameStats = useCallback(() => {
     return gameInstance ? gameInstance.getGameStats() : null;
   }, [gameInstance]);
 
-  // Check if position is valid for attack
+  // Check if position is valid for attack - read directly from game instance
   const isValidAttack = useCallback((row, col) => {
     return gameInstance ? gameInstance.isValidAttack(row, col) : false;
   }, [gameInstance]);
 
-  // Get player view from Board for UI rendering
+  // Get player view from Board for UI rendering - read directly from board
   const getPlayerView = useCallback((playerId) => {
     if (!board || !gameInstance) return null;
     
@@ -148,20 +123,58 @@ const useGameState = () => {
     );
   }, [board, gameInstance]);
 
+  // Computed properties from game logic - no local state
+  const isPlayerTurn = uiState.isPlayerTurn;
+  const currentPlayer = uiState.currentPlayer;
+  const isGameActive = uiState.isGameActive;
+  const gamePhase = uiState.gamePhase;
+  const winner = uiState.winner;
+  const playerStats = uiState.playerStats;
+
+  // Determine appropriate battle message
+  const battleMessage = messages.console || 'Awaiting battle action...';
+  
+  // Determine appropriate UI message - prioritize turn messages, fallback to UI messages
+  const uiMessage = messages.turn || messages.ui || 'Preparing for battle...';
+
   console.log(version + ': useGameState render', {
     hasGameInstance: !!gameInstance,
     hasBoard: !!board,
-    gamePhase: gameState.gamePhase,
-    isPlayerTurn: gameState.isPlayerTurn,
-    isGameActive: gameState.isGameActive,
-    currentPlayerType: gameState.currentPlayer?.type
+    gamePhase: gamePhase,
+    isPlayerTurn: isPlayerTurn,
+    isGameActive: isGameActive,
+    currentPlayerType: currentPlayer?.type,
+    hasMessages: !!gameInstance?.message,
+    battleMessage: battleMessage.substring(0, 50) + '...',
+    uiMessage: uiMessage.substring(0, 50) + '...'
   });
 
   return {
-    // Game state
-    ...gameState,
+    // Game state - computed from game logic
+    isPlayerTurn,
+    currentPlayer,
+    isGameActive,
+    gamePhase,
+    winner,
     gameMode: selectedGameMode,
     userId: humanPlayer?.id,
+    
+    // Message state - from Message system with appropriate fallbacks
+    battleMessage,           // Battle console message (hits, misses, sunk ships)
+    uiMessage,              // UI console message (turn status, game state)
+    systemMessage: messages.system || '',
+    
+    // Player stats
+    playerHits: playerStats.playerHits,
+    opponentHits: playerStats.opponentHits,
+    playerShots: playerStats.playerShots,
+    opponentShots: playerStats.opponentShots,
+    
+    // Placement state - computed from game logic
+    currentShipIndex: placementProgress.current,
+    totalShips: placementProgress.total,
+    currentShip: placementProgress.currentShip,
+    isPlacementComplete: placementProgress.isComplete,
     
     // Single board instance (used by both placement and battle)
     gameBoard: board,
@@ -171,7 +184,7 @@ const useGameState = () => {
     handleAttack,
     resetGame,
     
-    // Data accessors
+    // Data accessors - computed properties
     getGameStats,
     isValidAttack,
     getPlayerView,
@@ -181,10 +194,13 @@ const useGameState = () => {
     
     // Context data
     eraConfig,
-    selectedOpponent
+    selectedOpponent,
+    
+    // Computed accuracy
+    accuracy: playerStats.playerShots > 0 ?
+      (playerStats.playerHits / playerStats.playerShots * 100).toFixed(1) : 0
   };
 };
 
 export default useGameState;
-
 // EOF

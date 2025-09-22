@@ -1,7 +1,7 @@
 // src/classes/Ship.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.1.8"
+const version = "v0.1.9"
 
 class Ship {
   constructor(name, size, terrain) {
@@ -12,7 +12,7 @@ class Ship {
     
     // Ship state
     this.isPlaced = false;
-    this.health = Array(size).fill(1.0); // Array of floats, 1.0 = undamaged, 0.0 = destroyed
+    this.health = Array(size).fill(1.0); // Array of floats, 1.0 = undamaged, can go negative for overkill
     this.sunkAt = null; // timestamp when ship was sunk (initially null)
   }
 
@@ -27,9 +27,10 @@ class Ship {
 
   /**
    * Receive hit at specific cell index with damage amount
+   * FIXED: Allow overkill damage for attack boost monetization
    * @param {number} index - Cell index (0 to size-1)
    * @param {number} damage - Damage amount (default 1.0)
-   * @returns {number} - Current health after hit
+   * @returns {number} - Current health after hit (clamped to 0.0 minimum)
    */
   receiveHit(index, damage = 1.0) {
     if (index < 0 || index >= this.size) {
@@ -37,10 +38,13 @@ class Ship {
       return this.getHealth();
     }
 
-    // Apply damage (health cannot go below 0)
-    this.health[index] = Math.max(0, this.health[index] - damage);
-    
-    console.log(`Ship ${this.name} hit at index ${index} (health: ${this.health[index].toFixed(2)})`);
+    // FIXED: Only apply damage if cell health > 0 (prevent multiple hits on same cell)
+    if (this.health[index] > 0) {
+      this.health[index] -= damage; // Allow negative health for overkill damage
+      console.log(`Ship ${this.name} hit at index ${index} (health: ${this.health[index].toFixed(2)})`);
+    } else {
+      console.log(`Ship ${this.name} hit at index ${index} - already destroyed (no additional damage)`);
+    }
 
     // Check if ship is now sunk
     if (this.isSunk() && !this.sunkAt) {
@@ -53,10 +57,12 @@ class Ship {
 
   /**
    * Get ship's overall health as percentage (0.0 = destroyed, 1.0 = perfect)
-   * @returns {number} - Sum of health array divided by size (0.0-1.0 scale)
+   * FIXED: Sum all health (including negative), then clamp final result
+   * @returns {number} - Total health sum divided by size, clamped to 0.0 minimum
    */
   getHealth() {
-    return this.health.reduce((sum, cellHealth) => sum + cellHealth, 0) / this.size;
+    const healthSum = this.health.reduce((sum, cellHealth) => sum + cellHealth, 0);
+    return Math.max(0, healthSum / this.size);
   }
 
   /**
@@ -86,4 +92,3 @@ class Ship {
 
 export default Ship;
 // EOF
-

@@ -6,7 +6,7 @@ import { useGame } from '../context/GameContext';
 import './Pages.css';
 import './OverPage.css';
 
-const version = 'v0.1.1';
+const version = 'v0.1.2';
 
 const OverPage = () => {
   const {
@@ -73,7 +73,7 @@ const OverPage = () => {
   const handlePlayAgain = () => {
     resetGame();
     if (dispatch && stateMachine) {
-      dispatch(stateMachine.event.PLACEMENT);
+      dispatch(stateMachine.event.REPLAY);
     }
   };
 

@@ -1,113 +1,14 @@
 // src/pages/PlayingPage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import FleetBattle from '../components/FleetBattle';
 import './Pages.css';
 import './PlayingPage.css';
 
-const version = 'v0.1.11';
-
-// Battle version of FleetPlacement-style grid
-const BattleGrid = ({ board, gameState, eraConfig, onShotFired, humanPlayer }) => {
-  const { gameInstance } = useGame();
-
-  const getCellClass = (row, col) => {
-    const terrain = eraConfig.terrain[row][col];
-    let classes = [`cell`, `terrain-${terrain}`];
-    
-    // Show your own ships (like in placement)
-    if (gameInstance && gameInstance.shipOwnership && humanPlayer) {
-      try {
-        const shipDataArray = board.getShipDataAt(row, col);
-        if (shipDataArray && shipDataArray.length > 0) {
-          const hasPlayerShip = shipDataArray.some(shipData => {
-            const ownerId = gameInstance.shipOwnership.get(shipData.shipId);
-            return ownerId === humanPlayer.id;
-          });
-          
-          if (hasPlayerShip) {
-            classes.push('has-ship');
-          }
-        }
-      } catch (error) {
-        console.warn(version, 'Error checking ship data at', row, col);
-      }
-    }
-
-    // Show attack results using Board's shot history
-    if (board) {
-      const shotHistory = board.getShotHistory(row, col);
-      if (shotHistory.length > 0) {
-        // Get the most recent shot
-        const lastShot = shotHistory[shotHistory.length - 1];
-        const isPlayerShot = lastShot.attacker === humanPlayer?.name;
-        
-        switch (lastShot.result) {
-          case 'hit':
-            classes.push(isPlayerShot ? 'your-hit' : 'enemy-hit');
-            break;
-          case 'sunk':
-            classes.push(isPlayerShot ? 'your-sunk' : 'enemy-sunk');
-            break;
-          case 'miss':
-            classes.push(isPlayerShot ? 'your-miss' : 'enemy-miss');
-            break;
-          case 'blocked':
-            classes.push(isPlayerShot ? 'your-blocked' : 'enemy-blocked');
-            break;
-        }
-        
-        // Add timing class for enemy shots (for fade effect)
-        if (!isPlayerShot) {
-          const timeSinceShot = Date.now() - lastShot.timestamp;
-          if (timeSinceShot < 2000) { // Show for 2 seconds
-            classes.push('enemy-recent');
-          }
-        }
-      }
-    }
-    
-    return classes.join(' ');
-  };
-
-  const handleCellClick = (row, col) => {
-    if (gameState.isPlayerTurn && gameState.isGameActive && onShotFired) {
-      onShotFired(row, col);
-    }
-  };
-
-  return (
-    <div className="battle-grid">
-      <div
-        className="board-grid"
-        style={{
-          gridTemplateRows: `repeat(${eraConfig.rows}, 1fr)`,
-          gridTemplateColumns: `repeat(${eraConfig.cols}, 1fr)`
-        }}
-      >
-        {Array.from({ length: eraConfig.rows }, (_, row) =>
-          Array.from({ length: eraConfig.cols }, (_, col) => (
-            <div
-              key={`${row}-${col}`}
-              className={getCellClass(row, col)}
-              data-row={row}
-              data-col={col}
-              onClick={() => handleCellClick(row, col)}
-              style={{
-                cursor: gameState.isPlayerTurn && gameState.isGameActive ? 'crosshair' : 'default'
-              }}
-            >
-              <span className="cell-coord">{String.fromCharCode(65 + col)}{row + 1}</span>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-};
+const version = 'v0.2.2';
 
 const PlayingPage = () => {
   const {
@@ -118,13 +19,14 @@ const PlayingPage = () => {
     stateMachine,
     humanPlayer,
     board,
-    uiVersion  // Use gameLogic
+    subscribeToUpdates
   } = useGame();
   
   const {
     isPlayerTurn,
     currentPlayer,
-    message,
+    battleMessage,      // NEW: Battle console message from Message system
+    uiMessage,         // NEW: UI console message from Message system
     playerHits,
     opponentHits,
     isGameActive,
@@ -136,6 +38,43 @@ const PlayingPage = () => {
   } = useGameState();
 
   const [showMessageLog, setShowMessageLog] = useState(false);
+  
+  // Force re-render trigger for observer pattern
+  const [, setRenderTrigger] = useState(0);
+
+  // Subscribe to game logic updates
+  useEffect(() => {
+    const unsubscribe = subscribeToUpdates(() => {
+      setRenderTrigger(prev => prev + 1);
+    });
+    return unsubscribe;
+  }, [subscribeToUpdates]);
+
+  // Memoized game state to prevent unnecessary re-renders
+  const gameState = React.useMemo(() => ({
+    isPlayerTurn,
+    currentPlayer,
+    battleMessage,      // NEW: Battle console message
+    uiMessage,         // NEW: UI console message
+    playerHits,
+    opponentHits,
+    isGameActive,
+    gamePhase,
+    winner,
+    userId: humanPlayer?.id
+  }), [isPlayerTurn, currentPlayer, battleMessage, uiMessage, playerHits, opponentHits, isGameActive, gamePhase, winner, humanPlayer?.id]);
+
+  // Stable shot handler to prevent retriggering
+  const handleShotFired = useCallback((row, col) => {
+    // Only allow shots during player turn
+    if (!isPlayerTurn || !isGameActive) {
+      console.log(version, 'Shot blocked - not player turn or game inactive');
+      return false;
+    }
+    
+    console.log(version, 'Player shot fired at', { row, col });
+    return handleAttack(row, col);
+  }, [isPlayerTurn, isGameActive, handleAttack]);
 
   // Loading state - no game instance yet
   if (!gameInstance || !gameBoard) {
@@ -151,24 +90,11 @@ const PlayingPage = () => {
     );
   }
 
-  // Enhanced game state for battle grid
-  const gameState = {
-    isPlayerTurn,
-    currentPlayer,
-    message,
-    playerHits,
-    opponentHits,
-    isGameActive,
-    gamePhase,
-    winner,
-    userId: humanPlayer?.id
-  };
-
   // Get message log from Game instance
   const messageLog = gameInstance.gameLog || [];
 
   // Format message log for display/export
-  const formatMessageLog = () => {
+  const formatMessageLog = useCallback(() => {
     const header = `Game Log: ${eraConfig?.name || 'Battleship'}\n` +
                    `Opponent: ${selectedOpponent?.name || 'Unknown'}\n` +
                    `Date: ${new Date().toISOString()}\n\n`;
@@ -179,10 +105,10 @@ const PlayingPage = () => {
     }).join('\n');
     
     return header + entries;
-  };
+  }, [eraConfig?.name, selectedOpponent?.name, messageLog]);
 
   // Copy message log to clipboard
-  const copyMessageLog = () => {
+  const copyMessageLog = useCallback(() => {
     const logText = formatMessageLog();
     navigator.clipboard.writeText(logText).then(() => {
       alert('Message log copied to clipboard!');
@@ -190,23 +116,23 @@ const PlayingPage = () => {
       console.error('Failed to copy log:', err);
       alert('Failed to copy log. Check console for details.');
     });
-  };
+  }, [formatMessageLog]);
 
   // Email message log
-  const emailMessageLog = () => {
+  const emailMessageLog = useCallback(() => {
     const logText = formatMessageLog();
     const subject = encodeURIComponent(`Battleship Game Log - ${eraConfig?.name || 'Game'}`);
     const body = encodeURIComponent(logText);
     const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
     window.open(mailtoLink);
-  };
+  }, [formatMessageLog, eraConfig?.name]);
 
   // Handle game over transition
-  const handleGameOver = () => {
+  const handleGameOver = useCallback(() => {
     if (dispatch && stateMachine) {
       dispatch(stateMachine.event.OVER);
     }
-  };
+  }, [dispatch, stateMachine]);
 
   // Game Over state
   if (!isGameActive && gamePhase === 'finished') {
@@ -220,18 +146,25 @@ const PlayingPage = () => {
             </div>
             
             <div className="game-board-container">
-              <BattleGrid
-                board={gameBoard}
-                gameState={gameState}
+              <FleetBattle
                 eraConfig={eraConfig}
+                gameState={gameState}
+                gameBoard={gameBoard}
                 onShotFired={null} // Disable shooting
-                humanPlayer={humanPlayer}
               />
             </div>
             
-            <div className="message-console">
-              <p><strong>{message}</strong></p>
-              <p>Final Score - Your Hits: {playerHits} | Enemy Hits: {opponentHits}</p>
+            <div className="message-consoles">
+              <div className="console-battle">
+                <div className="console-header">Battle Report</div>
+                <div className="console-content">{battleMessage || 'Battle complete'}</div>
+              </div>
+              <div className="console-ui">
+                <div className="console-header">Game Status</div>
+                <div className="console-content">
+                  {uiMessage || 'Game Over'} | Your Hits: {playerHits} | Enemy Hits: {opponentHits}
+                </div>
+              </div>
             </div>
             
             <div className="game-over-controls">
@@ -286,7 +219,7 @@ const PlayingPage = () => {
     );
   }
 
-  // Active game state
+  // Active game state - using Canvas-based FleetBattle
   return (
     <div className="page-base">
       <div className="page-content">
@@ -298,17 +231,23 @@ const PlayingPage = () => {
           </div>
           
           <div className="game-board-container">
-            <BattleGrid
-              board={gameBoard}
-              gameState={gameState}
+            <FleetBattle
               eraConfig={eraConfig}
-              onShotFired={handleAttack}
-              humanPlayer={humanPlayer}
+              gameState={gameState}
+              gameBoard={gameBoard}
+              onShotFired={handleShotFired}
             />
           </div>
           
-          <div className="message-console">
-            <p>{message}</p>
+          <div className="message-consoles">
+            <div className="console-battle">
+              <div className="console-header">Battle Report</div>
+              <div className="console-content">{battleMessage || 'Awaiting battle action...'}</div>
+            </div>
+            <div className="console-ui">
+              <div className="console-header">Turn Status</div>
+              <div className="console-content">{uiMessage || 'Preparing for battle...'}</div>
+            </div>
           </div>
           
           <div className="game-stats">

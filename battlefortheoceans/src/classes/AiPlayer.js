@@ -3,10 +3,11 @@
 
 import Player from './Player.js';
 
-const version = "v0.1.3"
+const version = "v0.2.0"
 
 class AiPlayer extends Player {
   constructor(id, name, strategy = 'random', difficulty = 1.0) {
+    // UUID CONSISTENCY FIX: Always use provided ID (which is now a UUID from GameContext)
     super(id, name, 'ai');
     
     // AI-specific properties
@@ -27,7 +28,7 @@ class AiPlayer extends Player {
     // Strategy configuration
     this.strategyConfig = this.getStrategyConfig();
     
-    console.log(`AiPlayer ${this.name} created with strategy: ${strategy} (difficulty: ${difficulty})`);
+    console.log(`AiPlayer ${this.name} created with UUID: ${this.id}, strategy: ${strategy} (difficulty: ${difficulty})`);
   }
 
   /**

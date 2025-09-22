@@ -3,11 +3,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
+import useGameState from '../hooks/useGameState';
 import FleetPlacement from '../components/FleetPlacement';
 import './Pages.css';
 import './PlacementPage.css';
 
-const version = 'v0.1.21';
+const version = 'v0.2.3';
 
 const PlacementPage = () => {
   const {
@@ -19,18 +20,33 @@ const PlacementPage = () => {
     gameInstance,
     board,
     registerShipPlacement,
-    uiVersion  // Use gameLogic via uiVersion
+    subscribeToUpdates
   } = useGame();
   
-  const [currentShipIndex, setCurrentShipIndex] = useState(0);
-  const [playerFleet, setPlayerFleet] = useState(null);
+  const {
+    currentShipIndex,
+    totalShips,
+    currentShip,
+    isPlacementComplete
+  } = useGameState();
+  
+  // Only UI-specific state remains
   const [error, setError] = useState(null);
-  const [isReady, setIsReady] = useState(false);
+  const [isAutoPlacing, setIsAutoPlacing] = useState(false);
+  
+  // Force re-render trigger for observer pattern
+  const [, setRenderTrigger] = useState(0);
 
-  // Check if game is ready for ship placement - FIXED: removed isReady from dependencies
+  // Subscribe to game logic updates
   useEffect(() => {
-    console.log(version, 'useEffect triggered - checking game readiness');
+    const unsubscribe = subscribeToUpdates(() => {
+      setRenderTrigger(prev => prev + 1);
+    });
+    return unsubscribe;
+  }, [subscribeToUpdates]);
 
+  // Check if game is ready for ship placement
+  useEffect(() => {
     if (!eraConfig || !humanPlayer || !selectedOpponent) {
       const missingItems = [];
       if (!eraConfig) missingItems.push('eraConfig');
@@ -38,39 +54,29 @@ const PlacementPage = () => {
       if (!selectedOpponent) missingItems.push('selectedOpponent');
       
       setError(`Missing game configuration: ${missingItems.join(', ')}`);
-      setIsReady(false);
       return;
     }
 
     // Clear any previous error
     setError(null);
 
-    // Check if we have the minimum required components using gameLogic data
-    if (gameInstance && board && gameInstance.players && gameInstance.players.length > 0) {
-      console.log(version, 'Game instance and board available, checking for player fleet...');
-      
-      // Check for player fleet
-      if (gameInstance.playerFleets && gameInstance.playerFleets.has(humanPlayer.id)) {
-        const fleet = gameInstance.playerFleets.get(humanPlayer.id);
-        console.log(version, 'Found player fleet with', fleet.count, 'ships');
-        
-        setPlayerFleet(fleet);
-        // Only reset ship index if we don't have a fleet yet or it's a different fleet
-        if (!playerFleet || playerFleet !== fleet) {
-          setCurrentShipIndex(0);
-        }
-        setIsReady(true);
-      } else {
-        console.log(version, 'Player fleet not yet available');
-        setIsReady(false);
-      }
-    } else {
+    // Game readiness is now determined by computed state from useGameState
+    if (!gameInstance || !board) {
       console.log(version, 'Waiting for game instance or board setup...');
-      setIsReady(false);
+    } else {
+      console.log(version, 'Game ready for ship placement');
     }
-  }, [eraConfig, humanPlayer, selectedOpponent, gameInstance, board, uiVersion]); // FIXED: removed isReady
+  }, [eraConfig, humanPlayer, selectedOpponent, gameInstance, board]);
 
-  // Handle ship placement
+  // Auto-transition when placement is complete
+  useEffect(() => {
+    if (isPlacementComplete && gameInstance && board) {
+      console.log(version, 'All ships placed, auto-transitioning to battle phase');
+      handlePlacementComplete();
+    }
+  }, [isPlacementComplete, gameInstance, board]);
+
+  // Handle ship placement - simplified since progress tracking is in game logic
   const handleShipPlaced = (ship, shipCells, orientation) => {
     try {
       console.log(version, `Placing ${ship.name} with ${shipCells.length} cells`);
@@ -80,15 +86,7 @@ const PlacementPage = () => {
       
       if (success) {
         console.log(version, `Successfully placed ${ship.name}`);
-        
-        // Move to next ship
-        const nextIndex = currentShipIndex + 1;
-        if (nextIndex >= playerFleet.count) {
-          handlePlacementComplete();
-        } else {
-          setCurrentShipIndex(nextIndex);
-        }
-        
+        // No need to track placement progress - handled by game logic
         return true;
       } else {
         console.log(version, `Failed to register placement for ${ship.name}`);
@@ -103,6 +101,25 @@ const PlacementPage = () => {
     }
   };
 
+  // Auto place remaining ships using Game's method
+  const handleAutoPlace = async () => {
+    if (!gameInstance || !humanPlayer || isAutoPlacing) {
+      return;
+    }
+
+    setIsAutoPlacing(true);
+    console.log(version, 'Starting auto-placement');
+
+    try {
+      await gameInstance.autoPlaceShips(humanPlayer);
+      console.log(version, 'Auto-placement completed');
+    } catch (error) {
+      console.error(version, 'Auto-placement failed:', error);
+    } finally {
+      setIsAutoPlacing(false);
+    }
+  };
+
   // Complete placement phase
   const handlePlacementComplete = () => {
     console.log(version, 'All ships placed, transitioning to battle phase');
@@ -114,16 +131,39 @@ const PlacementPage = () => {
     }
   };
 
-  // Get current ship to place
-  const getCurrentShip = () => {
-    if (!playerFleet || currentShipIndex >= playerFleet.count) return null;
-    return playerFleet.ships[currentShipIndex];
+  // Get placement progress message
+  const getPlacementMessage = () => {
+    if (isAutoPlacing) {
+      return 'Auto-placing ships...';
+    } else if (currentShip) {
+      return `Place: ${currentShip.name} (${currentShip.size} squares)`;
+    } else if (isPlacementComplete) {
+      return 'All ships placed! Preparing for battle...';
+    } else {
+      return 'Preparing fleet placement...';
+    }
   };
 
-  // Get placement progress
+  // Get progress display
   const getPlacementProgress = () => {
-    const total = playerFleet?.count || 0;
-    return `${currentShipIndex} / ${total}`;
+    return `${currentShipIndex} / ${totalShips}`;
+  };
+
+  // Get placement instructions
+  const getPlacementInstructions = () => {
+    if (isAutoPlacing) {
+      return ['Auto-placing remaining ships...'];
+    } else if (currentShip) {
+      return [
+        `Tap and drag to place ${currentShip.name}`,
+        'Drag horizontally or vertically to set orientation',
+        `Allowed terrain: ${currentShip.terrain.join(', ')}`
+      ];
+    } else if (isPlacementComplete) {
+      return ['All ships placed! Ready for battle!'];
+    } else {
+      return ['Preparing ships for placement...'];
+    }
   };
 
   // Error state
@@ -147,13 +187,12 @@ const PlacementPage = () => {
     );
   }
 
-  // Loading state - be more specific about what we're waiting for
-  if (!isReady || !board || !playerFleet || !gameInstance) {
+  // Loading state - check for essential components
+  if (!board || !gameInstance || !humanPlayer) {
     const waitingFor = [];
-    if (!isReady) waitingFor.push('ready state');
     if (!board) waitingFor.push('board');
-    if (!playerFleet) waitingFor.push('player fleet');
     if (!gameInstance) waitingFor.push('game instance');
+    if (!humanPlayer) waitingFor.push('human player');
 
     console.log(version, 'Showing loading state, waiting for:', waitingFor);
     
@@ -169,8 +208,6 @@ const PlacementPage = () => {
     );
   }
 
-  const currentShip = getCurrentShip();
-
   return (
     <div className="page-base">
       <div className="page-content">
@@ -181,13 +218,13 @@ const PlacementPage = () => {
             <p>vs {selectedOpponent.name}</p>
           </div>
 
-          {currentShip && (
-            <div className="game-info">
-              <h3>Place: {currentShip.name} ({currentShip.size} squares)</h3>
-              <p>Progress: {getPlacementProgress()}</p>
+          <div className="game-info">
+            <h3>{getPlacementMessage()}</h3>
+            <p>Progress: {getPlacementProgress()}</p>
+            {currentShip && (
               <p>Allowed terrain: {currentShip.terrain.join(', ')}</p>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="game-board-container">
             <FleetPlacement
@@ -198,16 +235,36 @@ const PlacementPage = () => {
             />
           </div>
 
+          {/* Auto Place Button */}
+          {currentShip && !isAutoPlacing && (
+            <div className="auto-place-controls">
+              <button
+                className="btn btn-secondary"
+                onClick={handleAutoPlace}
+                disabled={isAutoPlacing}
+              >
+                Auto Place Remaining Ships
+              </button>
+            </div>
+          )}
+
           <div className="message-console">
-            {currentShip ? (
-              <>
-                <p>Tap and drag to place {currentShip.name}</p>
-                <p>Drag horizontally or vertically to set orientation</p>
-              </>
-            ) : (
-              <p>All ships placed! Preparing for battle...</p>
-            )}
+            {getPlacementInstructions().map((instruction, index) => (
+              <p key={index}>{instruction}</p>
+            ))}
           </div>
+
+          {/* Optional manual completion button for testing */}
+          {isPlacementComplete && (
+            <div className="placement-complete">
+              <button
+                className="btn btn-primary btn-large"
+                onClick={handlePlacementComplete}
+              >
+                Begin Battle
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

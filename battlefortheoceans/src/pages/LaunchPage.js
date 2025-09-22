@@ -5,7 +5,7 @@ import { useGame } from '../context/GameContext';
 import './Pages.css';
 import './LaunchPage.css';
 
-const version = 'v0.1.13';
+const version = 'v0.1.14';
 
 const LaunchPage = () => {
   const { dispatch, stateMachine } = useGame();

@@ -6,11 +6,26 @@ import HumanPlayer from './HumanPlayer.js';
 import AiPlayer from './AiPlayer.js';
 import Fleet from './Fleet.js';
 import Alliance from './Alliance.js';
+import Visualizer from './Visualizer.js';
+import Message from './Message.js';
 
-const version = "v0.1.16";
+const version = "v0.3.4";
 
 class Game {
   constructor(eraConfig, gameMode = 'turnBased') {
+    // VALIDATION: Ensure era config has required game rules
+    if (!eraConfig.game_rules) {
+      throw new Error(`Era "${eraConfig.name}" is missing game_rules configuration`);
+    }
+    
+    // VALIDATION: Ensure all required game rule properties exist
+    const requiredRules = ['friendly_fire', 'turn_required', 'turn_on_hit', 'turn_on_miss'];
+    const missingRules = requiredRules.filter(rule => eraConfig.game_rules[rule] === undefined);
+    
+    if (missingRules.length > 0) {
+      throw new Error(`Era "${eraConfig.name}" missing game rules: ${missingRules.join(', ')}`);
+    }
+
     this.id = `game-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.eraConfig = eraConfig;
     this.gameMode = gameMode; // 'turnBased', 'rapidFire', 'simultaneous'
@@ -23,25 +38,20 @@ class Game {
     // Players and board
     this.players = [];
     this.board = null;
+    this.visualizer = null;
     this.winner = null;
     
     // Alliance system for new architecture
     this.alliances = new Map(); // allianceId -> Alliance instance
     this.playerAlliances = new Map(); // playerId -> allianceId
-    this.cellContents = new Map(); // "row,col" -> [{shipId, cellIndex}]
     this.shipOwnership = new Map(); // shipId -> playerId
     this.playerFleets = new Map(); // playerId -> Fleet instance
     
-    // Game rules from era config
-    this.gameRules = {
-      friendly_fire: false,
-      change_alliance: false,
-      ship_capture: false,
-      capture_chance: 0.0,
-      turn_required: true,
-      create_alliance: false,
-      ...eraConfig.game_rules
-    };
+    // NO DEFAULT RULES - Use era config directly or fail
+    this.gameRules = { ...eraConfig.game_rules };
+    
+    // Message system - centralized messaging
+    this.message = new Message(this, eraConfig);
     
     // Game history and logging
     this.gameLog = [];
@@ -58,7 +68,46 @@ class Game {
     // UI communication for opponent shots
     this.battleBoardRef = null;
     
+    // PERFORMANCE FIX: Store current human player ID for skull color determination
+    this.humanPlayerId = null;
+    
     this.log(`Game created: ${this.id}, Mode: ${gameMode}`);
+    
+    // Post game start message
+    this.message.post(this.message.types.SYSTEM, {
+      message: `Game initialized: ${eraConfig.name}`
+    }, [this.message.channels.LOG]);
+  }
+
+  /**
+   * Static method to validate era configuration before game creation
+   */
+  static validateEraConfig(eraConfig) {
+    const errors = [];
+    
+    // Check basic structure
+    if (!eraConfig.name) errors.push('Missing era name');
+    if (!eraConfig.rows || !eraConfig.cols) errors.push('Missing board dimensions');
+    if (!eraConfig.terrain) errors.push('Missing terrain configuration');
+    if (!eraConfig.ships) errors.push('Missing ship configuration');
+    
+    // Check game rules
+    if (!eraConfig.game_rules) {
+      errors.push('Missing game_rules configuration');
+    } else {
+      const requiredRules = ['friendly_fire', 'turn_required', 'turn_on_hit', 'turn_on_miss'];
+      const missingRules = requiredRules.filter(rule =>
+        eraConfig.game_rules[rule] === undefined
+      );
+      if (missingRules.length > 0) {
+        errors.push(`Missing game rules: ${missingRules.join(', ')}`);
+      }
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors: errors
+    };
   }
 
   /**
@@ -76,11 +125,21 @@ class Game {
   }
 
   /**
+   * PERFORMANCE FIX: Set human player ID for fast skull color lookups
+   */
+  setHumanPlayerId(playerId) {
+    this.humanPlayerId = playerId;
+  }
+
+  /**
    * Notify UI of state changes
    */
   notifyUIUpdate() {
+    console.log(`[TIMING] Game.notifyUIUpdate called at ${Date.now()}`);
     if (this.uiUpdateCallback) {
+      const start = Date.now();
       this.uiUpdateCallback();
+      console.log(`[TIMING] UI callback execution took ${Date.now() - start}ms`);
     }
   }
 
@@ -88,8 +147,11 @@ class Game {
    * Notify battle board of opponent shots for visual feedback
    */
   notifyOpponentShot(row, col, result) {
+    console.log(`[TIMING] Game.notifyOpponentShot(${row}, ${col}, ${result}) called at ${Date.now()}`);
     if (this.battleBoardRef?.current?.recordOpponentShot) {
+      const start = Date.now();
       this.battleBoardRef.current.recordOpponentShot(row, col, result);
+      console.log(`[TIMING] recordOpponentShot execution took ${Date.now() - start}ms`);
     }
   }
 
@@ -103,6 +165,8 @@ class Game {
       player = new AiPlayer(id, name, strategy, difficulty);
     } else {
       player = new HumanPlayer(id, name);
+      // PERFORMANCE FIX: Store human player ID for fast skull color determination
+      this.humanPlayerId = id;
     }
 
     // Create fleet for the player
@@ -162,52 +226,69 @@ class Game {
   }
 
   /**
-   * Enhanced hit resolution with alliance rules and damage calculation
+   * Enhanced hit resolution - FIXED: Filter out friendly ships, no friendly fire detection
    */
   receiveAttack(row, col, firingPlayer, damage = 1.0) {
+    console.log(`[TIMING] Game.receiveAttack(${row}, ${col}) started at ${Date.now()}`);
+    const attackStart = Date.now();
+    
     // Validate coordinates
     if (row < 0 || row >= this.eraConfig.rows || col < 0 || col >= this.eraConfig.cols) {
       return { result: 'invalid', ships: [] };
     }
 
-    const cellKey = `${row},${col}`;
     const cellName = `${String.fromCharCode(65 + col)}${row + 1}`;
     
-    // Get ships at this location from our mapping
-    const cellData = this.cellContents.get(cellKey);
-    if (!cellData || cellData.length === 0) {
+    // Get ships at this location from Board
+    const cellData = this.board ? this.board.getShipDataAt(row, col) : [];
+    
+    // FIXED: Filter out friendly ships immediately - no friendly fire detection needed
+    const enemyShips = cellData.filter(shipData => {
+      const targetPlayerId = this.shipOwnership.get(shipData.shipId);
+      return this.canAttack(firingPlayer.id, targetPlayerId);
+    });
+    
+    // If no enemy ships at this location, it's a miss
+    if (enemyShips.length === 0) {
+      this.message.post(this.message.types.MISS, {
+        attacker: firingPlayer,
+        position: cellName
+      }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
+      
       this.log(`Miss at ${cellName} by ${firingPlayer.name}`);
       
       // Record shot in board for visual feedback
       if (this.board) {
+        console.log(`[TIMING] Recording miss in board at ${Date.now()}`);
         this.board.recordShot(row, col, firingPlayer, 'miss');
+      }
+      
+      // Update visualizer for miss
+      if (this.visualizer) {
+        this.visualizer.updateCellVisuals(row, col, [], firingPlayer, 'miss');
       }
       
       // Notify UI of opponent miss for visual feedback
       if (firingPlayer.type === 'ai') {
+        console.log(`[TIMING] Notifying opponent miss at ${Date.now()}`);
         this.notifyOpponentShot(row, col, 'miss');
       }
       
+      console.log(`[TIMING] Game.receiveAttack MISS completed in ${Date.now() - attackStart}ms`);
       return { result: 'miss', ships: [] };
     }
 
-    // Process hits on all ships at this location
+    // Process hits on enemy ships only
     const hitResults = [];
-    let anyValidHits = false;
+    let resultType = 'hit';
 
-    for (const shipData of cellData) {
+    for (const shipData of enemyShips) {
       const { shipId, cellIndex } = shipData;
       const targetPlayerId = this.shipOwnership.get(shipId);
       const targetPlayer = this.getPlayer(targetPlayerId);
       const fleet = this.playerFleets.get(targetPlayerId);
       
       if (!targetPlayer || !fleet) continue;
-
-      // Check friendly fire rules
-      if (!this.canAttack(firingPlayer.id, targetPlayerId)) {
-        this.log(`Friendly fire blocked: ${firingPlayer.name} -> ${targetPlayer.name} at ${cellName}`);
-        continue;
-      }
 
       // Find the ship in the fleet
       const ship = fleet.ships.find(s => s.id === shipId);
@@ -228,7 +309,23 @@ class Game {
         shipHealth: shipHealth
       });
       
-      anyValidHits = true;
+      // POST HIT/SUNK MESSAGE to battle console
+      if (result === 'sunk') {
+        this.message.post(this.message.types.SUNK, {
+          attacker: firingPlayer,
+          target: targetPlayer,
+          shipName: ship.name,
+          position: cellName
+        }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
+        resultType = 'sunk';
+      } else {
+        this.message.post(this.message.types.HIT, {
+          attacker: firingPlayer,
+          target: targetPlayer,
+          shipName: ship.name,
+          position: cellName
+        }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
+      }
       
       this.log(`${result.toUpperCase()}: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`);
       
@@ -240,34 +337,37 @@ class Game {
         }
       }
     }
-
-    if (!anyValidHits) {
-      // Record blocked shot in board
-      if (this.board) {
-        this.board.recordShot(row, col, firingPlayer, 'blocked');
-      }
-      
-      // Notify UI of opponent blocked shot
-      if (firingPlayer.type === 'ai') {
-        this.notifyOpponentShot(row, col, 'blocked');
-      }
-      
-      return { result: 'blocked', ships: [] };
-    }
-
-    const overallResult = hitResults.some(r => r.result === 'sunk') ? 'sunk' : 'hit';
     
-    // Record successful hit/sunk in board for visual feedback
+    // Record shot in board for visual feedback
     if (this.board) {
-      this.board.recordShot(row, col, firingPlayer, overallResult);
+      console.log(`[TIMING] Recording ${resultType} in board at ${Date.now()}`);
+      this.board.recordShot(row, col, firingPlayer, resultType);
     }
     
-    // Notify UI of opponent hit/sunk for visual feedback
+    // Update visualizer with hit results
+    if (this.visualizer) {
+      this.visualizer.updateCellVisuals(row, col, hitResults, firingPlayer, resultType);
+      
+      // SKULL COLOR FIX: Use humanPlayerId for correct skull colors
+      hitResults.forEach(({ ship, player }) => {
+        if (ship.isSunk()) {
+          const shipCells = this.getShipCells(ship.id);
+          if (shipCells.length > 0) {
+            const isPlayerShip = (player.id === this.humanPlayerId);
+            this.visualizer.updateShipSunk(shipCells, player.id, isPlayerShip);
+          }
+        }
+      });
+    }
+    
+    // Notify UI for visual feedback
     if (firingPlayer.type === 'ai') {
-      this.notifyOpponentShot(row, col, overallResult);
+      console.log(`[TIMING] Notifying opponent ${resultType} at ${Date.now()}`);
+      this.notifyOpponentShot(row, col, resultType);
     }
     
-    return { result: overallResult, ships: hitResults };
+    console.log(`[TIMING] Game.receiveAttack ${resultType.toUpperCase()} completed in ${Date.now() - attackStart}ms`);
+    return { result: resultType, ships: hitResults };
   }
 
   /**
@@ -327,30 +427,37 @@ class Game {
 
   /**
    * Register ship placement for hit resolution mapping
-   * FIXED: Now accepts position data as parameters instead of reading from ship
+   * FIXED: Board is single source of truth - only register with Board
    */
   registerShipPlacement(ship, shipCells, orientation, playerId) {
     console.log(`[Game] Registering ship placement: ${ship.name} for ${playerId}`);
     
-    // Update ship ownership
+    // Update ship ownership in Game
     this.shipOwnership.set(ship.id, playerId);
     
-    // Update cell contents mapping using provided position data
-    shipCells.forEach((cell, index) => {
-      const cellKey = `${cell.row},${cell.col}`;
-      
-      if (!this.cellContents.has(cellKey)) {
-        this.cellContents.set(cellKey, []);
+    // Register with Board (single source of truth for spatial data)
+    if (this.board) {
+      const registered = this.board.registerShipPlacement(ship, shipCells);
+      if (registered) {
+        console.log(`[Game] Ship ${ship.name} registered at ${shipCells.length} cells`);
+        return true;
       }
-      
-      this.cellContents.get(cellKey).push({
-        shipId: ship.id,
-        cellIndex: index
-      });
-    });
+    }
     
-    console.log(`[Game] Ship ${ship.name} registered at ${shipCells.length} cells`);
-    return true;
+    console.warn(`[Game] Failed to register ship ${ship.name} with Board`);
+    return false;
+  }
+
+  /**
+   * Get all cells occupied by a specific ship
+   * FIXED: Query Board as single source of truth
+   */
+  getShipCells(shipId) {
+    if (!this.board) {
+      console.warn('[Game] Cannot get ship cells without Board instance');
+      return [];
+    }
+    return this.board.getShipCells(shipId);
   }
 
   /**
@@ -365,7 +472,8 @@ class Game {
    */
   setBoard(board) {
     this.board = board;
-    this.log('Board set for game');
+    this.visualizer = new Visualizer(this.eraConfig.rows, this.eraConfig.cols);
+    this.log('Board and visualizer set for game');
   }
 
   /**
@@ -378,7 +486,8 @@ class Game {
     
     if (!this.board) {
       this.board = new Board(this.eraConfig.rows, this.eraConfig.cols, this.eraConfig.terrain);
-      this.log('New board created');
+      this.visualizer = new Visualizer(this.eraConfig.rows, this.eraConfig.cols);
+      this.log('New board and visualizer created');
     }
 
     // Validate that players have fleets and register ship placements
@@ -392,21 +501,40 @@ class Game {
       if (player.type === 'ai' && !fleet.isPlaced()) {
         await this.autoPlaceShips(player);
       }
-      
-      // Note: Manual ship placements are already registered via registerShipPlacement()
-      // during the placement phase, so no need to re-register here
     }
 
     this.state = 'playing';
     this.startTime = new Date();
     this.currentPlayerIndex = 0; // Human player goes first
     
+    // POST GAME START MESSAGE
+    this.message.post(this.message.types.GAME_START, {
+      eraName: this.eraConfig.name,
+      players: this.players
+    }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
+    
     this.log('Game started');
+    
+    // Post first turn message
+    this.postTurnMessage();
     
     // Check if first player is AI and trigger their turn
     this.checkAndTriggerAITurn();
     
     return true;
+  }
+
+  /**
+   * Post turn message to UI console
+   */
+  postTurnMessage() {
+    const currentPlayer = this.getCurrentPlayer();
+    if (currentPlayer) {
+      this.message.post(this.message.types.TURN, {
+        player: currentPlayer,
+        turnNumber: this.currentTurn
+      }, [this.message.channels.UI]);
+    }
   }
 
   /**
@@ -497,6 +625,9 @@ class Game {
    * Process attack using new hit resolution system
    */
   async processAttack(attacker, row, col) {
+    console.log(`[TIMING] Game.processAttack(${row}, ${col}) started at ${Date.now()}`);
+    const processStart = Date.now();
+    
     if (this.state !== 'playing') {
       throw new Error('Game is not in playing state');
     }
@@ -508,7 +639,7 @@ class Game {
     // Use enhanced hit resolution
     const result = this.receiveAttack(row, col, attacker);
     
-    // Update attacker stats
+    // Update attacker stats - only count hits and misses, not blocked shots
     attacker.shotsFired++;
     if (result.result === 'hit' || result.result === 'sunk') {
       attacker.shotsHit++;
@@ -518,26 +649,54 @@ class Game {
     // Check for game end
     if (this.checkGameEnd()) {
       this.endGame();
+      console.log(`[TIMING] Game.processAttack completed (GAME END) in ${Date.now() - processStart}ms`);
       return result;
     }
 
-    // Handle turn progression
+    // Handle turn progression - all shot results now affect turn progression
+    console.log(`[TIMING] Starting turn progression at ${Date.now()}`);
     this.handleTurnProgression(result.result === 'hit' || result.result === 'sunk');
     
+    console.log(`[TIMING] Game.processAttack completed in ${Date.now() - processStart}ms`);
     return result;
   }
 
   /**
-   * Check if game has ended
+   * Check if game has ended - FIXED: Check alliances instead of individual players
    */
   checkGameEnd() {
-    const activePlayers = this.players.filter(player => {
-      const fleet = this.playerFleets.get(player.id);
-      return fleet && !fleet.isDefeated();
+    // Get all active alliances (not defeated)
+    const activeAlliances = Array.from(this.alliances.values()).filter(alliance => {
+      // Alliance is active if it has players and at least one player is not eliminated
+      if (alliance.players.length === 0) return false;
+      
+      // Check if any player in the alliance still has ships
+      return alliance.players.some(player => {
+        const fleet = this.playerFleets.get(player.id);
+        return fleet && !fleet.isDefeated();
+      });
     });
 
-    if (activePlayers.length <= 1) {
-      this.winner = activePlayers[0] || null;
+    // Game ends when only one alliance remains
+    if (activeAlliances.length <= 1) {
+      // Set winner to the surviving alliance (or null if no survivors)
+      if (activeAlliances.length === 1) {
+        // Find the winning player(s) from the surviving alliance
+        const winningAlliance = activeAlliances[0];
+        const survivingPlayers = winningAlliance.players.filter(player => {
+          const fleet = this.playerFleets.get(player.id);
+          return fleet && !fleet.isDefeated();
+        });
+        // For single-player alliances (Traditional Battleship), set that player as winner
+        // For multi-player alliances, we could set the alliance owner or first surviving player
+        this.winner = survivingPlayers[0] || winningAlliance.players[0];
+        this.winningAlliance = winningAlliance;
+      } else {
+        // No survivors - draw
+        this.winner = null;
+        this.winningAlliance = null;
+      }
+      
       return true;
     }
     
@@ -546,8 +705,11 @@ class Game {
 
   /**
    * Handle turn progression based on game mode and era rules
+   * FIXED: Check for AI turns on both advancement AND continuation
    */
   handleTurnProgression(wasHit) {
+    console.log(`[TIMING] Game.handleTurnProgression(${wasHit}) started at ${Date.now()}`);
+    
     if (!this.gameRules.turn_required) {
       return; // Rapid fire mode - no turn changes
     }
@@ -557,39 +719,50 @@ class Game {
                          (!wasHit && this.gameRules.turn_on_miss);
     
     if (!shouldContinue) {
+      console.log(`[TIMING] Advancing to next turn at ${Date.now()}`);
       this.nextTurn();
+      
+      // Check for AI turn after advancing
+      console.log(`[TIMING] Checking for AI turn after turn advancement at ${Date.now()}`);
+      this.checkAndTriggerAITurn();
+    } else {
+      console.log(`[TIMING] Turn continues for same player due to ${wasHit ? 'hit' : 'miss'} rule`);
+      
+      // FIXED: Also check for AI turn when turn continues (not just when it advances)
+      console.log(`[TIMING] Checking for AI turn after turn continuation at ${Date.now()}`);
+      this.checkAndTriggerAITurn();
     }
-    
-    // After handling turn progression, check if we need to trigger AI move
-    this.checkAndTriggerAITurn();
   }
 
   /**
    * Check if it's an AI's turn and automatically trigger their move
+   * AI handles its own thinking time via simulateThinking()
    */
   async checkAndTriggerAITurn() {
     if (this.state !== 'playing') return;
     
     const currentPlayer = this.getCurrentPlayer();
     if (currentPlayer?.type === 'ai') {
-      // Small delay for better UX, then trigger AI move
-      setTimeout(async () => {
-        try {
-          await this.executeAITurn(currentPlayer);
-        } catch (error) {
-          console.error(`AI turn failed for ${currentPlayer.name}:`, error);
-          // Force turn to next player if AI fails
-          this.nextTurn();
-          this.checkAndTriggerAITurn(); // Check if next player is also AI
-        }
-      }, 1000);
+      console.log(`[TIMING] AI turn starting for ${currentPlayer.name} at ${Date.now()}`);
+      try {
+        // AI handles its own thinking time internally - no setTimeout needed
+        await this.executeAITurn(currentPlayer);
+      } catch (error) {
+        console.error(`AI turn failed for ${currentPlayer.name}:`, error);
+        // Force turn to next player if AI fails
+        this.nextTurn();
+        this.checkAndTriggerAITurn(); // Check if next player is also AI
+      }
     }
   }
 
   /**
-   * Execute AI turn and handle consecutive moves if turn_on_hit is true
+   * Execute AI turn - FIXED: Always notify UI after AI completion
    */
   async executeAITurn(aiPlayer) {
+    console.log(`[TIMING] Game.executeAITurn(${aiPlayer.name}) started at ${Date.now()}`);
+    const aiStart = Date.now();
+    
     if (!aiPlayer.makeMove) {
       throw new Error(`AI Player ${aiPlayer.name} missing makeMove method`);
     }
@@ -597,17 +770,17 @@ class Game {
     const result = await aiPlayer.makeMove(this);
     console.log(`AI ${aiPlayer.name} turn result:`, result.result);
     
-    // Notify UI that AI turn completed
+    // PERFORMANCE FIX: Always notify UI after AI turn to sync turn state
+    console.log(`[TIMING] Notifying UI of AI turn completion at ${Date.now()}`);
     this.notifyUIUpdate();
     
     // Check if game ended
     if (this.state !== 'playing') {
+      console.log(`[TIMING] Game.executeAITurn completed (GAME ENDED) in ${Date.now() - aiStart}ms`);
       return;
     }
     
-    // Check if AI should continue (turn_on_hit logic already handled in handleTurnProgression)
-    // If it's still this AI's turn, they'll get called again via checkAndTriggerAITurn
-    this.checkAndTriggerAITurn();
+    console.log(`[TIMING] Game.executeAITurn completed in ${Date.now() - aiStart}ms`);
   }
 
   /**
@@ -619,6 +792,9 @@ class Game {
     
     const currentPlayer = this.getCurrentPlayer();
     this.log(`Turn ${this.currentTurn}: ${currentPlayer.name}'s turn`);
+    
+    // Post turn message to UI console
+    this.postTurnMessage();
   }
 
   /**
@@ -635,11 +811,25 @@ class Game {
   }
 
   /**
-   * End the game
+   * Set state machine dispatch for direct transitions
+   */
+  setStateMachineDispatch(dispatch, eventTypes) {
+    this.stateMachineDispatch = dispatch;
+    this.stateMachineEvents = eventTypes;
+  }
+
+  /**
+   * End the game - FIXED: Direct state machine transition, no React dependency
    */
   endGame() {
     this.state = 'finished';
     this.endTime = new Date();
+    
+    // POST GAME END MESSAGE
+    this.message.post(this.message.types.GAME_END, {
+      winner: this.winner,
+      gameStats: this.getGameStats()
+    }, [this.message.channels.CONSOLE, this.message.channels.UI, this.message.channels.LOG]);
     
     if (this.winner) {
       this.log(`Game ended: ${this.winner.name} wins!`);
@@ -649,6 +839,14 @@ class Game {
 
     // Clean up temporary alliances (alliances without owners)
     this.cleanupTemporaryAlliances();
+    
+    // DIRECT STATE MACHINE TRANSITION - no useEffect or React delays
+    if (this.stateMachineDispatch && this.stateMachineEvents) {
+      console.log('[Game] Triggering direct state transition to OVER');
+      this.stateMachineDispatch(this.stateMachineEvents.OVER);
+    } else {
+      console.warn('[Game] Cannot trigger state transition - stateMachineDispatch not set');
+    }
   }
 
   /**
@@ -682,9 +880,23 @@ class Game {
     this.endTime = null;
     this.gameLog = [];
     
-    // Clear mappings
-    this.cellContents.clear();
+    // Clear Game-owned mappings (Board clears its own data)
     this.shipOwnership.clear();
+    
+    // Clear board data
+    if (this.board) {
+      this.board.clear();
+    }
+    
+    // Reset visualizer
+    if (this.visualizer) {
+      this.visualizer.clearAll();
+    }
+    
+    // Reset message system
+    if (this.message) {
+      this.message.clear();
+    }
     
     // Reset all players and fleets
     this.players.forEach(player => {

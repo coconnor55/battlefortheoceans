@@ -1,7 +1,7 @@
 // src/classes/Board.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.1.19";
+const version = "v0.2.1";
 
 class Board {
   constructor(rows, cols, terrain) {
@@ -44,8 +44,8 @@ class Board {
   }
 
   /**
-   * Check if a ship can be placed (bounds and terrain only)
-   * FIXED: Now accepts position data as parameters instead of reading from ship
+   * Check if a ship can be placed (bounds, terrain, and collision detection)
+   * FIXED: Added missing collision detection
    */
   canPlaceShip(shipCells, shipTerrain) {
     if (!shipCells || !Array.isArray(shipCells) || shipCells.length === 0) {
@@ -76,6 +76,16 @@ class Board {
         return false;
       }
       
+      // COLLISION DETECTION FIX: Check if cell already has a ship
+      const key = `${row},${col}`;
+      if (this.cellContents.has(key) && this.cellContents.get(key).length > 0) {
+        console.warn('Board: Ship collision detected', {
+          row, col,
+          existingShips: this.cellContents.get(key).length
+        });
+        return false;
+      }
+      
       return true;
     });
   }
@@ -87,7 +97,7 @@ class Board {
   registerShipPlacement(ship, shipCells) {
     console.log(`[Board] Registering ship placement: ${ship.name}`);
     
-    // Validate placement first using provided position data
+    // Validate placement first using provided position data (now includes collision check)
     if (!this.canPlaceShip(shipCells, ship.terrain)) {
       console.warn('Board: Invalid ship placement during registration', { ship: ship.name });
       return false;
@@ -126,6 +136,23 @@ class Board {
   }
 
   /**
+   * Get all cells occupied by a specific ship
+   * NEW: Added to support Visualizer skull placement on all ship cells
+   */
+  getShipCells(shipId) {
+    const shipCells = [];
+    this.cellContents.forEach((cellData, cellKey) => {
+      const [row, col] = cellKey.split(',').map(Number);
+      cellData.forEach(({ shipId: cellShipId }) => {
+        if (cellShipId === shipId) {
+          shipCells.push({ row, col });
+        }
+      });
+    });
+    return shipCells;
+  }
+
+  /**
    * Check if coordinates are valid for attack
    */
   isValidAttackTarget(row, col) {
@@ -134,12 +161,13 @@ class Board {
 
   /**
    * Record shot in history (called by Game after hit resolution)
+   * FIXED: Store player ID instead of player name for Canvas rendering compatibility
    */
   recordShot(row, col, attacker, result) {
     this.shotHistory.push({
       row,
       col,
-      attacker: attacker.name || attacker,
+      attacker: attacker.id || attacker, // FIXED: Store player ID, not name
       result,
       timestamp: Date.now()
     });

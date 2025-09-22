@@ -1,4 +1,4 @@
-// src/classes/StateMachine.js (v0.1.7)
+// src/classes/StateMachine.js (v0.1.8)
 // Copyright(c) 2025, Clint H. O'Connor
 // LOCKED: Do not modify without confirmation
 
@@ -10,7 +10,8 @@ export class StateMachine {
       PLACEMENT: Symbol('PLACEMENT'),
       PLAY: Symbol('PLAY'),
       OVER: Symbol('OVER'),
-      ERA: Symbol('ERA')
+      ERA: Symbol('ERA'),
+      REPLAY: Symbol('REPLAY')  // New event for "Battle Again" functionality
     };
     this.states = {
       launch: { on: { [this.event.LOGIN]: 'login' } },
@@ -18,7 +19,12 @@ export class StateMachine {
       era: { on: { [this.event.PLACEMENT]: 'placement' } },
       placement: { on: { [this.event.PLAY]: 'play' } },
       play: { on: { [this.event.OVER]: 'over' } },
-      over: { on: { [this.event.ERA]: 'era' } }
+      over: {
+        on: {
+          [this.event.ERA]: 'era',
+          [this.event.REPLAY]: 'placement'  // Direct transition to placement for "Battle Again"
+        }
+      }
     };
     this.currentState = 'launch';
     this.lastEvent = null;

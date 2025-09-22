@@ -1,33 +1,31 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 import './Pages.css';
 import './SelectEraPage.css';
 
-const version = 'v0.1.22';
+const version = 'v0.2.0';
 
 const SelectEraPage = () => {
   const {
     dispatch,
-    stateMachine,
-    updateEraConfig,
-    updateSelectedOpponent,
-    eraConfig,
-    selectedOpponent,
-    uiVersion  // Track gameLogic changes
+    stateMachine
   } = useGame();
   
-  // Local UI state only - not business logic
-  const [selectedEraId, setSelectedEraId] = useState(null);
+  // Local UI state for browsing - not committed to game logic until "Begin Battle"
+  const [selectedEra, setSelectedEra] = useState(null);
+  const [selectedOpponent, setSelectedOpponent] = useState(null);
+  
+  // Data fetching state
   const [eras, setEras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Handle opponent selection and create complete opponent object with ID
-  const handleOpponentSelect = (opponent) => {
+  // Handle opponent selection - local UI state only
+  const handleOpponentSelect = useCallback((opponent) => {
     const timestamp = Date.now();
     const sanitizedName = opponent.name.toLowerCase().replace(/\s+/g, '-');
     const completeOpponent = {
@@ -36,39 +34,38 @@ const SelectEraPage = () => {
       type: 'ai'
     };
     
-    console.log(version, 'Created AI opponent with ID:', completeOpponent.id);
-    
-    // Update gameLogic directly
-    updateSelectedOpponent(completeOpponent);
-  };
+    console.log(version, 'Opponent selected (UI state):', completeOpponent.name);
+    setSelectedOpponent(completeOpponent);
+  }, []);
 
-  // Handle era selection
-  const handleEraSelect = (era) => {
-    setSelectedEraId(era.id);
-    
-    // Update gameLogic directly
-    updateEraConfig(era);
+  // Handle era selection - local UI state only
+  const handleEraSelect = useCallback((era) => {
+    console.log(version, 'Era selected (UI state):', era.name);
+    setSelectedEra(era);
     
     // Clear opponent selection when era changes
-    updateSelectedOpponent(null);
-  };
+    setSelectedOpponent(null);
+  }, []);
         
-  const handleCloseDialog = () => {
-    if (eraConfig && selectedOpponent) {
-      console.log(version, 'Storing era config and firing PLACEMENT event');
-      console.log(version, 'Era config:', eraConfig.name);
-      console.log(version, 'Selected opponent:', selectedOpponent.name, 'with ID:', selectedOpponent.id);
+  // Commit selections to game logic and transition to placement
+  const handleBeginBattle = useCallback(() => {
+    if (selectedEra && selectedOpponent) {
+      console.log(version, 'Committing selections to game logic:');
+      console.log(version, 'Era:', selectedEra.name);
+      console.log(version, 'Opponent:', selectedOpponent.name);
       
-      if (dispatch) {
-        dispatch(stateMachine.event.PLACEMENT);
-      } else {
-        console.error(version, 'Dispatch is not available in handleCloseDialog');
-      }
+      // Commit both selections to game logic in the dispatch eventData
+      // This will be processed in GameContext during PLACEMENT transition
+      dispatch(stateMachine.event.PLACEMENT, {
+        eraConfig: selectedEra,
+        selectedOpponent: selectedOpponent
+      });
     } else {
       console.error(version, 'Missing era or opponent selection');
     }
-  };
+  }, [selectedEra, selectedOpponent, dispatch, stateMachine]);
 
+  // Fetch eras only once on mount
   useEffect(() => {
     const fetchEras = async () => {
       setLoading(true);
@@ -106,22 +103,17 @@ const SelectEraPage = () => {
     fetchEras();
   }, []);
 
-  // Sync local selectedEraId with gameLogic eraConfig
-  useEffect(() => {
-    if (eraConfig && eraConfig.id !== selectedEraId) {
-      setSelectedEraId(eraConfig.id);
-    }
-  }, [eraConfig, uiVersion]);
-
   // Loading state
   if (loading) {
     return (
       <div className="page-base">
         <div className="page-content">
-          <div className="loading-message">
-            <h2>Loading Battle Eras...</h2>
-            <p>Fetching available game configurations</p>
-          </div>
+            <div className="content-frame">
+              <div className="loading-message">
+                <h2>Loading Battle Eras...</h2>
+                <p>Fetching available game configurations</p>
+              </div>
+            </div>
         </div>
       </div>
     );
@@ -132,16 +124,18 @@ const SelectEraPage = () => {
     return (
       <div className="page-base">
         <div className="page-content">
-          <div className="error-message">
-            <h2>Error Loading Eras</h2>
-            <p>{error}</p>
-            <button
-              className="btn btn-primary"
-              onClick={() => window.location.reload()}
-            >
-              Retry
-            </button>
-          </div>
+            <div className="content-frame">
+              <div className="error-message">
+                <h2>Error Loading Eras</h2>
+                <p>{error}</p>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => window.location.reload()}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
         </div>
       </div>
     );
@@ -152,16 +146,18 @@ const SelectEraPage = () => {
     return (
       <div className="page-base">
         <div className="page-content">
-          <div className="error-message">
-            <h2>No Battle Eras Available</h2>
-            <p>Cannot load era configurations - try again later.</p>
-            <button
-              className="btn btn-primary"
-              onClick={() => window.location.reload()}
-            >
-              Retry
-            </button>
-          </div>
+            <div className="content-frame">
+              <div className="error-message">
+                <h2>No Battle Eras Available</h2>
+                <p>Cannot load era configurations - try again later.</p>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => window.location.reload()}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
         </div>
       </div>
     );
@@ -180,7 +176,7 @@ const SelectEraPage = () => {
             {eras.map((era) => (
               <div
                 key={era.id}
-                className={`era-item ${selectedEraId === era.id ? 'selected' : ''}`}
+                className={`era-item ${selectedEra?.id === era.id ? 'selected' : ''}`}
                 onClick={() => handleEraSelect(era)}
               >
                 <div className="era-header">
@@ -196,7 +192,7 @@ const SelectEraPage = () => {
             ))}
           </div>
 
-          {eraConfig && (
+          {selectedEra && (
             <div className="opponent-selection">
               <div className="game-info">
                 <h3>Choose Your Opponent</h3>
@@ -204,7 +200,7 @@ const SelectEraPage = () => {
               </div>
               
               <div className="opponent-slider">
-                {eraConfig.ai_captains.slice(0, 3).map((opponent, index) => (
+                {selectedEra.ai_captains.slice(0, 3).map((opponent, index) => (
                   <div
                     key={index}
                     className={`opponent-item ${selectedOpponent?.name === opponent.name ? 'selected' : ''}`}
@@ -224,8 +220,8 @@ const SelectEraPage = () => {
               
               <button
                 className="btn btn-primary btn-large"
-                disabled={!eraConfig || !selectedOpponent}
-                onClick={handleCloseDialog}
+                disabled={!selectedEra || !selectedOpponent}
+                onClick={handleBeginBattle}
               >
                 Begin Battle
               </button>

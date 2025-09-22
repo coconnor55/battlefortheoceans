@@ -3,6 +3,8 @@
 
 import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import '../pages/Pages.css';
+import '../pages/LoginPage.css';
 
 const version = 'v0.1.30';
 
@@ -62,15 +64,17 @@ const LoginDialog = ({ onClose }) => {
 
   return (
     <div className="login-dialog">
-      <h2>Login</h2>
+      <div className="page-header">
+        <h2>Login</h2>
+      </div>
       {error && <p>{error}</p>}
       <form onSubmit={handleLogin}>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
-        <button className='login-dialog-login' onClick={handleLogin}>Login</button>
-        <button className='login-dialog-signup' onClick={handleSignUp}>Sign Up</button>
+        <input className='input input-primary' type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
+        <input className='input input-primary' type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
+        <button className='btn btn-primary' onClick={handleLogin}>Login</button>
+        <button className='btn btn-primary' onClick={handleSignUp}>Sign Up</button>
       </form>
-      <button className='login-dialog-guest' onClick={handleGuest}>Play as Guest</button>
+      <button className='btn btn-primary' onClick={handleGuest}>Play as Guest</button>
     </div>
   );
 };
