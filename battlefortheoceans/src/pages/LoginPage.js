@@ -1,32 +1,109 @@
 // src/pages/LoginPage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
+import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import LoginDialog from '../components/LoginDialog';
+import ProfileCreationDialog from '../components/ProfileCreationDialog';
 import './Pages.css';
 import './LoginPage.css';
 
-const version = 'v0.1.38';
+const version = 'v0.1.40';
 
 const LoginPage = () => {
-  const { dispatch, stateMachine } = useGame();
+  const { dispatch, stateMachine, getUserProfile } = useGame();
   
-  const handleCloseDialog = (userData = null) => {
+  const [authStep, setAuthStep] = useState('login'); // 'login' | 'profile-creation' | 'complete'
+  const [authenticatedUser, setAuthenticatedUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const handleLoginComplete = async (userData) => {
     if (userData) {
-      console.log(version, 'User authenticated, transitioning with user data:', userData.id);
+      console.log(version, 'User authenticated:', userData.id);
+      setAuthenticatedUser(userData);
+      setIsLoading(true);
       
-      // Pass user data directly to dispatch for immediate business logic processing
-      dispatch(stateMachine.event.SELECTERA, { userData });
+      try {
+        // Check if user has a profile
+        console.log(version, 'Checking for existing profile...');
+        const profile = await getUserProfile(userData.id);
+        
+        if (profile && profile.game_name) {
+          console.log(version, 'Existing profile found:', profile.game_name);
+          // User has profile, proceed to game
+          setAuthStep('complete');
+          dispatch(stateMachine.event.SELECTERA, { userData });
+        } else {
+          console.log(version, 'No profile found, requiring profile creation');
+          // User needs to create profile
+          setAuthStep('profile-creation');
+        }
+      } catch (error) {
+        console.error(version, 'Error checking user profile:', error);
+        // On error, assume no profile and require creation
+        console.log(version, 'Profile check error, defaulting to profile creation');
+        setAuthStep('profile-creation');
+      } finally {
+        setIsLoading(false);
+      }
     } else {
-      console.log(version, 'Dialog closed without authentication');
+      console.log(version, 'Login dialog closed without authentication');
+      // Reset if user cancels login
+      handleReset();
     }
   };
+
+  const handleProfileCreationComplete = (profile) => {
+    console.log(version, 'Profile creation completed:', profile.game_name);
+    setAuthStep('complete');
+    
+    // Proceed to game with the authenticated user data
+    dispatch(stateMachine.event.SELECTERA, { userData: authenticatedUser });
+  };
+
+  const handleReset = () => {
+    console.log(version, 'Resetting authentication flow');
+    setAuthStep('login');
+    setAuthenticatedUser(null);
+    setIsLoading(false);
+  };
+
+  // Debug logging for state changes
+  console.log(version, 'Current state:', {
+    authStep,
+    hasUser: !!authenticatedUser,
+    isLoading
+  });
 
   return (
     <div className="page-base">
       <div className="page-content">
         <div className="content-frame">
-          <LoginDialog onClose={handleCloseDialog} />
+          {authStep === 'login' && !isLoading && (
+            <LoginDialog onClose={handleLoginComplete} />
+          )}
+          
+          {isLoading && (
+            <div className="loading-message">
+              <h2>Checking your profile...</h2>
+              <p>Please wait while we load your game data.</p>
+            </div>
+          )}
+          
+          {authStep === 'profile-creation' && authenticatedUser && !isLoading && (
+            <ProfileCreationDialog
+              userData={authenticatedUser}
+              onComplete={handleProfileCreationComplete}
+              onCancel={handleReset}
+            />
+          )}
+          
+          {authStep === 'complete' && (
+            <div className="transition-message">
+              <h2>Welcome, Admiral!</h2>
+              <p>Preparing your battle station...</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

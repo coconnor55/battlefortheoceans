@@ -1,22 +1,26 @@
-// src/classes/StateMachine.js (v0.1.8)
+// src/classes/StateMachine.js 
 // Copyright(c) 2025, Clint H. O'Connor
 // LOCKED: Do not modify without confirmation
+
+const version='v0.1.9'
 
 export class StateMachine {
   constructor() {
     this.event = {
       LOGIN: Symbol('LOGIN'),
       SELECTERA: Symbol('SELECTERA'),
+      SELECTOPPONENT: Symbol('SELECTOPPONENT'),  // New event for opponent selection
       PLACEMENT: Symbol('PLACEMENT'),
       PLAY: Symbol('PLAY'),
       OVER: Symbol('OVER'),
       ERA: Symbol('ERA'),
-      REPLAY: Symbol('REPLAY')  // New event for "Battle Again" functionality
+      REPLAY: Symbol('REPLAY')  // Event for "Battle Again" functionality
     };
     this.states = {
       launch: { on: { [this.event.LOGIN]: 'login' } },
       login: { on: { [this.event.SELECTERA]: 'era' } },
-      era: { on: { [this.event.PLACEMENT]: 'placement' } },
+      era: { on: { [this.event.SELECTOPPONENT]: 'opponent' } },  // Era -> Opponent
+      opponent: { on: { [this.event.PLACEMENT]: 'placement' } },  // New opponent state
       placement: { on: { [this.event.PLAY]: 'play' } },
       play: { on: { [this.event.OVER]: 'over' } },
       over: {
@@ -53,3 +57,4 @@ export class StateMachine {
 }
 
 // EOF - EOF - EOF
+

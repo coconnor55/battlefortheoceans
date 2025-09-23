@@ -6,12 +6,13 @@ import { GameProvider, useGame } from './context/GameContext';
 import LaunchPage from './pages/LaunchPage';
 import LoginPage from './pages/LoginPage';
 import SelectEraPage from './pages/SelectEraPage';
+import SelectOpponentPage from './pages/SelectOpponentPage';
 import PlacementPage from './pages/PlacementPage';
 import PlayingPage from './pages/PlayingPage';
 import OverPage from './pages/OverPage';
 import './App.css';
 
-const version = 'v0.2.0';
+const version = 'v0.2.1';
 
 const SceneRenderer = () => {
   const { stateMachine, subscribeToUpdates } = useGame();
@@ -40,6 +41,8 @@ const SceneRenderer = () => {
             return <LoginPage />;
           case 'era':
             return <SelectEraPage />;
+          case 'opponent':
+            return <SelectOpponentPage />;
           case 'placement':
             return <PlacementPage />;
           case 'play':

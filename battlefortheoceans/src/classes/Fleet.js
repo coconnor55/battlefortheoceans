@@ -3,7 +3,7 @@
 
 import Ship from './Ship.js';
 
-const version = "v0.1.4"
+const version = "v0.1.6";
 
 class Fleet {
   constructor(owner) {
@@ -77,19 +77,29 @@ class Fleet {
   }
 
   /**
-   * Create fleet from era configuration
+   * Create fleet from era configuration with alliance-specific ships
    */
-  static fromEraConfig(owner, eraConfig) {
+  static fromEraConfig(owner, eraConfig, allianceName) {
     const fleet = new Fleet(owner);
     
-    // Look for ships config in era
-    const shipsConfig = eraConfig.ships || eraConfig.playerfleet?.ships || eraConfig.opponentfleet?.ships;
+    // Find the alliance and get its ships
+    const alliance = eraConfig.alliances?.find(a => a.name === allianceName);
     
-    if (!shipsConfig) {
-      throw new Error(`No ships configuration found in era config for ${owner}`);
+    if (!alliance) {
+      throw new Error(`Alliance "${allianceName}" not found in era config`);
     }
     
-    fleet.addShips(shipsConfig);
+    if (!alliance.ships || !Array.isArray(alliance.ships)) {
+      throw new Error(`Alliance "${allianceName}" has no ships configuration`);
+    }
+    
+    if (alliance.ships.length === 0) {
+      throw new Error(`Alliance "${allianceName}" has empty ships array`);
+    }
+    
+    console.log(`Creating fleet for ${owner} with alliance ${allianceName}: ${alliance.ships.length} ships`);
+    fleet.addShips(alliance.ships);
+    
     return fleet;
   }
 

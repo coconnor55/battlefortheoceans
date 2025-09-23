@@ -1,450 +1,303 @@
 // src/classes/AiPlayer.js
 // Copyright(c) 2025, Clint H. O'Connor
+// Strategy-based AI with instant decisions and action queuing
 
 import Player from './Player.js';
 
-const version = "v0.2.0"
+const version = "v0.2.3";
 
-class AiPlayer extends Player {
-  constructor(id, name, strategy = 'random', difficulty = 1.0) {
-    // UUID CONSISTENCY FIX: Always use provided ID (which is now a UUID from GameContext)
+export class AiPlayer extends Player {
+  constructor(id, name, strategy = 'random', skillLevel = 'novice') {
     super(id, name, 'ai');
     
-    // AI-specific properties
     this.strategy = strategy;
-    this.difficulty = difficulty; // 0.0 to 1.0+ (can exceed 1.0 for superhuman)
-    this.reactionTime = this.calculateReactionTime();
+    this.skillLevel = skillLevel;
     
-    // AI memory and state
+    // AI memory system
     this.memory = {
-      targetHits: new Map(), // Remember where we hit ships
-      probabilities: new Map(), // Track likely ship locations
-      lastTargets: [], // Recent targets
-      huntMode: false, // Currently hunting a damaged ship
-      huntTarget: null, // Ship being hunted
-      avoidedCells: new Set() // Cells to avoid
+      hits: new Map(),           // row,col -> ship data
+      misses: new Set(),         // Set of "row,col" strings
+      activeHunts: new Map(),    // shipId -> hunt data
+      probabilities: new Map(),  // row,col -> probability score
+      targetQueue: [],           // Priority targets to check
+      checkerboard: new Set(),   // Methodical targeting pattern
+      quarters: []               // Quartering strategy state
     };
     
-    // Strategy configuration
-    this.strategyConfig = this.getStrategyConfig();
-    
-    console.log(`AiPlayer ${this.name} created with UUID: ${this.id}, strategy: ${strategy} (difficulty: ${difficulty})`);
+    console.log(`AiPlayer ${name} created with strategy: ${strategy}, skill: ${skillLevel}`);
   }
 
   /**
-   * Main AI move method - called by useGameState
+   * Make move instantly - no delays, pure decision making
    */
-  async makeMove(gameInstance) {
-    if (!gameInstance || gameInstance.state !== 'playing') {
-      throw new Error(`AiPlayer ${this.name}: Cannot make move - invalid game state`);
-    }
-
-    try {
-      // Simulate AI thinking time
-      await this.simulateThinking();
-      
-      // Find available targets (other players who aren't eliminated)
-      const availableTargets = gameInstance.players.filter(player => {
-        if (player.id === this.id) return false; // Can't target self
-        
-        // Check if player has a fleet and it's not defeated
-        const fleet = gameInstance.playerFleets.get(player.id);
-        if (!fleet) return false;
-        
-        // Player is valid target if their fleet isn't defeated
-        return !fleet.isDefeated() && !player.isEliminated;
-      });
-      
-      if (availableTargets.length === 0) {
-        console.error(`AiPlayer ${this.name}: No available targets found`);
-        console.error('All players:', gameInstance.players.map(p => ({
-          id: p.id,
-          name: p.name,
-          eliminated: p.isEliminated,
-          hasFleet: !!gameInstance.playerFleets.get(p.id)
-        })));
-        throw new Error(`AiPlayer ${this.name}: No available targets`);
-      }
-      
-      // Select target and coordinates
-      const targetSelection = await this.selectTarget(gameInstance, availableTargets);
-      const { player: targetPlayer, row, col } = targetSelection;
-      
-      // Execute attack through game instance
-      const attackResult = await gameInstance.processPlayerAction('attack', { row, col });
-      
-      // Update AI memory with attack result
-      this.processAttackResult(targetPlayer, row, col, attackResult);
-      
-      console.log(`AiPlayer ${this.name}: Attacked ${targetPlayer.name} at ${String.fromCharCode(65 + col)}${row + 1} - ${attackResult.result}`);
-      
-      return attackResult;
-      
-    } catch (error) {
-      console.error(`AiPlayer ${this.name}: Move failed:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * AI target selection with strategy implementation
-   */
-  async selectTarget(gameInstance, availableTargets) {
-    const target = this.pickTarget(availableTargets, gameInstance);
-    const coordinates = this.selectCoordinates(target, gameInstance);
-    
-    // Update AI memory
-    this.memory.lastTargets.push({
-      target: target.id,
-      ...coordinates,
-      timestamp: Date.now()
-    });
-    if (this.memory.lastTargets.length > 10) {
-      this.memory.lastTargets.shift();
-    }
-    
-    console.log(`AiPlayer ${this.name} selected target: ${target.name} at ${String.fromCharCode(65 + coordinates.col)}${coordinates.row + 1}`);
-    
-    return { player: target, ...coordinates };
-  }
-
-  /**
-   * Pick target player based on strategy
-   */
-  pickTarget(availableTargets, gameInstance) {
-    if (availableTargets.length === 0) {
-      throw new Error(`AiPlayer ${this.name}: No available targets`);
-    }
-    
-    if (availableTargets.length === 1) {
-      return availableTargets[0];
-    }
-    
-    switch (this.strategy) {
-      case 'aggressive':
-        // Target player with most ships remaining
-        return availableTargets.reduce((best, current) => {
-          const currentFleet = gameInstance.playerFleets.get(current.id);
-          const bestFleet = gameInstance.playerFleets.get(best.id);
-          const currentAlive = currentFleet ? currentFleet.ships.filter(s => !s.isSunk()).length : 0;
-          const bestAlive = bestFleet ? bestFleet.ships.filter(s => !s.isSunk()).length : 0;
-          return currentAlive > bestAlive ? current : best;
-        });
-        
-      case 'opportunistic':
-        // Target player with most damaged ships
-        return availableTargets.reduce((best, current) => {
-          const currentFleet = gameInstance.playerFleets.get(current.id);
-          const bestFleet = gameInstance.playerFleets.get(best.id);
-          const currentDamaged = currentFleet ? currentFleet.ships.filter(ship => ship.hitCount > 0 && !ship.isSunk()).length : 0;
-          const bestDamaged = bestFleet ? bestFleet.ships.filter(ship => ship.hitCount > 0 && !ship.isSunk()).length : 0;
-          return currentDamaged > bestDamaged ? current : best;
-        });
-        
-      case 'defensive':
-        // Target weakest player (fewest ships)
-        return availableTargets.reduce((weakest, current) => {
-          const currentFleet = gameInstance.playerFleets.get(current.id);
-          const weakestFleet = gameInstance.playerFleets.get(weakest.id);
-          const currentAlive = currentFleet ? currentFleet.ships.filter(s => !s.isSunk()).length : 0;
-          const weakestAlive = weakestFleet ? weakestFleet.ships.filter(s => !s.isSunk()).length : 0;
-          return currentAlive < weakestAlive ? current : weakest;
-        });
-        
-      case 'random':
-      default:
-        return availableTargets[Math.floor(Math.random() * availableTargets.length)];
-    }
-  }
-
-  /**
-   * Select coordinates to attack based on strategy and memory
-   */
-  selectCoordinates(target, gameInstance) {
-    const boardSize = {
-      rows: gameInstance.eraConfig.rows,
-      cols: gameInstance.eraConfig.cols
-    };
-    
-    // If we're hunting a specific ship, continue the hunt
-    if (this.memory.huntMode && this.memory.huntTarget) {
-      const huntCoords = this.continueHunt(target, boardSize, gameInstance);
-      if (huntCoords) {
-        return huntCoords;
-      } else {
-        // Hunt failed, exit hunt mode
-        this.memory.huntMode = false;
-        this.memory.huntTarget = null;
-      }
-    }
-    
-    // Apply strategy-specific coordinate selection
-    switch (this.strategy) {
-      case 'methodical_hunting':
-        return this.methodicalHunting(target, boardSize, gameInstance);
-        
-      case 'aggressive_targeting':
-        return this.aggressiveTargeting(target, boardSize, gameInstance);
-        
-      case 'random_shots':
-      default:
-        return this.randomTargeting(target, boardSize, gameInstance);
-    }
-  }
-
-  /**
-   * Continue hunting a damaged ship
-   */
-  continueHunt(target, boardSize, gameInstance) {
-    const targetId = target.id;
-    const hits = this.memory.targetHits.get(targetId) || [];
-    
-    if (hits.length === 0) {
+  makeMove(gameInstance) {
+    if (!gameInstance || !gameInstance.board) {
+      console.error('AiPlayer.makeMove: Invalid game instance');
       return null;
     }
-    
-    // Find adjacent cells to hit areas
-    const adjacentCells = [];
-    hits.forEach(({ row, col }) => {
-      const neighbors = [
-        { row: row - 1, col },
-        { row: row + 1, col },
-        { row, col: col - 1 },
-        { row, col: col + 1 }
-      ];
-      
-      neighbors.forEach(neighbor => {
-        if (this.isValidTarget(neighbor, targetId, boardSize, gameInstance)) {
-          adjacentCells.push(neighbor);
-        }
-      });
-    });
-    
-    if (adjacentCells.length > 0) {
-      return adjacentCells[Math.floor(Math.random() * adjacentCells.length)];
+
+    const availableTargets = this.getAvailableTargets(gameInstance);
+    if (availableTargets.length === 0) {
+      console.error('AiPlayer.makeMove: No available targets');
+      return null;
     }
+
+    const target = this.selectTarget(availableTargets, gameInstance);
+    return { row: target.row, col: target.col };
+  }
+
+  /**
+   * Get all valid attack positions
+   */
+  getAvailableTargets(gameInstance) {
+    const targets = [];
+    const board = gameInstance.board;
     
+    for (let row = 0; row < board.rows; row++) {
+      for (let col = 0; col < board.cols; col++) {
+        if (board.isValidAttackTarget(row, col)) {
+          targets.push({ row, col });
+        }
+      }
+    }
+    return targets;
+  }
+
+  /**
+   * Strategy-based target selection
+   */
+  selectTarget(availableTargets, gameInstance) {
+    // Check for active hunts first (unless novice)
+    if (this.skillLevel !== 'novice' && this.hasActiveHunt()) {
+      const huntTarget = this.continueHunt(availableTargets);
+      if (huntTarget) return huntTarget;
+    }
+
+    // Apply primary strategy
+    switch (this.strategy) {
+      case 'random':
+        return this.selectRandom(availableTargets);
+        
+      case 'methodical_random':
+        return this.selectMethodicalRandom(availableTargets, gameInstance);
+        
+      case 'methodical_optimal':
+        return this.selectMethodicalOptimal(availableTargets, gameInstance);
+        
+      case 'quartering':
+        return this.selectQuartering(availableTargets, gameInstance);
+        
+      case 'aggressive':
+        return this.selectAggressive(availableTargets, gameInstance);
+        
+      default:
+        return this.selectRandom(availableTargets);
+    }
+  }
+
+  /**
+   * Random targeting
+   */
+  selectRandom(availableTargets) {
+    return availableTargets[Math.floor(Math.random() * availableTargets.length)];
+  }
+
+  /**
+   * Methodical Random - every other square (checkerboard) in random order
+   */
+  selectMethodicalRandom(availableTargets, gameInstance) {
+    // Build checkerboard pattern if not exists
+    if (this.memory.checkerboard.size === 0) {
+      for (let row = 0; row < gameInstance.board.rows; row++) {
+        for (let col = 0; col < gameInstance.board.cols; col++) {
+          // Checkerboard pattern - every other square
+          if ((row + col) % 2 === 0) {
+            this.memory.checkerboard.add(`${row},${col}`);
+          }
+        }
+      }
+    }
+
+    // Find checkerboard targets still available
+    const checkerboardTargets = availableTargets.filter(target =>
+      this.memory.checkerboard.has(`${target.row},${target.col}`)
+    );
+
+    if (checkerboardTargets.length > 0) {
+      return checkerboardTargets[Math.floor(Math.random() * checkerboardTargets.length)];
+    }
+
+    // Fallback to remaining squares
+    return this.selectRandom(availableTargets);
+  }
+
+  /**
+   * Methodical Optimal - every 4th square first (big ships), then fill in
+   */
+  selectMethodicalOptimal(availableTargets, gameInstance) {
+    // Phase 1: Every 4th square (finds carriers/battleships)
+    const phase1Targets = availableTargets.filter(target =>
+      (target.row % 4 === 0) && (target.col % 4 === 0)
+    );
+    
+    if (phase1Targets.length > 0) {
+      return phase1Targets[Math.floor(Math.random() * phase1Targets.length)];
+    }
+
+    // Phase 2: Every other square (finds remaining ships)
+    return this.selectMethodicalRandom(availableTargets, gameInstance);
+  }
+
+  /**
+   * Quartering strategy - divide and conquer
+   */
+  selectQuartering(availableTargets, gameInstance) {
+    const board = gameInstance.board;
+    
+    // Initialize quarters if needed
+    if (this.memory.quarters.length === 0) {
+      this.memory.quarters = [
+        { minRow: 0, maxRow: Math.floor(board.rows/2), minCol: 0, maxCol: Math.floor(board.cols/2), active: true },
+        { minRow: 0, maxRow: Math.floor(board.rows/2), minCol: Math.floor(board.cols/2), maxCol: board.cols, active: false },
+        { minRow: Math.floor(board.rows/2), maxRow: board.rows, minCol: 0, maxCol: Math.floor(board.cols/2), active: false },
+        { minRow: Math.floor(board.rows/2), maxRow: board.rows, minCol: Math.floor(board.cols/2), maxCol: board.cols, active: false }
+      ];
+    }
+
+    // Find current active quarter
+    const activeQuarter = this.memory.quarters.find(q => q.active);
+    if (activeQuarter) {
+      const quarterTargets = availableTargets.filter(target =>
+        target.row >= activeQuarter.minRow && target.row < activeQuarter.maxRow &&
+        target.col >= activeQuarter.minCol && target.col < activeQuarter.maxCol
+      );
+
+      if (quarterTargets.length > 0) {
+        // Use methodical pattern within quarter
+        return this.selectMethodicalOptimal(quarterTargets, gameInstance);
+      } else {
+        // Move to next quarter
+        activeQuarter.active = false;
+        const nextQuarter = this.memory.quarters.find(q => !q.active);
+        if (nextQuarter) nextQuarter.active = true;
+      }
+    }
+
+    // Fallback to methodical
+    return this.selectMethodicalOptimal(availableTargets, gameInstance);
+  }
+
+  /**
+   * Aggressive strategy - focus on high-value targets
+   */
+  selectAggressive(availableTargets, gameInstance) {
+    // Calculate probability scores for each target
+    const scoredTargets = availableTargets.map(target => ({
+      ...target,
+      score: this.calculateTargetValue(target, gameInstance)
+    }));
+
+    // Sort by score and pick from top candidates
+    scoredTargets.sort((a, b) => b.score - a.score);
+    const topCandidates = scoredTargets.slice(0, Math.min(3, scoredTargets.length));
+    
+    return topCandidates[Math.floor(Math.random() * topCandidates.length)];
+  }
+
+  /**
+   * Calculate target value for aggressive strategy
+   */
+  calculateTargetValue(target, gameInstance) {
+    let score = 1;
+    
+    // Higher value for center positions (more likely to hit)
+    const centerRow = gameInstance.board.rows / 2;
+    const centerCol = gameInstance.board.cols / 2;
+    const distanceFromCenter = Math.abs(target.row - centerRow) + Math.abs(target.col - centerCol);
+    score += Math.max(0, 10 - distanceFromCenter);
+
+    // Bonus for adjacent to known hits
+    for (const [hitKey, hitData] of this.memory.hits) {
+      const [hitRow, hitCol] = hitKey.split(',').map(Number);
+      const distance = Math.abs(target.row - hitRow) + Math.abs(target.col - hitCol);
+      if (distance === 1) score += 20; // Adjacent to hit
+    }
+
+    return score;
+  }
+
+  /**
+   * Check if AI has active ship hunts
+   */
+  hasActiveHunt() {
+    return this.memory.targetQueue.length > 0;
+  }
+
+  /**
+   * Continue hunting around known hits
+   */
+  continueHunt(availableTargets) {
+    while (this.memory.targetQueue.length > 0) {
+      const target = this.memory.targetQueue.shift();
+      const targetAvailable = availableTargets.find(t =>
+        t.row === target.row && t.col === target.col
+      );
+      
+      if (targetAvailable) {
+        return targetAvailable;
+      }
+    }
     return null;
   }
 
   /**
-   * Methodical hunting pattern (checkerboard, then systematic)
+   * Process attack result and update AI memory
    */
-  methodicalHunting(target, boardSize, gameInstance) {
-    const targetId = target.id;
+  processAttackResult(target, result, gameInstance) {
+    const key = `${target.row},${target.col}`;
     
-    // First pass: checkerboard pattern
-    for (let row = 0; row < boardSize.rows; row++) {
-      for (let col = 0; col < boardSize.cols; col++) {
-        if ((row + col) % 2 === 0 && this.isValidTarget({ row, col }, targetId, boardSize, gameInstance)) {
-          return { row, col };
-        }
-      }
-    }
-    
-    // Second pass: fill in gaps
-    for (let row = 0; row < boardSize.rows; row++) {
-      for (let col = 0; col < boardSize.cols; col++) {
-        if (this.isValidTarget({ row, col }, targetId, boardSize, gameInstance)) {
-          return { row, col };
-        }
-      }
-    }
-    
-    // Fallback to random if no methodical targets
-    return this.randomTargeting(target, boardSize, gameInstance);
-  }
-
-  /**
-   * Aggressive targeting (focus on high-probability areas)
-   */
-  aggressiveTargeting(target, boardSize, gameInstance) {
-    const targetId = target.id;
-    
-    // Target center areas first (ships often placed there)
-    const centerRow = Math.floor(boardSize.rows / 2);
-    const centerCol = Math.floor(boardSize.cols / 2);
-    
-    const centerTargets = [];
-    for (let r = centerRow - 2; r <= centerRow + 2; r++) {
-      for (let c = centerCol - 2; c <= centerCol + 2; c++) {
-        if (this.isValidTarget({ row: r, col: c }, targetId, boardSize, gameInstance)) {
-          const distance = Math.abs(r - centerRow) + Math.abs(c - centerCol);
-          centerTargets.push({ row: r, col: c, distance });
-        }
-      }
-    }
-    
-    if (centerTargets.length > 0) {
-      centerTargets.sort((a, b) => a.distance - b.distance);
-      return { row: centerTargets[0].row, col: centerTargets[0].col };
-    }
-    
-    return this.randomTargeting(target, boardSize, gameInstance);
-  }
-
-  /**
-   * Random targeting with intelligence
-   */
-  randomTargeting(target, boardSize, gameInstance) {
-    const targetId = target.id;
-    const attempts = [];
-    
-    // Generate valid random coordinates
-    for (let attempt = 0; attempt < 100; attempt++) {
-      const row = Math.floor(Math.random() * boardSize.rows);
-      const col = Math.floor(Math.random() * boardSize.cols);
-      
-      if (this.isValidTarget({ row, col }, targetId, boardSize, gameInstance)) {
-        attempts.push({ row, col });
-      }
-    }
-    
-    if (attempts.length > 0) {
-      return attempts[Math.floor(Math.random() * attempts.length)];
-    }
-    
-    // Emergency fallback: find any valid target
-    for (let row = 0; row < boardSize.rows; row++) {
-      for (let col = 0; col < boardSize.cols; col++) {
-        if (this.isValidTarget({ row, col }, targetId, boardSize, gameInstance)) {
-          return { row, col };
-        }
-      }
-    }
-    
-    throw new Error(`AiPlayer ${this.name}: No valid targets found for ${target.name}`);
-  }
-
-  /**
-   * Check if coordinates are a valid target
-   */
-  isValidTarget({ row, col }, targetId, boardSize, gameInstance) {
-    // Check bounds
-    if (row < 0 || row >= boardSize.rows || col < 0 || col >= boardSize.cols) {
-      return false;
-    }
-    
-    // Check terrain if available
-    if (gameInstance.eraConfig.terrain &&
-        gameInstance.eraConfig.terrain[row] &&
-        gameInstance.eraConfig.terrain[row][col] === 'excluded') {
-      return false;
-    }
-    
-    // Check if already targeted (use game's attack validation)
-    if (!gameInstance.isValidAttack(row, col)) {
-      return false;
-    }
-    
-    // Check if already attacked by this AI
-    const cellKey = `${targetId}-${row}-${col}`;
-    if (this.memory.avoidedCells.has(cellKey)) {
-      return false;
-    }
-    
-    return true;
-  }
-
-  /**
-   * React to successful hits (update memory and enter hunt mode)
-   */
-  onAttacked(attacker, attackResult) {
-    super.onAttacked(attacker, attackResult);
-    
-    // AI learning: remember who attacked us and how
-    if (attackResult.result === 'hit' || attackResult.result === 'sunk') {
-      console.log(`AiPlayer ${this.name}: Learning from attack by ${attacker.name}`);
-      // Could implement counter-attack strategies here
-    }
-  }
-
-  /**
-   * Process the result of our own attacks (update AI memory)
-   */
-  processAttackResult(target, row, col, result) {
-    const targetId = target.id;
-    const cellKey = `${targetId}-${row}-${col}`;
-    
-    // Mark cell as attacked
-    this.memory.avoidedCells.add(cellKey);
-    
-    if (result.result === 'hit' || result.result === 'sunk') {
-      // Remember successful hits
-      if (!this.memory.targetHits.has(targetId)) {
-        this.memory.targetHits.set(targetId, []);
-      }
-      this.memory.targetHits.get(targetId).push({
-        row,
-        col,
-        result: result.result
+    if (result.isHit) {
+      // Record hit
+      this.memory.hits.set(key, {
+        shipId: result.shipId,
+        shipName: result.shipName,
+        cellIndex: result.cellIndex,
+        timestamp: Date.now()
       });
-      
-      // Enter hunt mode if we hit something and it's not sunk
-      if (result.result === 'hit') {
-        this.memory.huntMode = true;
-        this.memory.huntTarget = result.ships?.[0]?.ship || null;
-        console.log(`AiPlayer ${this.name}: Entering hunt mode`);
-      } else if (result.result === 'sunk') {
-        // Ship sunk, exit hunt mode
-        this.memory.huntMode = false;
-        this.memory.huntTarget = null;
-        console.log(`AiPlayer ${this.name}: Ship sunk, exiting hunt mode`);
+
+      // Add adjacent targets to hunt queue (unless novice)
+      if (this.skillLevel !== 'novice') {
+        this.addAdjacentTargets(target.row, target.col, gameInstance);
       }
+
+      console.log(`AI ${this.name}: Hit ${result.shipName} at ${target.row},${target.col}`);
+    } else {
+      // Record miss
+      this.memory.misses.add(key);
+      console.log(`AI ${this.name}: Miss at ${target.row},${target.col}`);
     }
   }
 
   /**
-   * Calculate AI reaction time based on difficulty
+   * Add adjacent cells to hunt queue
    */
-  calculateReactionTime() {
-    // Harder AI thinks faster, easier AI thinks slower
-    const baseTime = 500; // 0.5 seconds
-    const difficultyMultiplier = Math.max(0.1, 2.0 - this.difficulty);
-    return baseTime * difficultyMultiplier;
-  }
+  addAdjacentTargets(row, col, gameInstance) {
+    const adjacent = [
+      { row: row - 1, col: col },     // North
+      { row: row + 1, col: col },     // South
+      { row: row, col: col - 1 },     // West
+      { row: row, col: col + 1 }      // East
+    ];
 
-  /**
-   * Simulate AI thinking time
-   */
-  async simulateThinking() {
-    const thinkTime = this.reactionTime + Math.random() * 500;
-    return new Promise(resolve => setTimeout(resolve, thinkTime));
-  }
-
-  /**
-   * Get strategy-specific configuration
-   */
-  getStrategyConfig() {
-    switch (this.strategy) {
-      case 'aggressive':
-        return { huntPersistence: 0.8, riskTaking: 0.9, centerBias: 0.7 };
-      case 'defensive':
-        return { huntPersistence: 0.3, riskTaking: 0.2, centerBias: 0.3 };
-      case 'methodical_hunting':
-        return { huntPersistence: 0.9, riskTaking: 0.5, centerBias: 0.4 };
-      case 'random_shots':
-        return { huntPersistence: 0.1, riskTaking: 0.8, centerBias: 0.5 };
-      default:
-        return { huntPersistence: 0.5, riskTaking: 0.5, centerBias: 0.5 };
-    }
-  }
-
-  /**
-   * Get AI-specific status
-   */
-  getAIStatus() {
-    return {
-      ...this.getStats(),
-      strategy: this.strategy,
-      difficulty: this.difficulty,
-      reactionTime: this.reactionTime,
-      memoryStats: {
-        targetsRemembered: this.memory.targetHits.size,
-        huntMode: this.memory.huntMode,
-        avoidedCells: this.memory.avoidedCells.size
+    for (const target of adjacent) {
+      if (gameInstance.board.isValidAttackTarget(target.row, target.col)) {
+        const key = `${target.row},${target.col}`;
+        if (!this.memory.hits.has(key) && !this.memory.misses.has(key)) {
+          // Add to front of queue for immediate targeting
+          this.memory.targetQueue.unshift(target);
+        }
       }
-    };
+    }
   }
 
   /**
@@ -452,31 +305,32 @@ class AiPlayer extends Player {
    */
   reset() {
     super.reset();
-    
     this.memory = {
-      targetHits: new Map(),
+      hits: new Map(),
+      misses: new Set(),
+      activeHunts: new Map(),
       probabilities: new Map(),
-      lastTargets: [],
-      huntMode: false,
-      huntTarget: null,
-      avoidedCells: new Set()
+      targetQueue: [],
+      checkerboard: new Set(),
+      quarters: []
     };
-    
-    console.log(`AiPlayer ${this.name} memory reset for new game`);
+    console.log(`AI ${this.name} memory reset for new game`);
   }
 
   /**
-   * Serialize AI-specific data
+   * Get AI statistics for debugging
    */
-  serialize() {
+  getAIStats() {
     return {
-      ...super.serialize(),
       strategy: this.strategy,
-      difficulty: this.difficulty,
-      aiStatus: this.getAIStatus()
+      skillLevel: this.skillLevel,
+      hits: this.memory.hits.size,
+      misses: this.memory.misses.size,
+      activeTargets: this.memory.targetQueue.length
     };
   }
 }
 
 export default AiPlayer;
+
 // EOF

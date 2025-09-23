@@ -6,11 +6,19 @@ import { StateMachine } from '../classes/StateMachine';
 import HumanPlayer from '../classes/HumanPlayer';
 import Game from '../classes/Game';
 import Board from '../classes/Board';
+import UserProfileService from '../services/UserProfileService';
+import GameStatsService from '../services/GameStatsService';
+import LeaderboardService from '../services/LeaderboardService';
 
-const version = "v0.2.1";
+const version = "v0.2.9";
 
 const GameState = createContext();
 const gameStateMachine = new StateMachine();
+
+// Service instances for database operations
+const userProfileService = new UserProfileService();
+const gameStatsService = new GameStatsService();
+const leaderboardService = new LeaderboardService();
 
 // UUID generation for AI players
 const generateAIPlayerUUID = () => {
@@ -28,9 +36,11 @@ let gameLogic = {
   eraConfig: null,
   selectedOpponent: null,
   selectedGameMode: null,
+  selectedAlliance: null,
   humanPlayer: null,
   gameInstance: null,
   board: null,
+  userProfile: null,  // User's game profile data
   updateCounter: 0,
   subscribers: new Set()
 };
@@ -140,7 +150,90 @@ const getPlacementProgress = () => {
   };
 };
 
+// Get opposing alliance name
+const getOpposingAlliance = (selectedAlliance, eraConfig) => {
+  const alliances = eraConfig.alliances;
+  if (!alliances || alliances.length < 2) return null;
+  
+  return alliances.find(alliance => alliance.name !== selectedAlliance)?.name;
+};
+
 export const GameProvider = ({ children }) => {
+  
+  // USER PROFILE FUNCTIONS (Now using services) - MOVED INSIDE COMPONENT
+  
+  // Get or create user profile
+  const getUserProfile = useCallback(async (userId) => {
+    return await userProfileService.getUserProfile(userId);
+  }, []);
+
+  // Create new user profile
+  const createUserProfile = useCallback(async (userId, gameName) => {
+    const profile = await userProfileService.createUserProfile(userId, gameName);
+    
+    if (profile) {
+      // Update local profile with new data
+      gameLogic.userProfile = profile;
+      notifySubscribers();
+    }
+    
+    return profile;
+  }, []);
+
+  // Update game statistics after game completion
+  const updateGameStats = useCallback(async (gameResults) => {
+    if (!gameLogic.userProfile) {
+      console.error(version, 'Cannot update stats without user profile');
+      return false;
+    }
+
+    const updatedProfile = await gameStatsService.updateGameStats(gameLogic.userProfile, gameResults);
+    
+    if (updatedProfile) {
+      // Update local profile with new stats
+      gameLogic.userProfile = updatedProfile;
+      notifySubscribers();
+      return true;
+    }
+    
+    return false;
+  }, []);
+
+  // Get leaderboard (top players by total score)
+  const getLeaderboard = useCallback(async (limit = 10) => {
+    return await leaderboardService.getLeaderboard(limit);
+  }, []);
+
+  // Get recent champions (winners from last 30 days)
+  const getRecentChampions = useCallback(async (limit = 5) => {
+    return await leaderboardService.getRecentChampions(limit);
+  }, []);
+
+  // Get player's game name for display
+  const getPlayerGameName = useCallback((playerId) => {
+    // If it's the human player, use their profile game name
+    if (playerId === gameLogic.humanPlayer?.id && gameLogic.userProfile?.game_name) {
+      return gameLogic.userProfile.game_name;
+    }
+    
+    // For AI players or when no profile, fall back to player name
+    const player = gameLogic.gameInstance?.players.find(p => p.id === playerId);
+    return player?.name || 'Unknown Player';
+  }, []);
+
+  // Get online players for multiplayer (future feature)
+  const getOnlinePlayersForGame = useCallback(async () => {
+    try {
+      // This would query for users currently online and looking for games
+      // For now, return empty array as multiplayer isn't implemented
+      console.log(version, 'Multiplayer not yet implemented');
+      return [];
+    } catch (error) {
+      console.error(version, 'Failed to fetch online players:', error);
+      return [];
+    }
+  }, []);
+
   const dispatch = async (event, eventData = null) => {
     console.log(version, 'Dispatching event to state machine', event);
     
@@ -151,20 +244,34 @@ export const GameProvider = ({ children }) => {
       // No specific business logic needed - authentication handled by LoginPage
       
     } else if (event === gameStateMachine.event.SELECTERA) {
-      // SELECTERA transition - validate user is authenticated
+      // SELECTERA transition - validate user is authenticated and has profile
       // Can accept user data as eventData to avoid React state timing
       if (eventData && eventData.userData) {
         console.log(version, 'Creating HumanPlayer from eventData:', eventData.userData.id);
         
-        // UUID CONSISTENCY FIX: Always use UUID as player ID
+        // Load user profile - MANDATORY for game access
+        const profile = await getUserProfile(eventData.userData.id);
+        
+        if (!profile || !profile.game_name) {
+          console.error(version, 'Cannot access game without valid profile and game name');
+          console.error(version, 'Profile state:', profile);
+          return; // Block transition if no valid profile
+        }
+        
+        // Store profile in gameLogic for future use
+        gameLogic.userProfile = profile;
+        notifySubscribers();
+        
+        // Create HumanPlayer with game name (no email fallback allowed)
         gameLogic.humanPlayer = new HumanPlayer(
-          eventData.userData.id,                    // UUID as player ID
-          eventData.userData.email || eventData.userData.name  // Email as display name
+          eventData.userData.id,     // UUID as player ID
+          profile.game_name          // Game name as display name - MANDATORY
         );
         gameLogic.humanPlayer.email = eventData.userData.email;
         gameLogic.humanPlayer.userData = eventData.userData;
+        gameLogic.humanPlayer.gameName = profile.game_name;
         
-        console.log(version, 'HumanPlayer created with UUID:', gameLogic.humanPlayer.id);
+        console.log(version, 'HumanPlayer created with UUID:', gameLogic.humanPlayer.id, 'Game name:', profile.game_name);
       }
       
       if (!gameLogic.humanPlayer) {
@@ -174,12 +281,31 @@ export const GameProvider = ({ children }) => {
       }
       console.log(version, 'Processing SELECTERA transition for user:', gameLogic.humanPlayer.id);
       
-    } else if (event === gameStateMachine.event.PLACEMENT) {
-      // PLACEMENT transition - receive era and opponent from SelectEraPage eventData
-      if (eventData?.eraConfig && eventData?.selectedOpponent) {
-        console.log(version, 'Committing era and opponent from SelectEraPage');
+    } else if (event === gameStateMachine.event.SELECTOPPONENT) {
+      // SELECTOPPONENT transition - commit era and alliance selection from SelectEraPage
+      if (eventData?.eraConfig) {
+        console.log(version, 'Committing era config from SelectEraPage:', eventData.eraConfig.name);
         gameLogic.eraConfig = eventData.eraConfig;
+      }
+      
+      if (eventData?.selectedAlliance) {
+        console.log(version, 'Committing alliance selection:', eventData.selectedAlliance);
+        gameLogic.selectedAlliance = eventData.selectedAlliance;
+      }
+      
+      console.log(version, 'Processing SELECTOPPONENT transition');
+      
+    } else if (event === gameStateMachine.event.PLACEMENT) {
+      // PLACEMENT transition - receive opponent from SelectOpponentPage eventData
+      if (eventData?.selectedOpponent) {
+        console.log(version, 'Committing opponent from SelectOpponentPage:', eventData.selectedOpponent.name);
         gameLogic.selectedOpponent = eventData.selectedOpponent;
+      }
+      
+      // Handle additional alliance selection from SelectOpponentPage (if not already set)
+      if (eventData?.selectedAlliance && !gameLogic.selectedAlliance) {
+        console.log(version, 'Alliance selected from SelectOpponentPage:', eventData.selectedAlliance);
+        gameLogic.selectedAlliance = eventData.selectedAlliance;
       }
       
       // PLACEMENT transition - set up game, players, and alliances BEFORE transition
@@ -198,27 +324,41 @@ export const GameProvider = ({ children }) => {
           // Set up UI update callback for AI turns - use observer pattern
           game.setUIUpdateCallback(notifySubscribers);
           
-          // Add players with index-based alliance assignment
-          const playerAlliance = gameLogic.eraConfig.alliances?.[0]?.name || 'Player';
-          const opponentAlliance = gameLogic.eraConfig.alliances?.[1]?.name || 'Opponent';
+          // Determine alliance assignments
+          let playerAlliance, opponentAlliance;
           
-          console.log(version, 'Alliance assignments:', { playerAlliance, opponentAlliance });
+          if (gameLogic.eraConfig.game_rules?.choose_alliance && gameLogic.selectedAlliance) {
+            // Player chose alliance, AI gets opposing alliance
+            playerAlliance = gameLogic.selectedAlliance;
+            opponentAlliance = getOpposingAlliance(gameLogic.selectedAlliance, gameLogic.eraConfig);
+            console.log(version, 'Alliance choice - Player:', playerAlliance, 'AI:', opponentAlliance);
+          } else {
+            // Auto-assign alliances (Traditional Battleship style)
+            playerAlliance = gameLogic.eraConfig.alliances?.[0]?.name || 'Player';
+            opponentAlliance = gameLogic.eraConfig.alliances?.[1]?.name || 'Opponent';
+            console.log(version, 'Auto-assign alliances - Player:', playerAlliance, 'AI:', opponentAlliance);
+          }
           
-          // Add human player to first alliance (using UUID)
+          if (!opponentAlliance) {
+            console.error(version, 'Cannot determine opponent alliance');
+            return;
+          }
+          
+          // Add human player to selected alliance (use mandatory game name)
           const humanPlayerAdded = addPlayerToGame(
-            gameLogic.humanPlayer.id,           // UUID: dc5722b9-fe58-447f-a9d4-f3d206f25b50
+            gameLogic.humanPlayer.id,
             'human',
-            gameLogic.humanPlayer.name || gameLogic.humanPlayer.email || 'Player',
+            gameLogic.userProfile.game_name, // MANDATORY - no fallbacks
             playerAlliance
           );
           
-          // UUID CONSISTENCY FIX: Generate UUID for AI player
+          // Generate UUID for AI player
           const aiId = generateAIPlayerUUID();
           console.log(version, 'Generated AI UUID:', aiId);
           
-          // Add AI opponent to second alliance with generated UUID
+          // Add AI opponent to opposing alliance
           const aiPlayerAdded = addPlayerToGame(
-            aiId,                               // Generated UUID for AI
+            aiId,
             'ai',
             gameLogic.selectedOpponent.name,
             opponentAlliance,
@@ -267,22 +407,42 @@ export const GameProvider = ({ children }) => {
       }
       
     } else if (event === gameStateMachine.event.OVER) {
-      // OVER transition - handle game completion
-      if (gameLogic.gameInstance) {
+      // OVER transition - handle game completion and update stats
+      if (gameLogic.gameInstance && gameLogic.userProfile) {
+        console.log(version, 'Processing game over, updating stats');
+        
+        try {
+          // Calculate game results using service
+          const gameResults = gameStatsService.calculateGameResults(
+            gameLogic.gameInstance,
+            gameLogic.eraConfig,
+            gameLogic.selectedOpponent
+          );
+          
+          if (gameResults) {
+            // Update stats asynchronously (don't block transition)
+            updateGameStats(gameResults).catch(error => {
+              console.error(version, 'Failed to update game stats:', error);
+            });
+          }
+        } catch (error) {
+          console.error(version, 'Error processing game completion stats:', error);
+        }
+        
         console.log(version, 'Processing game over, final state:', gameLogic.gameInstance.state);
-        // Game completion logic handled by Game class itself
       } else {
-        console.warn(version, 'OVER event without game instance');
+        console.warn(version, 'OVER event without game instance or profile');
       }
       
     } else if (event === gameStateMachine.event.ERA) {
       // ERA transition - reset game state for new game
       console.log(version, 'Resetting for new era selection');
       resetGame(); // Clear game instance and board
-      // Keep humanPlayer, but clear game-specific data
+      // Keep humanPlayer and userProfile, but clear game-specific data
       gameLogic.eraConfig = null;
       gameLogic.selectedOpponent = null;
       gameLogic.selectedGameMode = null;
+      gameLogic.selectedAlliance = null;
       
     } else {
       console.warn(version, 'Unknown event:', event);
@@ -316,57 +476,80 @@ export const GameProvider = ({ children }) => {
     notifySubscribers();
   }, []);
 
-  const updateHumanPlayer = useCallback((playerData) => {
-    console.log(version, 'Creating HumanPlayer instance', playerData?.id);
-    
-    if (playerData) {
-      // UUID CONSISTENCY FIX: Always use UUID as player ID
-      const player = new HumanPlayer(
-        playerData.id,                                    // UUID as player ID
-        playerData.email || playerData.name || 'Player'  // Email as display name
-      );
-      player.email = playerData.email;
-      player.userData = playerData;
-      gameLogic.humanPlayer = player;
-      
-      console.log(version, 'HumanPlayer updated with UUID:', player.id);
-    } else {
-      gameLogic.humanPlayer = null;
-    }
-    
+  const updateSelectedAlliance = useCallback((alliance) => {
+    console.log(version, 'Updating selected alliance', alliance);
+    gameLogic.selectedAlliance = alliance;
     notifySubscribers();
   }, []);
 
-    const initializeGame = useCallback((gameMode = 'turnBased') => {
-        if (!gameLogic.eraConfig) {
-          console.error(version, 'Cannot initialize game without era config');
-          return null;
-        }
+  const updateHumanPlayer = useCallback(async (playerData) => {
+    console.log(version, 'Creating HumanPlayer instance', playerData?.id);
+    
+    if (playerData) {
+      // Load user profile first - MANDATORY
+      const profile = await getUserProfile(playerData.id);
+      
+      if (!profile || !profile.game_name) {
+        console.error(version, 'Cannot create player without valid profile and game name');
+        gameLogic.humanPlayer = null;
+        gameLogic.userProfile = null;
+        notifySubscribers();
+        return;
+      }
+      
+      // Store profile in gameLogic for future use
+      gameLogic.userProfile = profile;
+      
+      // Create HumanPlayer with game name (no email fallback allowed)
+      const player = new HumanPlayer(
+        playerData.id,         // UUID as player ID
+        profile.game_name      // Game name as display name - MANDATORY
+      );
+      player.email = playerData.email;
+      player.userData = playerData;
+      player.gameName = profile.game_name;
+      gameLogic.humanPlayer = player;
+      
+      console.log(version, 'HumanPlayer updated with UUID:', player.id, 'Game name:', profile.game_name);
+    } else {
+      gameLogic.humanPlayer = null;
+      gameLogic.userProfile = null;
+    }
+    
+    notifySubscribers();
+  }, [getUserProfile]);
 
-        console.log(version, 'Initializing game instance', { era: gameLogic.eraConfig.name, mode: gameMode });
-        
-        // Create game instance
-        const game = new Game(gameLogic.eraConfig, gameMode);
-        
-        // DIRECT STATE MACHINE TRANSITION: Pass dispatch function to Game
-        game.setStateMachineDispatch(dispatch, gameStateMachine.event);
-        console.log(version, 'State machine dispatch configured for direct transitions');
-        
-        // Initialize alliances from era config
-        game.initializeAlliances();
-        
-        // Create board
-        const gameBoard = new Board(gameLogic.eraConfig.rows, gameLogic.eraConfig.cols, gameLogic.eraConfig.terrain);
-        game.setBoard(gameBoard);
-        
-        // Update game logic directly
-        gameLogic.gameInstance = game;
-        gameLogic.board = gameBoard;
-        
-        console.log(version, 'Game and board initialized successfully');
-        
-        return game;
-      }, []);
+  const initializeGame = useCallback((gameMode = 'turnBased') => {
+    if (!gameLogic.eraConfig) {
+      console.error(version, 'Cannot initialize game without era config');
+      return null;
+    }
+
+    console.log(version, 'Initializing game instance', { era: gameLogic.eraConfig.name, mode: gameMode });
+    
+    // Create game instance
+    const game = new Game(gameLogic.eraConfig, gameMode);
+    
+    // DIRECT STATE MACHINE TRANSITION: Pass dispatch function to Game
+    game.setStateMachineDispatch(dispatch, gameStateMachine.event);
+    console.log(version, 'State machine dispatch configured for direct transitions');
+    
+    // Initialize alliances from era config
+    game.initializeAlliances();
+    
+    // Create board
+    const gameBoard = new Board(gameLogic.eraConfig.rows, gameLogic.eraConfig.cols, gameLogic.eraConfig.terrain);
+    game.setBoard(gameBoard);
+    
+    // Update game logic directly
+    gameLogic.gameInstance = game;
+    gameLogic.board = gameBoard;
+    
+    console.log(version, 'Game and board initialized successfully');
+    
+    return game;
+  }, []);
+
   const addPlayerToGame = useCallback((playerId, playerType = 'human', playerName = 'Player', allianceName = null, strategy = 'methodical_hunting', difficulty = 1.0) => {
     if (!gameLogic.gameInstance) {
       console.error(version, 'No game instance to add player to');
@@ -383,8 +566,8 @@ export const GameProvider = ({ children }) => {
     });
     
     try {
-      // Add player to game with strategy and difficulty for AI
-      const player = gameLogic.gameInstance.addPlayer(playerId, playerType, playerName, strategy, difficulty);
+      // Add player to game with strategy, difficulty, and allianceName
+      const player = gameLogic.gameInstance.addPlayer(playerId, playerType, playerName, strategy, difficulty, allianceName);
       
       if (!player) {
         console.error(version, 'Failed to add player to game');
@@ -400,7 +583,7 @@ export const GameProvider = ({ children }) => {
         });
       }
       
-      // Assign to alliance if specified
+      // Assign to alliance if specified (this now happens after fleet creation)
       if (allianceName) {
         gameLogic.gameInstance.assignPlayerToAlliance(playerId, allianceName);
       }
@@ -408,7 +591,8 @@ export const GameProvider = ({ children }) => {
       console.log(version, 'Player added successfully:', {
         name: player.name,
         id: player.id,
-        type: player.type
+        type: player.type,
+        alliance: allianceName
       });
       
       return player;
@@ -432,11 +616,10 @@ export const GameProvider = ({ children }) => {
       orientation
     });
     
-    // Register with both Game and Board (they handle position mapping)
+    // Register with Game only - Game handles Board registration internally
     const gameRegistered = gameLogic.gameInstance.registerShipPlacement(ship, shipCells, orientation, playerId);
-    const boardRegistered = gameLogic.board.registerShipPlacement(ship, shipCells);
     
-    if (gameRegistered && boardRegistered) {
+    if (gameRegistered) {
       // Mark ship as placed after successful registration
       ship.place();
       
@@ -476,20 +659,32 @@ export const GameProvider = ({ children }) => {
       get eraConfig() { return gameLogic.eraConfig; },
       get selectedOpponent() { return gameLogic.selectedOpponent; },
       get selectedGameMode() { return gameLogic.selectedGameMode; },
+      get selectedAlliance() { return gameLogic.selectedAlliance; },
       get humanPlayer() { return gameLogic.humanPlayer; },
       get gameInstance() { return gameLogic.gameInstance; },
       get board() { return gameLogic.board; },
+      get userProfile() { return gameLogic.userProfile; },
       
       // Game logic functions
       updateEraConfig,
       updateSelectedOpponent,
       updateGameMode,
+      updateSelectedAlliance,
       updateHumanPlayer,
       initializeGame,
       addPlayerToGame,
       registerShipPlacement,
       resetGame,
-      getPlayerFleet
+      getPlayerFleet,
+      
+      // User profile functions
+      getUserProfile,
+      createUserProfile,
+      updateGameStats,
+      getLeaderboard,
+      getRecentChampions,
+      getPlayerGameName,
+      getOnlinePlayersForGame
     }}>
       {children}
     </GameState.Provider>

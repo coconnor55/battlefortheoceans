@@ -6,7 +6,7 @@ import { useGame } from '../context/GameContext';
 import './Pages.css';
 import './OverPage.css';
 
-const version = 'v0.1.2';
+const version = 'v0.1.4';
 
 const OverPage = () => {
   const {
@@ -106,19 +106,24 @@ const OverPage = () => {
                       <div className="player-name">{player.name}</div>
                       <div className="stat-row">
                         <span>Hits:</span>
-                        <span>{player.hits}</span>
+                        <span>{player.hits || 0}</span>
                       </div>
                       <div className="stat-row">
                         <span>Misses:</span>
-                        <span>{player.misses}</span>
+                        <span>{player.misses || 0}</span>
                       </div>
                       <div className="stat-row">
                         <span>Accuracy:</span>
-                        <span>{player.hits > 0 ? Math.round((player.hits / (player.hits + player.misses)) * 100) : 0}%</span>
+                        <span>{player.accuracy}%</span>
+                      </div>
+                      <div className="stat-row">
+                        <span>Damage Dealt:</span>
+                        <span>{player.shotDamage?.toFixed(1) || '0.0'}</span>
                       </div>
                       <div className="stat-row">
                         <span>Ships Lost:</span>
-                        <span>{Math.max(0, 5 - player.shipsRemaining)}</span>
+                        <span>{player.shipsRemaining !== undefined ?
+                          Math.max(0, (player.type === 'human' ? 7 : 6) - player.shipsRemaining) : 0}</span>
                       </div>
                     </div>
                   ))}
@@ -126,7 +131,7 @@ const OverPage = () => {
 
                 {gameStats.duration && (
                   <div className="game-duration">
-                    <span>Battle Duration: {Math.round(gameStats.duration / 1000 / 60)} minutes</span>
+                    <span>Battle Duration: {Math.floor(gameStats.duration / 60)} minutes</span>
                   </div>
                 )}
               </div>

@@ -1,19 +1,15 @@
-/* src/pages/PlayingPage.css (v0.2.3) */
+/* src/pages/PlayingPage.css (v0.2.4) */
 /* Copyright(c) 2025, Clint H. O'Connor */
-/* PlayingPage-specific styles - Canvas-based battle rendering with stacked dual consoles */
+/* PlayingPage-specific styles - Canvas-based battle rendering with consolidated message console */
 
-/* Dual message console system - STACKED VERTICALLY under board with wider layout */
+/* Consolidated message console - single box with header and internal divider */
 .message-consoles {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
   margin: 15px auto;
   max-width: 600px;
   width: 100%;
 }
 
-.console-battle,
-.console-ui {
+.console-combined {
   width: 100%;
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -26,49 +22,46 @@
   font-size: 0.75rem;
   text-align: center;
   color: white;
-}
-
-.console-content {
-  padding: 8px 16px;
-  font-size: 0.9rem;
-  height: 45px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.95);
-  color: #333;
-  overflow: hidden;
-  word-wrap: break-word;
-  line-height: 1.3;
-}
-
-/* Battle console - green theme for combat actions */
-.console-battle .console-header {
-  background: linear-gradient(45deg, #4CAF50, #45a049);
-}
-
-.console-battle .console-content {
-  border-left: 4px solid #4CAF50;
-  color: #333;
-}
-
-/* UI console - blue theme for turn status */
-.console-ui .console-header {
   background: linear-gradient(45deg, #2196F3, #1976D2);
 }
 
-.console-ui .console-content {
-  border-left: 4px solid #2196F3;
+.console-content-combined {
+  background: rgba(255, 255, 255, 0.95);
   color: #333;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  border-left: 4px solid #2196F3;
 }
 
-/* Mobile responsive - maintain stacked layout but adjust sizing */
+/* UI message (top) - turn status */
+.ui-message {
+  font-weight: bold;
+  color: #2196F3;
+  margin-bottom: 8px;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+/* Dividing line */
+.message-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #ddd 20%, #ddd 80%, transparent);
+  margin: 8px 0;
+}
+
+/* Battle message (bottom) - action results */
+.battle-message {
+  color: #333;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+/* Mobile responsive - more compact for small screens */
 @media (max-width: 768px) {
   .message-consoles {
     max-width: 500px;
-    gap: 8px;
-    margin: 12px auto;
+    margin: 10px auto;
   }
   
   .console-header {
@@ -76,18 +69,30 @@
     padding: 3px 10px;
   }
   
-  .console-content {
-    padding: 6px 12px;
+  .console-content-combined {
+    padding: 10px 14px;
     font-size: 0.85rem;
-    height: 40px;
+  }
+  
+  .ui-message {
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+  }
+  
+  .battle-message {
+    font-size: 0.8rem;
+  }
+  
+  .message-divider {
+    margin: 6px 0;
   }
 }
 
-/* Very small screens - compact but still readable */
+/* Very small screens - minimal padding */
 @media (max-width: 480px) {
   .message-consoles {
     max-width: 400px;
-    margin: 10px auto;
+    margin: 8px auto;
   }
   
   .console-header {
@@ -95,10 +100,22 @@
     padding: 3px 8px;
   }
   
-  .console-content {
+  .console-content-combined {
+    padding: 8px 12px;
     font-size: 0.8rem;
-    padding: 6px 10px;
-    height: 38px;
+  }
+  
+  .ui-message {
+    font-size: 0.85rem;
+    margin-bottom: 5px;
+  }
+  
+  .battle-message {
+    font-size: 0.75rem;
+  }
+  
+  .message-divider {
+    margin: 5px 0;
   }
 }
 

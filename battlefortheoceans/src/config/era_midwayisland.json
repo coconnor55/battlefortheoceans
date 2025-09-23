@@ -1,0 +1,145 @@
+{
+  "version": "0.1.4",
+  "era": "midway",
+  "name": "Midway Island",
+  "era_description": "Battle of Midway, June 4-7, 1942. Fight for control of this strategic Pacific atoll where American forces turned the tide against the Japanese Navy in World War II.",
+  "free": false,
+  "rows": 12,
+  "cols": 12,
+  "boundary": [],
+  "max_players": 2,
+  "game_rules": {
+    "change_alliance": false,
+    "ship_capture": false,
+    "capture_chance": 0.0,
+    "turn_required": true,
+    "choose_alliance": true,
+    "turn_on_hit": true,
+    "turn_on_miss": false,
+    "placement_restriction": 12
+  },
+  "alliances": [
+    {
+      "name": "US Navy",
+      "description": "Task Force 16 & 17 - Defend the strategic Midway atoll with carrier-based aviation and superior intelligence. Fight with disciplined tactics and technological advantage.",
+      "avatar": "us-navy-icon.png",
+      "ships": [
+        { "name": "USS Enterprise", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "USS Hornet", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "USS Yorktown", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "USS Astoria", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "USS Pensacola", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "USS Nautilus", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+        { "name": "USS Hammann", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
+      ],
+      "ai_captains": [
+        {
+          "id": "commander-spruance",
+          "name": "Cmdr. Spruance",
+          "strategy": "methodical_random",
+          "skill_level": "experienced",
+          "difficulty": "normal",
+          "description": "A methodical US Navy commander who systematically searches for enemy vessels with disciplined precision.",
+          "avatar": "captains/commander-spruance.png"
+        },
+        {
+          "id": "admiral-nimitz",
+          "name": "Admiral Nimitz",
+          "strategy": "methodical_optimal",
+          "skill_level": "expert",
+          "difficulty": "hard",
+          "description": "The legendary Pacific Fleet commander who combines strategic brilliance with tactical mastery to dominate naval warfare.",
+          "avatar": "captains/admiral-nimitz.png"
+        }
+      ]
+    },
+    {
+      "name": "Imperial Navy",
+      "description": "Kido Butai & Midway Invasion Force - Strike swift and decisive to capture Midway and lure the American fleet into a trap. Honor demands victory!",
+      "avatar": "japanese-navy-icon.png",
+      "ships": [
+        { "name": "Akagi", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Kaga", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Hiryu", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Soryu", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Mikuma", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "I-168", "class": "Submarine", "size": 3, "terrain": ["deep"] }
+      ],
+      "ai_captains": [
+        {
+          "id": "lt-yamamoto",
+          "name": "Lt. Yamamoto",
+          "strategy": "aggressive",
+          "skill_level": "novice",
+          "difficulty": "easy",
+          "description": "A young Imperial Navy officer eager to prove himself in battle. Strikes boldly but lacks experience in complex naval tactics.",
+          "avatar": "captains/lt-yamamoto.png"
+        },
+        {
+          "id": "admiral-nagumo",
+          "name": "Admiral Nagumo",
+          "strategy": "quartering",
+          "skill_level": "expert",
+          "difficulty": "hard",
+          "description": "Commander of the Kido Butai carrier strike force. Divides the battlefield systematically to locate and destroy enemy vessels.",
+          "avatar": "captains/admiral-nagumo.png"
+        }
+      ]
+    }
+  ],
+  "terrain": [
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "shallow", "shallow", "shoal", "shoal", "shallow", "shallow", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "shallow", "shoal", "shoal", "land", "shoal", "shallow", "shallow", "deep", "deep"],
+    ["deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "shoal", "shallow", "deep", "deep"],
+    ["deep", "deep", "deep", "shallow", "shallow", "shoal", "land", "shoal", "shoal", "shallow", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "shallow", "shallow", "shoal", "shoal", "shallow", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
+  ],
+  "messages": {
+    "transition": [
+      "Fleet positioned for Midway assault - engage!",
+      "All stations report ready - commence battle!",
+      "The fate of the Pacific rests in your hands!"
+    ],
+    "player_win": [
+      "Victory at Midway! Enemy fleet destroyed!",
+      "The atoll is secure! Pacific turning point achieved!",
+      "Outstanding naval command! The enemy retreats!"
+    ],
+    "player_lose": [
+      "Your fleet is sunk! Midway falls to the enemy!",
+      "All ships lost! The Pacific campaign is in jeopardy!",
+      "Defeat! The strategic initiative is lost!"
+    ],
+    "opponent_win": [
+      "{opponent}: My fleet controls these waters!",
+      "{opponent}: Midway belongs to the Imperial Navy!",
+      "{opponent}: Your forces are no match for our strategy!"
+    ],
+    "opponent_lose": [
+      "{opponent}: My fleet is destroyed! The battle is yours!",
+      "{opponent}: Impossible! How did you anticipate our movements?",
+      "{opponent}: The tide of war has turned against us!"
+    ],
+    "attack_hit": "You fired at {cell} - HIT!",
+    "attack_miss": "Shells splash harmlessly at {cell}.",
+    "opponent_attack_hit": "{opponent} scores a hit at {cell}!",
+    "opponent_attack_miss": "{opponent} fires at {cell} - miss.",
+    "ship_sunk": "You sunk the enemy {ship} at {cell}!",
+    "opponent_attack_sunk": "{opponent} destroys your {ship} at {cell}!",
+    "player_turn": "Your turn - target enemy vessels!",
+    "ai_turn": "{opponent} is coordinating their attack...",
+    "victory": "Victory at Midway! Enemy fleet destroyed!",
+    "defeat": "Defeat! Your fleet has been sunk.",
+    "rapid_fire": "Rapid Fire! Launch continuous salvos!",
+    "game_start": "Midway Island battle begins! {players}",
+    "game_end": "Battle of Midway complete! {winner} controls the Pacific after {turns} turns!",
+    "turn_start": "Turn {turn}: {player} commands the fleet"
+  }
+}

@@ -1,20 +1,19 @@
 {
-  "version": "0.1.8",
+  "version": "0.2.3",
   "era": "traditional",
   "name": "Traditional Battleship",
-  "era_description": "Battleship, a classic pencil-and-paper game from World War I, was popularized in the 1930s. Players strategically place and sink fleets on a 10x10 grid in this timeless naval duel.",
+  "era_description": "Classic naval warfare on the high seas. Command your fleet in the timeless battle of strategy and luck that has captivated players since the 1930s.",
   "free": true,
   "rows": 10,
   "cols": 10,
   "boundary": [],
   "max_players": 2,
   "game_rules": {
-    "friendly_fire": false,
     "change_alliance": false,
     "ship_capture": false,
     "capture_chance": 0.0,
     "turn_required": true,
-    "create_alliance": false,
+    "choose_alliance": false,
     "turn_on_hit": true,
     "turn_on_miss": false,
     "placement_restriction": 10
@@ -22,19 +21,55 @@
   "alliances": [
     {
       "name": "Player",
-      "avatar": "player-icon.png"
+      "avatar": "player-icon.png",
+      "ships": [
+        { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
+        { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+        { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
+      ]
     },
     {
       "name": "Opponent",
-      "avatar": "opponent-icon.png"
+      "avatar": "opponent-icon.png",
+      "ships": [
+        { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
+        { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+        { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
+      ],
+      "ai_captains": [
+        {
+          "id": "ensign-jack",
+          "name": "Ensign Jack",
+          "strategy": "random",
+          "skill_level": "novice",
+          "difficulty": "easy",
+          "description": "A fresh naval academy graduate still learning the ropes of sea warfare. Fires quickly but without much strategy.",
+          "avatar": "captains/ensign-jack.png"
+        },
+        {
+          "id": "captain-flynn",
+          "name": "Captain Flynn",
+          "strategy": "aggressive",
+          "skill_level": "experienced",
+          "difficulty": "normal",
+          "description": "A dashing naval officer who strikes with bold precision and calculated daring. Inspired by the swashbuckling heroes of old.",
+          "avatar": "captains/captain-flynn.png"
+        },
+        {
+          "id": "admiral-swift",
+          "name": "Admiral Swift",
+          "strategy": "methodical_random",
+          "skill_level": "expert",
+          "difficulty": "hard",
+          "description": "A seasoned fleet commander who systematically hunts enemy vessels with patience and tactical brilliance.",
+          "avatar": "captains/admiral-swift.png"
+        }
+      ]
     }
-  ],
-  "ships": [
-    { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
-    { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
-    { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
-    { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
-    { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
   ],
   "terrain": [
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
@@ -48,59 +83,45 @@
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
   ],
-  "ai_captains": [
-    {
-      "id": "captain-robert",
-      "name": "Captain Robert",
-      "description": "A novice commander who fires randomly across the board.",
-      "strategy": "random_shots",
-      "difficulty": 0.7
-    },
-    {
-      "id": "captain-jack",
-      "name": "Captain Jack",
-      "description": "A savvy commander who fires methodically.",
-      "strategy": "methodical_hunting",
-      "difficulty": 1.0
-    },
-    {
-      "id": "captain-blood",
-      "name": "Captain Blood",
-      "description": "A ruthless commander who targets aggressively.",
-      "strategy": "aggressive_targeting",
-      "difficulty": 1.2
-    }
-  ],
   "messages": {
     "transition": [
-        "All ships placed - ready for the game?",
-        "Fleet placed - let's rumble!",
-        "Damn the torpedos, full speed ahead!"
+      "All hands to battle stations!",
+      "Enemy fleet spotted on the horizon!",
+      "Prepare for naval engagement!"
     ],
     "player_win": [
-      "You sank all enemy ships! Victory!",
-      "All opponent vessels destroyed! You win!",
-      "Total naval dominance! You're the champion!"
+      "Victory! Enemy fleet destroyed!",
+      "All enemy vessels have been sunk!",
+      "The seas belong to you, Admiral!"
     ],
     "player_lose": [
-      "Your fleet is sunk! Opponent wins!",
-      "All ships lost! Defeat!",
-      "The enemy prevails! Your fleet is no more!"
+      "Your fleet is sunk! The enemy controls these waters!",
+      "All ships lost! The battle is over!",
+      "Defeat! Your fleet lies beneath the waves!"
     ],
     "opponent_win": [
-      "{opponent}: My fleet triumphs!",
-      "{opponent}: Your ships are at the bottom of the sea!",
-      "{opponent}: I've outmaneuvered you!"
+      "{opponent}: My fleet rules these waters!",
+      "{opponent}: Your ships are no match for my strategy!",
+      "{opponent}: Victory belongs to the superior commander!"
     ],
     "opponent_lose": [
-      "{opponent}: My fleet is sunk! You win!",
-      "{opponent}: Defeated by a human? Impossible!",
-      "{opponent}: All my ships are gone! Well played!"
+      "{opponent}: My fleet is destroyed! Well fought!",
+      "{opponent}: You've bested me this time, Admiral!",
+      "{opponent}: The sea claims my ships today!"
     ],
-    "ship_sunk": "{ship} SUNK at {cell}!",
-    "attack_hit": "Fired at {cell}, HIT!",
-    "attack_miss": "Fired at {cell}, miss.",
-    "opponent_attack_hit": "{opponent} fired at {cell}, HIT!",
-    "opponent_attack_sunk": "{opponent} fired at {cell}, HIT! {ship} SUNK!"
+    "attack_hit": "You fired at {cell} - HIT!",
+    "attack_miss": "You fired at {cell} - miss.",
+    "opponent_attack_hit": "{opponent} fired at {cell} - HIT!",
+    "opponent_attack_miss": "{opponent} fired at {cell} - miss.",
+    "ship_sunk": "You sunk the enemy {ship} at {cell}!",
+    "opponent_attack_sunk": "{opponent} sunk your {ship} at {cell}!",
+    "player_turn": "Your turn - click to fire!",
+    "ai_turn": "{opponent} is taking their turn...",
+    "victory": "Victory! You sank the enemy fleet!",
+    "defeat": "Defeat! Your fleet has been sunk.",
+    "rapid_fire": "Rapid Fire! Click to fire continuously!",
+    "game_start": "Battle begins! {players}",
+    "game_end": "Game Over! {winner} wins after {turns} turns!",
+    "turn_start": "Turn {turn}: {player}'s turn"
   }
 }

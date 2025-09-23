@@ -7,7 +7,7 @@ import { useGame } from '../context/GameContext';
 import './Pages.css';
 import './SelectEraPage.css';
 
-const version = 'v0.2.0';
+const version = 'v0.2.2';
 
 const SelectEraPage = () => {
   const {
@@ -15,55 +15,51 @@ const SelectEraPage = () => {
     stateMachine
   } = useGame();
   
-  // Local UI state for browsing - not committed to game logic until "Begin Battle"
+  // Local UI state for browsing - not committed to game logic until "Join"
   const [selectedEra, setSelectedEra] = useState(null);
-  const [selectedOpponent, setSelectedOpponent] = useState(null);
   
   // Data fetching state
   const [eras, setEras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Handle opponent selection - local UI state only
-  const handleOpponentSelect = useCallback((opponent) => {
-    const timestamp = Date.now();
-    const sanitizedName = opponent.name.toLowerCase().replace(/\s+/g, '-');
-    const completeOpponent = {
-      ...opponent,
-      id: opponent.id || `ai-${sanitizedName}-${timestamp}`,
-      type: 'ai'
-    };
-    
-    console.log(version, 'Opponent selected (UI state):', completeOpponent.name);
-    setSelectedOpponent(completeOpponent);
-  }, []);
-
   // Handle era selection - local UI state only
   const handleEraSelect = useCallback((era) => {
     console.log(version, 'Era selected (UI state):', era.name);
     setSelectedEra(era);
-    
-    // Clear opponent selection when era changes
-    setSelectedOpponent(null);
   }, []);
-        
-  // Commit selections to game logic and transition to placement
-  const handleBeginBattle = useCallback(() => {
-    if (selectedEra && selectedOpponent) {
-      console.log(version, 'Committing selections to game logic:');
+
+  // Join alliance and transition to SelectOpponentPage
+  const handleJoinAlliance = useCallback((alliance) => {
+    if (selectedEra) {
+      console.log(version, 'Joining alliance and transitioning to opponent selection:');
       console.log(version, 'Era:', selectedEra.name);
-      console.log(version, 'Opponent:', selectedOpponent.name);
+      console.log(version, 'Alliance:', alliance.name);
       
-      // Commit both selections to game logic in the dispatch eventData
-      // This will be processed in GameContext during PLACEMENT transition
-      dispatch(stateMachine.event.PLACEMENT, {
+      // Commit era and alliance selection to game logic
+      dispatch(stateMachine.event.SELECTOPPONENT, {
         eraConfig: selectedEra,
-        selectedOpponent: selectedOpponent
+        selectedAlliance: alliance.name
       });
     } else {
-      console.error(version, 'Missing era or opponent selection');
+      console.error(version, 'Missing era selection');
     }
-  }, [selectedEra, selectedOpponent, dispatch, stateMachine]);
+  }, [selectedEra, dispatch, stateMachine]);
+
+  // For non-choose_alliance eras (Traditional), go directly to opponent selection
+  const handleChooseOpponent = useCallback(() => {
+    if (selectedEra) {
+      console.log(version, 'Transitioning to opponent selection (no alliance choice):');
+      console.log(version, 'Era:', selectedEra.name);
+      
+      // Commit era selection to game logic
+      dispatch(stateMachine.event.SELECTOPPONENT, {
+        eraConfig: selectedEra
+      });
+    } else {
+      console.error(version, 'Missing era selection');
+    }
+  }, [selectedEra, dispatch, stateMachine]);
 
   // Fetch eras only once on mount
   useEffect(() => {
@@ -181,7 +177,7 @@ const SelectEraPage = () => {
               >
                 <div className="era-header">
                   <span className="era-name">{era.name}</span>
-                  {era.free && <span className="era-badge free">FREE</span>}
+                  {era.free && <span className="green-badge">FREE</span>}
                 </div>
                 <div className="era-description">{era.era_description}</div>
                 <div className="era-details">
@@ -193,38 +189,56 @@ const SelectEraPage = () => {
           </div>
 
           {selectedEra && (
-            <div className="opponent-selection">
-              <div className="game-info">
-                <h3>Choose Your Opponent</h3>
-                <p>Select an AI captain to battle against</p>
-              </div>
-              
-              <div className="opponent-slider">
-                {selectedEra.ai_captains.slice(0, 3).map((opponent, index) => (
-                  <div
-                    key={index}
-                    className={`opponent-item ${selectedOpponent?.name === opponent.name ? 'selected' : ''}`}
-                    onClick={() => handleOpponentSelect(opponent)}
-                  >
-                    <div className="opponent-header">
-                      <div className="opponent-name">{opponent.name}</div>
-                      <div className="opponent-difficulty">
-                        Difficulty: {Math.round(opponent.difficulty * 100)}%
-                      </div>
-                    </div>
-                    <div className="opponent-description">{opponent.description}</div>
-                    <div className="opponent-strategy">Strategy: {opponent.strategy.replace(/_/g, ' ')}</div>
+            <div className="alliance-selection">
+              {selectedEra.game_rules?.choose_alliance ? (
+                // Show alliance selection for choose_alliance eras (Midway)
+                <div className="alliance-choice">
+                  <div className="game-info">
+                    <h3>Choose Your Alliance</h3>
+                    <p>Select which side you want to command</p>
                   </div>
-                ))}
-              </div>
-              
-              <button
-                className="btn btn-primary btn-large"
-                disabled={!selectedEra || !selectedOpponent}
-                onClick={handleBeginBattle}
-              >
-                Begin Battle
-              </button>
+                  
+                  <div className="alliance-list">
+                    {selectedEra.alliances?.map((alliance) => (
+                      <div key={alliance.name} className="alliance-item">
+                        <div className="alliance-header">
+                          <div className="alliance-name">{alliance.name}</div>
+                          <div className="alliance-ships">
+                            {alliance.ships?.length || 0} ships
+                          </div>
+                        </div>
+                        <div className="alliance-description">
+                          {alliance.description}
+                        </div>
+                        <div className="alliance-fleet">
+                          <strong>Fleet:</strong> {alliance.ships?.map(s => s.name).join(', ')}
+                        </div>
+                        <button
+                          className="btn btn-primary alliance-join-btn"
+                          onClick={() => handleJoinAlliance(alliance)}
+                        >
+                          Join
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                // Show direct opponent selection for non-choose_alliance eras (Traditional)
+                <div className="opponent-choice">
+                  <div className="game-info">
+                    <h3>Ready for Battle</h3>
+                    <p>Proceed to select your opponent</p>
+                  </div>
+                  
+                  <button
+                    className="btn btn-primary btn-large"
+                    onClick={handleChooseOpponent}
+                  >
+                    Choose Opponent
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

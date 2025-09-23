@@ -8,7 +8,7 @@ import FleetBattle from '../components/FleetBattle';
 import './Pages.css';
 import './PlayingPage.css';
 
-const version = 'v0.2.3';
+const version = 'v0.2.4';
 
 const PlayingPage = () => {
   const {
@@ -157,15 +157,18 @@ const PlayingPage = () => {
               />
             </div>
             
+            {/* Consolidated message console for game over state */}
             <div className="message-consoles">
-              <div className="console-battle">
-                <div className="console-header">Battle Report</div>
-                <div className="console-content">{battleMessage || 'Battle complete'}</div>
-              </div>
-              <div className="console-ui">
-                <div className="console-header">Game Status</div>
-                <div className="console-content">
-                  {uiMessage || 'Game Over'} | Your Hits: {playerHits} | Enemy Hits: {opponentHits}
+              <div className="console-combined">
+                <div className="console-header">Messages</div>
+                <div className="console-content-combined">
+                  <div className="ui-message">
+                    {uiMessage || 'Game Over'} | Your Hits: {playerHits} | Enemy Hits: {opponentHits}
+                  </div>
+                  <div className="message-divider"></div>
+                  <div className="battle-message">
+                    {battleMessage || 'Battle complete'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -242,14 +245,19 @@ const PlayingPage = () => {
             />
           </div>
           
+          {/* Consolidated message console - UI message on top, battle message below */}
           <div className="message-consoles">
-            <div className="console-battle">
-              <div className="console-header">Battle Report</div>
-              <div className="console-content">{battleMessage || 'Awaiting battle action...'}</div>
-            </div>
-            <div className="console-ui">
-              <div className="console-header">Turn Status</div>
-              <div className="console-content">{uiMessage || 'Preparing for battle...'}</div>
+            <div className="console-combined">
+              <div className="console-header">Messages</div>
+              <div className="console-content-combined">
+                <div className="ui-message">
+                  {uiMessage || 'Preparing for battle...'}
+                </div>
+                <div className="message-divider"></div>
+                <div className="battle-message">
+                  {battleMessage || 'Awaiting battle action...'}
+                </div>
+              </div>
             </div>
           </div>
           
