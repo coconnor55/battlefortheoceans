@@ -5,11 +5,10 @@ import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useGame } from '../context/GameContext';
-import RightsService from '../services/RightsService';
 import './Pages.css';
 import './PurchasePage.css';
 
-const version = 'v0.1.4';
+const version = 'v0.1.5';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -104,15 +103,13 @@ const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
 };
 
 const PurchasePage = ({ eraId, onComplete, onCancel }) => {
-  const { userProfile } = useGame();
+  const { userProfile, grantEraAccess, redeemVoucher } = useGame();
   const [purchaseMethod, setPurchaseMethod] = useState('stripe');
   const [voucherCode, setVoucherCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [eraInfo, setEraInfo] = useState(null);
-
-  const rightsService = new RightsService();
 
   useEffect(() => {
     fetchEraInfo();
@@ -141,8 +138,8 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
 
   const handleStripeSuccess = async (paymentIntentId) => {
     try {
-      // Grant rights via RightsService
-      await rightsService.grantEraAccess(userProfile.id, eraId, {
+      // Grant rights via GameContext singleton service
+      await grantEraAccess(userProfile.id, eraId, {
         stripe_payment_intent_id: paymentIntentId
       });
 
@@ -174,7 +171,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     setError('');
 
     try {
-      await rightsService.redeemVoucher(userProfile.id, voucherCode.trim());
+      await redeemVoucher(userProfile.id, voucherCode.trim());
       
       setSuccess(`Voucher redeemed successfully! ${eraInfo.name} is now unlocked.`);
       setTimeout(() => {

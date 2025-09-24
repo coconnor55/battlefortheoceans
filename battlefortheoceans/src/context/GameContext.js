@@ -9,8 +9,9 @@ import Board from '../classes/Board';
 import UserProfileService from '../services/UserProfileService';
 import GameStatsService from '../services/GameStatsService';
 import LeaderboardService from '../services/LeaderboardService';
+import RightsService from '../services/RightsService';
 
-const version = "v0.2.9";
+const version = "v0.2.10";
 
 const GameState = createContext();
 const gameStateMachine = new StateMachine();
@@ -19,6 +20,7 @@ const gameStateMachine = new StateMachine();
 const userProfileService = new UserProfileService();
 const gameStatsService = new GameStatsService();
 const leaderboardService = new LeaderboardService();
+const rightsService = new RightsService();
 
 // UUID generation for AI players
 const generateAIPlayerUUID = () => {
@@ -207,6 +209,28 @@ export const GameProvider = ({ children }) => {
   // Get recent champions (winners from last 30 days)
   const getRecentChampions = useCallback(async (limit = 5) => {
     return await leaderboardService.getRecentChampions(limit);
+  }, []);
+
+  // RIGHTS SERVICE FUNCTIONS - NEW
+  
+  // Check if user has era access
+  const hasEraAccess = useCallback(async (userId, eraId) => {
+    return await rightsService.hasEraAccess(userId, eraId);
+  }, []);
+
+  // Grant era access (after successful payment)
+  const grantEraAccess = useCallback(async (userId, eraId, paymentData = {}) => {
+    return await rightsService.grantEraAccess(userId, eraId, paymentData);
+  }, []);
+
+  // Redeem voucher code
+  const redeemVoucher = useCallback(async (userId, voucherCode) => {
+    return await rightsService.redeemVoucher(userId, voucherCode);
+  }, []);
+
+  // Get all user rights
+  const getUserRights = useCallback(async (userId) => {
+    return await rightsService.getUserRights(userId);
   }, []);
 
   // Get player's game name for display
@@ -684,7 +708,13 @@ export const GameProvider = ({ children }) => {
       getLeaderboard,
       getRecentChampions,
       getPlayerGameName,
-      getOnlinePlayersForGame
+      getOnlinePlayersForGame,
+      
+      // Rights service functions - NEW
+      hasEraAccess,
+      grantEraAccess,
+      redeemVoucher,
+      getUserRights
     }}>
       {children}
     </GameState.Provider>
