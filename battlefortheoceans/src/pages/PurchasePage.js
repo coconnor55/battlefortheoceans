@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useGame } from '../context/GameContext';
-import { RightsService } from '../services/RightsService';
+import RightsService from '../services/RightsService';
 import './Pages.css';
 import './PurchasePage.css';
 
