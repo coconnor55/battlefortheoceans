@@ -10,9 +10,10 @@ import SelectOpponentPage from './pages/SelectOpponentPage';
 import PlacementPage from './pages/PlacementPage';
 import PlayingPage from './pages/PlayingPage';
 import OverPage from './pages/OverPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import './App.css';
 
-const version = 'v0.2.1';
+const version = 'v0.2.2';
 
 const SceneRenderer = () => {
   const { stateMachine, subscribeToUpdates } = useGame();
@@ -27,6 +28,15 @@ const SceneRenderer = () => {
     });
     return unsubscribe;
   }, [subscribeToUpdates]);
+  
+  // Check if current URL is for password reset
+  const isResetPasswordRoute = window.location.pathname === '/reset-password' ||
+                               window.location.hash.includes('type=recovery');
+  
+  if (isResetPasswordRoute) {
+    console.log(version, 'Rendering reset password page (URL-based routing)');
+    return <ResetPasswordPage />;
+  }
   
   const currentState = stateMachine.getCurrentState();
   console.log(version, 'Rendering scene for', currentState);
