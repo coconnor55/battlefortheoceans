@@ -1,5 +1,8 @@
-// netlify/functions/stripe-webhook.js
+// netlify/functions/stripe_webhook.js
+// Copyright(c) 2025, Clint H. O'Connor
 // Handles Stripe webhook events and grants user rights
+
+const version = 'v0.1.1';
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { createClient } = require('@supabase/supabase-js');
@@ -131,4 +134,5 @@ async function sendConfirmationEmail(userId, eraId) {
   // For now, just log that we would send an email
   console.log(`Would send confirmation email to ${userProfile.email} for ${eraId} unlock`);
 }
+
 // EOF

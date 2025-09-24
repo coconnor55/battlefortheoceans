@@ -1,6 +1,7 @@
-// netlify/functions/create-payment-intent.js
+// netlify/functions/create_payment_intent.js
 // Creates Stripe payment intent for era purchases
 
+const version = 'v0.1.0'
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 exports.handler = async (event, context) => {

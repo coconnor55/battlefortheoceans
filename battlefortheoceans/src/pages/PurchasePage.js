@@ -9,7 +9,7 @@ import { RightsService } from '../services/RightsService';
 import './Pages.css';
 import './PurchasePage.css';
 
-const version = 'v0.1.2';
+const version = 'v0.1.3';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -30,7 +30,7 @@ const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
 
     try {
       // Create payment intent via Netlify function
-      const response = await fetch('/.netlify/functions/create-payment-intent', {
+      const response = await fetch('/.netlify/functions/create_payment_intent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
