@@ -5,11 +5,10 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
-import RightsService from '../services/RightsService';
 import './Pages.css';
 import './OverPage.css';
 
-const version = 'v0.1.6';
+const version = 'v0.1.7';
 
 const OverPage = () => {
   const {
@@ -19,7 +18,8 @@ const OverPage = () => {
     eraConfig,
     selectedOpponent,
     userProfile,
-    resetGame
+    resetGame,
+    hasEraAccess  // Use singleton from GameContext
   } = useGame();
   
   const [showGameLog, setShowGameLog] = useState(false);
@@ -27,7 +27,6 @@ const OverPage = () => {
   const [showPromotion, setShowPromotion] = useState(false);
   const [showPurchasePage, setShowPurchasePage] = useState(false);
   const [purchaseEraId, setPurchaseEraId] = useState(null);
-  const rightsService = new RightsService();
 
   // Check if user needs to see Midway Island promotion
   useEffect(() => {
@@ -38,13 +37,13 @@ const OverPage = () => {
         return;
       }
 
-      // Check if user already has Midway Island access
-      const hasAccess = await rightsService.hasEraAccess(userProfile.id, 'midway_island');
+      // Check if user already has Midway Island access using GameContext singleton
+      const hasAccess = await hasEraAccess(userProfile.id, 'midway_island');
       setShowPromotion(!hasAccess);
     };
 
     checkPromotionEligibility();
-  }, [eraConfig, userProfile]);
+  }, [eraConfig, userProfile, hasEraAccess]);
 
   // Get game results
   const gameStats = gameInstance?.getGameStats() || {};

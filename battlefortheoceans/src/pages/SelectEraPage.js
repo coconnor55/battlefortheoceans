@@ -4,18 +4,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
-import RightsService from '../services/RightsService';
 import PurchasePage from './PurchasePage';
 import './Pages.css';
 import './SelectEraPage.css';
 
-const version = 'v0.2.3';
+const version = 'v0.2.4';
 
 const SelectEraPage = () => {
   const {
     dispatch,
     stateMachine,
-    userProfile
+    userProfile,
+    getUserRights  // Use singleton from GameContext
   } = useGame();
   
   // Local UI state for browsing - not committed to game logic until "Join"
@@ -30,8 +30,6 @@ const SelectEraPage = () => {
   const [userRights, setUserRights] = useState(new Map());
   const [showPurchasePage, setShowPurchasePage] = useState(false);
   const [purchaseEraId, setPurchaseEraId] = useState(null);
-  
-  const rightsService = new RightsService();
 
   // Handle era selection - check if user has access
   const handleEraSelect = useCallback((era) => {
@@ -116,7 +114,7 @@ const SelectEraPage = () => {
     }
   }, [selectedEra, dispatch, stateMachine]);
 
-  // Fetch user rights
+  // Fetch user rights using GameContext singleton
   const fetchUserRights = useCallback(async () => {
     if (!userProfile?.id) {
       console.log(version, 'No user profile, skipping rights fetch');
@@ -125,7 +123,7 @@ const SelectEraPage = () => {
 
     try {
       console.log(version, 'Fetching user rights for:', userProfile.id);
-      const rights = await rightsService.getUserRights(userProfile.id);
+      const rights = await getUserRights(userProfile.id);
       
       // Create a map of era access
       const rightsMap = new Map();
@@ -140,7 +138,7 @@ const SelectEraPage = () => {
     } catch (error) {
       console.error(version, 'Error fetching user rights:', error);
     }
-  }, [userProfile?.id, rightsService]);
+  }, [userProfile?.id, getUserRights]);
 
   // Fetch eras and user rights on mount
   useEffect(() => {
