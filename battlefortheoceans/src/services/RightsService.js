@@ -1,157 +1,193 @@
-// src/services/GameStatsService.js
+// src/services/RightsService.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import { supabase } from '../utils/supabaseClient';
 
 const version = "v0.1.0";
 
-class GameStatsService {
+class RightsService {
   constructor() {
     this.version = version;
-    this.log('GameStatsService initialized');
+    this.log('RightsService initialized');
   }
 
   /**
-   * Update game statistics after game completion
+   * Check if user has access to a specific era
    */
-  async updateGameStats(userProfile, gameResults) {
-    if (!userProfile || !gameResults) {
-      console.error(version, 'Cannot update stats without profile and results');
+  async hasEraAccess(userId, eraId) {
+    if (!userId || !eraId) {
+      console.error(version, 'Cannot check era access without userId and eraId');
       return false;
     }
 
     try {
-      console.log(version, 'Updating game stats:', gameResults);
-
-      const userId = userProfile.id;
+      console.log(version, `Checking era access for user ${userId}, era ${eraId}`);
       
-      // Calculate new totals
-      const newTotalGames = userProfile.total_games + 1;
-      const newTotalWins = userProfile.total_wins + (gameResults.won ? 1 : 0);
-      const newTotalScore = userProfile.total_score + gameResults.score;
-      const newBestAccuracy = Math.max(userProfile.best_accuracy, gameResults.accuracy);
-      const newTotalShipsSunk = userProfile.total_ships_sunk + (gameResults.ships_sunk || 0);
-      const newTotalDamage = userProfile.total_damage + gameResults.damage_dealt;
-
-      // Update user_profiles table
-      const { data: updatedProfile, error: profileError } = await supabase
-        .from('user_profiles')
-        .update({
-          total_games: newTotalGames,
-          total_wins: newTotalWins,
-          total_score: newTotalScore,
-          best_accuracy: newBestAccuracy,
-          total_ships_sunk: newTotalShipsSunk,
-          total_damage: newTotalDamage,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId)
-        .select()
+      const { data, error } = await supabase
+        .from('user_rights')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('rights_type', 'era')
+        .eq('rights_value', eraId)
         .single();
 
-      if (profileError) {
-        console.error(version, 'Error updating profile stats:', profileError);
+      if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+        console.error(version, 'Error checking era access:', error);
         return false;
       }
 
-      // Insert game result record
-      const { error: resultError } = await supabase
-        .from('game_results')
-        .insert([{
-          player_id: userId,
-          era_name: gameResults.era_name,
-          opponent_type: gameResults.opponent_type,
-          opponent_name: gameResults.opponent_name,
-          won: gameResults.won,
-          score: gameResults.score,
-          accuracy: gameResults.accuracy,
-          damage_dealt: gameResults.damage_dealt,
-          turns: gameResults.turns,
-          duration_seconds: gameResults.duration_seconds
-        }]);
+      if (data) {
+        // Check if the right has expired or no uses remaining
+        const now = new Date();
+        const expiresAt = data.expires_at ? new Date(data.expires_at) : null;
+        const usesRemaining = data.uses_remaining;
 
-      if (resultError) {
-        console.error(version, 'Error inserting game result:', resultError);
-        // Profile was updated, so don't return false
+        if (expiresAt && now > expiresAt) {
+          console.log(version, `Era access expired for ${eraId}`);
+          return false;
+        }
+
+        if (usesRemaining !== null && usesRemaining !== -1 && usesRemaining <= 0) {
+          console.log(version, `No uses remaining for ${eraId}`);
+          return false;
+        }
+
+        console.log(version, `Era access confirmed for ${eraId}`);
+        return true;
       }
 
-      console.log(version, 'Game stats updated successfully');
-      return updatedProfile;
+      console.log(version, `No era access found for ${eraId}`);
+      return false;
 
     } catch (error) {
-      console.error(version, 'Failed to update game stats:', error);
+      console.error(version, 'Failed to check era access:', error);
       return false;
     }
   }
 
   /**
-   * Calculate game results from game instance
+   * Grant era access to user (typically called after successful payment)
    */
-  calculateGameResults(gameInstance, eraConfig, selectedOpponent) {
-    if (!gameInstance) {
-      console.error(version, 'Cannot calculate results without game instance');
-      return null;
+  async grantEraAccess(userId, eraId, paymentData = {}) {
+    if (!userId || !eraId) {
+      console.error(version, 'Cannot grant era access without userId and eraId');
+      return false;
     }
 
     try {
-      // Get final game stats
-      const gameStats = gameInstance.getGameStats();
-      const humanPlayer = gameInstance.players.find(p => p.type === 'human');
-      
-      if (!humanPlayer || !gameStats) {
-        console.error(version, 'Cannot find human player or game stats');
-        return null;
+      console.log(version, `Granting era access for user ${userId}, era ${eraId}`);
+
+      // Set expiration to 1 year from now (for purchased content)
+      const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data, error } = await supabase
+        .from('user_rights')
+        .insert({
+          user_id: userId,
+          rights_type: 'era',
+          rights_value: eraId,
+          uses_remaining: -1, // Unlimited uses
+          expires_at: expiresAt,
+          stripe_payment_intent_id: paymentData.stripe_payment_intent_id || null,
+          voucher_used: paymentData.voucher_used || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error(version, 'Error granting era access:', error);
+        return false;
       }
 
-      // Extract ships sunk count
-      const aiPlayer = gameInstance.players.find(p => p.type === 'ai');
-      const shipsSunk = aiPlayer ? (aiPlayer.initialShipCount || 0) - (aiPlayer.shipsRemaining || 0) : 0;
-      
-      // Calculate duration in seconds
-      const duration = gameStats.duration ? Math.floor(gameStats.duration / 1000) : 0;
-      
-      const gameResults = {
-        era_name: eraConfig?.name || 'Unknown',
-        opponent_type: 'ai',
-        opponent_name: selectedOpponent?.name || 'Unknown',
-        won: gameStats.winner === humanPlayer.name,
-        score: humanPlayer.score || 0,
-        accuracy: humanPlayer.accuracy || 0,
-        damage_dealt: humanPlayer.shotDamage || 0,
-        ships_sunk: shipsSunk,
-        turns: gameStats.totalTurns || 0,
-        duration_seconds: duration
-      };
-
-      console.log(version, 'Calculated game results:', gameResults);
-      return gameResults;
+      console.log(version, `Era access granted successfully for ${eraId}`);
+      return data;
 
     } catch (error) {
-      console.error(version, 'Error calculating game results:', error);
-      return null;
+      console.error(version, 'Failed to grant era access:', error);
+      return false;
     }
   }
 
   /**
-   * Record game completion (convenience method)
+   * Redeem a voucher code
    */
-  async recordGameCompletion(gameInstance, userProfile, eraConfig, selectedOpponent) {
-    const gameResults = this.calculateGameResults(gameInstance, eraConfig, selectedOpponent);
-    
-    if (!gameResults) {
-      console.error(version, 'Cannot record completion without valid game results');
-      return false;
+  async redeemVoucher(userId, voucherCode) {
+    if (!userId || !voucherCode) {
+      console.error(version, 'Cannot redeem voucher without userId and voucherCode');
+      throw new Error('Invalid parameters');
     }
 
-    return await this.updateGameStats(userProfile, gameResults);
+    try {
+      console.log(version, `Redeeming voucher ${voucherCode} for user ${userId}`);
+
+      // Call the Supabase function to redeem voucher
+      const { data, error } = await supabase.rpc('redeem_voucher', {
+        p_user_id: userId,
+        p_voucher_code: voucherCode.trim()
+      });
+
+      if (error) {
+        console.error(version, 'Error redeeming voucher:', error);
+        
+        // Provide user-friendly error messages
+        if (error.message.includes('Invalid voucher code')) {
+          throw new Error('Invalid voucher code');
+        } else if (error.message.includes('already been used')) {
+          throw new Error('This voucher code has already been used');
+        } else if (error.message.includes('expired')) {
+          throw new Error('This voucher code has expired');
+        } else {
+          throw new Error('Failed to redeem voucher');
+        }
+      }
+
+      console.log(version, `Voucher redeemed successfully: ${voucherCode}`);
+      return data;
+
+    } catch (error) {
+      console.error(version, 'Failed to redeem voucher:', error);
+      throw error; // Re-throw to maintain error message
+    }
+  }
+
+  /**
+   * Get all user rights for a specific user
+   */
+  async getUserRights(userId) {
+    if (!userId) {
+      console.error(version, 'Cannot get user rights without userId');
+      return [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('user_rights')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error(version, 'Error fetching user rights:', error);
+        return [];
+      }
+
+      return data || [];
+
+    } catch (error) {
+      console.error(version, 'Failed to fetch user rights:', error);
+      return [];
+    }
   }
 
   /**
    * Logging utility
    */
   log(message) {
-    console.log(`[GameStatsService ${version}] ${message}`);
+    console.log(`[RightsService ${version}] ${message}`);
   }
 }
 
-export default GameStatsService;
+export default RightsService;
+
+// EOF

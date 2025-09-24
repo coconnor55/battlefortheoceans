@@ -9,7 +9,7 @@ import { RightsService } from '../services/RightsService';
 import './Pages.css';
 import './PurchasePage.css';
 
-const version = 'v0.1.3';
+const version = 'v0.1.4';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -328,7 +328,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
             disabled={isProcessing}
           >
             Cancel
-          </div>
+          </button>
         </div>
       </div>
     </div>

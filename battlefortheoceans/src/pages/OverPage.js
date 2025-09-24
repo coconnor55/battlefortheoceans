@@ -4,11 +4,12 @@
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import PromotionalBox from '../components/PromotionalBox';
+import PurchasePage from './PurchasePage';
 import RightsService from '../services/RightsService';
 import './Pages.css';
 import './OverPage.css';
 
-const version = 'v0.1.5';
+const version = 'v0.1.6';
 
 const OverPage = () => {
   const {
@@ -24,6 +25,8 @@ const OverPage = () => {
   const [showGameLog, setShowGameLog] = useState(false);
   const [showStats, setShowStats] = useState(true);
   const [showPromotion, setShowPromotion] = useState(false);
+  const [showPurchasePage, setShowPurchasePage] = useState(false);
+  const [purchaseEraId, setPurchaseEraId] = useState(null);
   const rightsService = new RightsService();
 
   // Check if user needs to see Midway Island promotion
@@ -102,9 +105,28 @@ const OverPage = () => {
   // Handle purchase flow from promotional box
   const handlePurchase = (eraId) => {
     console.log(version, 'Initiating purchase flow for era:', eraId);
-    // TODO: Navigate to purchase page
-    // For now, just log the intent
-    alert(`Purchase flow for ${eraId} - Coming soon!`);
+    setPurchaseEraId(eraId);
+    setShowPurchasePage(true);
+  };
+
+  // Handle purchase completion
+  const handlePurchaseComplete = (eraId) => {
+    console.log(version, 'Purchase completed for era:', eraId);
+    setShowPurchasePage(false);
+    setPurchaseEraId(null);
+    
+    // Hide promotion since user now has access
+    setShowPromotion(false);
+    
+    // Show success message
+    alert(`${eraId} has been unlocked! You can now access it from the Era Selection page.`);
+  };
+
+  // Handle purchase cancellation
+  const handlePurchaseCancel = () => {
+    console.log(version, 'Purchase cancelled');
+    setShowPurchasePage(false);
+    setPurchaseEraId(null);
   };
 
   return (
@@ -242,6 +264,15 @@ const OverPage = () => {
             </div>
           )}
         </div>
+
+        {/* Purchase Page Modal */}
+        {showPurchasePage && (
+          <PurchasePage
+            eraId={purchaseEraId}
+            onComplete={handlePurchaseComplete}
+            onCancel={handlePurchaseCancel}
+          />
+        )}
       </div>
     </div>
   );
