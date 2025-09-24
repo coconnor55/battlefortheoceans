@@ -4,15 +4,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
+import RightsService from '../services/RightsService';
+import PurchasePage from './PurchasePage';
 import './Pages.css';
 import './SelectEraPage.css';
 
-const version = 'v0.2.2';
+const version = 'v0.2.3';
 
 const SelectEraPage = () => {
   const {
     dispatch,
-    stateMachine
+    stateMachine,
+    userProfile
   } = useGame();
   
   // Local UI state for browsing - not committed to game logic until "Join"
@@ -22,11 +25,63 @@ const SelectEraPage = () => {
   const [eras, setEras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Rights and purchase state
+  const [userRights, setUserRights] = useState(new Map());
+  const [showPurchasePage, setShowPurchasePage] = useState(false);
+  const [purchaseEraId, setPurchaseEraId] = useState(null);
+  
+  const rightsService = new RightsService();
 
-  // Handle era selection - local UI state only
+  // Handle era selection - check if user has access
   const handleEraSelect = useCallback((era) => {
     console.log(version, 'Era selected (UI state):', era.name);
-    setSelectedEra(era);
+    
+    // Check if era is accessible
+    const hasAccess = userRights.get(era.id) || era.free;
+    
+    if (hasAccess) {
+      setSelectedEra(era);
+    } else {
+      // Era is locked - show purchase page
+      console.log(version, 'Era locked, opening purchase page:', era.id);
+      setPurchaseEraId(era.id);
+      setShowPurchasePage(true);
+    }
+  }, [userRights]);
+
+  // Handle BUY badge click - direct to purchase
+  const handleBuyClick = useCallback((era, event) => {
+    event.stopPropagation(); // Prevent era selection
+    console.log(version, 'Buy clicked for era:', era.id);
+    setPurchaseEraId(era.id);
+    setShowPurchasePage(true);
+  }, []);
+
+  // Handle purchase completion
+  const handlePurchaseComplete = useCallback(async (eraId) => {
+    console.log(version, 'Purchase completed for era:', eraId);
+    setShowPurchasePage(false);
+    setPurchaseEraId(null);
+    
+    // Refresh user rights
+    await fetchUserRights();
+    
+    // Auto-select the purchased era
+    const purchasedEra = eras.find(e => e.id === eraId);
+    if (purchasedEra) {
+      setSelectedEra(purchasedEra);
+    }
+    
+    // Show success message
+    alert(`Era unlocked! You can now play ${eraId}.`);
+  }, [eras]);
+
+  // Handle purchase cancellation
+  const handlePurchaseCancel = useCallback(() => {
+    console.log(version, 'Purchase cancelled');
+    setShowPurchasePage(false);
+    setPurchaseEraId(null);
   }, []);
 
   // Join alliance and transition to SelectOpponentPage
@@ -61,7 +116,33 @@ const SelectEraPage = () => {
     }
   }, [selectedEra, dispatch, stateMachine]);
 
-  // Fetch eras only once on mount
+  // Fetch user rights
+  const fetchUserRights = useCallback(async () => {
+    if (!userProfile?.id) {
+      console.log(version, 'No user profile, skipping rights fetch');
+      return;
+    }
+
+    try {
+      console.log(version, 'Fetching user rights for:', userProfile.id);
+      const rights = await rightsService.getUserRights(userProfile.id);
+      
+      // Create a map of era access
+      const rightsMap = new Map();
+      rights.forEach(right => {
+        if (right.rights_type === 'era') {
+          rightsMap.set(right.rights_value, true);
+        }
+      });
+      
+      setUserRights(rightsMap);
+      console.log(version, 'User rights loaded:', rightsMap);
+    } catch (error) {
+      console.error(version, 'Error fetching user rights:', error);
+    }
+  }, [userProfile?.id, rightsService]);
+
+  // Fetch eras and user rights on mount
   useEffect(() => {
     const fetchEras = async () => {
       setLoading(true);
@@ -98,6 +179,21 @@ const SelectEraPage = () => {
     
     fetchEras();
   }, []);
+
+  // Fetch user rights when user profile changes
+  useEffect(() => {
+    fetchUserRights();
+  }, [fetchUserRights]);
+
+  // Determine badge type for era
+  const getEraBadge = useCallback((era) => {
+    if (era.free) return 'free';
+    
+    const hasAccess = userRights.get(era.id);
+    if (hasAccess) return 'owned';
+    
+    return 'buy';
+  }, [userRights]);
 
   // Loading state
   if (loading) {
@@ -169,23 +265,42 @@ const SelectEraPage = () => {
           </div>
 
           <div className="era-list">
-            {eras.map((era) => (
-              <div
-                key={era.id}
-                className={`era-item ${selectedEra?.id === era.id ? 'selected' : ''}`}
-                onClick={() => handleEraSelect(era)}
-              >
-                <div className="era-header">
-                  <span className="era-name">{era.name}</span>
-                  {era.free && <span className="green-badge">FREE</span>}
+            {eras.map((era) => {
+              const badgeType = getEraBadge(era);
+              const isAccessible = badgeType === 'free' || badgeType === 'owned';
+              
+              return (
+                <div
+                  key={era.id}
+                  className={`era-item ${selectedEra?.id === era.id ? 'selected' : ''} ${!isAccessible ? 'locked' : ''}`}
+                  onClick={() => handleEraSelect(era)}
+                >
+                  <div className="era-header">
+                    <span className="era-name">{era.name}</span>
+                    {badgeType === 'free' && <span className="era-badge free">FREE</span>}
+                    {badgeType === 'owned' && <span className="era-badge owned">✓</span>}
+                    {badgeType === 'buy' && (
+                      <button
+                        className="era-badge buy"
+                        onClick={(e) => handleBuyClick(era, e)}
+                      >
+                        BUY
+                      </button>
+                    )}
+                  </div>
+                  <div className="era-description">{era.era_description}</div>
+                  <div className="era-details">
+                    <span className="era-grid">{era.rows}×{era.cols} grid</span>
+                    <span className="era-players">Max {era.max_players} players</span>
+                  </div>
+                  {!isAccessible && (
+                    <div className="era-lock-overlay">
+                      <span>🔒 Click BUY to unlock</span>
+                    </div>
+                  )}
                 </div>
-                <div className="era-description">{era.era_description}</div>
-                <div className="era-details">
-                  <span className="era-grid">{era.rows}×{era.cols} grid</span>
-                  <span className="era-players">Max {era.max_players} players</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {selectedEra && (
@@ -242,6 +357,15 @@ const SelectEraPage = () => {
             </div>
           )}
         </div>
+
+        {/* Purchase Page Modal */}
+        {showPurchasePage && (
+          <PurchasePage
+            eraId={purchaseEraId}
+            onComplete={handlePurchaseComplete}
+            onCancel={handlePurchaseCancel}
+          />
+        )}
       </div>
     </div>
   );

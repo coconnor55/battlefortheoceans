@@ -56,6 +56,48 @@
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
+.era-badge.free {
+  background: #4CAF50;
+  color: white;
+}
+
+.era-badge.owned {
+  background: #4CAF50;
+  color: white;
+}
+
+.era-badge.buy {
+  background: #2196F3;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.era-badge.buy:hover {
+  background: #1976D2;
+}
+
+/* Locked era styling */
+.era-item.locked {
+  position: relative;
+  opacity: 0.8;
+}
+
+.era-item.locked .era-name {
+  color: #666;
+}
+
+.era-lock-overlay {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
+}
+
 .era-header {
   display: flex;
   justify-content: space-between;
