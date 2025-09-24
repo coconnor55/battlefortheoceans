@@ -6,7 +6,7 @@ import { supabase } from '../utils/supabaseClient';
 import '../pages/Pages.css';
 import '../pages/LoginPage.css';
 
-const version = 'v0.1.34';
+const version = 'v0.1.35';
 
 const LoginDialog = ({ onClose }) => {
   const [email, setEmail] = useState('');
@@ -89,10 +89,17 @@ const LoginDialog = ({ onClose }) => {
       return;
     }
     
-    // Redirect to homepage after password reset completion
-    const redirectUrl = process.env.NODE_ENV === 'production'
+    // More reliable production detection
+    const isProduction = window.location.hostname === 'battlefortheoceans.com' ||
+                         window.location.hostname === 'www.battlefortheoceans.com';
+    
+    const redirectUrl = isProduction
       ? 'https://battlefortheoceans.com'
       : window.location.origin;
+    
+    console.log(`${version}: Forgot password redirect URL:`, redirectUrl);
+    console.log(`${version}: Current hostname:`, window.location.hostname);
+    console.log(`${version}: Is production:`, isProduction);
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl
