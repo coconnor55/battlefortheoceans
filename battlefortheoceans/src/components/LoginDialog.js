@@ -6,7 +6,7 @@ import { supabase } from '../utils/supabaseClient';
 import '../pages/Pages.css';
 import '../pages/LoginPage.css';
 
-const version = 'v0.1.32';
+const version = 'v0.1.34';
 
 const LoginDialog = ({ onClose }) => {
   const [email, setEmail] = useState('');
@@ -89,8 +89,13 @@ const LoginDialog = ({ onClose }) => {
       return;
     }
     
+    // Redirect to homepage after password reset completion
+    const redirectUrl = process.env.NODE_ENV === 'production'
+      ? 'https://battlefortheoceans.com'
+      : window.location.origin;
+    
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + '/reset-password'
+      redirectTo: redirectUrl
     });
     
     if (error) {
