@@ -123,7 +123,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
         name: 'Midway Island',
         description: 'Experience the pivotal 1942 Pacific battle with carriers, destroyers, and strategic positioning.',
         price: 4.99,
-        priceId: 'prod_T71ie5iKw60g9Z', // Replace with your actual Stripe Price ID
+        priceId: 'price_1SAnf9FKFdXJ01egovJFaN47', // Replace with your actual Stripe Price ID
         features: [
           '12x12 battle grid with realistic Pacific terrain',
           'Historical WWII ship classes and capabilities',
