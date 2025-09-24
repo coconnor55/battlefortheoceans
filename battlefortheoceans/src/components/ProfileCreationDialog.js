@@ -3,9 +3,9 @@
 
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
-//import './Dialog.css';
+import './Dialog.css';
 
-const version = 'v0.1.0';
+const version = 'v0.1.1';
 
 const ProfileCreationDialog = ({ userData, onComplete }) => {
   const { createUserProfile } = useGame();
@@ -90,19 +90,19 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
     <div className="dialog-overlay">
       <div className="dialog-container profile-creation-dialog">
         <div className="dialog-header">
-          <h2>Choose Your Admiral Name</h2>
+          <h2>Choose Your Game Handle</h2>
           <p>Welcome to Battle for the Oceans! Choose a unique name that other players will see.</p>
         </div>
         
         <form onSubmit={handleSubmit} className="dialog-form">
           <div className="form-group">
-            <label htmlFor="gameName">Admiral Name</label>
+            <label htmlFor="gameName">Game Handle</label>
             <input
               id="gameName"
               type="text"
               value={gameName}
               onChange={handleGameNameChange}
-              placeholder="Enter your admiral name..."
+              placeholder="Enter your game handle..."
               maxLength="32"
               disabled={isLoading}
               className={validationError ? 'error' : ''}
@@ -133,14 +133,14 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
               className={`btn btn-primary ${!canSubmit ? 'disabled' : ''}`}
               disabled={!canSubmit}
             >
-              {isLoading ? 'Creating Profile...' : 'Create Admiral Profile'}
+              {isLoading ? 'Creating Profile...' : '              Create Game Handle Profile'}
             </button>
           </div>
         </form>
         
         <div className="dialog-footer">
           <p className="privacy-note">
-            Your admiral name will be visible to other players in battles and leaderboards.
+            Your game handle will be visible to other players in battles and leaderboards.
             Choose carefully - this cannot be changed later.
           </p>
         </div>
@@ -150,4 +150,3 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
 };
 
 export default ProfileCreationDialog;
-//

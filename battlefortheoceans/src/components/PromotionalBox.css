@@ -1,0 +1,218 @@
+/* src/components/PromotionalBox.css */
+/* Copyright(c) 2025, Clint H. O'Connor */
+
+.promotional-box {
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.1), rgba(76, 175, 80, 0.1));
+  border: 2px solid #2196F3;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 20px 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.promo-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.promo-header h3 {
+  color: #1976D2;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.promo-content {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.promo-text {
+  flex: 2;
+}
+
+.promo-text h4 {
+  color: #4CAF50;
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.promo-text p {
+  color: #333;
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+  font-size: 1rem;
+}
+
+.promo-features {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.feature-icon {
+  font-size: 1.2rem;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.promo-image {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.promo-image-container {
+  position: relative;
+  width: 200px;
+  height: 150px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.battle-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.image-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.price-badge {
+  background: #4CAF50;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.promo-actions {
+  text-align: center;
+}
+
+.promo-button {
+  background: linear-gradient(45deg, #4CAF50, #45a049);
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  margin-bottom: 12px;
+}
+
+.promo-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(45deg, #45a049, #4CAF50);
+}
+
+.promo-disclaimer {
+  margin-top: 8px;
+}
+
+.promo-disclaimer p {
+  color: #666;
+  font-size: 0.85rem;
+  margin: 0;
+  font-style: italic;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .promotional-box {
+    padding: 20px;
+    margin: 15px 0;
+  }
+  
+  .promo-content {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .promo-text {
+    flex: none;
+  }
+  
+  .promo-image {
+    flex: none;
+  }
+  
+  .promo-image-container {
+    width: 100%;
+    max-width: 300px;
+    height: 120px;
+  }
+  
+  .promo-header h3 {
+    font-size: 1.3rem;
+  }
+  
+  .promo-text h4 {
+    font-size: 1.2rem;
+  }
+  
+  .feature-item {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .promotional-box {
+    padding: 16px;
+    margin: 12px 0;
+  }
+  
+  .promo-header h3 {
+    font-size: 1.2rem;
+  }
+  
+  .promo-text h4 {
+    font-size: 1.1rem;
+  }
+  
+  .promo-text p {
+    font-size: 0.95rem;
+  }
+  
+  .feature-item {
+    font-size: 0.85rem;
+  }
+  
+  .promo-button {
+    width: 100%;
+    padding: 14px 24px;
+    font-size: 1rem;
+  }
+  
+  .promo-image-container {
+    height: 100px;
+  }
+}

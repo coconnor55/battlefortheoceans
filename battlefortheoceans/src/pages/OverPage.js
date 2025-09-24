@@ -1,12 +1,14 @@
 // src/pages/OverPage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
+import PromotionalBox from '../components/PromotionalBox';
+import RightsService from '../services/RightsService';
 import './Pages.css';
 import './OverPage.css';
 
-const version = 'v0.1.4';
+const version = 'v0.1.5';
 
 const OverPage = () => {
   const {
@@ -15,11 +17,31 @@ const OverPage = () => {
     gameInstance,
     eraConfig,
     selectedOpponent,
+    userProfile,
     resetGame
   } = useGame();
   
   const [showGameLog, setShowGameLog] = useState(false);
   const [showStats, setShowStats] = useState(true);
+  const [showPromotion, setShowPromotion] = useState(false);
+  const rightsService = new RightsService();
+
+  // Check if user needs to see Midway Island promotion
+  useEffect(() => {
+    const checkPromotionEligibility = async () => {
+      // Only show promotion after Traditional Battleship games
+      if (eraConfig?.name !== 'Traditional Battleship' || !userProfile?.id) {
+        setShowPromotion(false);
+        return;
+      }
+
+      // Check if user already has Midway Island access
+      const hasAccess = await rightsService.hasEraAccess(userProfile.id, 'midway_island');
+      setShowPromotion(!hasAccess);
+    };
+
+    checkPromotionEligibility();
+  }, [eraConfig, userProfile]);
 
   // Get game results
   const gameStats = gameInstance?.getGameStats() || {};
@@ -75,6 +97,14 @@ const OverPage = () => {
     if (dispatch && stateMachine) {
       dispatch(stateMachine.event.REPLAY);
     }
+  };
+
+  // Handle purchase flow from promotional box
+  const handlePurchase = (eraId) => {
+    console.log(version, 'Initiating purchase flow for era:', eraId);
+    // TODO: Navigate to purchase page
+    // For now, just log the intent
+    alert(`Purchase flow for ${eraId} - Coming soon!`);
   };
 
   return (
@@ -137,6 +167,15 @@ const OverPage = () => {
               </div>
             )}
           </div>
+
+          {/* Promotional Box - shown after Traditional Battleship games */}
+          {showPromotion && (
+            <PromotionalBox
+              eraConfig={eraConfig}
+              userProfile={userProfile}
+              onPurchase={handlePurchase}
+            />
+          )}
 
           {/* Action Buttons */}
           <div className="over-actions">
