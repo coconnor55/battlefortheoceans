@@ -3,7 +3,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.0";
+const version = "v0.1.1";
 
 class LeaderboardService {
   constructor() {
@@ -13,6 +13,7 @@ class LeaderboardService {
 
   /**
    * Get leaderboard (top players by total score)
+   * Excludes guest and AI players
    */
   async getLeaderboard(limit = 10) {
     try {
@@ -21,6 +22,8 @@ class LeaderboardService {
       const { data: leaderboard, error } = await supabase
         .from('user_profiles')
         .select('game_name, total_score, total_wins, total_games, best_accuracy, total_ships_sunk')
+        .not('id', 'like', 'guest-%')
+        .not('id', 'like', 'ai-%')
         .order('total_score', { ascending: false })
         .limit(limit);
 
@@ -40,6 +43,7 @@ class LeaderboardService {
 
   /**
    * Get recent champions (winners from last 30 days)
+   * Excludes guest and AI players
    */
   async getRecentChampions(limit = 5) {
     try {
@@ -53,9 +57,11 @@ class LeaderboardService {
           era_name,
           score,
           created_at,
-          user_profiles!inner(game_name)
+          user_profiles!inner(game_name, id)
         `)
         .eq('won', true)
+        .not('player_id', 'like', 'guest-%')
+        .not('player_id', 'like', 'ai-%')
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('score', { ascending: false })
         .limit(limit);
@@ -82,6 +88,11 @@ class LeaderboardService {
    * Get player ranking by total score
    */
   async getPlayerRanking(userId) {
+    // Skip ranking for guests/AI
+    if (userId.startsWith('guest-') || userId.startsWith('ai-')) {
+      return null;
+    }
+
     try {
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
@@ -97,14 +108,16 @@ class LeaderboardService {
       const { count, error: countError } = await supabase
         .from('user_profiles')
         .select('*', { count: 'exact' })
-        .gt('total_score', profile.total_score);
+        .gt('total_score', profile.total_score)
+        .not('id', 'like', 'guest-%')
+        .not('id', 'like', 'ai-%');
 
       if (countError) {
         console.error(version, 'Error calculating player ranking:', countError);
         return null;
       }
 
-      return count + 1; // Add 1 because ranking starts at 1, not 0
+      return count + 1;
 
     } catch (error) {
       console.error(version, 'Failed to get player ranking:', error);
@@ -116,13 +129,20 @@ class LeaderboardService {
    * Get player percentile ranking
    */
   async getPlayerPercentile(userId) {
+    // Skip percentile for guests/AI
+    if (userId.startsWith('guest-') || userId.startsWith('ai-')) {
+      return null;
+    }
+
     try {
       const ranking = await this.getPlayerRanking(userId);
       if (!ranking) return null;
 
       const { count: totalPlayers, error } = await supabase
         .from('user_profiles')
-        .select('*', { count: 'exact' });
+        .select('*', { count: 'exact' })
+        .not('id', 'like', 'guest-%')
+        .not('id', 'like', 'ai-%');
 
       if (error || !totalPlayers) {
         console.error(version, 'Error fetching total player count:', error);
@@ -147,3 +167,4 @@ class LeaderboardService {
 }
 
 export default LeaderboardService;
+// EOF

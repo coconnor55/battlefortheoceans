@@ -1,4 +1,4 @@
-/* src/components/PromotionalBox.css */
+/* src/components/PromotionalBox.css (v0.1.2) */
 /* Copyright(c) 2025, Clint H. O'Connor */
 
 .promotional-box {
@@ -25,32 +25,64 @@
 }
 
 .promo-content {
+  display: block;
+  margin-bottom: 20px;
+}
+
+.promo-image {
   display: flex;
-  gap: 24px;
-  align-items: flex-start;
+  justify-content: center;
+  align-items: center;
   margin-bottom: 20px;
 }
 
 .promo-text {
-  flex: 2;
+  /* Text content styling */
 }
 
-.promo-text h4 {
+.promo-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.promo-title {
+  flex: 1;
+}
+
+.promo-title h4 {
   color: #4CAF50;
   font-size: 1.3rem;
   font-weight: 600;
-  margin: 0 0 12px 0;
+  margin: 0;
   text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
 }
 
-.promo-text p {
+.promo-description {
+  flex: 2;
+}
+
+.promo-description p {
   color: #333;
   line-height: 1.6;
-  margin: 0 0 16px 0;
+  margin: 0;
   font-size: 1rem;
 }
 
+.promo-features-label {
+  flex: 1;
+}
+
+.promo-features-label h5 {
+  color: #2d3748;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
 .promo-features {
+  flex: 2;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -78,18 +110,40 @@
   align-items: center;
 }
 
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.feature-icon {
+  font-size: 1.2rem;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.promo-image {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .promo-image-container {
-  position: relative;
-  width: 200px;
-  height: 150px;
-  border-radius: 8px;
+  max-width: 200px;
+  max-height: 150px;
   overflow: hidden;
+  border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .battle-photo {
   width: 100%;
-  height: 100%;
+  height: auto;
+  max-width: 200px;
+  max-height: 150px;
   object-fit: cover;
   display: block;
 }
@@ -98,6 +152,7 @@
   position: absolute;
   top: 8px;
   right: 8px;
+  z-index: 1; /* Ensure overlay stays on top */
 }
 
 .price-badge {
@@ -108,6 +163,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  white-space: nowrap; /* Keep price on one line */
 }
 
 .promo-actions {
@@ -153,22 +209,12 @@
   }
   
   .promo-content {
-    flex-direction: column;
     gap: 16px;
   }
   
-  .promo-text {
-    flex: none;
-  }
-  
-  .promo-image {
-    flex: none;
-  }
-  
   .promo-image-container {
-    width: 100%;
-    max-width: 300px;
-    height: 120px;
+    max-width: 320px;
+    max-height: 180px;
   }
   
   .promo-header h3 {
@@ -213,6 +259,17 @@
   }
   
   .promo-image-container {
-    height: 100px;
+    height: 140px; /* Shorter on small screens */
+    max-width: 280px;
   }
 }
+
+/* High DPI / Retina display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .battle-photo {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+/* EOF */
+

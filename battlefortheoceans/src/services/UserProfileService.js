@@ -168,3 +168,5 @@ class UserProfileService {
 }
 
 export default UserProfileService;
+// EOF
+

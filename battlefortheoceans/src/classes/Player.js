@@ -3,7 +3,7 @@
 
 import Fleet from './Fleet.js';
 
-const version = "v0.1.4"
+const version = "v0.3.0"
 
 class Player {
   constructor(id, name, playerType = 'human') {
@@ -14,10 +14,19 @@ class Player {
     // Game state
     this.isActive = true;
     this.isEliminated = false;
-    this.score = 0;
-    this.shotsFired = 0;
-    this.shotsHit = 0;
-    this.shipsLost = 0;
+    
+    // STATISTICS (v0.3.0 standardized)
+    this.hits = 0;           // successful shots that hit ships
+    this.misses = 0;         // shots that missed
+    this.sunk = 0;           // ships sunk by this player
+    this.hitsDamage = 0.0;   // cumulative damage dealt
+    this.score = 0;          // calculated game score
+    
+    // Computed properties available via getters:
+    // - shots (hits + misses)
+    // - accuracy ((hits/shots) * 100)
+    // - averageDamage (hitsDamage/hits)
+    // - damagePerShot (hitsDamage/shots)
     
     // Timestamps
     this.joinedAt = Date.now();
@@ -27,6 +36,34 @@ class Player {
     // Player configuration
     this.color = this.generatePlayerColor();
     this.avatar = null;
+  }
+
+  /**
+   * Computed property: Total shots fired
+   */
+  get shots() {
+    return this.hits + this.misses;
+  }
+
+  /**
+   * Computed property: Accuracy percentage
+   */
+  get accuracy() {
+    return this.shots > 0 ? ((this.hits / this.shots) * 100).toFixed(1) : 0;
+  }
+
+  /**
+   * Computed property: Average damage per hit
+   */
+  get averageDamage() {
+    return this.hits > 0 ? (this.hitsDamage / this.hits).toFixed(2) : 0;
+  }
+
+  /**
+   * Computed property: Average damage per shot (including misses)
+   */
+  get damagePerShot() {
+    return this.shots > 0 ? (this.hitsDamage / this.shots).toFixed(2) : 0;
   }
 
   /**
@@ -79,9 +116,6 @@ class Player {
    * Get player statistics (requires gameInstance for fleet status)
    */
   getStats(gameInstance = null) {
-    const accuracy = this.shotsFired > 0 ? (this.shotsHit / this.shotsFired) * 100 : 0;
-    const survivalTime = (this.eliminatedAt || Date.now()) - this.joinedAt;
-    
     // Get fleet status if gameInstance provided
     let fleetStatus = null;
     if (gameInstance) {
@@ -94,12 +128,16 @@ class Player {
       name: this.name,
       type: this.type,
       score: this.score,
-      shotsFired: this.shotsFired,
-      shotsHit: this.shotsHit,
-      accuracy: Math.round(accuracy * 100) / 100,
-      shipsLost: this.shipsLost,
+      shots: this.shots,           // computed
+      hits: this.hits,
+      misses: this.misses,
+      sunk: this.sunk,
+      hitsDamage: this.hitsDamage,
+      accuracy: parseFloat(this.accuracy),        // computed
+      averageDamage: parseFloat(this.averageDamage), // computed
+      damagePerShot: parseFloat(this.damagePerShot), // computed
       isEliminated: this.isEliminated,
-      survivalTime: survivalTime,
+      survivalTime: (this.eliminatedAt || Date.now()) - this.joinedAt,
       fleetStatus: fleetStatus
     };
   }
@@ -138,10 +176,14 @@ class Player {
    * Reset player for new game
    */
   reset() {
+    // Reset all statistics
+    this.hits = 0;
+    this.misses = 0;
+    this.sunk = 0;
+    this.hitsDamage = 0.0;
     this.score = 0;
-    this.shotsFired = 0;
-    this.shotsHit = 0;
-    this.shipsLost = 0;
+    
+    // Reset state
     this.isActive = true;
     this.isEliminated = false;
     this.eliminatedAt = null;
@@ -186,8 +228,6 @@ class Player {
         return new HumanPlayer(data.id, data.name);
     }
   }
-
-
 }
 
 export default Player;

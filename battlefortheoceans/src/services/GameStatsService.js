@@ -3,7 +3,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.0";
+const version = "v0.3.0";
 
 class GameStatsService {
   constructor() {
@@ -29,9 +29,9 @@ class GameStatsService {
       const newTotalGames = userProfile.total_games + 1;
       const newTotalWins = userProfile.total_wins + (gameResults.won ? 1 : 0);
       const newTotalScore = userProfile.total_score + gameResults.score;
-      const newBestAccuracy = Math.max(userProfile.best_accuracy, gameResults.accuracy);
-      const newTotalShipsSunk = userProfile.total_ships_sunk + (gameResults.ships_sunk || 0);
-      const newTotalDamage = userProfile.total_damage + gameResults.damage_dealt;
+      const newBestAccuracy = Math.max(userProfile.best_accuracy || 0, gameResults.accuracy);
+      const newTotalShipsSunk = (userProfile.total_ships_sunk || 0) + gameResults.ships_sunk;
+      const newTotalDamage = (userProfile.total_damage || 0) + gameResults.hits_damage;
 
       // Update user_profiles table
       const { data: updatedProfile, error: profileError } = await supabase
@@ -63,9 +63,13 @@ class GameStatsService {
           opponent_type: gameResults.opponent_type,
           opponent_name: gameResults.opponent_name,
           won: gameResults.won,
+          shots: gameResults.shots,
+          hits: gameResults.hits,
+          misses: gameResults.misses,
+          sunk: gameResults.ships_sunk,
+          hits_damage: gameResults.hits_damage,
           score: gameResults.score,
           accuracy: gameResults.accuracy,
-          damage_dealt: gameResults.damage_dealt,
           turns: gameResults.turns,
           duration_seconds: gameResults.duration_seconds
         }]);
@@ -85,7 +89,7 @@ class GameStatsService {
   }
 
   /**
-   * Calculate game results from game instance
+   * Calculate game results from game instance using standardized statistics
    */
   calculateGameResults(gameInstance, eraConfig, selectedOpponent) {
     if (!gameInstance) {
@@ -103,24 +107,21 @@ class GameStatsService {
         return null;
       }
 
-      // Extract ships sunk count
-      const aiPlayer = gameInstance.players.find(p => p.type === 'ai');
-      const shipsSunk = aiPlayer ? (aiPlayer.initialShipCount || 0) - (aiPlayer.shipsRemaining || 0) : 0;
-      
-      // Calculate duration in seconds
-      const duration = gameStats.duration ? Math.floor(gameStats.duration / 1000) : 0;
-      
+      // Use standardized statistics from Player.js
       const gameResults = {
         era_name: eraConfig?.name || 'Unknown',
         opponent_type: 'ai',
         opponent_name: selectedOpponent?.name || 'Unknown',
         won: gameStats.winner === humanPlayer.name,
-        score: humanPlayer.score || 0,
-        accuracy: humanPlayer.accuracy || 0,
-        damage_dealt: humanPlayer.shotDamage || 0,
-        ships_sunk: shipsSunk,
+        shots: humanPlayer.shots || 0,              // hits + misses
+        hits: humanPlayer.hits || 0,                // successful shots
+        misses: humanPlayer.misses || 0,            // missed shots
+        ships_sunk: humanPlayer.sunk || 0,          // ships sunk by player
+        hits_damage: humanPlayer.hitsDamage || 0.0, // cumulative damage dealt
+        score: humanPlayer.score || 0,              // calculated game score
+        accuracy: parseFloat(humanPlayer.accuracy) || 0,  // computed from hits/shots
         turns: gameStats.totalTurns || 0,
-        duration_seconds: duration
+        duration_seconds: gameStats.duration || 0
       };
 
       console.log(version, 'Calculated game results:', gameResults);
@@ -155,4 +156,4 @@ class GameStatsService {
 }
 
 export default GameStatsService;
-
+// EOF

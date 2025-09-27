@@ -1,66 +1,147 @@
 // src/components/PromotionalBox.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import StripeService from '../services/StripeService';
 
-const version = 'v0.1.1';
+const version = 'v0.2.0';
 
-const PromotionalBox = ({ eraConfig, userProfile, onPurchase }) => {
-  // Only show promotion after Traditional Battleship games
-  if (eraConfig?.name !== 'Traditional Battleship') {
+const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) => {
+  const [promotionalEra, setPromotionalEra] = useState(null);
+  const [priceInfo, setPriceInfo] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const stripeService = new StripeService();
+  const gameCDN = process.env.REACT_APP_GAME_CDN || '';
+
+  useEffect(() => {
+    findPromotionalEra();
+  }, [currentEra, availableEras, userRights]);
+
+  useEffect(() => {
+    if (promotionalEra?.promotional?.stripe_price_id) {
+      fetchPriceInfo(promotionalEra.promotional.stripe_price_id);
+    }
+  }, [promotionalEra]);
+
+  // Find the next purchasable era to promote
+  const findPromotionalEra = () => {
+    if (!currentEra || !availableEras || availableEras.length === 0) {
+      setPromotionalEra(null);
+      return;
+    }
+
+    // Only show promotions after free eras (like Traditional Battleship)
+    if (!currentEra.free) {
+      setPromotionalEra(null);
+      return;
+    }
+
+    // Find eras with promotional data that user doesn't own
+    const promotableEras = availableEras.filter(era => {
+      // Must have promotional data
+      if (!era.promotional || !era.promotional.stripe_price_id) {
+        return false;
+      }
+
+      // Must not be free
+      if (era.free) {
+        return false;
+      }
+
+      // User must not already own it
+      const hasAccess = userRights?.get(era.id);
+      if (hasAccess) {
+        return false;
+      }
+
+      return true;
+    });
+
+    if (promotableEras.length > 0) {
+      // For now, promote the first available era
+      // Later could implement prioritization logic
+      setPromotionalEra(promotableEras[0]);
+    } else {
+      setPromotionalEra(null);
+    }
+  };
+
+  const fetchPriceInfo = async (priceId) => {
+    setLoading(true);
+    try {
+      const price = await stripeService.fetchPrice(priceId);
+      setPriceInfo(price);
+    } catch (error) {
+      console.error(version, 'Failed to fetch price info:', error);
+      setPriceInfo(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLearnMore = () => {
+    console.log(version, 'User clicked learn more for:', promotionalEra.name);
+    if (onPurchase) {
+      onPurchase(promotionalEra.id);
+    }
+  };
+
+  // Don't show anything if no promotional era found
+  if (!promotionalEra) {
     return null;
   }
 
-  const handleLearnMore = () => {
-    console.log(version, 'User clicked learn more for Midway Island');
-    if (onPurchase) {
-      onPurchase('midway_island');
-    }
-  };
+  const promotional = promotionalEra.promotional;
+  const promotionalImageUrl = promotional.promotional_image
+    ? `${gameCDN}/${promotional.promotional_image}`
+    : null;
 
   return (
     <div className="promotional-box">
       <div className="promo-header">
-        <h3>Tired of Traditional Battleship?</h3>
+        <h3>Tired of {currentEra.name}?</h3>
       </div>
       
       <div className="promo-content">
         <div className="promo-text">
-          <h4>Try Midway Island!</h4>
+          <h4>{promotional.tagline || `Try ${promotionalEra.name}!`}</h4>
           <p>
-            Take command of the US Navy or Imperial Navy and fight the historic
-            Battle of Midway, June 4-7, 1942. Experience carrier warfare with
-            authentic ship rosters and strategic Pacific theater combat.
+            {promotional.marketing_description || promotionalEra.era_description}
           </p>
           
-          <div className="promo-features">
-            <div className="feature-item">
-              <span className="feature-icon">⚓</span>
-              <span>Choose your alliance: US Navy or Imperial Navy</span>
+          {promotional.features && promotional.features.length > 0 && (
+            <div className="promo-features">
+              {promotional.features.map((feature, index) => (
+                <div key={index} className="feature-item">
+                  <span className="feature-icon">⚓</span>
+                  <span>{feature}</span>
+                </div>
+              ))}
             </div>
-            <div className="feature-item">
-              <span className="feature-icon">🚢</span>
-              <span>Command legendary ships: USS Enterprise, Akagi, Yorktown</span>
-            </div>
-            <div className="feature-item">
-              <span className="feature-icon">🗺️</span>
-              <span>12x12 battlefield with authentic Pacific terrain</span>
-            </div>
-          </div>
+          )}
         </div>
         
-        <div className="promo-image">
-          <div className="promo-image-container">
-            <img
-              src="https://battlefortheoceans.b-cdn.net/midway-battle.jpg"
-              alt="Battle of Midway - Historic WWII naval combat"
-              className="battle-photo"
-            />
-            <div className="image-overlay">
-              <span className="price-badge">$2.99</span>
+        {promotionalImageUrl && (
+          <div className="promo-image">
+            <div className="promo-image-container">
+              <img
+                src={promotionalImageUrl}
+                alt={`${promotionalEra.name} - Historic naval combat`}
+                className="battle-photo"
+              />
+              <div className="image-overlay">
+                {loading ? (
+                  <span className="price-badge">Loading...</span>
+                ) : priceInfo ? (
+                  <span className="price-badge">{priceInfo.formatted}</span>
+                ) : (
+                  <span className="price-badge">$4.99</span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
       
       <div className="promo-actions">

@@ -3,10 +3,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import './Pages.css';
-import './LoginPage.css';
 
-const version = 'v0.1.0';
+const version = 'v0.1.1';
 
 const ResetPasswordPage = () => {
   const [newPassword, setNewPassword] = useState('');

@@ -1,0 +1,492 @@
+/* src/styles/theme.css (v0.1.0) */
+/* Copyright(c) 2025, Clint H. O'Connor */
+
+/* ============================================
+   BASE CONFIGURATION
+   ============================================ */
+
+:root {
+  /* Spacing System */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  
+  /* Typography */
+  --font-heading: 'Orbitron', 'Rajdhani', 'Bebas Neue', sans-serif;
+  --font-body: 'Roboto', 'Open Sans', sans-serif;
+  --font-mono: 'Roboto Mono', 'Courier New', monospace;
+  
+  /* Effects */
+  --border-radius: 8px;
+  --border-radius-sm: 4px;
+  --border-radius-lg: 12px;
+  --transition-speed: 0.3s;
+  --transition-fast: 0.15s;
+  --transition-slow: 0.5s;
+  
+  /* Breakpoints (referenced in media queries) */
+  --breakpoint-mobile: 480px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1024px;
+  --breakpoint-wide: 1440px;
+  
+  /* Z-index layers */
+  --z-background: -1;
+  --z-base: 0;
+  --z-content: 1;
+  --z-modal: 100;
+  --z-overlay: 200;
+  --z-toast: 300;
+}
+
+/* ============================================
+   RESPONSIVE TYPOGRAPHY BASE
+   ============================================ */
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+  
+  :root {
+    --space-xs: 2px;
+    --space-sm: 4px;
+    --space-md: 8px;
+    --space-lg: 12px;
+    --space-xl: 16px;
+    --space-2xl: 24px;
+    --space-3xl: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 12px;
+  }
+}
+
+/* ============================================
+   DEFAULT THEME (TRADITIONAL BATTLESHIP)
+   Cyberpunk/Neon Aesthetic
+   ============================================ */
+
+body {
+  /* Colors */
+  --primary: #00D9FF;
+  --primary-glow: rgba(0, 217, 255, 0.8);
+  --primary-dim: rgba(0, 217, 255, 0.3);
+  --primary-dark: #0099BB;
+  
+  /* Backgrounds */
+  --bg-dark: #0A1628;
+  --bg-medium: #132B47;
+  --bg-light: #1E4D6B;
+  --bg-overlay: rgba(10, 22, 40, 0.9);
+  
+  /* Accents */
+  --accent: #00FFD4;
+  --accent-secondary: #4A90E2;
+  --warning: #FF6B35;
+  --success: #00FF88;
+  --error: #FF3366;
+  
+  /* Text */
+  --text-primary: #FFFFFF;
+  --text-secondary: #B8E6F0;
+  --text-dim: #7A9FAD;
+  --text-disabled: #4A5C68;
+  
+  /* UI Elements */
+  --border-color: var(--primary);
+  --border-subtle: rgba(0, 217, 255, 0.2);
+  --border-strong: var(--primary);
+  --shadow: 0 0 20px var(--primary-glow);
+  --shadow-sm: 0 0 10px var(--primary-dim);
+  --shadow-lg: 0 0 40px var(--primary-glow);
+  
+  /* Apply theme */
+  background: radial-gradient(ellipse at bottom, var(--bg-medium) 0%, var(--bg-dark) 100%);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  transition: background var(--transition-slow) ease,
+              color var(--transition-speed) ease;
+}
+
+/* Background overlay pattern for depth */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 217, 255, 0.03) 2px,
+      rgba(0, 217, 255, 0.03) 4px
+    );
+  opacity: 0.3;
+  z-index: var(--z-background);
+  pointer-events: none;
+}
+
+/* ============================================
+   MIDWAY ISLAND THEME
+   Vintage WWII Poster Aesthetic
+   ============================================ */
+
+body[data-era="midway"] {
+  /* Colors */
+  --primary: #E8AA42;
+  --primary-glow: rgba(232, 170, 66, 0.6);
+  --primary-dim: rgba(232, 170, 66, 0.3);
+  --primary-dark: #C48A22;
+  
+  /* Backgrounds */
+  --bg-dark: #2B4F5F;
+  --bg-medium: #4A7886;
+  --bg-light: #6A98A6;
+  --bg-overlay: rgba(43, 79, 95, 0.9);
+  
+  /* Accents */
+  --accent: #F5C26B;
+  --accent-secondary: #8FB8C8;
+  --warning: #D84315;
+  --success: #7CB342;
+  --error: #C62828;
+  
+  /* Text */
+  --text-primary: #F9EDD3;
+  --text-secondary: #D4A86A;
+  --text-dim: #A08862;
+  --text-disabled: #6A5840;
+  
+  /* UI Elements */
+  --border-color: var(--primary);
+  --border-subtle: rgba(232, 170, 66, 0.3);
+  --border-strong: var(--primary);
+  --shadow: 0 4px 20px var(--primary-glow);
+  --shadow-sm: 0 2px 10px var(--primary-dim);
+  --shadow-lg: 0 8px 40px var(--primary-glow);
+  
+  /* Vintage gradient background */
+  background: linear-gradient(180deg, 
+    #E8AA42 0%, 
+    #F5C26B 15%, 
+    #8FB8C8 40%,
+    #4A7886 70%, 
+    #2B4F5F 100%
+  );
+}
+
+/* Vintage paper texture overlay for Midway */
+body[data-era="midway"]::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(249, 237, 211, 0.02) 10px,
+      rgba(249, 237, 211, 0.02) 20px
+    );
+  opacity: 0.5;
+  z-index: var(--z-background);
+  pointer-events: none;
+}
+
+/* ============================================
+   TYPOGRAPHY SYSTEM
+   ============================================ */
+
+body {
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--primary);
+  text-shadow: var(--shadow-sm);
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 var(--space-md) 0;
+}
+
+h1 {
+  font-size: clamp(1.75rem, 5vw, 3rem);
+  text-transform: uppercase;
+}
+
+h2 {
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+}
+
+h3 {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+}
+
+h4 {
+  font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+}
+
+p {
+  margin: 0 0 var(--space-md) 0;
+  color: var(--text-secondary);
+}
+
+strong, b {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+em, i {
+  font-style: italic;
+  color: var(--accent);
+}
+
+code, pre {
+  font-family: var(--font-mono);
+  background: var(--bg-dark);
+  padding: 0.125em 0.25em;
+  border-radius: var(--border-radius-sm);
+}
+
+/* ============================================
+   CONTAINER SYSTEM
+   ============================================ */
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-md);
+}
+
+.container-fluid {
+  width: 100%;
+  padding: 0 var(--space-md);
+}
+
+.container-narrow {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 var(--space-md);
+}
+
+@media (min-width: 768px) {
+  .container,
+  .container-fluid,
+  .container-narrow {
+    padding: 0 var(--space-lg);
+  }
+}
+
+@media (min-width: 1024px) {
+  .container,
+  .container-fluid,
+  .container-narrow {
+    padding: 0 var(--space-xl);
+  }
+}
+
+/* ============================================
+   LAYOUT UTILITIES
+   ============================================ */
+
+/* Flexbox utilities */
+.flex {
+  display: flex;
+}
+
+.flex-column {
+  flex-direction: column;
+}
+
+.flex-center {
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-between {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+/* Grid utilities */
+.grid {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 768px) {
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Spacing utilities */
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+.gap-lg { gap: var(--space-lg); }
+.gap-xl { gap: var(--space-xl); }
+
+.mb-sm { margin-bottom: var(--space-sm); }
+.mb-md { margin-bottom: var(--space-md); }
+.mb-lg { margin-bottom: var(--space-lg); }
+.mb-xl { margin-bottom: var(--space-xl); }
+
+.mt-sm { margin-top: var(--space-sm); }
+.mt-md { margin-top: var(--space-md); }
+.mt-lg { margin-top: var(--space-lg); }
+.mt-xl { margin-top: var(--space-xl); }
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Skip to content link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--bg-dark);
+  color: var(--primary);
+  padding: var(--space-sm);
+  z-index: var(--z-modal);
+  transition: top var(--transition-fast);
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Screen reader only text */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ============================================
+   ANIMATION UTILITIES
+   ============================================ */
+
+.fade-in {
+  animation: fadeIn var(--transition-speed) ease-in;
+}
+
+.fade-out {
+  animation: fadeOut var(--transition-speed) ease-out;
+}
+
+.slide-in-up {
+  animation: slideInUp var(--transition-speed) ease-out;
+}
+
+.glow-pulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: var(--shadow-sm);
+  }
+  50% {
+    box-shadow: var(--shadow);
+  }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  body::before {
+    display: none;
+  }
+  
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}
+
+/* EOF */

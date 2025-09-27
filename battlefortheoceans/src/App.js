@@ -1,4 +1,4 @@
-// src/App.js
+// src/App.js (v0.2.4)
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -13,10 +13,10 @@ import OverPage from './pages/OverPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import './App.css';
 
-const version = 'v0.2.2';
+const version = 'v0.2.4';
 
 const SceneRenderer = () => {
-  const { stateMachine, subscribeToUpdates } = useGame();
+  const { currentState, eraConfig, subscribeToUpdates } = useGame();
   
   // Force re-render trigger when game logic changes
   const [, setRenderTrigger] = useState(0);
@@ -29,6 +29,21 @@ const SceneRenderer = () => {
     return unsubscribe;
   }, [subscribeToUpdates]);
   
+  // Apply era theme to body
+  useEffect(() => {
+    if (eraConfig?.name) {
+      const eraMap = {
+        'Traditional Battleship': 'traditional',
+        'Midway Island': 'midway'
+      };
+      const eraKey = eraMap[eraConfig.name] || 'traditional';
+      document.body.dataset.era = eraKey;
+      console.log(`${version} Theme switched to: ${eraKey}`);
+    } else {
+      document.body.dataset.era = 'traditional';
+    }
+  }, [eraConfig]);
+  
   // Check if current URL is for password reset
   const isResetPasswordRoute = window.location.pathname === '/reset-password' ||
                                window.location.hash.includes('type=recovery');
@@ -38,7 +53,6 @@ const SceneRenderer = () => {
     return <ResetPasswordPage />;
   }
   
-  const currentState = stateMachine.getCurrentState();
   console.log(version, 'Rendering scene for', currentState);
   
   return (

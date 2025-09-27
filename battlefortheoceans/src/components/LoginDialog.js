@@ -1,12 +1,10 @@
-// src/components/LoginDialog.js (v0.1.32)
+// src/components/LoginDialog.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import '../pages/Pages.css';
-import '../pages/LoginPage.css';
 
-const version = 'v0.1.35';
+const version = 'v0.1.37';
 
 const LoginDialog = ({ onClose }) => {
   const [email, setEmail] = useState('');
@@ -24,7 +22,7 @@ const LoginDialog = ({ onClose }) => {
       return;
     }
     
-    console.log(`${version}: Attempting user login with email:`, email);
+    console.log(`Attempting user login with email:`, email);
     setLoginAttempted(true);
     
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
@@ -61,7 +59,7 @@ const LoginDialog = ({ onClose }) => {
       return;
     }
     
-    console.log(`${version}: Attempting user signup with email:`, email);
+    console.log(`Attempting user signup with email:`, email);
     const { error, data } = await supabase.auth.signUp({ email, password });
     
     if (error) {
@@ -71,7 +69,7 @@ const LoginDialog = ({ onClose }) => {
       
       // Check if email confirmation is required
       if (data.user && !data.user.email_confirmed_at) {
-        console.log(`${version}: Email confirmation required for:`, email);
+        console.log(`Email confirmation required for:`, email);
         setPendingConfirmation(true);
         setError(null);
         return;
@@ -97,9 +95,9 @@ const LoginDialog = ({ onClose }) => {
       ? 'https://battlefortheoceans.com'
       : window.location.origin;
     
-    console.log(`${version}: Forgot password redirect URL:`, redirectUrl);
-    console.log(`${version}: Current hostname:`, window.location.hostname);
-    console.log(`${version}: Is production:`, isProduction);
+    console.log(`Forgot password redirect URL:`, redirectUrl);
+    console.log(`Current hostname:`, window.location.hostname);
+    console.log(`Is production:`, isProduction);
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl
@@ -172,9 +170,9 @@ const LoginDialog = ({ onClose }) => {
 
   if (pendingConfirmation) {
     return (
-      <div className="login-dialog">
-        <div className="page-header">
-          <h2>Confirm Your Email</h2>
+      <div className="content-pane content-pane-narrow">
+        <div className="card-header">
+          <h2 className="card-title">Confirm Your Email</h2>
         </div>
         <div className="email-confirmation-message">
           <p><strong>Almost there!</strong></p>
@@ -199,9 +197,9 @@ const LoginDialog = ({ onClose }) => {
   }
 
   return (
-    <div className="login-dialog">
-      <div className="page-header">
-        <h2>
+    <div className="content-pane content-pane-narrow">
+      <div className="card-header">
+        <h2 className="card-title">
           {mode === 'login' && 'Login'}
           {mode === 'signup' && 'Sign Up'}
           {mode === 'forgot' && 'Reset Password'}

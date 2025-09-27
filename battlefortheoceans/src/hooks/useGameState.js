@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = "v0.2.3";
+const version = "v0.2.4";
 
 const useGameState = () => {
   const {
@@ -164,11 +164,11 @@ const useGameState = () => {
     uiMessage,              // UI console message (turn status, game state)
     systemMessage: messages.system || '',
     
-    // Player stats
-    playerHits: playerStats.playerHits,
-    opponentHits: playerStats.opponentHits,
-    playerShots: playerStats.playerShots,
-    opponentShots: playerStats.opponentShots,
+    // Player stats - FIXED: Access nested properties correctly
+    playerHits: playerStats.player?.hits || 0,
+    opponentHits: playerStats.opponent?.hits || 0,
+    playerShots: playerStats.player?.shots || 0,
+    opponentShots: playerStats.opponent?.shots || 0,
     
     // Placement state - computed from game logic
     currentShipIndex: placementProgress.current,
@@ -196,9 +196,9 @@ const useGameState = () => {
     eraConfig,
     selectedOpponent,
     
-    // Computed accuracy
-    accuracy: playerStats.playerShots > 0 ?
-      (playerStats.playerHits / playerStats.playerShots * 100).toFixed(1) : 0
+    // Computed accuracy - FIXED: Use correct nested properties
+    accuracy: playerStats.player?.shots > 0 ?
+      (playerStats.player.hits / playerStats.player.shots * 100).toFixed(1) : 0
   };
 };
 

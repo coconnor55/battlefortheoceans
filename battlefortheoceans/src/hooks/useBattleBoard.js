@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = "v0.3.12"
+const version = "v0.3.14"
 
 const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
   const canvasRef = useRef(null);
@@ -96,26 +96,34 @@ const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
 
   // STATIC TERRAIN LAYER: Grid + terrain (renders once, cached)
   const drawStaticTerrainLayer = useCallback((ctx, offsetX, offsetY) => {
-    // Draw row labels (numbers)
-    ctx.fillStyle = '#000';
-    ctx.font = '12px Arial';
+    // Draw row labels (numbers) - WHITE for visibility on dark backgrounds
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
+    
     for (let row = 0; row < eraConfig.rows; row++) {
-      ctx.fillText(
-        (row + 1).toString(),
-        offsetX + labelSize / 2,
-        offsetY + row * cellSize + labelSize + cellSize / 2 + 4
-      );
+      const text = (row + 1).toString();
+      const x = offsetX + labelSize / 2;
+      const y = offsetY + row * cellSize + labelSize + cellSize / 2 + 4;
+      
+      // Draw black outline for contrast
+      ctx.strokeText(text, x, y);
+      // Draw white text on top
+      ctx.fillText(text, x, y);
     }
 
-    // Draw column labels (letters)
+    // Draw column labels (letters) - WHITE for visibility on dark backgrounds
     for (let col = 0; col < eraConfig.cols; col++) {
       const letter = String.fromCharCode(65 + col);
-      ctx.fillText(
-        letter,
-        offsetX + col * cellSize + labelSize + cellSize / 2,
-        offsetY + labelSize / 2 + 4
-      );
+      const x = offsetX + col * cellSize + labelSize + cellSize / 2;
+      const y = offsetY + labelSize / 2 + 4;
+      
+      // Draw black outline for contrast
+      ctx.strokeText(letter, x, y);
+      // Draw white text on top
+      ctx.fillText(letter, x, y);
     }
 
     // Draw grid lines
@@ -233,8 +241,8 @@ const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
           
           // RED OUTER RING: Player hits on enemy ships
           if (cellVisuals.redRingPercent > 0) {
-            const ringRadius = size * 0.35;
-            const ringWidth = 4;
+            const ringRadius = size * 0.30;
+            const ringWidth = 3;
             const damagePercent = cellVisuals.redRingPercent / 100;
             const damageAngle = (damagePercent * 2 * Math.PI) - (Math.PI / 2);
             
@@ -257,8 +265,8 @@ const useBattleBoard = (eraConfig, gameState, gameBoard, gameInstance) => {
 
           // BLUE INNER RING: Enemy hits on player ships
           if (cellVisuals.blueRingPercent > 0) {
-            const innerRadius = size * 0.35 - 6; // Nest inside red ring
-            const ringWidth = 4;
+            const innerRadius = size * 0.25; // Nest inside red ring
+            const ringWidth = 3;
             const damagePercent = cellVisuals.blueRingPercent / 100;
             const damageAngle = (damagePercent * 2 * Math.PI) - (Math.PI / 2);
             

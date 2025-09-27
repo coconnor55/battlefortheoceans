@@ -1,15 +1,30 @@
-/* src/App.css - Simplified for Battle for the Oceans */
+/* src/App.css (v0.4.0) */
+/* Copyright(c) 2025, Clint H. O'Connor */
+
+/* Global style imports */
+@import './styles/theme.css';
+@import './styles/components.css';
+
+/* Application wrapper */
 .App {
   margin: 0;
   padding: 0;
   width: 100vw;
-  height: 100vh;
+  height: 300vh;
   overflow: hidden;
+  background-image: url('https://cdn.battlefortheoceans.com/battlefortheoceans.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: scroll;
 }
 
 .scene {
+  position: fixed; /* THIS IS THE KEY */
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 100%;
+  height: 100vh; /* Viewport height, not parent height */
+  overflow-y: auto; /* Allow scene content to scroll if needed */
 }
 
-/* Remove all the React logo/header styles - not needed */
+/* EOF */

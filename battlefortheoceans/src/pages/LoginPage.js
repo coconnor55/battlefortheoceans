@@ -5,13 +5,11 @@ import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import LoginDialog from '../components/LoginDialog';
 import ProfileCreationDialog from '../components/ProfileCreationDialog';
-import './Pages.css';
-import './LoginPage.css';
 
-const version = 'v0.1.40';
+const version = 'v0.3.2';
 
 const LoginPage = () => {
-  const { dispatch, stateMachine, getUserProfile } = useGame();
+  const { dispatch, events, getUserProfile } = useGame();
   
   const [authStep, setAuthStep] = useState('login'); // 'login' | 'profile-creation' | 'complete'
   const [authenticatedUser, setAuthenticatedUser] = useState(null);
@@ -32,7 +30,7 @@ const LoginPage = () => {
           console.log(version, 'Existing profile found:', profile.game_name);
           // User has profile, proceed to game
           setAuthStep('complete');
-          dispatch(stateMachine.event.SELECTERA, { userData });
+          dispatch(events.SELECTERA, { userData });
         } else {
           console.log(version, 'No profile found, requiring profile creation');
           // User needs to create profile
@@ -58,7 +56,7 @@ const LoginPage = () => {
     setAuthStep('complete');
     
     // Proceed to game with the authenticated user data
-    dispatch(stateMachine.event.SELECTERA, { userData: authenticatedUser });
+    dispatch(events.SELECTERA, { userData: authenticatedUser });
   };
 
   const handleReset = () => {
@@ -76,36 +74,38 @@ const LoginPage = () => {
   });
 
   return (
-    <div className="page-base">
-      <div className="page-content">
-        <div className="content-frame">
-          {authStep === 'login' && !isLoading && (
-            <LoginDialog onClose={handleLoginComplete} />
-          )}
-          
-          {isLoading && (
-            <div className="loading-message">
-              <h2>Checking your profile...</h2>
-              <p>Please wait while we load your game data.</p>
-            </div>
-          )}
-          
-          {authStep === 'profile-creation' && authenticatedUser && !isLoading && (
-            <ProfileCreationDialog
-              userData={authenticatedUser}
-              onComplete={handleProfileCreationComplete}
-              onCancel={handleReset}
-            />
-          )}
-          
-          {authStep === 'complete' && (
-            <div className="transition-message">
-              <h2>Welcome, Admiral!</h2>
-              <p>Preparing your battle station...</p>
-            </div>
-          )}
+    <div className="container flex flex-column flex-center" style={{ minHeight: '100vh', padding: 'var(--space-lg)' }}>
+      {authStep === 'login' && !isLoading && (
+        <LoginDialog onClose={handleLoginComplete} />
+      )}
+      
+      {isLoading && (
+        <div className="content-pane content-pane-narrow">
+          <div className="loading-message">
+            <div className="spinner spinner-lg"></div>
+            <h2>Checking your profile...</h2>
+            <p>Please wait while we load your game data.</p>
+          </div>
         </div>
-      </div>
+      )}
+      
+      {authStep === 'profile-creation' && authenticatedUser && !isLoading && (
+        <ProfileCreationDialog
+          userData={authenticatedUser}
+          onComplete={handleProfileCreationComplete}
+          onCancel={handleReset}
+        />
+      )}
+      
+      {authStep === 'complete' && (
+        <div className="content-pane content-pane-narrow">
+          <div className="transition-message">
+            <div className="spinner spinner-lg"></div>
+            <h2>Welcome, Admiral!</h2>
+            <p>Preparing your battle station...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
