@@ -9,7 +9,7 @@ import Alliance from './Alliance.js';
 import Visualizer from './Visualizer.js';
 import Message from './Message.js';
 
-const version = "v0.3.3";
+const version = "v0.3.4";
 
 // Environment-aware CDN path
 const SOUND_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
@@ -64,6 +64,7 @@ class Game {
     this.turnTimeout = null;
     this.maxTurnTime = 30000;
     this.uiUpdateCallback = null;
+    this.gameEndCallback = null; // ADDED: Callback for game end
     this.battleBoardRef = null;
     this.humanPlayerId = null;
     this.lastAttackResult = null;
@@ -232,6 +233,10 @@ class Game {
     this.uiUpdateCallback = callback;
   }
 
+  setGameEndCallback(callback) {
+    this.gameEndCallback = callback;
+  }
+
   setBattleBoardRef(ref) {
     this.battleBoardRef = ref;
   }
@@ -243,6 +248,13 @@ class Game {
   notifyUIUpdate() {
     if (this.uiUpdateCallback) {
       this.uiUpdateCallback();
+    }
+  }
+
+  notifyGameEnd() {
+    if (this.gameEndCallback) {
+      this.log('Notifying CoreEngine of game end');
+      this.gameEndCallback();
     }
   }
 
@@ -789,6 +801,10 @@ class Game {
     }
 
     this.cleanupTemporaryAlliances();
+    
+    // CRITICAL FIX: Notify CoreEngine to trigger state transition
+    // This calls the callback that dispatches OVER event: play → over
+    this.notifyGameEnd();
   }
 
   cleanupTemporaryAlliances() {

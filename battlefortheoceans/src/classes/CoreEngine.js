@@ -10,7 +10,7 @@ import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
 import EraService from '../services/EraService.js';
 
-const version = "v0.3.3";
+const version = "v0.3.4";
 
 class CoreEngine {
   constructor() {
@@ -193,7 +193,18 @@ class CoreEngine {
     }
     
     this.gameInstance = new Game(this.eraConfig, this.selectedOpponent.gameMode || 'turnBased');
+    
+    // Set UI update callback (triggers re-renders)
     this.gameInstance.setUIUpdateCallback(() => this.notifySubscribers());
+    
+    // CRITICAL FIX: Set game end callback to trigger state transition
+    this.gameInstance.setGameEndCallback(() => {
+      this.log('Game end callback triggered - dispatching OVER event');
+      this.dispatch(this.events.OVER).catch(error => {
+        console.error(`${version} Failed to dispatch OVER event:`, error);
+      });
+    });
+    
     this.gameInstance.initializeAlliances();
     
     this.board = new Board(this.eraConfig.rows, this.eraConfig.cols, this.eraConfig.terrain);
@@ -235,11 +246,10 @@ class CoreEngine {
       throw new Error('Failed to add players to game');
     }
     
-      // ADD THESE TWO LINES:
-      this.gameInstance.assignPlayerToAlliance(this.humanPlayer.id, playerAlliance, true);
-      this.gameInstance.assignPlayerToAlliance(aiId, opponentAlliance, true);
+    this.gameInstance.assignPlayerToAlliance(this.humanPlayer.id, playerAlliance, true);
+    this.gameInstance.assignPlayerToAlliance(aiId, opponentAlliance, true);
 
-      this.log(`Game initialized with ${this.gameInstance.players.length} players`);
+    this.log(`Game initialized with ${this.gameInstance.players.length} players`);
   }
 
   async startGame() {
