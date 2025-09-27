@@ -647,31 +647,34 @@ class Game {
     throw new Error(`Unknown action: ${action}`);
   }
 
-  async processAttack(attacker, row, col) {
-    if (this.state !== 'playing') {
-      throw new Error('Game is not in playing state');
-    }
+    async processAttack(attacker, row, col) {
+        if (this.state !== 'playing') {
+          throw new Error('Game is not in playing state');
+        }
 
-    if (!this.isValidAttack(row, col)) {
-      throw new Error('Invalid attack position');
-    }
+        if (!this.isValidAttack(row, col)) {
+          throw new Error('Invalid attack position');
+        }
 
-    // Human fires cannon
-    if (attacker.type === 'human') {
-      this.playSound('cannonBlast');
-    }
+        // Human fires cannon
+        if (attacker.type === 'human') {
+          this.playSound('cannonBlast');
+        }
 
-    const result = this.receiveAttack(row, col, attacker);
+        const result = this.receiveAttack(row, col, attacker);
+        
+        // CRITICAL FIX: Check game end after human shot
+        if (this.checkGameEnd()) {
+          this.endGame();
+          return result;
+        }
+        
+        // Handle turn progression (which may trigger AI turn)
+        this.handleTurnProgression(result.result === 'hit' || result.result === 'sunk');
+        
+        return result;
+      }
     
-    // Handle turn progression (which may trigger AI turn)
-    this.handleTurnProgression(result.result === 'hit' || result.result === 'sunk');
-    
-    // Game end check happens in AI's onComplete callback, not here
-    // This prevents premature game end before AI fires
-    
-    return result;
-  }
-
   checkGameEnd() {
     const activeAlliances = Array.from(this.alliances.values()).filter(alliance => {
       if (alliance.players.length === 0) return false;
