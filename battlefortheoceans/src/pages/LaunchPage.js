@@ -3,7 +3,7 @@
 
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.3.2';
+const version = 'v0.3.3';
 
 const LaunchPage = () => {
   const { dispatch, events } = useGame();
@@ -18,20 +18,21 @@ const LaunchPage = () => {
   };
 
   return (
-    <div className="container flex flex-column flex-center" style={{ height: '100vh' }}>
-      <div className="content-pane content-pane-narrow">
+    <div className="container flex flex-column flex-center">
+      <div className="content-pane content-pane--narrow">
         <div className="card-header">
           <h1 className="card-title">Battle for the Oceans</h1>
           <p className="card-subtitle">Strategic Naval Combat</p>
         </div>
-        
-        <div className="card-footer">
+        <div className="card-body flex flex-center">
           <button
-            className="btn btn-primary btn-lg"
+            className="btn btn--primary btn--lg"
             onClick={handleCloseDialog}
           >
             Play Game
           </button>
+          </div>
+        <div className="card-footer">
         </div>
       </div>
     </div>

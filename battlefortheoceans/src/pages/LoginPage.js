@@ -6,7 +6,7 @@ import { useGame } from '../context/GameContext';
 import LoginDialog from '../components/LoginDialog';
 import ProfileCreationDialog from '../components/ProfileCreationDialog';
 
-const version = 'v0.3.2';
+const version = 'v0.3.3';
 
 const LoginPage = () => {
   const { dispatch, events, getUserProfile } = useGame();
@@ -15,42 +15,49 @@ const LoginPage = () => {
   const [authenticatedUser, setAuthenticatedUser] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const handleLoginComplete = async (userData) => {
-    if (userData) {
-      console.log(version, 'User authenticated:', userData.id);
-      setAuthenticatedUser(userData);
-      setIsLoading(true);
-      
-      try {
-        // Check if user has a profile
-        console.log(version, 'Checking for existing profile...');
-        const profile = await getUserProfile(userData.id);
-        
-        if (profile && profile.game_name) {
-          console.log(version, 'Existing profile found:', profile.game_name);
-          // User has profile, proceed to game
-          setAuthStep('complete');
-          dispatch(events.SELECTERA, { userData });
+    const handleLoginComplete = async (userData) => {
+        if (userData) {
+          console.log(version, 'User authenticated:', userData.id);
+          setAuthenticatedUser(userData);
+          setIsLoading(true);
+          
+          try {
+            // Check if this is a guest user - bypass profile system entirely
+            if (userData.id.startsWith('guest-')) {
+              console.log(version, 'Guest user detected, proceeding directly to game');
+              setAuthStep('complete');
+              dispatch(events.SELECTERA, { userData });
+              return;
+            }
+            
+            // Check if registered user has a profile
+            console.log(version, 'Checking for existing profile...');
+            const profile = await getUserProfile(userData.id);
+            
+            if (profile && profile.game_name) {
+              console.log(version, 'Existing profile found:', profile.game_name);
+              // User has profile, proceed to game
+              setAuthStep('complete');
+              dispatch(events.SELECTERA, { userData });
+            } else {
+              console.log(version, 'No profile found, requiring profile creation');
+              // User needs to create profile
+              setAuthStep('profile-creation');
+            }
+          } catch (error) {
+            console.error(version, 'Error checking user profile:', error);
+            // On error, assume no profile and require creation
+            console.log(version, 'Profile check error, defaulting to profile creation');
+            setAuthStep('profile-creation');
+          } finally {
+            setIsLoading(false);
+          }
         } else {
-          console.log(version, 'No profile found, requiring profile creation');
-          // User needs to create profile
-          setAuthStep('profile-creation');
+          console.log(version, 'Login dialog closed without authentication');
+          // Reset if user cancels login
+          handleReset();
         }
-      } catch (error) {
-        console.error(version, 'Error checking user profile:', error);
-        // On error, assume no profile and require creation
-        console.log(version, 'Profile check error, defaulting to profile creation');
-        setAuthStep('profile-creation');
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      console.log(version, 'Login dialog closed without authentication');
-      // Reset if user cancels login
-      handleReset();
-    }
-  };
-
+      };
   const handleProfileCreationComplete = (profile) => {
     console.log(version, 'Profile creation completed:', profile.game_name);
     setAuthStep('complete');
@@ -74,15 +81,15 @@ const LoginPage = () => {
   });
 
   return (
-    <div className="container flex flex-column flex-center" style={{ minHeight: '100vh', padding: 'var(--space-lg)' }}>
+    <div className="container flex flex-column flex-center">
       {authStep === 'login' && !isLoading && (
         <LoginDialog onClose={handleLoginComplete} />
       )}
       
       {isLoading && (
-        <div className="content-pane content-pane-narrow">
-          <div className="loading-message">
-            <div className="spinner spinner-lg"></div>
+        <div className="content-pane content-pane--narrow">
+          <div className="loading">
+            <div className="spinner spinner--lg"></div>
             <h2>Checking your profile...</h2>
             <p>Please wait while we load your game data.</p>
           </div>
@@ -98,9 +105,9 @@ const LoginPage = () => {
       )}
       
       {authStep === 'complete' && (
-        <div className="content-pane content-pane-narrow">
-          <div className="transition-message">
-            <div className="spinner spinner-lg"></div>
+        <div className="content-pane content-pane--narrow">
+          <div className="loading">
+            <div className="spinner spinner--lg"></div>
             <h2>Welcome, Admiral!</h2>
             <p>Preparing your battle station...</p>
           </div>

@@ -1,9 +1,14 @@
-/* src/App.css (v0.4.0) */
+/* src/App.css (v0.5.0) */
 /* Copyright(c) 2025, Clint H. O'Connor */
 
-/* Global style imports */
+/* Global style imports - New modular CSS architecture */
 @import './styles/theme.css';
-@import './styles/components.css';
+@import './styles/modal-overlay.css';
+@import './styles/buttons.css';
+@import './styles/forms.css';
+@import './styles/game-ui.css';
+@import './styles/utilities.css';
+@import './styles/responsive.css';
 
 /* Application wrapper */
 .App {
@@ -19,12 +24,12 @@
 }
 
 .scene {
-  position: fixed; /* THIS IS THE KEY */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
-  height: 100vh; /* Viewport height, not parent height */
-  overflow-y: auto; /* Allow scene content to scroll if needed */
+  height: 100vh;
+  overflow-y: auto;
 }
 
 /* EOF */

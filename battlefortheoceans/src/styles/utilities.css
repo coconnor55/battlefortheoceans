@@ -1,0 +1,318 @@
+/* src/styles/utilities.css */
+/* Copyright(c) 2025, Clint H. O'Connor */
+/* Utility classes and small components - consolidated */
+
+/* ============================================
+   BADGES - CONSOLIDATED SYSTEM
+   ============================================ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-medium);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+}
+
+.badge--primary {
+  background: var(--primary);
+  color: var(--bg-dark);
+  border-color: var(--primary);
+}
+
+.badge--success {
+  background: var(--success);
+  color: var(--bg-dark);
+  border-color: var(--success);
+}
+
+.badge--warning {
+  background: var(--warning);
+  color: var(--bg-dark);
+  border-color: var(--warning);
+}
+
+.badge--error {
+  background: var(--error);
+  color: var(--text-primary);
+  border-color: var(--error);
+}
+
+.badge--online {
+  background: var(--success);
+  color: var(--bg-dark);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ============================================
+   ALERTS / NOTIFICATIONS - CONSOLIDATED
+   ============================================ */
+
+.alert {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  animation: slideInUp var(--transition-speed) ease-out;
+}
+
+.alert--info {
+  background: rgba(0, 217, 255, 0.1);
+  border: 1px solid var(--primary);
+  color: var(--text-primary);
+}
+
+.alert--success {
+  background: rgba(0, 255, 136, 0.1);
+  border: 1px solid var(--success);
+  color: var(--text-primary);
+}
+
+.alert--warning {
+  background: rgba(232, 170, 66, 0.1);
+  border: 1px solid var(--warning);
+  color: var(--text-primary);
+}
+
+.alert--error {
+  background: rgba(255, 51, 102, 0.1);
+  border: 1px solid var(--error);
+  color: var(--text-primary);
+}
+
+.alert__icon {
+  font-size: 1.5rem;
+}
+
+/* ============================================
+   MESSAGE COMPONENTS - CONSOLIDATED
+   ============================================ */
+
+.message {
+  padding: var(--space-md);
+  border-radius: var(--border-radius);
+  margin: var(--space-md) 0;
+  line-height: 1.5;
+}
+
+.message--error {
+  background: rgba(255, 51, 102, 0.1);
+  border: 1px solid var(--error);
+  color: var(--error);
+}
+
+.message--success {
+  background: rgba(0, 255, 136, 0.1);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+
+.message--info {
+  background: rgba(0, 217, 255, 0.1);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+}
+
+.message--warning {
+  background: rgba(232, 170, 66, 0.1);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+}
+
+/* Special message variants for forms */
+.reset-success .message--success {
+  background: rgba(0, 255, 136, 0.15);
+  border-color: var(--success);
+  color: var(--text-primary);
+}
+
+.reset-error .message--error {
+  background: rgba(255, 51, 102, 0.15);
+  border-color: var(--error);
+  color: var(--text-primary);
+}
+
+.reset-success .page-header h2 {
+  color: var(--success);
+}
+
+.reset-error .page-header h2 {
+  color: var(--error);
+}
+
+/* ============================================
+   LOADING SPINNER
+   ============================================ */
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner--sm {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+.spinner--lg {
+  width: 60px;
+  height: 60px;
+  border-width: 4px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Loading container */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   TABLES
+   ============================================ */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.table thead {
+  background: var(--bg-dark);
+  color: var(--primary);
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+}
+
+.table th,
+.table td {
+  padding: var(--space-md);
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.table tbody tr:hover {
+  background: var(--bg-medium);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ============================================
+   DIVIDERS
+   ============================================ */
+
+.divider-vertical {
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    var(--border-color) 50%,
+    transparent 100%
+  );
+  margin: 0 var(--space-lg);
+}
+
+/* ============================================
+   TOOLTIP
+   ============================================ */
+
+[data-tooltip] {
+  position: relative;
+  cursor: help;
+}
+
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  z-index: var(--z-toast);
+  animation: fadeIn var(--transition-fast) ease-in;
+}
+
+/* ============================================
+   COLOR UTILITIES
+   ============================================ */
+
+.text-success { color: var(--success); }
+.text-error { color: var(--error); }
+.text-warning { color: var(--warning); }
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-dim { color: var(--text-dim); }
+
+.bg-success-subtle { background: rgba(0, 255, 136, 0.1); }
+.bg-error-subtle { background: rgba(255, 51, 102, 0.1); }
+.bg-warning-subtle { background: rgba(232, 170, 66, 0.1); }
+.bg-primary-subtle { background: rgba(0, 217, 255, 0.1); }
+
+/* ============================================
+   LEGACY CLASS SUPPORT
+   ============================================ */
+
+/* Support for old class names - can be removed after migration */
+.badge-primary { @extend .badge--primary; }
+.badge-success { @extend .badge--success; }
+.badge-warning { @extend .badge--warning; }
+.badge-error { @extend .badge--error; }
+.online-badge { @extend .badge--online; }
+.green-badge { @extend .badge--success; }
+.blue-badge { @extend .badge--primary; }
+
+.alert-info { @extend .alert--info; }
+.alert-success { @extend .alert--success; }
+.alert-warning { @extend .alert--warning; }
+.alert-error { @extend .alert--error; }
+
+.error-message { @extend .message--error; }
+.success-message { @extend .message--success; }
+
+.spinner-sm { @extend .spinner--sm; }
+.spinner-lg { @extend .spinner--lg; }
+
+.green-color { @extend .text-success; }
+
+/* EOF */

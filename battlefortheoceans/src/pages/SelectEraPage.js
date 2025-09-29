@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 import PurchasePage from './PurchasePage';
 
-const version = 'v0.3.3';
+const version = 'v0.3.6';
 
 const SelectEraPage = () => {
   const {
@@ -16,7 +16,7 @@ const SelectEraPage = () => {
     eraService
   } = useGame();
   
-  // Local UI state for browsing - not committed to game logic until "Join"
+  // Local UI state for browsing - not committed to game logic until button click
   const [selectedEra, setSelectedEra] = useState(null);
   
   // Data fetching state
@@ -46,14 +46,6 @@ const SelectEraPage = () => {
     }
   }, [userRights]);
 
-  // Handle BUY badge click - direct to purchase
-  const handleBuyClick = useCallback((era, event) => {
-    event.stopPropagation();
-    console.log(version, 'Buy clicked for era:', era.id);
-    setPurchaseEraId(era.id);
-    setShowPurchasePage(true);
-  }, []);
-
   // Handle purchase completion
   const handlePurchaseComplete = useCallback(async (eraId) => {
     console.log(version, 'Purchase completed for era:', eraId);
@@ -68,9 +60,6 @@ const SelectEraPage = () => {
     if (purchasedEra) {
       setSelectedEra(purchasedEra);
     }
-    
-    // Show success message
-    alert(`Era unlocked! You can now play ${eraId}.`);
   }, [eras]);
 
   // Handle purchase cancellation
@@ -80,36 +69,20 @@ const SelectEraPage = () => {
     setPurchaseEraId(null);
   }, []);
 
-  // Join alliance and transition to SelectOpponentPage
-  const handleJoinAlliance = useCallback((alliance) => {
-    if (selectedEra) {
-      console.log(version, 'Joining alliance and transitioning to opponent selection:');
-      console.log(version, 'Era:', selectedEra.name);
-      console.log(version, 'Alliance:', alliance.name);
-      
-      // Commit era and alliance selection to game logic
-      dispatch(events.SELECTOPPONENT, {
-        eraConfig: selectedEra,
-        selectedAlliance: alliance.name
-      });
-    } else {
-      console.error(version, 'Missing era selection');
+  // Transition to opponent selection - NO alliance selection here anymore
+  const handlePlayEra = useCallback(() => {
+    if (!selectedEra) {
+      console.error(version, 'No era selected');
+      return;
     }
-  }, [selectedEra, dispatch, events]);
 
-  // For non-choose_alliance eras (Traditional), go directly to opponent selection
-  const handleChooseOpponent = useCallback(() => {
-    if (selectedEra) {
-      console.log(version, 'Transitioning to opponent selection (no alliance choice):');
-      console.log(version, 'Era:', selectedEra.name);
-      
-      // Commit era selection to game logic
-      dispatch(events.SELECTOPPONENT, {
-        eraConfig: selectedEra
-      });
-    } else {
-      console.error(version, 'Missing era selection');
-    }
+    console.log(version, 'Transitioning to opponent selection with era:', selectedEra.name);
+    
+    // Commit era selection to game logic
+    // Alliance selection will happen in SelectOpponentPage if needed
+    dispatch(events.SELECTOPPONENT, {
+      eraConfig: selectedEra
+    });
   }, [selectedEra, dispatch, events]);
 
   // Fetch user rights using GameContext singleton
@@ -187,7 +160,7 @@ const SelectEraPage = () => {
     return (
       <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
         <div className="loading">
-          <div className="spinner spinner-lg"></div>
+          <div className="spinner spinner--lg"></div>
           <h2>Loading Battle Eras...</h2>
           <p>Fetching available game configurations</p>
         </div>
@@ -199,16 +172,16 @@ const SelectEraPage = () => {
   if (error) {
     return (
       <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-        <div className="content-pane content-pane-narrow">
+        <div className="content-pane content-pane--narrow">
           <div className="card-header">
             <h2 className="card-title">Error Loading Eras</h2>
           </div>
           <div className="card-body">
-            <p className="error-message">{error}</p>
+            <p className="message message--error">{error}</p>
           </div>
           <div className="card-footer">
             <button
-              className="btn btn-primary"
+              className="btn btn--primary"
               onClick={() => window.location.reload()}
             >
               Retry
@@ -223,7 +196,7 @@ const SelectEraPage = () => {
   if (!loading && eras.length === 0) {
     return (
       <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-        <div className="content-pane content-pane-narrow">
+        <div className="content-pane content-pane--narrow">
           <div className="card-header">
             <h2 className="card-title">No Battle Eras Available</h2>
           </div>
@@ -232,7 +205,7 @@ const SelectEraPage = () => {
           </div>
           <div className="card-footer">
             <button
-              className="btn btn-primary"
+              className="btn btn--primary"
               onClick={() => window.location.reload()}
             >
               Retry
@@ -245,7 +218,7 @@ const SelectEraPage = () => {
 
   return (
     <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-      <div className="content-pane content-pane-wide" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+      <div className="content-pane content-pane--wide" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
         <div className="card-header">
           <h2 className="card-title">Select Battle Era</h2>
           <p className="card-subtitle">Choose your naval battlefield</p>
@@ -259,14 +232,14 @@ const SelectEraPage = () => {
             return (
               <div
                 key={era.id}
-                className={`era-item ${selectedEra?.id === era.id ? 'selected' : ''} ${!isAccessible ? 'locked' : ''}`}
+                className={`era-item ${selectedEra?.id === era.id ? 'era-item--selected' : ''} ${!isAccessible ? 'era-item--locked' : ''}`}
                 onClick={() => handleEraSelect(era)}
               >
                 <div className="era-header">
                   <span className="era-name">{era.name}</span>
-                  {badgeType === 'free' && <span className="badge badge-success">FREE</span>}
-                  {badgeType === 'owned' && <span className="badge badge-success">✓</span>}
-                  {badgeType === 'buy' && <span className="badge badge-primary">BUY</span>}
+                  {badgeType === 'free' && <span className="badge badge--success">FREE</span>}
+                  {badgeType === 'owned' && <span className="badge badge--success">✓</span>}
+                  {badgeType === 'buy' && <span className="badge badge--primary">BUY</span>}
                 </div>
                 <div className="era-description">{era.era_description}</div>
                 <div className="era-details">
@@ -278,67 +251,46 @@ const SelectEraPage = () => {
           })}
         </div>
 
-        {selectedEra && (
-          <div className="alliance-selection">
-            {selectedEra.game_rules?.choose_alliance ? (
-              // Show alliance selection for choose_alliance eras (Midway)
-              <div className="alliance-choice">
-                <div className="game-info">
-                  <h3>Choose Your Alliance</h3>
-                  <p>Select which side you want to command</p>
-                </div>
-                
-                <div className="alliance-list">
-                  {selectedEra.alliances?.map((alliance) => (
-                    <div key={alliance.name} className="alliance-item">
-                      <div className="alliance-header">
-                        <div className="alliance-name">{alliance.name}</div>
-                        <div className="alliance-ships">
-                          {alliance.ships?.length || 0} ships
-                        </div>
-                      </div>
-                      <div className="alliance-description">
-                        {alliance.description}
-                      </div>
-                      <div className="alliance-fleet">
-                        <strong>Fleet:</strong> {alliance.ships?.map(s => s.name).join(', ')}
-                      </div>
-                      <button
-                        className="btn btn-primary alliance-join-btn"
-                        onClick={() => handleJoinAlliance(alliance)}
-                      >
-                        Join
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              // Show direct opponent selection for non-choose_alliance eras (Traditional)
-              <div className="opponent-choice">
-                <div className="game-info">
-                  <p>Who will you be going up against?</p>
-                </div>
-                
-                <button
-                  className="btn btn-primary btn-lg"
-                  onClick={handleChooseOpponent}
-                >
-                  Choose Opponent
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Divider */}
+        <div className="divider">
+          <span>Choose Era</span>
+        </div>
+
+        {/* Action Section - Always Visible */}
+        <div className="action-section" style={{
+          padding: '2rem',
+          textAlign: 'center',
+          minHeight: '100px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1rem'
+        }}>
+          {!selectedEra ? (
+            <p style={{ color: 'rgba(148, 163, 184, 0.8)' }}>
+              Select an era above to continue
+            </p>
+          ) : (
+            <button
+              className="btn btn--primary btn--lg"
+              onClick={handlePlayEra}
+            >
+              Play {selectedEra.name}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Purchase Page Modal */}
+      {/* Purchase Page Modal - Uses new CSS classes */}
       {showPurchasePage && (
-        <PurchasePage
-          eraId={purchaseEraId}
-          onComplete={handlePurchaseComplete}
-          onCancel={handlePurchaseCancel}
-        />
+        <div className="modal-overlay modal-overlay--transparent">
+          <PurchasePage
+            eraId={purchaseEraId}
+            onComplete={handlePurchaseComplete}
+            onCancel={handlePurchaseCancel}
+          />
+        </div>
       )}
     </div>
   );

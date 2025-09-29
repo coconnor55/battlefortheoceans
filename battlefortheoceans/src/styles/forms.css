@@ -1,0 +1,343 @@
+/* src/styles/forms.css */
+/* Copyright(c) 2025, Clint H. O'Connor */
+/* Form inputs, validation, and authentication components */
+
+/* ============================================
+   FORM GROUPS & LABELS
+   ============================================ */
+
+.form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================
+   INPUT FIELDS
+   ============================================ */
+
+.form-input,
+.form-textarea,
+.form-select,
+.input,
+.input-primary {
+  width: 100%;
+  padding: var(--space-md);
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  font-size: 1rem;
+  transition: all var(--transition-speed);
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus,
+.input:focus,
+.input-primary:focus {
+  outline: none;
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder,
+.input::placeholder,
+.input-primary::placeholder {
+  color: var(--text-dim);
+}
+
+.form-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.form-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2300D9FF' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-md) center;
+  padding-right: calc(var(--space-md) * 3);
+}
+
+/* ============================================
+   FORM VALIDATION
+   ============================================ */
+
+.form-error {
+  color: var(--error);
+  font-size: 0.875rem;
+  margin-top: var(--space-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.form-help {
+  color: var(--text-dim);
+  font-size: 0.875rem;
+  margin-top: var(--space-xs);
+}
+
+/* ============================================
+   CHECKBOX & RADIO
+   ============================================ */
+
+.form-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.form-check input[type="checkbox"],
+.form-check input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.form-check label {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   PASSWORD INPUT WITH TOGGLE
+   ============================================ */
+
+.password-group {
+  position: relative;
+}
+
+.password-group .input,
+.password-group .input-primary {
+  padding-right: 45px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  padding: var(--space-xs);
+  color: var(--text-dim);
+  transition: color var(--transition-fast);
+}
+
+.password-toggle:hover {
+  color: var(--text-primary);
+}
+
+/* ============================================
+   FORM ACTIONS
+   ============================================ */
+
+.form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+/* ============================================
+   AUTHENTICATION COMPONENTS
+   ============================================ */
+
+.login-dialog {
+  max-width: 400px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.login-dialog form {
+  text-align: left;
+}
+
+.auth-links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.guest-section {
+  margin-top: var(--space-xl);
+  text-align: center;
+}
+
+.guest-section .btn {
+  display: inline-flex;
+  margin: 0 auto;
+}
+
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--border-color) 50%,
+    transparent 100%
+  );
+  margin: var(--space-lg) 0;
+  position: relative;
+}
+
+.divider span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-dark);
+  padding: 0 var(--space-md);
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+/* ============================================
+   EMAIL CONFIRMATION
+   ============================================ */
+
+.email-confirmation-message {
+  text-align: left;
+  margin: var(--space-lg) 0;
+}
+
+.email-confirmation-message .email-address {
+  color: var(--primary);
+  font-weight: 600;
+  margin: var(--space-sm) 0;
+}
+
+.email-confirmation-message .help-text {
+  color: var(--text-dim);
+  font-size: 0.875rem;
+  margin-top: var(--space-md);
+}
+
+.confirmation-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+/* ============================================
+   ERROR SECTION
+   ============================================ */
+
+.error-section {
+  margin: var(--space-lg) 0;
+}
+
+/* ============================================
+   RESET PASSWORD STYLES
+   ============================================ */
+
+.reset-password-form,
+.reset-success,
+.reset-error {
+  max-width: 400px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.reset-password-form form {
+  text-align: left;
+  margin-top: var(--space-lg);
+}
+
+.reset-password-form .form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.reset-password-form label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.reset-password-form .password-group .input {
+  padding-right: 45px;
+}
+
+.reset-password-form .form-actions {
+  margin-top: var(--space-xl);
+}
+
+.reset-password-form .btn-large {
+  width: 100%;
+  padding: 14px 24px;
+  font-size: 1rem;
+}
+
+.reset-password-form .btn-secondary {
+  width: 100%;
+}
+
+/* ============================================
+   LOADING/TRANSITION MESSAGES
+   ============================================ */
+
+.loading-message,
+.transition-message {
+  text-align: center;
+  padding: var(--space-xl);
+}
+
+.loading-message h2,
+.transition-message h2 {
+  color: var(--primary);
+  margin-bottom: var(--space-md);
+}
+
+.loading-message p,
+.transition-message p {
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 480px) {
+  .form-input,
+  .form-textarea,
+  .form-select {
+    padding: var(--space-sm);
+    font-size: 0.9rem;
+  }
+  
+  .form-label {
+    font-size: 0.8rem;
+  }
+
+  .reset-password-form,
+  .reset-success,
+  .reset-error,
+  .login-dialog {
+    margin: 0 var(--space-md);
+  }
+  
+  .reset-password-form .form-actions {
+    margin-top: var(--space-lg);
+  }
+}
+
+/* EOF */

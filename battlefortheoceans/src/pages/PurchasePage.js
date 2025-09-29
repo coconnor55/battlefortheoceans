@@ -7,7 +7,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { useGame } from '../context/GameContext';
 import StripeService from '../services/StripeService';
 
-const version = 'v0.2.2';
+const version = 'v0.2.9';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -70,20 +70,26 @@ const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="card-element-container">
+    <form onSubmit={handleSubmit} style={{ width: '100%' }}>
+      <div style={{
+        marginBottom: '1.5rem',
+        padding: '1rem',
+        border: '1px solid #e5e7eb',
+        borderRadius: '8px',
+        backgroundColor: '#f9fafb'
+      }}>
         <CardElement
           options={{
             style: {
               base: {
                 fontSize: '16px',
-                color: '#424770',
+                color: '#1f2937',
                 '::placeholder': {
-                  color: '#aab7c4',
+                  color: '#9ca3af',
                 },
               },
               invalid: {
-                color: '#9e2146',
+                color: '#ef4444',
               },
             },
           }}
@@ -92,10 +98,21 @@ const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
       
       <button
         type="submit"
-        className="btn btn-primary btn-large"
+        style={{
+          width: '95%',
+          padding: '1.25rem 2rem',
+          fontSize: '1.25rem',
+          fontWeight: '600',
+          backgroundColor: isProcessing ? '#94a3b8' : '#0ea5e9',
+          color: '#ffffff',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: isProcessing ? 'not-allowed' : 'pointer',
+          marginBottom: '1rem'
+        }}
         disabled={!stripe || isProcessing}
       >
-        {isProcessing ? 'Processing...' : `Pay ${eraInfo.priceFormatted || '$4.99'}`}
+        {isProcessing ? 'Processing...' : `Pay ${eraInfo.priceFormatted || '[unavailable]'}`}
       </button>
     </form>
   );
@@ -143,12 +160,20 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
       // Fetch price if Stripe price ID is available
       if (eraConfig.promotional?.stripe_price_id) {
         console.log(version, 'Fetching price for:', eraConfig.promotional.stripe_price_id);
-        const price = await stripeService.fetchPrice(eraConfig.promotional.stripe_price_id);
-        setPriceInfo(price);
-        
-        // Add formatted price to era info for easy access
-        eraConfig.priceFormatted = price.formatted;
-        setEraInfo(eraConfig);
+        try {
+          const price = await stripeService.fetchPrice(eraConfig.promotional.stripe_price_id);
+          console.log(version, 'Price fetched successfully:', price);
+          setPriceInfo(price);
+          
+          // Add formatted price to era info for easy access
+          eraConfig.priceFormatted = price.formatted;
+          setEraInfo(eraConfig);
+        } catch (priceError) {
+          console.error(version, 'Failed to fetch price:', priceError);
+          // Continue without price - will show [unavailable]
+        }
+      } else {
+        console.log(version, 'No stripe_price_id found in era config');
       }
       
     } catch (err) {
@@ -217,12 +242,21 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
 
   if (loading) {
     return (
-      <div className="purchase-page">
-        <div className="purchase-container">
-          <div className="loading">
-            <div className="spinner spinner-lg"></div>
-            <p>Loading era information...</p>
-          </div>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '400px'
+      }}>
+        <div style={{
+          backgroundColor: '#ffffff',
+          padding: '3rem',
+          borderRadius: '12px',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)',
+          textAlign: 'center'
+        }}>
+          <div className="spinner spinner-lg"></div>
+          <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading era information...</p>
         </div>
       </div>
     );
@@ -230,16 +264,33 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
 
   if (error && !eraInfo) {
     return (
-      <div className="purchase-page">
-        <div className="purchase-container">
-          <div className="card">
-            <div className="card-body">
-              <p className="error-message">{error}</p>
-            </div>
-            <div className="card-footer">
-              <button className="btn btn-secondary" onClick={onCancel}>Close</button>
-            </div>
-          </div>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '400px'
+      }}>
+        <div style={{
+          backgroundColor: '#ffffff',
+          padding: '2rem',
+          borderRadius: '12px',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)',
+          maxWidth: '500px'
+        }}>
+          <p style={{ color: '#ef4444', marginBottom: '1.5rem' }}>{error}</p>
+          <button
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#6b7280',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer'
+            }}
+            onClick={onCancel}
+          >
+            Close
+          </button>
         </div>
       </div>
     );
@@ -251,157 +302,347 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     features.push(...eraInfo.promotional.features);
   } else {
     // Fallback features generated from era config
-    features.push(`${eraInfo.rows}×${eraInfo.cols} battle grid with unique terrain`);
-    features.push(`${eraInfo.max_players} player${eraInfo.max_players > 2 ? 's' : ''} battles`);
-    
-    if (eraInfo.alliances && eraInfo.alliances.length > 1) {
-      features.push(`Choose from ${eraInfo.alliances.length} different alliances`);
-    }
-    
-    if (eraInfo.game_rules?.choose_alliance) {
-      features.push('Historical alliance-based gameplay');
-    }
+    features.push(`Choose your alliance: US Navy or Imperial Navy`);
+    features.push(`Command legendary ships: USS Enterprise, Akagi, Yorktown`);
+    features.push(`${eraInfo.rows}x${eraInfo.cols} battlefield with authentic Pacific terrain`);
   }
 
   const backgroundImageUrl = eraInfo.promotional?.background_image
     ? `${gameCDN}/${eraInfo.promotional.background_image}`
     : null;
 
+  const promotionalImageUrl = eraInfo.promotional?.promotional_image
+    ? `${gameCDN}/${eraInfo.promotional.promotional_image}`
+    : null;
+
   return (
-    <div className="purchase-page" style={backgroundImageUrl ? { backgroundImage: `url(${backgroundImageUrl})` } : {}}>
-      <div className="purchase-container">
-        <div className="purchase-header">
-          <h2>Unlock {eraInfo.name}</h2>
-          <button className="close-button" onClick={onCancel}>×</button>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      height: '100%'
+    }}>
+      <div style={{
+        width: '90%',
+        maxWidth: '1000px',
+        maxHeight: '90vh',
+        backgroundColor: '#ffffff',
+        borderRadius: '12px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+      {/* Header */}
+      <div style={{
+        padding: '2rem',
+        borderBottom: '1px solid #e5e7eb'
+      }}>
+        <h2 style={{
+          fontSize: '2rem',
+          fontWeight: '700',
+          color: '#1f2937',
+          margin: 0
+        }}>
+          Unlock {eraInfo.name}
+        </h2>
+      </div>
+
+      {/* Content - Scrollable */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '2rem'
+      }}>
+        {/* Images Side by Side */}
+        <div style={{
+          display: 'flex',
+          gap: '2rem',
+          marginBottom: '2rem',
+          justifyContent: 'center',
+          flexWrap: 'wrap'
+        }}>
+          {/* Background Image */}
+          {backgroundImageUrl && (
+            <div style={{ flex: '1', minWidth: '250px', maxWidth: '400px' }}>
+              <img
+                src={backgroundImageUrl}
+                alt={`${eraInfo.name} background`}
+                style={{
+                  width: '100%',
+                  height: '250px',
+                  objectFit: 'cover',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                }}
+              />
+            </div>
+          )}
+
+          {/* Promotional Image */}
+          {promotionalImageUrl && (
+            <div style={{ flex: '1', minWidth: '250px', maxWidth: '400px' }}>
+              <img
+                src={promotionalImageUrl}
+                alt={`${eraInfo.name} promotional`}
+                style={{
+                  width: '100%',
+                  height: '250px',
+                  objectFit: 'cover',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                }}
+              />
+            </div>
+          )}
         </div>
 
-        <div className="era-showcase">
-          <div className="era-image">
-            {eraInfo.promotional?.promotional_image ? (
-              <img
-                src={`${gameCDN}/${eraInfo.promotional.promotional_image}`}
-                alt={`${eraInfo.name} - Historic naval combat`}
-                className="era-showcase-image"
+        {/* Description */}
+        <p style={{
+          fontSize: '1.125rem',
+          color: '#4b5563',
+          lineHeight: '1.75',
+          marginBottom: '2rem'
+        }}>
+          {eraInfo.promotional?.marketing_description || eraInfo.era_description}
+        </p>
+
+        {/* Features */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={{
+            fontSize: '1.25rem',
+            fontWeight: '600',
+            color: '#0ea5e9',
+            marginBottom: '1rem'
+          }}>
+            What's Included:
+          </h3>
+          <ul style={{
+            listStyle: 'none',
+            padding: 0,
+            margin: 0
+          }}>
+            {features.map((feature, index) => (
+              <li key={index} style={{
+                fontSize: '1rem',
+                color: '#374151',
+                marginBottom: '0.5rem',
+                paddingLeft: '1.5rem',
+                position: 'relative'
+              }}>
+                <span style={{
+                  position: 'absolute',
+                  left: 0,
+                  color: '#10b981'
+                }}>✓</span>
+                {feature}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Payment Method Tabs */}
+        <div style={{
+          display: 'flex',
+          gap: '1rem',
+          marginBottom: '1.5rem',
+          borderBottom: '2px solid #e5e7eb'
+        }}>
+          <button
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: 'transparent',
+              color: purchaseMethod === 'stripe' ? '#0ea5e9' : '#6b7280',
+              border: 'none',
+              borderBottom: purchaseMethod === 'stripe' ? '2px solid #0ea5e9' : 'none',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '600',
+              marginBottom: '-2px'
+            }}
+            onClick={() => setPurchaseMethod('stripe')}
+          >
+            Credit/Debit Card
+          </button>
+          <button
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: 'transparent',
+              color: purchaseMethod === 'voucher' ? '#0ea5e9' : '#6b7280',
+              border: 'none',
+              borderBottom: purchaseMethod === 'voucher' ? '2px solid #0ea5e9' : 'none',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: '600',
+              marginBottom: '-2px'
+            }}
+            onClick={() => setPurchaseMethod('voucher')}
+          >
+            Voucher Code
+          </button>
+        </div>
+
+        {/* Stripe Payment */}
+        {purchaseMethod === 'stripe' && (
+          <div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.5rem',
+              fontWeight: '700',
+              color: '#0ea5e9',
+              marginBottom: '1rem'
+            }}>
+              <span style={{ fontSize: '2rem' }}>{priceInfo?.formatted || '[price unavailable]'}</span>
+              <span style={{ fontSize: '1rem', marginLeft: '0.5rem', color: '#6b7280' }}>One-time purchase</span>
+            </div>
+
+            <div style={{
+              backgroundColor: '#f0f9ff',
+              padding: '1rem',
+              borderRadius: '8px',
+              marginBottom: '1.5rem'
+            }}>
+              <p style={{
+                fontSize: '0.875rem',
+                color: '#0369a1',
+                margin: 0,
+                marginBottom: '0.75rem'
+              }}>
+                Secure payment powered by Stripe
+              </p>
+              <ul style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: 0,
+                fontSize: '0.875rem',
+                color: '#075985'
+              }}>
+                <li style={{ marginBottom: '0.25rem' }}>✓ Instant access after payment</li>
+                <li style={{ marginBottom: '0.25rem' }}>✓ No subscription or recurring charges</li>
+                <li>✓ 30-day money-back guarantee</li>
+              </ul>
+            </div>
+
+            <Elements stripe={stripePromise}>
+              <PaymentForm
+                eraInfo={eraInfo}
+                userProfile={userProfile}
+                onSuccess={handleStripeSuccess}
+                onError={handleStripeError}
               />
-            ) : (
-              <div className="placeholder-image">
-                <span>🚢</span>
-              </div>
-            )}
+            </Elements>
           </div>
-         
-          <div className="era-details">
-            <h3>{eraInfo.name}</h3>
-            <p className="era-description">
-              {eraInfo.promotional?.marketing_description || eraInfo.era_description}
+        )}
+
+        {/* Voucher Redemption */}
+        {purchaseMethod === 'voucher' && (
+          <div>
+            <p style={{
+              fontSize: '0.875rem',
+              color: '#6b7280',
+              marginBottom: '1rem'
+            }}>
+              Have a voucher code? Enter it below to unlock this era for free!
+            </p>
+            
+            <input
+              type="text"
+              placeholder={`Enter voucher code (e.g., ${eraInfo.era || 'midway'}-abc123)`}
+              value={voucherCode}
+              onChange={(e) => setVoucherCode(e.target.value)}
+              disabled={isProcessing}
+              style={{
+                width: '95%',
+                padding: '0.75rem 1rem',
+                fontSize: '1rem',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                marginBottom: '1rem'
+              }}
+            />
+
+            <button
+              onClick={handleVoucherRedemption}
+              disabled={isProcessing || !voucherCode.trim()}
+              style={{
+                width: '95%',
+                padding: '1.25rem 2rem',
+                fontSize: '1.25rem',
+                fontWeight: '600',
+                backgroundColor: isProcessing || !voucherCode.trim() ? '#94a3b8' : '#10b981',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: isProcessing || !voucherCode.trim() ? 'not-allowed' : 'pointer',
+                marginBottom: '1rem'
+              }}
+            >
+              {isProcessing ? 'Redeeming...' : 'Redeem Voucher'}
+            </button>
+
+            <p style={{
+              fontSize: '0.75rem',
+              color: '#9ca3af',
+              margin: 0
+            }}>
+              Voucher codes are case-sensitive and can only be used once.
             </p>
           </div>
-          
-          <div className="feature-list">
-            <h4>What's Included:</h4>
-            <ul>
-              {features.map((feature, index) => (
-                <li key={index}>{feature}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        )}
 
-        <div className="purchase-methods">
-          <div className="method-selector">
-            <button
-              className={`method-tab ${purchaseMethod === 'stripe' ? 'active' : ''}`}
-              onClick={() => setPurchaseMethod('stripe')}
-            >
-              Credit/Debit Card
-            </button>
-            <button
-              className={`method-tab ${purchaseMethod === 'voucher' ? 'active' : ''}`}
-              onClick={() => setPurchaseMethod('voucher')}
-            >
-              Voucher Code
-            </button>
-          </div>
-
-          {purchaseMethod === 'stripe' && (
-            <div className="stripe-payment">
-              <div className="price-display">
-                <span className="price">{priceInfo?.formatted || '$4.99'}</span>
-                <span className="price-note">One-time purchase</span>
-              </div>
-              
-              <div className="payment-info">
-                <p>Secure payment powered by Stripe</p>
-                <ul className="payment-features">
-                  <li>✓ Instant access after payment</li>
-                  <li>✓ No subscription or recurring charges</li>
-                  <li>✓ 30-day money-back guarantee</li>
-                </ul>
-              </div>
-
-              <Elements stripe={stripePromise}>
-                <PaymentForm
-                  eraInfo={eraInfo}
-                  userProfile={userProfile}
-                  onSuccess={handleStripeSuccess}
-                  onError={handleStripeError}
-                />
-              </Elements>
-            </div>
-          )}
-
-          {purchaseMethod === 'voucher' && (
-            <div className="voucher-redemption">
-              <div className="voucher-info">
-                <p>Have a voucher code? Enter it below to unlock this era for free!</p>
-              </div>
-              
-              <div className="voucher-input">
-                <input
-                  type="text"
-                  placeholder={`Enter voucher code (e.g., ${eraInfo.era || 'midway'}-abc123)`}
-                  value={voucherCode}
-                  onChange={(e) => setVoucherCode(e.target.value)}
-                  disabled={isProcessing}
-                />
-              </div>
-
-              <button
-                className="btn btn-primary btn-large"
-                onClick={handleVoucherRedemption}
-                disabled={isProcessing || !voucherCode.trim()}
-              >
-                {isProcessing ? 'Redeeming...' : 'Redeem Voucher'}
-              </button>
-
-              <div className="voucher-help">
-                <p>Voucher codes are case-sensitive and can only be used once.</p>
-              </div>
-            </div>
-          )}
-        </div>
-
+        {/* Messages */}
         {error && (
-          <div className="message error">
+          <div style={{
+            padding: '1rem',
+            backgroundColor: '#fef2f2',
+            color: '#991b1b',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            border: '1px solid #fecaca'
+          }}>
             {error}
           </div>
         )}
 
         {success && (
-          <div className="message success">
+          <div style={{
+            padding: '1rem',
+            backgroundColor: '#f0fdf4',
+            color: '#166534',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            border: '1px solid #bbf7d0'
+          }}>
             {success}
           </div>
         )}
+      </div>
 
-        <div className="purchase-footer">
-          <button
-            className="btn btn-secondary"
-            onClick={onCancel}
-            disabled={isProcessing}
-          >
-            Cancel
-          </button>
-        </div>
+      {/* Footer with Cancel */}
+      <div style={{
+        padding: '1.5rem 2rem',
+        borderTop: '1px solid #e5e7eb',
+        textAlign: 'center'
+      }}>
+        <button
+          onClick={onCancel}
+          disabled={isProcessing}
+          style={{
+            padding: '0.75rem 2rem',
+            fontSize: '1rem',
+            backgroundColor: 'transparent',
+            color: '#6b7280',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            cursor: isProcessing ? 'not-allowed' : 'pointer'
+          }}
+        >
+          Cancel
+        </button>
+              </div>
       </div>
     </div>
   );

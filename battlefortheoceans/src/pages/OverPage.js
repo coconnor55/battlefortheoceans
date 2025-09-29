@@ -6,7 +6,7 @@ import { useGame } from '../context/GameContext';
 import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
 
-const version = 'v0.1.9';
+const version = 'v0.2.1';
 
 const OverPage = () => {
   const {
@@ -16,7 +16,6 @@ const OverPage = () => {
     eraConfig,
     selectedOpponent,
     userProfile,
-    resetGame,
     hasEraAccess
   } = useGame();
   
@@ -83,15 +82,15 @@ const OverPage = () => {
 
   // Handle restart - go back to SelectEra
   const handleRestart = () => {
-    resetGame();
+    // Don't reset game - CoreEngine will handle it on state transition
     if (dispatch && events) {
       dispatch(events.ERA);
     }
   };
 
-  // Handle play again with same settings
+  // Handle play again with same settings - replays with same era and opponent
   const handlePlayAgain = () => {
-    resetGame();
+    // Don't reset game - CoreEngine will reinitialize on PLACEMENT transition
     if (dispatch && events) {
       dispatch(events.PLACEMENT);
     }
@@ -121,140 +120,143 @@ const OverPage = () => {
   };
 
   return (
-    <div className="container" style={{ padding: 'var(--space-lg)', maxHeight: '100vh', overflowY: 'auto' }}>
-      <div className="card-header">
-        <h2 className="card-title">Battle Complete</h2>
-        <p className="card-subtitle">{eraConfig?.name || 'Naval Combat'}</p>
-      </div>
-
-      <div className="battle-results">
-        <div className="result-header">
-          <h3 className={`result-title ${gameStats.winner ? 'winner' : 'draw'}`}>
-            {gameStats.winner ? `${gameStats.winner} Wins!` : 'Battle Draw!'}
-          </h3>
-          <p className="battle-summary">
-            vs {selectedOpponent?.name || 'Unknown Opponent'}
-          </p>
+    <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
+      <div className="content-pane content-pane-wide" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="card-header">
+          <h2 className="card-title">Battle Complete</h2>
+          <p className="card-subtitle">{eraConfig?.name || 'Naval Combat'}</p>
         </div>
 
-        {showStats && gameStats.players && (
-          <div className="battle-stats">
-            <h4>Battle Statistics</h4>
-            <div className="stats-grid">
-              {gameStats.players.map((player, index) => (
-                <div key={index} className="player-stats">
-                  <div className="player-name">{player.name}</div>
-                  <div className="stat-row">
-                    <span>Hits:</span>
-                    <span>{player.hits || 0}</span>
-                  </div>
-                  <div className="stat-row">
-                    <span>Misses:</span>
-                    <span>{player.misses || 0}</span>
-                  </div>
-                  <div className="stat-row">
-                    <span>Accuracy:</span>
-                    <span>{player.accuracy}%</span>
-                  </div>
-                  <div className="stat-row">
-                    <span>Damage Dealt:</span>
-                    <span>{player.hitsDamage?.toFixed(1) || '0.0'}</span>
-                  </div>
-                  <div className="stat-row">
-                    <span>Ships Sunk:</span>
-                    <span>{player.sunk || 0}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="battle-results">
+          <div className="result-header">
+            <h3 className={`result-title ${gameStats.winner ? 'winner' : 'draw'}`}>
+              {gameStats.winner ? `${gameStats.winner} Wins!` : 'Battle Draw!'}
+            </h3>
+            <p className="battle-summary">
+              vs {selectedOpponent?.name || 'Unknown Opponent'}
+            </p>
+          </div>
 
-            {gameStats.duration && (
-              <div className="game-duration">
-                <span>Battle Duration: {Math.floor(gameStats.duration / 60)} minutes</span>
+          {showStats && gameStats.players && (
+            <div className="battle-stats">
+              <h4>Battle Statistics</h4>
+              <div className="stats-grid">
+                {gameStats.players.map((player, index) => (
+                  <div key={index} className="player-stats">
+                    <div className="player-name">{player.name}</div>
+                    <div className="stat-row">
+                      <span>Hits:</span>
+                      <span>{player.hits || 0}</span>
+                    </div>
+                    <div className="stat-row">
+                      <span>Misses:</span>
+                      <span>{player.misses || 0}</span>
+                    </div>
+                    <div className="stat-row">
+                      <span>Accuracy:</span>
+                      <span>{player.accuracy}%</span>
+                    </div>
+                    <div className="stat-row">
+                      <span>Damage Dealt:</span>
+                      <span>{player.hitsDamage?.toFixed(1) || '0.0'}</span>
+                    </div>
+                    <div className="stat-row">
+                      <span>Ships Sunk:</span>
+                      <span>{player.sunk || 0}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
+
+              {gameStats.duration && (
+                <div className="game-duration">
+                  <span>Battle Duration: {Math.floor(gameStats.duration / 60)} minutes</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {showPromotion && (
+          <PromotionalBox
+            eraConfig={eraConfig}
+            userProfile={userProfile}
+            onPurchase={handlePurchase}
+          />
+        )}
+
+        <div className="over-actions">
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowStats(!showStats)}
+          >
+            {showStats ? 'Hide' : 'Show'} Statistics
+          </button>
+
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowGameLog(!showGameLog)}
+          >
+            {showGameLog ? 'Hide' : 'Show'} Battle Log
+          </button>
+
+          <button
+            className="btn btn-warning"
+            onClick={copyGameLog}
+          >
+            Copy Log
+          </button>
+
+          <button
+            className="btn btn-secondary"
+            onClick={emailGameLog}
+          >
+            Email Results
+          </button>
+
+          <button
+            className="btn btn-primary"
+            onClick={handlePlayAgain}
+            title="Battle Again - same era, same opponent"
+          >
+            Battle Again
+          </button>
+
+          <button
+            className="btn btn-primary"
+            onClick={handleRestart}
+          >
+            Choose New Era
+          </button>
+        </div>
+
+        {showGameLog && (
+          <div className="game-log-display">
+            <h4>Battle Log</h4>
+            <div className="log-content">
+              {gameLog.length > 0 ? gameLog.map((entry, index) => (
+                <div key={index} className={`log-entry ${entry.type || 'info'}`}>
+                  <span className="log-time">
+                    {new Date(entry.timestamp).toLocaleTimeString()}
+                  </span>
+                  <span className="log-turn">[T{entry.turn || '0'}]</span>
+                  <span className="log-message">{entry.message}</span>
+                </div>
+              )) : (
+                <p>No battle log available</p>
+              )}
+            </div>
           </div>
         )}
+
+        {showPurchasePage && (
+          <PurchasePage
+            eraId={purchaseEraId}
+            onComplete={handlePurchaseComplete}
+            onCancel={handlePurchaseCancel}
+          />
+        )}
       </div>
-
-      {showPromotion && (
-        <PromotionalBox
-          eraConfig={eraConfig}
-          userProfile={userProfile}
-          onPurchase={handlePurchase}
-        />
-      )}
-
-      <div className="over-actions">
-        <button
-          className="btn btn-secondary"
-          onClick={() => setShowStats(!showStats)}
-        >
-          {showStats ? 'Hide' : 'Show'} Statistics
-        </button>
-
-        <button
-          className="btn btn-secondary"
-          onClick={() => setShowGameLog(!showGameLog)}
-        >
-          {showGameLog ? 'Hide' : 'Show'} Battle Log
-        </button>
-
-        <button
-          className="btn btn-warning"
-          onClick={copyGameLog}
-        >
-          Copy Log
-        </button>
-
-        <button
-          className="btn btn-secondary"
-          onClick={emailGameLog}
-        >
-          Email Results
-        </button>
-
-        <button
-          className="btn btn-primary"
-          onClick={handlePlayAgain}
-        >
-          Battle Again
-        </button>
-
-        <button
-          className="btn btn-primary"
-          onClick={handleRestart}
-        >
-          Choose New Era
-        </button>
-      </div>
-
-      {showGameLog && (
-        <div className="game-log-display">
-          <h4>Battle Log</h4>
-          <div className="log-content">
-            {gameLog.length > 0 ? gameLog.map((entry, index) => (
-              <div key={index} className={`log-entry ${entry.type || 'info'}`}>
-                <span className="log-time">
-                  {new Date(entry.timestamp).toLocaleTimeString()}
-                </span>
-                <span className="log-turn">[T{entry.turn || '0'}]</span>
-                <span className="log-message">{entry.message}</span>
-              </div>
-            )) : (
-              <p>No battle log available</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {showPurchasePage && (
-        <PurchasePage
-          eraId={purchaseEraId}
-          onComplete={handlePurchaseComplete}
-          onCancel={handlePurchaseCancel}
-        />
-      )}
     </div>
   );
 };

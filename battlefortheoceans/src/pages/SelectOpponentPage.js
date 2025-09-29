@@ -5,21 +5,28 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.3.4';
+const version = 'v0.3.5';
 
 const SelectOpponentPage = () => {
   const {
     dispatch,
     events,
-    eraConfig,
-    selectedAlliance
+    eraConfig
   } = useGame();
   
-  // Local UI state
+  // Local UI state - alliance selection happens HERE now
+  const [selectedAlliance, setSelectedAlliance] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
-  const [localSelectedAlliance, setLocalSelectedAlliance] = useState(selectedAlliance);
   const [onlineHumans, setOnlineHumans] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Handle alliance selection (for choose_alliance eras)
+  const handleAllianceSelect = useCallback((allianceName) => {
+    console.log(version, 'Alliance selected:', allianceName);
+    setSelectedAlliance(allianceName);
+    // Clear opponent selection when alliance changes
+    setSelectedOpponent(null);
+  }, []);
 
   // Handle AI opponent selection
   const handleAIOpponentSelect = useCallback((opponent) => {
@@ -46,31 +53,24 @@ const SelectOpponentPage = () => {
     setSelectedOpponent(completeOpponent);
   }, []);
 
-  // Handle alliance selection (for choose_alliance eras)
-  const handleAllianceSelect = useCallback((allianceName) => {
-    console.log(version, 'Alliance selected:', allianceName);
-    setLocalSelectedAlliance(allianceName);
-    // Clear opponent selection when alliance changes
-    setSelectedOpponent(null);
-  }, []);
-
   // Get AI captains based on era configuration
   const getAvailableAICaptains = useCallback(() => {
     if (!eraConfig) return [];
     
     const requiresAlliance = eraConfig.game_rules?.choose_alliance;
-    const currentAlliance = localSelectedAlliance || selectedAlliance;
     
-    if (requiresAlliance && currentAlliance) {
+    if (requiresAlliance && selectedAlliance) {
       // For choose_alliance eras, get AI captains from opposing alliance
-      const opposingAlliance = eraConfig.alliances?.find(a => a.name !== currentAlliance);
+      const opposingAlliance = eraConfig.alliances?.find(a => a.name !== selectedAlliance);
       return opposingAlliance?.ai_captains || [];
-    } else {
+    } else if (!requiresAlliance) {
       // For non-choose_alliance eras (Traditional), get AI captains from 'Opponent' alliance
       const opponentAlliance = eraConfig.alliances?.find(a => a.name === 'Opponent');
       return opponentAlliance?.ai_captains || [];
     }
-  }, [eraConfig, localSelectedAlliance, selectedAlliance]);
+    
+    return [];
+  }, [eraConfig, selectedAlliance]);
 
   // Proceed to placement
   const handleBeginBattle = useCallback(() => {
@@ -80,10 +80,9 @@ const SelectOpponentPage = () => {
     }
 
     const requiresAlliance = eraConfig?.game_rules?.choose_alliance;
-    const currentAlliance = localSelectedAlliance || selectedAlliance;
 
     // Check if alliance selection is required
-    if (requiresAlliance && !currentAlliance) {
+    if (requiresAlliance && !selectedAlliance) {
       console.error(version, 'Alliance selection required but not selected');
       return;
     }
@@ -91,16 +90,16 @@ const SelectOpponentPage = () => {
     console.log(version, 'Proceeding to placement with:');
     console.log(version, 'Era:', eraConfig.name);
     console.log(version, 'Opponent:', selectedOpponent.name, selectedOpponent.type);
-    console.log(version, 'Alliance:', currentAlliance);
+    console.log(version, 'Alliance:', selectedAlliance || 'none');
     
     // Transition to placement with all data
     // CoreEngine will handle storing this in processEventData
     dispatch(events.PLACEMENT, {
       eraConfig: eraConfig,
       selectedOpponent: selectedOpponent,
-      selectedAlliance: currentAlliance
+      selectedAlliance: selectedAlliance
     });
-  }, [selectedOpponent, localSelectedAlliance, selectedAlliance, eraConfig, dispatch, events]);
+  }, [selectedOpponent, selectedAlliance, eraConfig, dispatch, events]);
 
   // Fetch online human players
   const fetchOnlineHumans = useCallback(async () => {
@@ -154,8 +153,7 @@ const SelectOpponentPage = () => {
   }
 
   const requiresAlliance = eraConfig.game_rules?.choose_alliance;
-  const currentAlliance = localSelectedAlliance || selectedAlliance;
-  const canProceed = selectedOpponent && (!requiresAlliance || currentAlliance);
+  const canProceed = selectedOpponent && (!requiresAlliance || selectedAlliance);
   const availableAICaptains = getAvailableAICaptains();
 
   return (
@@ -164,22 +162,22 @@ const SelectOpponentPage = () => {
         <div className="card-header">
           <h2 className="card-title">Select Opponent</h2>
           <p className="card-subtitle">Playing: <strong>{eraConfig.name}</strong></p>
-          {currentAlliance && <p className="card-subtitle">Alliance: <strong>{currentAlliance}</strong></p>}
+          {selectedAlliance && <p className="card-subtitle">Alliance: <strong>{selectedAlliance}</strong></p>}
         </div>
 
-        {/* Alliance Selection */}
-        {requiresAlliance && !currentAlliance && (
+        {/* Alliance Selection - FIRST if required */}
+        {requiresAlliance && !selectedAlliance && (
           <div className="alliance-selection">
             <div className="game-info">
-              <h3>Choose Your Alliance</h3>
-              <p>Select which side you want to command</p>
+              <h3>Choose Your Side</h3>
+              <p>Select which alliance you want to command</p>
             </div>
             
             <div className="alliance-list">
               {eraConfig.alliances.map((alliance) => (
                 <div
                   key={alliance.name}
-                  className={`alliance-item ${localSelectedAlliance === alliance.name ? 'selected' : ''}`}
+                  className={`alliance-item ${selectedAlliance === alliance.name ? 'selected' : ''}`}
                   onClick={() => handleAllianceSelect(alliance.name)}
                 >
                   <div className="alliance-header">
@@ -205,13 +203,13 @@ const SelectOpponentPage = () => {
           </div>
         )}
 
-        {/* AI Opponents */}
-        {(!requiresAlliance || currentAlliance) && (
+        {/* AI Opponents - Show after alliance selected OR if no alliance required */}
+        {(!requiresAlliance || selectedAlliance) && (
           <div className="ai-opponents">
             <div className="game-info">
               <h3>AI Opponents</h3>
               <p>Battle against computer captains</p>
-              {requiresAlliance && currentAlliance && (
+              {requiresAlliance && selectedAlliance && (
                 <p className="hint">Facing opponents from opposing alliance</p>
               )}
             </div>
@@ -244,8 +242,8 @@ const SelectOpponentPage = () => {
           </div>
         )}
 
-        {/* Human Opponents */}
-        {(!requiresAlliance || currentAlliance) && (
+        {/* Human Opponents - Show after alliance selected OR if no alliance required */}
+        {(!requiresAlliance || selectedAlliance) && (
           <div className="human-opponents">
             <div className="game-info">
               <h3>Human Opponents</h3>

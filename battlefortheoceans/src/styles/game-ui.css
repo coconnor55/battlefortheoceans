@@ -1,0 +1,563 @@
+//
+//  names.swift
+//  
+//
+//  Created by Clint O'Connor on 9/28/25.
+//
+
+
+/* src/styles/game-ui.css */
+/* Copyright(c) 2025, Clint H. O'Connor */
+/* Game-specific UI components */
+
+/* ============================================
+   ERA SELECTION COMPONENTS
+   ============================================ */
+
+/* Era list container */
+.era-list {
+  max-height: 30vh;
+  overflow-y: auto;
+  margin: var(--space-lg) 0;
+  padding: var(--space-md);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.era-item {
+  background: var(--bg-overlay);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  padding: var(--space-md);
+  margin: var(--space-sm) 0;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  box-shadow: var(--shadow-sm);
+}
+
+.era-item:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.era-item--selected {
+  border-color: var(--success);
+  background: var(--bg-medium);
+  box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
+}
+
+.era-item--locked {
+  opacity: 0.8;
+  position: relative;
+}
+
+.era-item--locked .era-name {
+  color: var(--text-dim);
+}
+
+.era-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.era-name {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.era-description {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin: var(--space-sm) 0;
+  line-height: 1.4;
+}
+
+.era-details {
+  display: flex;
+  gap: var(--space-md);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.era-grid,
+.era-players {
+  font-weight: 500;
+}
+
+/* ============================================
+   ALLIANCE SELECTION
+   ============================================ */
+
+.alliance-selection {
+  margin-top: var(--space-lg);
+}
+
+.alliance-choice {
+  margin-bottom: var(--space-lg);
+}
+
+.alliance-list {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: var(--space-md) 0;
+  max-height: 25vh;
+  overflow-y: auto;
+  padding: var(--space-md);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.alliance-item {
+  background: var(--bg-overlay);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  box-shadow: var(--shadow-sm);
+  flex: 1;
+  min-width: 250px;
+  max-width: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.alliance-item:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.alliance-item--selected {
+  border-color: var(--success);
+  background: var(--bg-medium);
+  box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
+}
+
+.alliance-item--locked {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.alliance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.alliance-name {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.alliance-ships,
+.ship-count {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.alliance-description {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.3;
+  margin: var(--space-xs) 0;
+}
+
+.alliance-fleet {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.2;
+  margin: var(--space-xs) 0;
+}
+
+.ship-name {
+  font-style: italic;
+}
+
+.alliance-join-btn {
+  margin-top: var(--space-sm);
+  align-self: center;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.9rem;
+}
+
+/* ============================================
+   OPPONENT SELECTION
+   ============================================ */
+
+.opponent-choice {
+  text-align: center;
+  padding: var(--space-lg);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.ai-opponents,
+.human-opponents {
+  margin-bottom: var(--space-lg);
+}
+
+.opponent-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.opponent-item {
+  background: var(--bg-overlay);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  padding: var(--space-md);
+  margin: var(--space-sm) 0;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  box-shadow: var(--shadow-sm);
+}
+
+.opponent-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.opponent-item--selected {
+  background: var(--bg-medium);
+  box-shadow: 0 3px 8px var(--primary-glow);
+}
+
+/* AI vs Human opponent styling */
+.ai-opponent:hover {
+  border-color: var(--warning);
+}
+
+.ai-opponent.opponent-item--selected {
+  border-color: var(--error);
+}
+
+.human-opponent:hover {
+  border-color: var(--accent);
+}
+
+.human-opponent.opponent-item--selected {
+  border-color: var(--primary);
+}
+
+.opponent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.opponent-name {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.opponent-description {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: var(--space-xs) 0;
+  line-height: 1.3;
+}
+
+.opponent-type {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: var(--space-xs);
+}
+
+.no-humans {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--text-dim);
+}
+
+.no-humans p {
+  margin: var(--space-xs) 0;
+}
+
+.no-humans .hint {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+/* ============================================
+   GAME BOARD COMPONENTS
+   ============================================ */
+
+.game-board-container {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  overflow: visible;
+  min-height: 320px;
+}
+
+.game-board-container canvas {
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  background-color: transparent;
+}
+
+/* ============================================
+   PLACEMENT PAGE COMPONENTS
+   ============================================ */
+
+.auto-place-controls {
+  display: flex !important;
+  justify-content: center;
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative;
+  z-index: 100;
+}
+
+.auto-place-controls .btn {
+  min-width: 200px;
+  padding: var(--space-md) var(--space-lg);
+  font-size: 1rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  border: 2px solid transparent;
+  transition: all var(--transition-speed);
+}
+
+.auto-place-controls .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.auto-place-controls .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.placement-complete {
+  display: flex !important;
+  justify-content: center;
+  margin: var(--space-xl) 0;
+  padding: var(--space-md);
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative;
+  z-index: 100;
+}
+
+.placement-complete .btn--lg {
+  min-width: 250px;
+  padding: var(--space-lg) var(--space-xl);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+/* ============================================
+   BATTLE COMPONENTS
+   ============================================ */
+
+.battle-legend {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-lg);
+  margin-top: var(--space-md);
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.battle-legend .legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  backdrop-filter: blur(3px);
+}
+
+.battle-legend .legend-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-size: 8px;
+}
+
+.battle-legend .legend-icon.has-ship {
+  background-color: var(--accent);
+}
+
+.battle-legend .legend-icon.your-hit {
+  background-color: var(--error);
+}
+
+.battle-legend .legend-icon.enemy-hit {
+  background-color: var(--warning);
+}
+
+.battle-legend .legend-icon.your-miss {
+  background-color: var(--text-dim);
+}
+
+/* ============================================
+   BATTLE STATS
+   ============================================ */
+
+.battle-stats {
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  padding: var(--space-lg);
+  margin: var(--space-lg) 0;
+}
+
+.battle-stats h4 {
+  text-align: center;
+  margin-bottom: var(--space-md);
+  color: var(--primary);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.player-stats {
+  background: var(--bg-medium);
+  border-radius: var(--border-radius);
+  padding: var(--space-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.player-name {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: var(--primary);
+  margin-bottom: var(--space-sm);
+  text-align: center;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.game-duration {
+  text-align: center;
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* Game stats - inline compact display */
+.game-stats {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xl);
+  margin: var(--space-sm) 0;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.game-stats .score {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-inline {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   ACTION BUTTONS
+   ============================================ */
+
+.action-buttons {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.over-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+  margin: var(--space-xl) 0;
+  flex-wrap: wrap;
+}
+
+/* Game info section */
+.game-info {
+  margin-bottom: var(--space-md);
+}
+
+.game-info h3 {
+  margin-bottom: var(--space-sm);
+}
+
+.game-info p {
+  margin-bottom: var(--space-xs);
+}
+
+.game-info .hint {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+/* ============================================
+   LEGACY CLASS SUPPORT
+   ============================================ */
+
+/* Support for old class names - can be removed after migration */
+.selected { @extend .era-item--selected; }
+.locked { @extend .era-item--locked; }
+
+/* EOF */

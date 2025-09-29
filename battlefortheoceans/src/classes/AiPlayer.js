@@ -4,7 +4,7 @@
 
 import Player from './Player.js';
 
-const version = "v0.2.3";
+const version = "v0.2.4";
 
 export class AiPlayer extends Player {
   constructor(id, name, strategy = 'random', skillLevel = 'novice') {
@@ -67,10 +67,21 @@ export class AiPlayer extends Player {
    * Strategy-based target selection
    */
   selectTarget(availableTargets, gameInstance) {
-    // Check for active hunts first (unless novice)
+    // SKILL LEVEL CHECK: Only experienced and expert use hunt mode
     if (this.skillLevel !== 'novice' && this.hasActiveHunt()) {
       const huntTarget = this.continueHunt(availableTargets);
-      if (huntTarget) return huntTarget;
+      if (huntTarget) {
+        console.log(`AI ${this.name} (${this.skillLevel}): Hunt mode - targeting ${huntTarget.row},${huntTarget.col}`);
+        return huntTarget;
+      }
+    }
+
+    // Expert skill: Center concentration bonus
+    if (this.skillLevel === 'expert') {
+      const centerTarget = this.selectCenterConcentration(availableTargets, gameInstance);
+      if (centerTarget && Math.random() < 0.3) { // 30% chance to prefer center
+        return centerTarget;
+      }
     }
 
     // Apply primary strategy
@@ -146,6 +157,32 @@ export class AiPlayer extends Player {
 
     // Phase 2: Every other square (finds remaining ships)
     return this.selectMethodicalRandom(availableTargets, gameInstance);
+  }
+
+  /**
+   * Center concentration for expert skill level
+   */
+  selectCenterConcentration(availableTargets, gameInstance) {
+    const centerRow = Math.floor(gameInstance.board.rows / 2);
+    const centerCol = Math.floor(gameInstance.board.cols / 2);
+    
+    // Find targets close to center
+    const centerTargets = availableTargets
+      .map(target => ({
+        ...target,
+        distance: Math.abs(target.row - centerRow) + Math.abs(target.col - centerCol)
+      }))
+      .filter(target => target.distance <= 3) // Within 3 cells of center
+      .sort((a, b) => a.distance - b.distance);
+    
+    if (centerTargets.length > 0) {
+      // Pick randomly from closest targets
+      const closestDistance = centerTargets[0].distance;
+      const closestTargets = centerTargets.filter(t => t.distance === closestDistance);
+      return closestTargets[Math.floor(Math.random() * closestTargets.length)];
+    }
+    
+    return null;
   }
 
   /**
@@ -251,26 +288,29 @@ export class AiPlayer extends Player {
   }
 
   /**
-   * Process attack result and update AI memory
+   * FIXED: Process attack result - called by Game after each AI shot
+   * Expected result format from Game.receiveAttack():
+   * { result: 'hit'|'miss'|'sunk', ships: [...] }
    */
   processAttackResult(target, result, gameInstance) {
     const key = `${target.row},${target.col}`;
     
-    if (result.isHit) {
+    if (result.result === 'hit' || result.result === 'sunk') {
       // Record hit
+      const shipInfo = result.ships && result.ships.length > 0 ? result.ships[0] : null;
       this.memory.hits.set(key, {
-        shipId: result.shipId,
-        shipName: result.shipName,
-        cellIndex: result.cellIndex,
+        shipId: shipInfo?.ship?.id,
+        shipName: shipInfo?.ship?.name,
         timestamp: Date.now()
       });
 
-      // Add adjacent targets to hunt queue (unless novice)
+      // SKILL LEVEL: Only experienced and expert use hunt mode
       if (this.skillLevel !== 'novice') {
         this.addAdjacentTargets(target.row, target.col, gameInstance);
+        console.log(`AI ${this.name} (${this.skillLevel}): Hit! Added adjacent targets to hunt queue`);
+      } else {
+        console.log(`AI ${this.name} (novice): Hit! Continuing random targeting`);
       }
-
-      console.log(`AI ${this.name}: Hit ${result.shipName} at ${target.row},${target.col}`);
     } else {
       // Record miss
       this.memory.misses.add(key);
@@ -279,7 +319,7 @@ export class AiPlayer extends Player {
   }
 
   /**
-   * Add adjacent cells to hunt queue
+   * Add adjacent cells to hunt queue (experienced and expert only)
    */
   addAdjacentTargets(row, col, gameInstance) {
     const adjacent = [
@@ -298,6 +338,8 @@ export class AiPlayer extends Player {
         }
       }
     }
+    
+    console.log(`AI ${this.name}: Hunt queue now has ${this.memory.targetQueue.length} targets`);
   }
 
   /**

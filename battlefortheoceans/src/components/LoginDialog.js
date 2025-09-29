@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.37';
+const version = 'v0.1.38';
 
 const LoginDialog = ({ onClose }) => {
   const [email, setEmail] = useState('');
@@ -111,17 +111,23 @@ const LoginDialog = ({ onClose }) => {
   };
 
   const handleGuest = async () => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: process.env.REACT_APP_GUEST_EMAIL,
-      password: process.env.REACT_APP_GUEST_PASSWORD,
-    });
+    // Generate guest ID with timestamp and random string
+    const guestId = `guest-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     
-    if (error) {
-      setError(error.message);
-    } else {
-      console.log('Guest logged in:', data.user);
-      onClose(data.user);
-    }
+    console.log('Playing as guest with ID:', guestId);
+    
+    // Create guest user object
+    const guestUser = {
+      id: guestId,
+      email: null,
+      user_metadata: {
+        game_name: 'Guest'
+      },
+      app_metadata: {},
+      created_at: new Date().toISOString()
+    };
+    
+    onClose(guestUser);
   };
 
   const handleResendConfirmation = async () => {
@@ -170,7 +176,7 @@ const LoginDialog = ({ onClose }) => {
 
   if (pendingConfirmation) {
     return (
-      <div className="content-pane content-pane-narrow">
+      <div className="content-pane content-pane--narrow">
         <div className="card-header">
           <h2 className="card-title">Confirm Your Email</h2>
         </div>
@@ -183,12 +189,12 @@ const LoginDialog = ({ onClose }) => {
             Don't see the email? Check your spam folder or click below to resend.
           </p>
         </div>
-        {error && <p className="error-message">{error}</p>}
+        {error && <p className="message--error">{error}</p>}
         <div className="confirmation-actions">
-          <button className='btn btn-secondary' onClick={handleResendConfirmation}>
+          <button className='btn btn--secondary' onClick={handleResendConfirmation}>
             Resend Confirmation Email
           </button>
-          <button className='btn btn-primary' onClick={handleBackToLogin}>
+          <button className='btn btn--primary' onClick={handleBackToLogin}>
             Back to Login
           </button>
         </div>
@@ -197,7 +203,7 @@ const LoginDialog = ({ onClose }) => {
   }
 
   return (
-    <div className="content-pane content-pane-narrow">
+    <div className="content-pane content-pane--narrow">
       <div className="card-header">
         <h2 className="card-title">
           {mode === 'login' && 'Login'}
@@ -208,9 +214,9 @@ const LoginDialog = ({ onClose }) => {
       
       {error && (
         <div className="error-section">
-          <p className="error-message">{error}</p>
+          <p className="message--error">{error}</p>
           {mode === 'login' && loginAttempted && error.includes('Account not found') && (
-            <button className='btn btn-secondary btn-small' onClick={switchToSignup}>
+            <button className='btn btn--secondary btn--sm' onClick={switchToSignup}>
               Sign Up Instead
             </button>
           )}
@@ -220,7 +226,7 @@ const LoginDialog = ({ onClose }) => {
       <form onSubmit={mode === 'login' ? handleLogin : mode === 'signup' ? handleSignUp : handleForgotPassword}>
         <div className="form-group">
           <input
-            className='input input-primary'
+            className='form-input'
             type="email"
             name="email"
             autoComplete="username email"
@@ -234,7 +240,7 @@ const LoginDialog = ({ onClose }) => {
         {mode !== 'forgot' && (
           <div className="form-group password-group">
             <input
-              className='input input-primary'
+              className='form-input'
               type={showPassword ? 'text' : 'password'}
               name="password"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
@@ -258,7 +264,7 @@ const LoginDialog = ({ onClose }) => {
         <div className="form-actions">
           {mode === 'login' && (
             <>
-              <button className='btn btn-primary' type="submit">Login</button>
+              <button className='btn btn--primary' type="submit">Login</button>
               <div className="auth-links">
                 <button type="button" className='link-button' onClick={switchToSignup}>
                   Don't have an account? Sign up
@@ -272,7 +278,7 @@ const LoginDialog = ({ onClose }) => {
           
           {mode === 'signup' && (
             <>
-              <button className='btn btn-primary' type="submit">Create Account</button>
+              <button className='btn btn--primary' type="submit">Create Account</button>
               <div className="auth-links">
                 <button type="button" className='link-button' onClick={switchToLogin}>
                   Already have an account? Login
@@ -283,7 +289,7 @@ const LoginDialog = ({ onClose }) => {
           
           {mode === 'forgot' && (
             <>
-              <button className='btn btn-primary' type="submit">Send Reset Email</button>
+              <button className='btn btn--primary' type="submit">Send Reset Email</button>
               <div className="auth-links">
                 <button type="button" className='link-button' onClick={switchToLogin}>
                   Back to Login
@@ -299,7 +305,7 @@ const LoginDialog = ({ onClose }) => {
           <div className="divider">
             <span>or</span>
           </div>
-          <button className='btn btn-secondary' onClick={handleGuest}>
+          <button className='btn btn--primary' onClick={handleGuest}>
             Play as Guest
           </button>
         </div>

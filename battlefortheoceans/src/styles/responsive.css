@@ -1,0 +1,367 @@
+/* src/styles/responsive.css */
+/* Copyright(c) 2025, Clint H. O'Connor */
+/* Responsive design - consolidated mobile/tablet breakpoints */
+
+/* ============================================
+   TABLET BREAKPOINTS (768px and below)
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Content panes */
+  .content-pane,
+  .panel {
+    padding: var(--space-md);
+    margin: var(--space-sm) 0;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.875rem;
+  }
+  
+  .btn-group {
+    width: 100%;
+  }
+  
+  .btn-group .btn {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Tables */
+  .table {
+    font-size: 0.875rem;
+  }
+  
+  .table th,
+  .table td {
+    padding: var(--space-sm);
+  }
+
+  /* Modal */
+  .modal {
+    padding: var(--space-lg);
+    max-width: 95%;
+  }
+}
+
+/* ============================================
+   MOBILE BREAKPOINTS (480px and below)
+   ============================================ */
+
+@media (max-width: 480px) {
+  /* Authentication forms */
+  .reset-password-form,
+  .reset-success,
+  .reset-error,
+  .login-dialog {
+    margin: 0 var(--space-md);
+  }
+  
+  .reset-password-form .form-actions {
+    margin-top: var(--space-lg);
+  }
+  
+  /* Content panes */
+  .content-pane,
+  .content-pane--narrow,
+  .content-pane--wide {
+    padding: var(--space-lg);
+    max-width: 95%;
+  }
+  
+  /* Era selection */
+  .era-list {
+    max-height: 35vh;
+    padding: var(--space-sm);
+  }
+  
+  .era-item {
+    padding: var(--space-sm);
+    margin: var(--space-xs) 0;
+  }
+  
+  .era-name {
+    font-size: 1rem;
+  }
+  
+  .era-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+  
+  .era-details {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+  
+  /* Alliance selection */
+  .alliance-list {
+    flex-direction: column;
+    max-height: 30vh;
+  }
+  
+  .alliance-item {
+    min-width: auto;
+    max-width: none;
+  }
+  
+  .alliance-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+  
+  /* Opponent selection */
+  .opponent-list {
+    max-height: 150px;
+  }
+  
+  .opponent-item {
+    padding: var(--space-sm);
+  }
+  
+  .opponent-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+  
+  .action-buttons,
+  .over-actions {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+  
+  .action-buttons .btn,
+  .over-actions .btn {
+    width: 100%;
+  }
+  
+  /* Playing page */
+  .message-consoles {
+    max-width: 95%;
+    margin: var(--space-sm) auto;
+  }
+  
+  .battle-legend {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+  
+  .game-stats {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+}
+
+/* ============================================
+   TABLET RANGE (481px to 768px)
+   ============================================ */
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .era-list {
+    max-height: 32vh;
+  }
+  
+  .alliance-list {
+    justify-content: center;
+    max-height: 28vh;
+  }
+  
+  .opponent-list {
+    max-height: 180px;
+  }
+  
+  .era-details {
+    gap: var(--space-sm);
+  }
+}
+
+/* ============================================
+   LANDSCAPE ORIENTATION (height constrained)
+   ============================================ */
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .era-list {
+    max-height: 25vh;
+  }
+  
+  .alliance-list {
+    max-height: 22vh;
+  }
+  
+  .opponent-list {
+    max-height: 20vh;
+  }
+}
+
+/* ============================================
+   VERY SMALL SCREENS (height constrained)
+   ============================================ */
+
+@media (max-height: 500px) {
+  .era-list {
+    max-height: 20vh;
+  }
+  
+  .alliance-list {
+    max-height: 18vh;
+  }
+  
+  .opponent-list {
+    max-height: 15vh;
+  }
+}
+
+/* ============================================
+   LARGE SCREENS (desktop optimization)
+   ============================================ */
+
+@media (min-width: 1024px) {
+  /* Increase content pane max widths for large screens */
+  .content-pane--wide {
+    max-width: 1200px;
+  }
+  
+  /* Optimize era/alliance layouts for wide screens */
+  .alliance-list {
+    max-height: 35vh;
+  }
+  
+  .era-list {
+    max-height: 40vh;
+  }
+  
+  .opponent-list {
+    max-height: 250px;
+  }
+}
+
+/* ============================================
+   EXTRA WIDE SCREENS (1440px+)
+   ============================================ */
+
+@media (min-width: 1440px) {
+  .content-pane--wide {
+    max-width: 1400px;
+  }
+  
+  /* Allow more vertical space for lists */
+  .alliance-list {
+    max-height: 40vh;
+  }
+  
+  .era-list {
+    max-height: 45vh;
+  }
+}
+
+/* ============================================
+   GAME-SPECIFIC RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+/* Game board scaling */
+@media (max-width: 768px) {
+  .game-board-container {
+    min-height: 250px;
+    padding: var(--space-sm);
+  }
+  
+  .game-board-container canvas {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-board-container {
+    min-height: 200px;
+    margin: var(--space-sm) 0;
+  }
+}
+
+/* Battle stats responsive */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+  
+  .battle-stats {
+    padding: var(--space-md);
+  }
+}
+
+/* Message console responsive */
+@media (max-width: 480px) {
+  .message-console {
+    padding: var(--space-sm);
+    margin: var(--space-sm) 0;
+    font-size: 0.875rem;
+  }
+  
+  .console-content-combined {
+    padding: var(--space-sm);
+    font-size: 0.8rem;
+  }
+}
+
+/* Form responsive adjustments */
+@media (max-width: 480px) {
+  .form-input,
+  .form-textarea,
+  .form-select {
+    padding: var(--space-sm);
+    font-size: 0.9rem;
+  }
+  
+  .form-label {
+    font-size: 0.8rem;
+  }
+}
+
+/* Log display responsive */
+@media (max-width: 768px) {
+  .log-content {
+    max-height: 200px;
+    font-size: 0.7rem;
+  }
+  
+  .log-entry {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+  
+  .log-time,
+  .log-turn {
+    min-width: auto;
+  }
+}
+
+/* Badge responsive */
+@media (max-width: 480px) {
+  .badge {
+    font-size: 0.65rem;
+    padding: 2px var(--space-xs);
+  }
+}
+
+/* Auto-place controls responsive */
+@media (max-width: 480px) {
+  .auto-place-controls .btn {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .placement-complete .btn--lg {
+    min-width: auto;
+    width: 100%;
+  }
+}
+
+/* EOF */

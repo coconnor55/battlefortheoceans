@@ -7,7 +7,6 @@ import reportWebVitals from './reportWebVitals';
 // Import styles in correct order (CRITICAL)
 import './index.css';              // 1. Global resets first
 import './styles/theme.css';       // 2. Theme variables and base styles
-import './styles/components.css';  // 3. Reusable component styles
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

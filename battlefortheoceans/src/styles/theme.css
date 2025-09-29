@@ -113,7 +113,11 @@ body {
   --shadow: 0 0 20px var(--primary-glow);
   --shadow-sm: 0 0 10px var(--primary-dim);
   --shadow-lg: 0 0 40px var(--primary-glow);
-  
+ 
+ /* Button semantic colors */
+ --btn-border-primary: var(--primary);
+ --btn-border-primary-hover: var(--primary);
+ 
   /* Apply theme */
   background: radial-gradient(ellipse at bottom, var(--bg-medium) 0%, var(--bg-dark) 100%);
   color: var(--text-primary);
@@ -182,6 +186,10 @@ body[data-era="midway"] {
   --shadow: 0 4px 20px var(--primary-glow);
   --shadow-sm: 0 2px 10px var(--primary-dim);
   --shadow-lg: 0 8px 40px var(--primary-glow);
+  
+  /* Button semantic colors */
+  --btn-border-primary: var(--primary);
+  --btn-border-primary-hover: var(--primary);
   
   /* Vintage gradient background */
   background: linear-gradient(180deg, 
@@ -279,6 +287,7 @@ code, pre {
 .container {
   width: 100%;
   max-width: 1200px;
+  min-height: 100vh;
   margin: 0 auto;
   padding: 0 var(--space-md);
 }

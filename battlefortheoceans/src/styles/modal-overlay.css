@@ -1,0 +1,164 @@
+/* src/styles/modal-overlay.css */
+/* Copyright(c) 2025, Clint H. O'Connor */
+/* Modal and overlay components */
+
+/* ============================================
+   CONTENT OVERLAY / PANES
+   ============================================ */
+
+/* Content pane - semi-transparent overlay for readability over background */
+.content-pane {
+  background: var(--bg-overlay);
+  backdrop-filter: blur(10px);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-subtle);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.content-pane--wide {
+  max-width: 900px;
+}
+
+.content-pane--narrow {
+  max-width: 400px;
+}
+
+/* For full-page overlays */
+.page-overlay {
+  background: var(--bg-overlay);
+  backdrop-filter: blur(10px);
+  min-height: 100vh;
+  padding: var(--space-lg);
+}
+
+/* ============================================
+   MODAL / DIALOG
+   ============================================ */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  animation: fadeIn var(--transition-speed) ease-in;
+}
+
+.modal-overlay--transparent {
+  background: transparent;
+}
+
+.modal {
+  background: var(--bg-medium);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-xl);
+  max-width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: slideInUp var(--transition-speed) ease-out;
+}
+
+.modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.modal__title {
+  margin: 0;
+  color: var(--primary);
+  font-size: 1.5rem;
+}
+
+.modal__close {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: var(--space-xs);
+}
+
+.modal__close:hover {
+  color: var(--text-primary);
+  transform: scale(1.1);
+}
+
+.modal__body {
+  margin-bottom: var(--space-lg);
+  color: var(--text-secondary);
+}
+
+.modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ============================================
+   STRUCTURAL ELEMENTS (used with content-pane)
+   ============================================ */
+
+/* Header section with bottom border */
+.card-header {
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Body section */
+.card-body {
+  color: var(--text-secondary);
+}
+
+/* Footer section with top border */
+.card-footer {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+/* Main heading */
+.card-title {
+  margin: 0;
+  color: var(--primary);
+  font-size: 1.5rem;
+}
+
+/* Secondary text */
+.card-subtitle {
+  margin: var(--space-sm) 0 0 0;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+/* Panel (lightweight alternative to content-pane) */
+.panel {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+/* EOF */
