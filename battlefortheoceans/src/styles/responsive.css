@@ -1,4 +1,4 @@
-/* src/styles/responsive.css v1.0.1 */
+/* src/styles/responsive.css v1.0.3 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Responsive design - consolidated mobile/tablet breakpoints */
 
@@ -227,13 +227,14 @@
 }
 
 /* ============================================
-   LARGE SCREENS (desktop optimization)
+   DESKTOP (1024px+)
+   v1.0.3: Optimized for high-DPI displays
    ============================================ */
 
 @media (min-width: 1024px) {
-  /* Increase content pane max widths for large screens */
+  /* v1.0.3: Use 95% on high-res displays for better space utilization */
   .content-pane--wide {
-    max-width: 1200px;
+    max-width: 95%;
   }
   
   /* Optimize era/alliance layouts for wide screens */
@@ -247,25 +248,6 @@
   
   .opponent-list {
     max-height: 250px;
-  }
-}
-
-/* ============================================
-   EXTRA WIDE SCREENS (1440px+)
-   ============================================ */
-
-@media (min-width: 1440px) {
-  .content-pane--wide {
-    max-width: 1400px;
-  }
-  
-  /* Allow more vertical space for lists */
-  .alliance-list {
-    max-height: 40vh;
-  }
-  
-  .era-list {
-    max-height: 45vh;
   }
 }
 
