@@ -1,12 +1,13 @@
-// src/pages/OverPage.js
+// src/pages/OverPage.js v0.3.6
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
+import LeaderboardService from '../services/LeaderboardService';
 
-const version = 'v0.2.1';
+const version = 'v0.3.6';
 
 const OverPage = () => {
   const {
@@ -19,11 +20,51 @@ const OverPage = () => {
     hasEraAccess
   } = useGame();
   
-  const [showGameLog, setShowGameLog] = useState(false);
-  const [showStats, setShowStats] = useState(true);
+  // Redirect to login if no user profile
+  useEffect(() => {
+    if (!userProfile) {
+      console.log(version, 'No user profile detected - redirecting to login');
+      dispatch(events.LOGIN);
+    }
+  }, [userProfile, dispatch, events]);
+  
   const [showPromotion, setShowPromotion] = useState(false);
   const [showPurchasePage, setShowPurchasePage] = useState(false);
   const [purchaseEraId, setPurchaseEraId] = useState(null);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [playerRank, setPlayerRank] = useState(null);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
+  const [leaderboardError, setLeaderboardError] = useState(null);
+
+  const leaderboardService = new LeaderboardService();
+  const isGuest = userProfile?.id?.startsWith('guest-');
+
+  // Fetch leaderboard on mount
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      setLoadingLeaderboard(true);
+      setLeaderboardError(null);
+      
+      try {
+        const top10 = await leaderboardService.getLeaderboard(10);
+        console.log(version, 'Leaderboard data received:', top10);
+        setLeaderboard(top10 || []);
+        
+        // Get player's rank if not a guest
+        if (userProfile?.id && !isGuest) {
+          const rank = await leaderboardService.getPlayerRanking(userProfile.id);
+          setPlayerRank(rank);
+        }
+      } catch (error) {
+        console.error(version, 'Error fetching leaderboard:', error);
+        setLeaderboardError(error.message || 'Failed to load leaderboard');
+      } finally {
+        setLoadingLeaderboard(false);
+      }
+    };
+
+    fetchLeaderboard();
+  }, [userProfile?.id, isGuest]);
 
   // Check if user needs to see Midway Island promotion
   useEffect(() => {
@@ -52,10 +93,14 @@ const OverPage = () => {
                    `Date: ${new Date().toISOString()}\n` +
                    `Winner: ${gameStats.winner || 'Draw'}\n\n`;
     
-    const entries = gameLog.map(entry => {
-      const time = new Date(entry.timestamp).toLocaleTimeString();
-      return `[${time}] Turn ${entry.turn}: ${entry.message}`;
-    }).join('\n');
+    const entries = gameLog
+      .filter(entry => entry.message?.includes('[BATTLE]'))
+      .map(entry => {
+        const elapsed = entry.elapsed || '0.0';
+        const msg = entry.message.replace('[BATTLE] ', '');
+        return `[+${elapsed}s] ${msg}`;
+      })
+      .join('\n');
     
     return header + entries;
   };
@@ -80,30 +125,27 @@ const OverPage = () => {
     window.open(mailtoLink);
   };
 
-  // Handle restart - go back to SelectEra
-  const handleRestart = () => {
-    // Don't reset game - CoreEngine will handle it on state transition
+  // Handle play again - go back to opponent selection
+  const handlePlayAgain = () => {
+    if (dispatch && events) {
+      dispatch(events.SELECTOPPONENT);
+    }
+  };
+
+  // v0.3.6: Restored - go back to era selection
+  const handleChangeEra = () => {
     if (dispatch && events) {
       dispatch(events.ERA);
     }
   };
 
-  // Handle play again with same settings - replays with same era and opponent
-  const handlePlayAgain = () => {
-    // Don't reset game - CoreEngine will reinitialize on PLACEMENT transition
-    if (dispatch && events) {
-      dispatch(events.PLACEMENT);
-    }
-  };
-
-  // Handle purchase flow from promotional box
+  // Handle purchase flow
   const handlePurchase = (eraId) => {
     console.log(version, 'Initiating purchase flow for era:', eraId);
     setPurchaseEraId(eraId);
     setShowPurchasePage(true);
   };
 
-  // Handle purchase completion
   const handlePurchaseComplete = (eraId) => {
     console.log(version, 'Purchase completed for era:', eraId);
     setShowPurchasePage(false);
@@ -112,16 +154,20 @@ const OverPage = () => {
     alert(`${eraId} has been unlocked! You can now access it from the Era Selection page.`);
   };
 
-  // Handle purchase cancellation
   const handlePurchaseCancel = () => {
     console.log(version, 'Purchase cancelled');
     setShowPurchasePage(false);
     setPurchaseEraId(null);
   };
 
+  // Don't render if no userProfile (will redirect)
+  if (!userProfile) {
+    return null;
+  }
+
   return (
-    <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-      <div className="content-pane content-pane-wide" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+    <div className="container flex flex-column flex-center">
+      <div className="content-pane content-pane--wide">
         <div className="card-header">
           <h2 className="card-title">Battle Complete</h2>
           <p className="card-subtitle">{eraConfig?.name || 'Naval Combat'}</p>
@@ -137,7 +183,7 @@ const OverPage = () => {
             </p>
           </div>
 
-          {showStats && gameStats.players && (
+          {gameStats.players && (
             <div className="battle-stats">
               <h4>Battle Statistics</h4>
               <div className="stats-grid">
@@ -177,6 +223,75 @@ const OverPage = () => {
           )}
         </div>
 
+        {/* Top 10 Leaderboard */}
+        <div className="leaderboard-section">
+          <h4>Top 10 Leaderboard</h4>
+          
+          {loadingLeaderboard ? (
+            <div className="loading">
+              <div className="spinner"></div>
+              <p>Loading leaderboard...</p>
+            </div>
+          ) : leaderboardError ? (
+            <div className="error-message">
+              <p>Unable to load leaderboard: {leaderboardError}</p>
+            </div>
+          ) : leaderboard.length === 0 ? (
+            <div className="empty-state">
+              <p>No players on the leaderboard yet.</p>
+              <p className="text-secondary">Play more games to be the first!</p>
+            </div>
+          ) : (
+            <>
+              <div className="leaderboard-table">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Player</th>
+                      <th>Score</th>
+                      <th>Accuracy</th>
+                      <th>Wins</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard.map((entry, index) => {
+                      const isCurrentPlayer = !isGuest && entry.game_name === userProfile?.game_name;
+                      return (
+                        <tr key={index} className={isCurrentPlayer ? 'player-row' : ''}>
+                          <td className="rank-cell">#{index + 1}</td>
+                          <td className="player-cell">
+                            {entry.game_name}
+                            {isCurrentPlayer && <span className="badge badge--primary ml-sm">You</span>}
+                          </td>
+                          <td>{entry.total_score?.toLocaleString() || 0}</td>
+                          <td>{entry.best_accuracy ? `${entry.best_accuracy.toFixed(1)}%` : 'N/A'}</td>
+                          <td>{entry.total_wins || 0}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Show player's rank if not in top 10 */}
+              {!isGuest && playerRank && playerRank > 10 && (
+                <div className="player-rank-info">
+                  <p>
+                    <strong>Your Rank:</strong> #{playerRank}
+                  </p>
+                </div>
+              )}
+
+              {isGuest && (
+                <div className="guest-leaderboard-note">
+                  <p>Create an account to track your ranking and compete for the top spot!</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
         {showPromotion && (
           <PromotionalBox
             eraConfig={eraConfig}
@@ -185,76 +300,76 @@ const OverPage = () => {
           />
         )}
 
+        {/* v0.3.6: Restored "Change Era" button */}
         <div className="over-actions">
           <button
-            className="btn btn-secondary"
-            onClick={() => setShowStats(!showStats)}
+            className="btn btn--secondary btn--lg"
+            onClick={handleChangeEra}
+            title="Select a different era"
           >
-            {showStats ? 'Hide' : 'Show'} Statistics
+            Change Era
           </button>
-
           <button
-            className="btn btn-secondary"
-            onClick={() => setShowGameLog(!showGameLog)}
-          >
-            {showGameLog ? 'Hide' : 'Show'} Battle Log
-          </button>
-
-          <button
-            className="btn btn-warning"
-            onClick={copyGameLog}
-          >
-            Copy Log
-          </button>
-
-          <button
-            className="btn btn-secondary"
-            onClick={emailGameLog}
-          >
-            Email Results
-          </button>
-
-          <button
-            className="btn btn-primary"
+            className="btn btn--primary btn--lg"
             onClick={handlePlayAgain}
-            title="Battle Again - same era, same opponent"
+            title="Play another battle - choose a different opponent"
           >
             Battle Again
           </button>
-
-          <button
-            className="btn btn-primary"
-            onClick={handleRestart}
-          >
-            Choose New Era
-          </button>
         </div>
 
-        {showGameLog && (
-          <div className="game-log-display">
+        <div className="section-divider"></div>
+
+        <div className="game-log-section">
+          <div className="log-header">
             <h4>Battle Log</h4>
-            <div className="log-content">
-              {gameLog.length > 0 ? gameLog.map((entry, index) => (
-                <div key={index} className={`log-entry ${entry.type || 'info'}`}>
-                  <span className="log-time">
-                    {new Date(entry.timestamp).toLocaleTimeString()}
-                  </span>
-                  <span className="log-turn">[T{entry.turn || '0'}]</span>
-                  <span className="log-message">{entry.message}</span>
-                </div>
-              )) : (
-                <p>No battle log available</p>
-              )}
+            <div className="log-actions">
+              <button
+                className="btn btn--sm btn--secondary"
+                onClick={copyGameLog}
+                title="Copy log to clipboard"
+              >
+                Copy
+              </button>
+              <button
+                className="btn btn--sm btn--secondary"
+                onClick={emailGameLog}
+                title="Email results"
+              >
+                Email
+              </button>
             </div>
           </div>
-        )}
+          
+          <div className="divider"></div>
+          
+          <div className="log-content">
+            {gameLog.filter(entry => entry.message?.includes('[BATTLE]')).length > 0 ?
+              gameLog
+                .filter(entry => entry.message?.includes('[BATTLE]'))
+                .map((entry, index) => {
+                  const elapsed = entry.elapsed || '0.0';
+                  const msg = entry.message.replace('[BATTLE] ', '');
+                  return (
+                    <div key={index} className={`log-entry ${entry.type || 'info'}`}>
+                      <span className="log-time">[+{elapsed}s]</span>
+                      <span className="log-message">{msg}</span>
+                    </div>
+                  );
+                }) : (
+              <p>No battle log available</p>
+            )}
+          </div>
+        </div>
 
         {showPurchasePage && (
-          <PurchasePage
-            eraId={purchaseEraId}
-            onComplete={handlePurchaseComplete}
-            onCancel={handlePurchaseCancel}
-          />
+          <div className="modal-overlay modal-overlay--transparent">
+            <PurchasePage
+              eraId={purchaseEraId}
+              onComplete={handlePurchaseComplete}
+              onCancel={handlePurchaseCancel}
+            />
+          </div>
         )}
       </div>
     </div>

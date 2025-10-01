@@ -1,12 +1,12 @@
-// src/pages/PlacementPage.js
+// src/pages/PlacementPage.js v0.4.2
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
-import FleetPlacement from '../components/FleetPlacement';
+import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.3.3';
+const version = 'v0.4.2';
 
 const PlacementPage = () => {
   const {
@@ -18,7 +18,8 @@ const PlacementPage = () => {
     gameInstance,
     board,
     registerShipPlacement,
-    subscribeToUpdates
+    subscribeToUpdates,
+    userProfile
   } = useGame();
   
   const {
@@ -28,6 +29,14 @@ const PlacementPage = () => {
     currentShip,
     isPlacementComplete
   } = useGameState();
+  
+  // Redirect to login if no user profile
+  useEffect(() => {
+    if (!userProfile) {
+      console.log(version, 'No user profile detected - redirecting to login');
+      dispatch(events.LOGIN);
+    }
+  }, [userProfile, dispatch, events]);
   
   // Only UI-specific state remains
   const [error, setError] = useState(null);
@@ -65,7 +74,7 @@ const PlacementPage = () => {
     }
   }, [eraConfig, humanPlayer, selectedOpponent, gameInstance, board]);
 
-  // Handle ship placement - check for completion synchronously
+  // v0.4.0: Handle ship placement - NO automatic transition to battle
   const handleShipPlaced = (ship, shipCells, orientation) => {
     try {
       console.log(version, `Placing ${ship.name} with ${shipCells.length} cells`);
@@ -75,17 +84,15 @@ const PlacementPage = () => {
       if (success) {
         console.log(version, `Successfully placed ${ship.name}`);
         
-        // Check for placement completion synchronously after each ship
+        // Log placement progress but DON'T auto-transition
         const placementProgress = gameInstance?.playerFleets?.get(humanPlayer.id);
         if (placementProgress) {
           const placedCount = placementProgress.ships.filter(ship => ship.isPlaced).length;
           const totalCount = placementProgress.ships.length;
+          console.log(version, `Placement progress: ${placedCount}/${totalCount} ships placed`);
           
           if (placedCount === totalCount) {
-            console.log(version, 'All ships placed - transitioning to battle synchronously');
-            if (dispatch && events) {
-              dispatch(events.PLAY);
-            }
+            console.log(version, 'All ships placed - awaiting player confirmation to start battle');
           }
         }
         
@@ -103,32 +110,36 @@ const PlacementPage = () => {
     }
   };
 
-  // Auto place remaining ships using Game's method
+  // v0.4.2: Auto-place ships with auto-clear functionality
   const handleAutoPlace = async () => {
-    if (!gameInstance || !humanPlayer || isAutoPlacing) {
+    if (!gameInstance || !humanPlayer || !board || isAutoPlacing) {
       return;
     }
 
     setIsAutoPlacing(true);
-    console.log(version, 'Starting auto-placement');
+    console.log(version, 'Starting auto-placement with auto-clear');
 
     try {
+      // Clear all existing ship placements
+      const fleet = gameInstance.playerFleets.get(humanPlayer.id);
+      if (fleet) {
+        console.log(version, 'Clearing existing ship placements');
+        
+        // Reset each ship
+        fleet.ships.forEach(ship => {
+          ship.reset();
+        });
+        
+        // Clear the board
+        board.clear();
+        
+        console.log(version, 'All ships cleared, ready for fresh auto-placement');
+      }
+
+      // Now auto-place all ships
       await gameInstance.autoPlaceShips(humanPlayer);
       console.log(version, 'Auto-placement completed');
       
-      // Check if all ships are now placed and transition if so
-      const placementProgress = gameInstance?.playerFleets?.get(humanPlayer.id);
-      if (placementProgress) {
-        const placedCount = placementProgress.ships.filter(ship => ship.isPlaced).length;
-        const totalCount = placementProgress.ships.length;
-        
-        if (placedCount === totalCount) {
-          console.log(version, 'Auto-placement complete - transitioning to battle synchronously');
-          if (dispatch && events) {
-            dispatch(events.PLAY);
-          }
-        }
-      }
     } catch (error) {
       console.error(version, 'Auto-placement failed:', error);
     } finally {
@@ -136,9 +147,9 @@ const PlacementPage = () => {
     }
   };
 
-  // Manual completion button handler (for testing/backup)
-  const handlePlacementComplete = () => {
-    console.log(version, 'Manual completion triggered');
+  // v0.4.0: Manual start button - only transitions when player clicks
+  const handleStartBattle = () => {
+    console.log(version, 'Player confirmed - starting battle');
     
     if (dispatch && events) {
       dispatch(events.PLAY);
@@ -147,56 +158,52 @@ const PlacementPage = () => {
     }
   };
 
-  // Get placement progress message
+  // Get placement message for console
   const getPlacementMessage = () => {
     if (isAutoPlacing) {
-      return 'Auto-placing ships...';
+      return 'Autoplacing ships...';
     } else if (currentShip) {
-      return `Place: ${currentShip.name} (${currentShip.size} squares)`;
+      return `Place your ${currentShip.name.toLowerCase()} in ${currentShip.terrain.join(' or ')} water`;
     } else if (isPlacementComplete) {
-      return 'All ships placed! Preparing for battle...';
+      return 'Fleet is complete! Review your placement or click "Start Battle" to begin.';
     } else {
       return 'Preparing fleet placement...';
     }
   };
 
-  // Get progress display
-  const getPlacementProgress = () => {
-    return `${currentShipIndex} / ${totalShips}`;
-  };
-
-  // Get placement instructions
-  const getPlacementInstructions = () => {
+  // Get UI message for console
+  const getUIMessage = () => {
     if (isAutoPlacing) {
-      return ['Auto-placing remaining ships...'];
+      return 'Autoplacing ships...';
     } else if (currentShip) {
-      return [
-        `Tap and drag to place ${currentShip.name}`,
-        'Drag horizontally or vertically to set orientation',
-        `Allowed terrain: ${currentShip.terrain.join(', ')}`
-      ];
+      return `${currentShip.name} (${currentShip.size} squares)`;
     } else if (isPlacementComplete) {
-      return ['All ships placed! Ready for battle!'];
+      return `All ${totalShips} ships placed - Ready to battle!`;
     } else {
-      return ['Preparing ships for placement...'];
+      return 'Preparing fleet placement...';
     }
   };
+
+  // Don't render if no userProfile (will redirect)
+  if (!userProfile) {
+    return null;
+  }
 
   // Error state
   if (error) {
     console.log(version, 'Showing error state:', error);
     return (
-      <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-        <div className="content-pane content-pane-narrow">
+      <div className="container flex flex-column flex-center">
+        <div className="content-pane content-pane--narrow">
           <div className="card-header">
             <h2 className="card-title">Configuration Error</h2>
           </div>
           <div className="card-body">
-            <p className="error-message">{error}</p>
+            <p className="message message--error">{error}</p>
           </div>
           <div className="card-footer">
             <button
-              className="btn btn-primary"
+              className="btn btn--primary"
               onClick={() => dispatch(events.ERA)}
             >
               Back to Era Selection
@@ -217,69 +224,78 @@ const PlacementPage = () => {
     console.log(version, 'Showing loading state, waiting for:', waitingFor);
     
     return (
-      <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-        <div className="loading">
-          <div className="spinner spinner-lg"></div>
-          <h2>Setting up fleet placement...</h2>
-          <p>Preparing your ships and battle board</p>
+      <div className="container flex flex-column flex-center">
+        <div className="content-pane content-pane--narrow">
+          <div className="loading">
+            <div className="spinner spinner--lg"></div>
+            <h2>Setting Up</h2>
+            <p>Preparing your ships and battle board...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-      <div className="content-pane content-pane-wide" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+    <div className="container flex flex-column flex-center">
+      <div className="content-pane content-pane--wide">
+        
         <div className="card-header">
           <h2 className="card-title">Place Your Fleet</h2>
           <p className="card-subtitle">{currentPlayer?.name} vs {selectedOpponent.name}</p>
         </div>
 
-        <div className="game-info">
-          <h3>{getPlacementMessage()}</h3>
-          <p>Progress: {getPlacementProgress()}</p>
-          {currentShip && (
-            <p>Allowed terrain: {currentShip.terrain.join(', ')}</p>
-          )}
-        </div>
+        <div className="divider"></div>
 
         <div className="game-board-container">
-          <FleetPlacement
-            board={board}
+          <CanvasBoard
+            mode="placement"
+            eraConfig={eraConfig}
+            gameBoard={board}
+            gameInstance={gameInstance}
             currentShip={currentShip}
             onShipPlaced={handleShipPlaced}
-            eraConfig={eraConfig}
+            humanPlayer={humanPlayer}
           />
         </div>
 
-        {currentShip && !isAutoPlacing && (
-          <div className="auto-place-controls">
-            <button
-              className="btn btn-secondary"
-              onClick={handleAutoPlace}
-              disabled={isAutoPlacing}
-            >
-              Auto Place Remaining Ships
-            </button>
+        <div className="message-consoles">
+          <div className="console-combined">
+            <div className="console-header">Fleet Placement</div>
+            <div className="console-content-combined">
+              <div className="ui-message">
+                {getUIMessage()}
+              </div>
+              <div className="message-divider"></div>
+              <div className="battle-message">
+                {getPlacementMessage()}
+              </div>
+            </div>
           </div>
-        )}
-
-        <div className="message-console">
-          {getPlacementInstructions().map((instruction, index) => (
-            <p key={index}>{instruction}</p>
-          ))}
         </div>
 
-        {isPlacementComplete && (
-          <div className="placement-complete">
-            <button
-              className="btn btn-primary btn-large"
-              onClick={handlePlacementComplete}
-            >
-              Begin Battle
-            </button>
-          </div>
-        )}
+        <div className="divider"></div>
+
+        <div className="placement-actions">
+          {/* Autoplace button */}
+          <button
+            className="btn btn--secondary btn--lg"
+            onClick={handleAutoPlace}
+            disabled={isAutoPlacing}
+          >
+            {isAutoPlacing ? 'Placing Ships...' : 'Autoplace Ships'}
+          </button>
+
+          {/* Start Battle button - only enabled when all ships placed */}
+          <button
+            className="btn btn--primary btn--lg"
+            onClick={handleStartBattle}
+            disabled={!isPlacementComplete || isAutoPlacing}
+          >
+            Start Battle
+          </button>
+        </div>
+
       </div>
     </div>
   );

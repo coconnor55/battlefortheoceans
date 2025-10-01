@@ -1,4 +1,4 @@
-// src/classes/CoreEngine.js
+// src/classes/CoreEngine.js v0.3.7
 // Copyright(c) 2025, Clint H. O'Connor
 
 import Game from './Game.js';
@@ -10,7 +10,7 @@ import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
 import EraService from '../services/EraService.js';
 
-const version = "v0.3.4";
+const version = "v0.3.7";
 
 class CoreEngine {
   constructor() {
@@ -32,9 +32,26 @@ class CoreEngine {
     this.states = {
       launch: { on: { [this.events.LOGIN]: 'login' } },
       login: { on: { [this.events.SELECTERA]: 'era' } },
-      era: { on: { [this.events.SELECTOPPONENT]: 'opponent' } },
-      opponent: { on: { [this.events.PLACEMENT]: 'placement' } },
-      placement: { on: { [this.events.PLAY]: 'play' } },
+      era: {
+        on: {
+          [this.events.SELECTOPPONENT]: 'opponent',
+          [this.events.LOGIN]: 'login'
+        }
+      },
+      opponent: {
+        on: {
+          [this.events.PLACEMENT]: 'placement',
+          [this.events.LOGIN]: 'login',
+          [this.events.SELECTERA]: 'era'
+        }
+      },
+      placement: {
+        on: {
+          [this.events.PLAY]: 'play',
+          [this.events.SELECTOPPONENT]: 'opponent',
+          [this.events.LOGIN]: 'login'
+        }
+      },
       play: { on: { [this.events.OVER]: 'over' } },
       over: {
         on: {
@@ -43,6 +60,21 @@ class CoreEngine {
         }
       }
     };
+    
+    // URL route mapping
+    this.stateToRoute = {
+      'launch': '/',
+      'login': '/login',
+      'era': '/select-era',
+      'opponent': '/select-opponent',
+      'placement': '/placement',
+      'play': '/battle',
+      'over': '/results'
+    };
+    
+    this.routeToState = Object.fromEntries(
+      Object.entries(this.stateToRoute).map(([state, route]) => [route, state])
+    );
     
     // Game state data
     this.eraConfig = null;
@@ -64,6 +96,13 @@ class CoreEngine {
     this.leaderboardService = new LeaderboardService();
     this.rightsService = new RightsService();
     this.eraService = new EraService();
+    
+    // Browser navigation handler
+    if (typeof window !== 'undefined') {
+      window.addEventListener('popstate', (event) => {
+        this.handleBrowserNavigation(event);
+      });
+    }
     
     this.log('CoreEngine initialized');
   }
@@ -151,10 +190,113 @@ class CoreEngine {
       const oldState = this.currentState;
       this.currentState = nextState;
       this.lastEvent = event;
+      this.syncURL();
       this.log(`State transition: ${oldState} → ${this.currentState}`);
     } else {
       throw new Error(`No transition defined for ${this.currentState} with event ${this.getEventName(event)}`);
     }
+  }
+
+  syncURL() {
+    const route = this.stateToRoute[this.currentState];
+    if (route && typeof window !== 'undefined' && window.history) {
+      window.history.pushState(
+        { state: this.currentState, timestamp: Date.now() },
+        '',
+        route
+      );
+      this.log(`URL synced: ${route}`);
+    }
+  }
+
+  handleBrowserNavigation(event) {
+    const targetState = event.state?.state;
+    
+    if (!targetState) {
+      this.log('Browser navigation with no state - ignoring');
+      return;
+    }
+    
+    this.log(`Browser back/forward to: ${targetState}`);
+    
+    // Block navigation away from active game
+    if (this.currentState === 'play' && this.gameInstance?.state === 'playing') {
+      this.log('Cannot navigate away from active game');
+      window.history.pushState(
+        { state: this.currentState, timestamp: Date.now() },
+        '',
+        this.stateToRoute[this.currentState]
+      );
+      return;
+    }
+    
+    // Validate target state is accessible
+    if (this.isValidBackwardTransition(this.currentState, targetState)) {
+      this.currentState = targetState;
+      this.handleStateTransition(targetState).catch(error => {
+        console.error(`${version} State transition failed:`, error);
+      });
+      this.notifySubscribers();
+    } else {
+      this.log(`Invalid backward navigation from ${this.currentState} to ${targetState}`);
+      // Restore current state in URL
+      this.syncURL();
+    }
+  }
+
+  isValidBackwardTransition(from, to) {
+    // Define allowed backward transitions
+    const backwardAllowed = {
+      'opponent': ['era'],
+      'placement': ['opponent'],
+      'over': ['era']
+    };
+    
+    // Login is always accessible from era/opponent/placement
+    if (to === 'login' && ['era', 'opponent', 'placement'].includes(from)) {
+      return true;
+    }
+    
+    return backwardAllowed[from]?.includes(to) || false;
+  }
+
+  async initializeFromURL(path = typeof window !== 'undefined' ? window.location.pathname : '/') {
+    const targetState = this.routeToState[path] || 'launch';
+    
+    this.log(`Initializing from URL: ${path} → ${targetState}`);
+    
+    // Special case: Direct entry to SelectEra (e.g., QR code)
+    // Guest creation handled by SelectEraPage itself
+    if (targetState === 'era') {
+      this.currentState = 'era';
+      // Push initial state to browser history
+      if (typeof window !== 'undefined' && window.history) {
+        window.history.replaceState(
+          { state: 'era', timestamp: Date.now() },
+          '',
+          '/select-era'
+        );
+      }
+      this.notifySubscribers(); // CRITICAL: Trigger UI update
+      return;
+    }
+    
+    // All other states require userProfile
+    // Pages will detect missing profile and redirect to login
+    if (targetState !== 'launch' && targetState !== 'login') {
+      this.log(`Direct URL to protected state ${targetState} - page will validate profile`);
+    }
+    
+    this.currentState = targetState;
+    // Push initial state to browser history
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.replaceState(
+        { state: targetState, timestamp: Date.now() },
+        '',
+        this.stateToRoute[targetState] || '/'
+      );
+    }
+    this.notifySubscribers(); // CRITICAL: Trigger UI update
   }
 
   async handleStateTransition(newState) {
@@ -178,6 +320,10 @@ class CoreEngine {
     }
   }
 
+  /**
+   * SIMPLIFIED v0.3.7: Alliance assignment now happens inside addPlayer()
+   * No need to call assignPlayerToAlliance() separately
+   */
   async initializeForPlacement() {
     this.log('Initializing for placement phase');
     
@@ -197,7 +343,7 @@ class CoreEngine {
     // Set UI update callback (triggers re-renders)
     this.gameInstance.setUIUpdateCallback(() => this.notifySubscribers());
     
-    // CRITICAL FIX: Set game end callback to trigger state transition
+    // Set game end callback to trigger state transition
     this.gameInstance.setGameEndCallback(() => {
       this.log('Game end callback triggered - dispatching OVER event');
       this.dispatch(this.events.OVER).catch(error => {
@@ -205,11 +351,14 @@ class CoreEngine {
       });
     });
     
+    // Create alliances BEFORE adding players
     this.gameInstance.initializeAlliances();
     
+    // Create board
     this.board = new Board(this.eraConfig.rows, this.eraConfig.cols, this.eraConfig.terrain);
     this.gameInstance.setBoard(this.board);
     
+    // Determine alliance assignments
     let playerAlliance, opponentAlliance;
     if (this.eraConfig.game_rules?.choose_alliance && this.selectedAlliance) {
       playerAlliance = this.selectedAlliance;
@@ -217,12 +366,25 @@ class CoreEngine {
     } else {
       playerAlliance = this.eraConfig.alliances?.[0]?.name || 'Player';
       opponentAlliance = this.eraConfig.alliances?.[1]?.name || 'Opponent';
+        
+        // ADD THIS DEBUG BLOCK:
+        console.log('[DEBUG CoreEngine] ========== ALLIANCE DEBUG ==========');
+        console.log('[DEBUG CoreEngine] Player alliance:', playerAlliance);
+        console.log('[DEBUG CoreEngine] Opponent alliance:', opponentAlliance);
+        console.log('[DEBUG CoreEngine] Era config alliances:', this.eraConfig.alliances?.map(a => a.name));
+        console.log('[DEBUG CoreEngine] Available game alliances:', Array.from(this.gameInstance.alliances.values()).map(a => ({ id: a.id, name: a.name })));
+        console.log('[DEBUG CoreEngine] =======================================');
     }
     
     if (!opponentAlliance) {
       throw new Error('Cannot determine opponent alliance');
     }
     
+      console.log('[DEBUG] Player alliance:', playerAlliance);
+      console.log('[DEBUG] Opponent alliance:', opponentAlliance);
+      console.log('[DEBUG] Available alliances:', Array.from(this.gameInstance.alliances.values()).map(a => a.name));
+      
+    // Add players (alliance assignment happens inside addPlayer)
     const humanPlayerAdded = this.gameInstance.addPlayer(
       this.humanPlayer.id,
       'human',
@@ -245,9 +407,6 @@ class CoreEngine {
     if (!humanPlayerAdded || !aiPlayerAdded) {
       throw new Error('Failed to add players to game');
     }
-    
-    this.gameInstance.assignPlayerToAlliance(this.humanPlayer.id, playerAlliance, true);
-    this.gameInstance.assignPlayerToAlliance(aiId, opponentAlliance, true);
 
     this.log(`Game initialized with ${this.gameInstance.players.length} players`);
   }
@@ -309,16 +468,16 @@ class CoreEngine {
   }
 
   async handleAttack(row, col) {
-      // Unlock audio on first user interaction
-      if (!this.audioUnlocked) {
-        Object.values(this.gameInstance.soundEffects).forEach(audio => {
-          audio.play().then(() => audio.pause()).catch(() => {});
-        });
-        this.audioUnlocked = true;
-      }
-      
-      // Continue with normal attack logic
-  if (!this.gameInstance || !this.gameInstance.isValidAttack(row, col)) {
+    // Unlock audio on first user interaction
+    if (!this.audioUnlocked) {
+      Object.values(this.gameInstance.soundEffects).forEach(audio => {
+        audio.play().then(() => audio.pause()).catch(() => {});
+      });
+      this.audioUnlocked = true;
+    }
+    
+    // Continue with normal attack logic
+    if (!this.gameInstance || !this.gameInstance.isValidAttack(row, col)) {
       this.log(`Invalid attack attempt: ${row}, ${col}`);
       return false;
     }

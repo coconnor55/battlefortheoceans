@@ -1,4 +1,4 @@
-/* src/styles/theme.css (v0.1.0) */
+/* src/styles/theme.css (v0.1.1) */
 /* Copyright(c) 2025, Clint H. O'Connor */
 
 /* ============================================
@@ -78,10 +78,14 @@ html {
 /* ============================================
    DEFAULT THEME (TRADITIONAL BATTLESHIP)
    Cyberpunk/Neon Aesthetic
+   
+   NOTE: Era-specific themes are now loaded dynamically
+   from era config JSON files via App.js. This default
+   theme provides fallback values and structure.
    ============================================ */
 
 body {
-  /* Colors */
+  /* Colors - Default values, overridden by era config */
   --primary: #00D9FF;
   --primary-glow: rgba(0, 217, 255, 0.8);
   --primary-dim: rgba(0, 217, 255, 0.3);
@@ -114,9 +118,9 @@ body {
   --shadow-sm: 0 0 10px var(--primary-dim);
   --shadow-lg: 0 0 40px var(--primary-glow);
  
- /* Button semantic colors */
- --btn-border-primary: var(--primary);
- --btn-border-primary-hover: var(--primary);
+  /* Button semantic colors */
+  --btn-border-primary: var(--primary);
+  --btn-border-primary-hover: var(--primary);
  
   /* Apply theme */
   background: radial-gradient(ellipse at bottom, var(--bg-medium) 0%, var(--bg-dark) 100%);
@@ -135,7 +139,7 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: 
+  background-image:
     repeating-linear-gradient(
       0deg,
       transparent,
@@ -144,80 +148,6 @@ body::before {
       rgba(0, 217, 255, 0.03) 4px
     );
   opacity: 0.3;
-  z-index: var(--z-background);
-  pointer-events: none;
-}
-
-/* ============================================
-   MIDWAY ISLAND THEME
-   Vintage WWII Poster Aesthetic
-   ============================================ */
-
-body[data-era="midway"] {
-  /* Colors */
-  --primary: #E8AA42;
-  --primary-glow: rgba(232, 170, 66, 0.6);
-  --primary-dim: rgba(232, 170, 66, 0.3);
-  --primary-dark: #C48A22;
-  
-  /* Backgrounds */
-  --bg-dark: #2B4F5F;
-  --bg-medium: #4A7886;
-  --bg-light: #6A98A6;
-  --bg-overlay: rgba(43, 79, 95, 0.9);
-  
-  /* Accents */
-  --accent: #F5C26B;
-  --accent-secondary: #8FB8C8;
-  --warning: #D84315;
-  --success: #7CB342;
-  --error: #C62828;
-  
-  /* Text */
-  --text-primary: #F9EDD3;
-  --text-secondary: #D4A86A;
-  --text-dim: #A08862;
-  --text-disabled: #6A5840;
-  
-  /* UI Elements */
-  --border-color: var(--primary);
-  --border-subtle: rgba(232, 170, 66, 0.3);
-  --border-strong: var(--primary);
-  --shadow: 0 4px 20px var(--primary-glow);
-  --shadow-sm: 0 2px 10px var(--primary-dim);
-  --shadow-lg: 0 8px 40px var(--primary-glow);
-  
-  /* Button semantic colors */
-  --btn-border-primary: var(--primary);
-  --btn-border-primary-hover: var(--primary);
-  
-  /* Vintage gradient background */
-  background: linear-gradient(180deg, 
-    #E8AA42 0%, 
-    #F5C26B 15%, 
-    #8FB8C8 40%,
-    #4A7886 70%, 
-    #2B4F5F 100%
-  );
-}
-
-/* Vintage paper texture overlay for Midway */
-body[data-era="midway"]::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: 
-    repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 10px,
-      rgba(249, 237, 211, 0.02) 10px,
-      rgba(249, 237, 211, 0.02) 20px
-    );
-  opacity: 0.5;
   z-index: var(--z-background);
   pointer-events: none;
 }

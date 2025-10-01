@@ -1,10 +1,10 @@
 // src/classes/AiPlayer.js
 // Copyright(c) 2025, Clint H. O'Connor
-// Strategy-based AI with instant decisions and action queuing
+// Strategy-based AI with instant decisions and directional hunt mode
 
 import Player from './Player.js';
 
-const version = "v0.2.4";
+const version = "v0.3.0";
 
 export class AiPlayer extends Player {
   constructor(id, name, strategy = 'random', skillLevel = 'novice') {
@@ -15,23 +15,23 @@ export class AiPlayer extends Player {
     
     // AI memory system
     this.memory = {
-      hits: new Map(),           // row,col -> ship data
-      misses: new Set(),         // Set of "row,col" strings
-      activeHunts: new Map(),    // shipId -> hunt data
-      probabilities: new Map(),  // row,col -> probability score
-      targetQueue: [],           // Priority targets to check
-      checkerboard: new Set(),   // Methodical targeting pattern
-      quarters: []               // Quartering strategy state
+      hits: new Map(),
+      misses: new Set(),
+      activeHunts: new Map(),
+      probabilities: new Map(),
+      targetQueue: [],
+      huntDirection: null,
+      huntLine: null,
+      huntHits: [],
+      checkerboard: new Set(),
+      quarters: []
     };
     
     console.log(`AiPlayer ${name} created with strategy: ${strategy}, skill: ${skillLevel}`);
   }
 
-  /**
-   * Make move instantly - no delays, pure decision making
-   */
   makeMove(gameInstance) {
-    if (!gameInstance || !gameInstance.board) {
+    if (!gameInstance) {
       console.error('AiPlayer.makeMove: Invalid game instance');
       return null;
     }
@@ -47,44 +47,50 @@ export class AiPlayer extends Player {
   }
 
   /**
-   * Get all valid attack positions
+   * Get all valid attack positions for this AI player
+   * v0.3.0: FIXED - Now passes this AI player to isValidAttack() for per-player miss tracking
    */
   getAvailableTargets(gameInstance) {
     const targets = [];
-    const board = gameInstance.board;
+    const rows = gameInstance.eraConfig.rows;
+    const cols = gameInstance.eraConfig.cols;
     
-    for (let row = 0; row < board.rows; row++) {
-      for (let col = 0; col < board.cols; col++) {
-        if (board.isValidAttackTarget(row, col)) {
+    console.log(`[AI DEBUG] Board dimensions: ${rows}x${cols}`);
+    console.log(`[AI DEBUG] AI missed shots: ${this.missedShots.size}`);
+    console.log(`[AI DEBUG] Current turn: ${gameInstance.currentTurn}`);
+    
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        // Game.isValidAttack() now checks:
+        // 1. Valid coordinate (bounds + terrain)
+        // 2. This player hasn't missed here
+        // 3. No ship OR ship cell has health > 0
+        if (gameInstance.isValidAttack(row, col, this)) {
           targets.push({ row, col });
         }
       }
     }
+    
+    console.log(`[AI DEBUG] Available targets found: ${targets.length}`);
     return targets;
   }
 
-  /**
-   * Strategy-based target selection
-   */
   selectTarget(availableTargets, gameInstance) {
-    // SKILL LEVEL CHECK: Only experienced and expert use hunt mode
     if (this.skillLevel !== 'novice' && this.hasActiveHunt()) {
-      const huntTarget = this.continueHunt(availableTargets);
+      const huntTarget = this.continueHunt(availableTargets, gameInstance);
       if (huntTarget) {
         console.log(`AI ${this.name} (${this.skillLevel}): Hunt mode - targeting ${huntTarget.row},${huntTarget.col}`);
         return huntTarget;
       }
     }
 
-    // Expert skill: Center concentration bonus
     if (this.skillLevel === 'expert') {
       const centerTarget = this.selectCenterConcentration(availableTargets, gameInstance);
-      if (centerTarget && Math.random() < 0.3) { // 30% chance to prefer center
+      if (centerTarget && Math.random() < 0.3) {
         return centerTarget;
       }
     }
 
-    // Apply primary strategy
     switch (this.strategy) {
       case 'random':
         return this.selectRandom(availableTargets);
@@ -106,22 +112,14 @@ export class AiPlayer extends Player {
     }
   }
 
-  /**
-   * Random targeting
-   */
   selectRandom(availableTargets) {
     return availableTargets[Math.floor(Math.random() * availableTargets.length)];
   }
 
-  /**
-   * Methodical Random - every other square (checkerboard) in random order
-   */
   selectMethodicalRandom(availableTargets, gameInstance) {
-    // Build checkerboard pattern if not exists
     if (this.memory.checkerboard.size === 0) {
-      for (let row = 0; row < gameInstance.board.rows; row++) {
-        for (let col = 0; col < gameInstance.board.cols; col++) {
-          // Checkerboard pattern - every other square
+      for (let row = 0; row < gameInstance.eraConfig.rows; row++) {
+        for (let col = 0; col < gameInstance.eraConfig.cols; col++) {
           if ((row + col) % 2 === 0) {
             this.memory.checkerboard.add(`${row},${col}`);
           }
@@ -129,7 +127,6 @@ export class AiPlayer extends Player {
       }
     }
 
-    // Find checkerboard targets still available
     const checkerboardTargets = availableTargets.filter(target =>
       this.memory.checkerboard.has(`${target.row},${target.col}`)
     );
@@ -138,15 +135,10 @@ export class AiPlayer extends Player {
       return checkerboardTargets[Math.floor(Math.random() * checkerboardTargets.length)];
     }
 
-    // Fallback to remaining squares
     return this.selectRandom(availableTargets);
   }
 
-  /**
-   * Methodical Optimal - every 4th square first (big ships), then fill in
-   */
   selectMethodicalOptimal(availableTargets, gameInstance) {
-    // Phase 1: Every 4th square (finds carriers/battleships)
     const phase1Targets = availableTargets.filter(target =>
       (target.row % 4 === 0) && (target.col % 4 === 0)
     );
@@ -155,28 +147,22 @@ export class AiPlayer extends Player {
       return phase1Targets[Math.floor(Math.random() * phase1Targets.length)];
     }
 
-    // Phase 2: Every other square (finds remaining ships)
     return this.selectMethodicalRandom(availableTargets, gameInstance);
   }
 
-  /**
-   * Center concentration for expert skill level
-   */
   selectCenterConcentration(availableTargets, gameInstance) {
-    const centerRow = Math.floor(gameInstance.board.rows / 2);
-    const centerCol = Math.floor(gameInstance.board.cols / 2);
+    const centerRow = Math.floor(gameInstance.eraConfig.rows / 2);
+    const centerCol = Math.floor(gameInstance.eraConfig.cols / 2);
     
-    // Find targets close to center
     const centerTargets = availableTargets
       .map(target => ({
         ...target,
         distance: Math.abs(target.row - centerRow) + Math.abs(target.col - centerCol)
       }))
-      .filter(target => target.distance <= 3) // Within 3 cells of center
+      .filter(target => target.distance <= 3)
       .sort((a, b) => a.distance - b.distance);
     
     if (centerTargets.length > 0) {
-      // Pick randomly from closest targets
       const closestDistance = centerTargets[0].distance;
       const closestTargets = centerTargets.filter(t => t.distance === closestDistance);
       return closestTargets[Math.floor(Math.random() * closestTargets.length)];
@@ -185,13 +171,9 @@ export class AiPlayer extends Player {
     return null;
   }
 
-  /**
-   * Quartering strategy - divide and conquer
-   */
   selectQuartering(availableTargets, gameInstance) {
     const board = gameInstance.board;
     
-    // Initialize quarters if needed
     if (this.memory.quarters.length === 0) {
       this.memory.quarters = [
         { minRow: 0, maxRow: Math.floor(board.rows/2), minCol: 0, maxCol: Math.floor(board.cols/2), active: true },
@@ -201,7 +183,6 @@ export class AiPlayer extends Player {
       ];
     }
 
-    // Find current active quarter
     const activeQuarter = this.memory.quarters.find(q => q.active);
     if (activeQuarter) {
       const quarterTargets = availableTargets.filter(target =>
@@ -210,93 +191,156 @@ export class AiPlayer extends Player {
       );
 
       if (quarterTargets.length > 0) {
-        // Use methodical pattern within quarter
         return this.selectMethodicalOptimal(quarterTargets, gameInstance);
       } else {
-        // Move to next quarter
         activeQuarter.active = false;
         const nextQuarter = this.memory.quarters.find(q => !q.active);
         if (nextQuarter) nextQuarter.active = true;
       }
     }
 
-    // Fallback to methodical
     return this.selectMethodicalOptimal(availableTargets, gameInstance);
   }
 
-  /**
-   * Aggressive strategy - focus on high-value targets
-   */
   selectAggressive(availableTargets, gameInstance) {
-    // Calculate probability scores for each target
     const scoredTargets = availableTargets.map(target => ({
       ...target,
       score: this.calculateTargetValue(target, gameInstance)
     }));
 
-    // Sort by score and pick from top candidates
     scoredTargets.sort((a, b) => b.score - a.score);
     const topCandidates = scoredTargets.slice(0, Math.min(3, scoredTargets.length));
     
     return topCandidates[Math.floor(Math.random() * topCandidates.length)];
   }
 
-  /**
-   * Calculate target value for aggressive strategy
-   */
   calculateTargetValue(target, gameInstance) {
     let score = 1;
     
-    // Higher value for center positions (more likely to hit)
-    const centerRow = gameInstance.board.rows / 2;
-    const centerCol = gameInstance.board.cols / 2;
+    const centerRow = gameInstance.eraConfig.rows / 2;
+    const centerCol = gameInstance.eraConfig.cols / 2;
     const distanceFromCenter = Math.abs(target.row - centerRow) + Math.abs(target.col - centerCol);
     score += Math.max(0, 10 - distanceFromCenter);
 
-    // Bonus for adjacent to known hits
     for (const [hitKey, hitData] of this.memory.hits) {
       const [hitRow, hitCol] = hitKey.split(',').map(Number);
       const distance = Math.abs(target.row - hitRow) + Math.abs(target.col - hitCol);
-      if (distance === 1) score += 20; // Adjacent to hit
+      if (distance === 1) score += 20;
     }
 
     return score;
   }
 
-  /**
-   * Check if AI has active ship hunts
-   */
   hasActiveHunt() {
-    return this.memory.targetQueue.length > 0;
+    return this.memory.huntHits.length > 0 || this.memory.targetQueue.length > 0;
   }
 
-  /**
-   * Continue hunting around known hits
-   */
-  continueHunt(availableTargets) {
-    while (this.memory.targetQueue.length > 0) {
-      const target = this.memory.targetQueue.shift();
-      const targetAvailable = availableTargets.find(t =>
-        t.row === target.row && t.col === target.col
-      );
-      
-      if (targetAvailable) {
-        return targetAvailable;
+  continueHunt(availableTargets, gameInstance) {
+    const validTargets = new Set(
+      availableTargets.map(t => `${t.row},${t.col}`)
+    );
+
+    if (this.memory.huntHits.length >= 2 && !this.memory.huntDirection) {
+      this.determineHuntDirection();
+    }
+
+    if (this.memory.huntDirection && this.memory.huntLine) {
+      const directionalTarget = this.getDirectionalTarget(validTargets, gameInstance);
+      if (directionalTarget) {
+        console.log(`AI ${this.name}: Following ${this.memory.huntDirection} direction`);
+        return directionalTarget;
       }
     }
+
+    this.memory.targetQueue = this.memory.targetQueue.filter(target =>
+      validTargets.has(`${target.row},${target.col}`)
+    );
+
+    if (this.memory.targetQueue.length > 0) {
+      return this.memory.targetQueue.shift();
+    }
+    
     return null;
   }
 
-  /**
-   * FIXED: Process attack result - called by Game after each AI shot
-   * Expected result format from Game.receiveAttack():
-   * { result: 'hit'|'miss'|'sunk', ships: [...] }
-   */
+  determineHuntDirection() {
+    if (this.memory.huntHits.length < 2) return;
+
+    const hits = [...this.memory.huntHits].sort((a, b) => {
+      if (a.row !== b.row) return a.row - b.row;
+      return a.col - b.col;
+    });
+
+    const first = hits[0];
+    const second = hits[1];
+
+    if (first.row === second.row) {
+      this.memory.huntDirection = 'horizontal';
+      this.memory.huntLine = { row: first.row };
+      console.log(`AI ${this.name}: Detected horizontal ship at row ${first.row}`);
+    }
+    else if (first.col === second.col) {
+      this.memory.huntDirection = 'vertical';
+      this.memory.huntLine = { col: first.col };
+      console.log(`AI ${this.name}: Detected vertical ship at col ${first.col}`);
+    }
+
+    if (this.memory.huntDirection) {
+      this.memory.targetQueue = this.memory.targetQueue.filter(target => {
+        if (this.memory.huntDirection === 'horizontal') {
+          return target.row === this.memory.huntLine.row;
+        } else {
+          return target.col === this.memory.huntLine.col;
+        }
+      });
+    }
+  }
+
+  getDirectionalTarget(validTargets, gameInstance) {
+    if (!this.memory.huntDirection || !this.memory.huntLine) return null;
+
+    const hits = [...this.memory.huntHits].sort((a, b) => {
+      if (this.memory.huntDirection === 'horizontal') {
+        return a.col - b.col;
+      } else {
+        return a.row - b.row;
+      }
+    });
+
+    const firstHit = hits[0];
+    const lastHit = hits[hits.length - 1];
+
+    const candidates = [];
+
+    if (this.memory.huntDirection === 'horizontal') {
+      const leftTarget = { row: this.memory.huntLine.row, col: firstHit.col - 1 };
+      if (validTargets.has(`${leftTarget.row},${leftTarget.col}`)) {
+        candidates.push(leftTarget);
+      }
+      
+      const rightTarget = { row: this.memory.huntLine.row, col: lastHit.col + 1 };
+      if (validTargets.has(`${rightTarget.row},${rightTarget.col}`)) {
+        candidates.push(rightTarget);
+      }
+    } else {
+      const upTarget = { row: firstHit.row - 1, col: this.memory.huntLine.col };
+      if (validTargets.has(`${upTarget.row},${upTarget.col}`)) {
+        candidates.push(upTarget);
+      }
+      
+      const downTarget = { row: lastHit.row + 1, col: this.memory.huntLine.col };
+      if (validTargets.has(`${downTarget.row},${downTarget.col}`)) {
+        candidates.push(downTarget);
+      }
+    }
+
+    return candidates.length > 0 ? candidates[0] : null;
+  }
+
   processAttackResult(target, result, gameInstance) {
     const key = `${target.row},${target.col}`;
     
     if (result.result === 'hit' || result.result === 'sunk') {
-      // Record hit
       const shipInfo = result.ships && result.ships.length > 0 ? result.ships[0] : null;
       this.memory.hits.set(key, {
         shipId: shipInfo?.ship?.id,
@@ -304,37 +348,48 @@ export class AiPlayer extends Player {
         timestamp: Date.now()
       });
 
-      // SKILL LEVEL: Only experienced and expert use hunt mode
       if (this.skillLevel !== 'novice') {
-        this.addAdjacentTargets(target.row, target.col, gameInstance);
-        console.log(`AI ${this.name} (${this.skillLevel}): Hit! Added adjacent targets to hunt queue`);
+        if (result.result === 'hit') {
+          this.memory.huntHits.push({ row: target.row, col: target.col });
+          
+          if (this.memory.huntHits.length === 1) {
+            this.addAdjacentTargets(target.row, target.col, gameInstance);
+            console.log(`AI ${this.name} (${this.skillLevel}): First hit! Added adjacent targets`);
+          } else {
+            this.determineHuntDirection();
+          }
+        } else if (result.result === 'sunk') {
+          this.resetHuntMode();
+          console.log(`AI ${this.name} (${this.skillLevel}): Ship sunk! Resetting hunt mode`);
+        }
       } else {
         console.log(`AI ${this.name} (novice): Hit! Continuing random targeting`);
       }
     } else {
-      // Record miss
       this.memory.misses.add(key);
       console.log(`AI ${this.name}: Miss at ${target.row},${target.col}`);
     }
   }
 
-  /**
-   * Add adjacent cells to hunt queue (experienced and expert only)
-   */
   addAdjacentTargets(row, col, gameInstance) {
     const adjacent = [
-      { row: row - 1, col: col },     // North
-      { row: row + 1, col: col },     // South
-      { row: row, col: col - 1 },     // West
-      { row: row, col: col + 1 }      // East
+      { row: row - 1, col: col },
+      { row: row + 1, col: col },
+      { row: row, col: col - 1 },
+      { row: row, col: col + 1 }
     ];
 
     for (const target of adjacent) {
-      if (gameInstance.board.isValidAttackTarget(target.row, target.col)) {
+      // Game.isValidAttack() handles all validation including miss tracking
+      if (gameInstance.isValidAttack(target.row, target.col, this)) {
         const key = `${target.row},${target.col}`;
-        if (!this.memory.hits.has(key) && !this.memory.misses.has(key)) {
-          // Add to front of queue for immediate targeting
-          this.memory.targetQueue.unshift(target);
+        const alreadyQueued = this.memory.targetQueue.some(t =>
+          t.row === target.row && t.col === target.col
+        );
+        
+        // Only check if not already in our hunt queue and not a known hit
+        if (!this.memory.hits.has(key) && !alreadyQueued) {
+          this.memory.targetQueue.push(target);
         }
       }
     }
@@ -342,9 +397,14 @@ export class AiPlayer extends Player {
     console.log(`AI ${this.name}: Hunt queue now has ${this.memory.targetQueue.length} targets`);
   }
 
-  /**
-   * Reset AI memory for new game
-   */
+  resetHuntMode() {
+    this.memory.targetQueue = [];
+    this.memory.huntDirection = null;
+    this.memory.huntLine = null;
+    this.memory.huntHits = [];
+    console.log(`AI ${this.name}: Hunt mode reset`);
+  }
+
   reset() {
     super.reset();
     this.memory = {
@@ -353,26 +413,27 @@ export class AiPlayer extends Player {
       activeHunts: new Map(),
       probabilities: new Map(),
       targetQueue: [],
+      huntDirection: null,
+      huntLine: null,
+      huntHits: [],
       checkerboard: new Set(),
       quarters: []
     };
     console.log(`AI ${this.name} memory reset for new game`);
   }
 
-  /**
-   * Get AI statistics for debugging
-   */
   getAIStats() {
     return {
       strategy: this.strategy,
       skillLevel: this.skillLevel,
       hits: this.memory.hits.size,
       misses: this.memory.misses.size,
-      activeTargets: this.memory.targetQueue.length
+      activeTargets: this.memory.targetQueue.length,
+      huntDirection: this.memory.huntDirection,
+      huntHits: this.memory.huntHits.length
     };
   }
 }
 
 export default AiPlayer;
-
 // EOF

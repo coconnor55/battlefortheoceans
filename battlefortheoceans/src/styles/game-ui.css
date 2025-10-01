@@ -1,89 +1,17 @@
-//
-//  names.swift
-//  
-//
-//  Created by Clint O'Connor on 9/28/25.
-//
-
-
-/* src/styles/game-ui.css */
+/* src/styles/game-ui.css v2.1.0 */
 /* Copyright(c) 2025, Clint H. O'Connor */
-/* Game-specific UI components */
+/* Game-specific UI components - uses shared-components.css for common patterns */
 
 /* ============================================
-   ERA SELECTION COMPONENTS
+   ERA SELECTION
+   Container and layout specific to era page
    ============================================ */
 
-/* Era list container */
 .era-list {
-  max-height: 30vh;
-  overflow-y: auto;
-  margin: var(--space-lg) 0;
-  padding: var(--space-md);
-  background: var(--bg-overlay);
-  border-radius: var(--border-radius);
-  border: 1px solid var(--border-subtle);
+  /* Uses .scrollable-list from shared-components.css */
 }
 
-.era-item {
-  background: var(--bg-overlay);
-  border: 2px solid var(--border-subtle);
-  border-radius: var(--border-radius);
-  padding: var(--space-md);
-  margin: var(--space-sm) 0;
-  cursor: pointer;
-  transition: all var(--transition-speed);
-  box-shadow: var(--shadow-sm);
-}
-
-.era-item:hover {
-  border-color: var(--primary);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow);
-}
-
-.era-item--selected {
-  border-color: var(--success);
-  background: var(--bg-medium);
-  box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
-}
-
-.era-item--locked {
-  opacity: 0.8;
-  position: relative;
-}
-
-.era-item--locked .era-name {
-  color: var(--text-dim);
-}
-
-.era-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-sm);
-}
-
-.era-name {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: var(--text-primary);
-}
-
-.era-description {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  margin: var(--space-sm) 0;
-  line-height: 1.4;
-}
-
-.era-details {
-  display: flex;
-  gap: var(--space-md);
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
+/* Era-specific: larger title, grid info display */
 .era-grid,
 .era-players {
   font-weight: 500;
@@ -91,6 +19,7 @@
 
 /* ============================================
    ALLIANCE SELECTION
+   Layout specific to alliance cards
    ============================================ */
 
 .alliance-selection {
@@ -115,64 +44,12 @@
   border: 1px solid var(--border-subtle);
 }
 
-.alliance-item {
-  background: var(--bg-overlay);
-  border: 2px solid var(--border-subtle);
-  border-radius: var(--border-radius);
-  padding: var(--space-md);
-  cursor: pointer;
-  transition: all var(--transition-speed);
-  box-shadow: var(--shadow-sm);
-  flex: 1;
-  min-width: 250px;
-  max-width: 350px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.alliance-item:hover {
-  border-color: var(--primary);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow);
-}
-
-.alliance-item--selected {
-  border-color: var(--success);
-  background: var(--bg-medium);
-  box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
-}
-
-.alliance-item--locked {
-  opacity: 0.8;
-  cursor: not-allowed;
-}
-
-.alliance-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-xs);
-}
-
-.alliance-name {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: var(--text-primary);
-}
-
+/* Alliance-specific content */
 .alliance-ships,
 .ship-count {
   font-size: 0.85rem;
   color: var(--text-secondary);
   font-weight: 500;
-}
-
-.alliance-description {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.3;
-  margin: var(--space-xs) 0;
 }
 
 .alliance-fleet {
@@ -195,7 +72,27 @@
 
 /* ============================================
    OPPONENT SELECTION
+   Layout and opponent-specific styling
    ============================================ */
+
+/* Tighter spacing for collapsible sections */
+.collapsible-section {
+  margin-bottom: var(--space-md);
+}
+
+.collapsible-section__header {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.collapsible-section__header h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.collapsible-section__header p {
+  margin: 0;
+  font-size: 0.85rem;
+}
 
 .opponent-choice {
   text-align: center;
@@ -213,69 +110,11 @@
 .opponent-list {
   max-height: 200px;
   overflow-y: auto;
-  margin: var(--space-md) 0;
-  padding: var(--space-md);
+  margin: 0;
+  padding: var(--space-sm);
   background: var(--bg-overlay);
   border-radius: var(--border-radius);
   border: 1px solid var(--border-subtle);
-}
-
-.opponent-item {
-  background: var(--bg-overlay);
-  border: 2px solid var(--border-subtle);
-  border-radius: var(--border-radius);
-  padding: var(--space-md);
-  margin: var(--space-sm) 0;
-  cursor: pointer;
-  transition: all var(--transition-speed);
-  box-shadow: var(--shadow-sm);
-}
-
-.opponent-item:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow);
-}
-
-.opponent-item--selected {
-  background: var(--bg-medium);
-  box-shadow: 0 3px 8px var(--primary-glow);
-}
-
-/* AI vs Human opponent styling */
-.ai-opponent:hover {
-  border-color: var(--warning);
-}
-
-.ai-opponent.opponent-item--selected {
-  border-color: var(--error);
-}
-
-.human-opponent:hover {
-  border-color: var(--accent);
-}
-
-.human-opponent.opponent-item--selected {
-  border-color: var(--primary);
-}
-
-.opponent-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-xs);
-}
-
-.opponent-name {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: var(--text-primary);
-}
-
-.opponent-description {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin: var(--space-xs) 0;
-  line-height: 1.3;
 }
 
 .opponent-type {
@@ -285,45 +124,30 @@
   margin-top: var(--space-xs);
 }
 
-.no-humans {
+/* ============================================
+   PLACEMENT PAGE
+   ============================================ */
+
+.placement-header {
+  margin-bottom: var(--space-md);
+}
+
+.placement-header p {
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.placement-header h2 {
+  margin: 0;
+}
+
+.auto-place-section {
+  margin-top: var(--space-md);
+}
+
+.placement-actions {
+  margin-top: var(--space-md);
   text-align: center;
-  padding: var(--space-lg);
-  color: var(--text-dim);
 }
-
-.no-humans p {
-  margin: var(--space-xs) 0;
-}
-
-.no-humans .hint {
-  font-size: 0.85rem;
-  font-style: italic;
-  color: var(--text-dim);
-}
-
-/* ============================================
-   GAME BOARD COMPONENTS
-   ============================================ */
-
-.game-board-container {
-  display: flex;
-  justify-content: center;
-  margin: var(--space-md) 0;
-  padding: var(--space-md);
-  overflow: visible;
-  min-height: 320px;
-}
-
-.game-board-container canvas {
-  border: 2px solid var(--border-color);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow);
-  background-color: transparent;
-}
-
-/* ============================================
-   PLACEMENT PAGE COMPONENTS
-   ============================================ */
 
 .auto-place-controls {
   display: flex !important;
@@ -376,8 +200,84 @@
 }
 
 /* ============================================
-   BATTLE COMPONENTS
+   GAME BOARD
    ============================================ */
+
+.game-board-container {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  overflow: visible;
+  min-height: 320px;
+}
+
+.game-board-container canvas {
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  background-color: transparent;
+}
+
+/* ============================================
+   BATTLE INTERFACE
+   ============================================ */
+
+/* Message consoles - consolidated display */
+.message-consoles {
+  margin: var(--space-md) auto;
+  max-width: 600px;
+  width: 100%;
+}
+
+.console-combined {
+  width: 100%;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.console-header {
+  padding: var(--space-xs) var(--space-md);
+  font-weight: bold;
+  font-size: 0.75rem;
+  text-align: center;
+  color: var(--bg-dark);
+  background: var(--primary);
+}
+
+.console-content-combined {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+  padding: var(--space-md);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  border-left: 4px solid var(--primary);
+}
+
+/* UI message (turn status) */
+.ui-message {
+  font-weight: bold;
+  color: var(--primary);
+  margin-bottom: var(--space-sm);
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+/* Message divider */
+.message-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-color) 20%, var(--border-color) 80%, transparent);
+  margin: var(--space-sm) 0;
+}
+
+/* Battle message (action results) */
+.battle-message {
+  color: var(--text-secondary);
+  text-align: center;
+  font-size: 0.85rem;
+}
 
 .battle-legend {
   display: flex;
@@ -486,7 +386,99 @@
   font-size: 0.9rem;
 }
 
-/* Game stats - inline compact display */
+/* ============================================
+   LEADERBOARD SECTION
+   ============================================ */
+
+.leaderboard-section {
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  padding: var(--space-lg);
+  margin: var(--space-xl) 0;
+  border: 1px solid var(--border-subtle);
+}
+
+.leaderboard-section h4 {
+  text-align: center;
+  margin-bottom: var(--space-md);
+  color: var(--primary);
+  font-size: 1.3rem;
+}
+
+.leaderboard-table {
+  overflow-x: auto;
+  margin-bottom: var(--space-md);
+}
+
+.leaderboard-table .table {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.leaderboard-table .rank-cell {
+  font-weight: bold;
+  color: var(--primary);
+  width: 60px;
+}
+
+.leaderboard-table .player-cell {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.leaderboard-table .player-row {
+  background: rgba(0, 217, 255, 0.1);
+  border-left: 3px solid var(--primary);
+}
+
+.leaderboard-table .player-row td {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.player-rank-info {
+  text-align: center;
+  padding: var(--space-md);
+  background: var(--bg-medium);
+  border-radius: var(--border-radius);
+  margin-top: var(--space-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.player-rank-info p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.player-rank-info strong {
+  color: var(--primary);
+}
+
+.guest-leaderboard-note {
+  text-align: center;
+  padding: var(--space-md);
+  background: rgba(0, 217, 255, 0.05);
+  border-radius: var(--border-radius);
+  margin-top: var(--space-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.guest-leaderboard-note p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.ml-sm {
+  margin-left: var(--space-sm);
+}
+
+/* ============================================
+   GAME STATS & ACTIONS
+   ============================================ */
+
 .game-stats {
   display: flex;
   justify-content: center;
@@ -533,7 +525,6 @@
   flex-wrap: wrap;
 }
 
-/* Game info section */
 .game-info {
   margin-bottom: var(--space-md);
 }
@@ -553,11 +544,134 @@
 }
 
 /* ============================================
-   LEGACY CLASS SUPPORT
+   RESPONSIVE ADJUSTMENTS
    ============================================ */
 
-/* Support for old class names - can be removed after migration */
-.selected { @extend .era-item--selected; }
-.locked { @extend .era-item--locked; }
+@media (max-width: 768px) {
+  .game-board-container {
+    min-height: 250px;
+    padding: var(--space-sm);
+  }
+  
+  .game-board-container canvas {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+  
+  .battle-stats {
+    padding: var(--space-md);
+  }
+  
+  .leaderboard-section {
+    padding: var(--space-md);
+  }
+  
+  .leaderboard-table .table {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-board-container {
+    min-height: 200px;
+    margin: var(--space-sm) 0;
+  }
+  
+  .alliance-list {
+    flex-direction: column;
+    max-height: 30vh;
+  }
+  
+  .opponent-list {
+    max-height: 150px;
+  }
+  
+  .action-buttons,
+  .over-actions {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+  
+  .action-buttons .btn,
+  .over-actions .btn {
+    width: 100%;
+  }
+  
+  .battle-legend {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+  
+  .game-stats {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+  
+  .auto-place-controls .btn {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .placement-complete .btn--lg {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .leaderboard-table {
+    font-size: 0.75rem;
+  }
+  
+  .leaderboard-table .rank-cell {
+    width: 40px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .alliance-list {
+    justify-content: center;
+    max-height: 28vh;
+  }
+  
+  .opponent-list {
+    max-height: 180px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .alliance-list {
+    max-height: 22vh;
+  }
+  
+  .opponent-list {
+    max-height: 20vh;
+  }
+}
+
+@media (max-height: 500px) {
+  .alliance-list {
+    max-height: 18vh;
+  }
+  
+  .opponent-list {
+    max-height: 15vh;
+  }
+}
+
+@media (min-width: 1024px) {
+  .alliance-list {
+    max-height: 35vh;
+  }
+  
+  .opponent-list {
+    max-height: 250px;
+  }
+}
 
 /* EOF */

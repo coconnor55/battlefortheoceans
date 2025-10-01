@@ -1,0 +1,313 @@
+/* src/styles/shared-components.css v1.0.0 */
+/* Copyright(c) 2025, Clint H. O'Connor */
+/* Consolidated shared component patterns - eliminates duplication */
+
+/* ============================================
+   SELECTABLE ITEMS
+   Used by: era selection, alliance selection, opponent selection
+   ============================================ */
+
+.selectable-item {
+  background: var(--bg-overlay);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  padding: var(--space-md);
+  margin: var(--space-sm) 0;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+  box-shadow: var(--shadow-sm);
+}
+
+.selectable-item:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.selectable-item--selected {
+  border-color: var(--success);
+  background: var(--bg-medium);
+  box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
+}
+
+.selectable-item--locked {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.selectable-item--locked:hover {
+  transform: none;
+  border-color: var(--border-subtle);
+}
+
+/* Item header - flex layout with space-between */
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+/* Item name/title */
+.item-name {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+/* Item description */
+.item-description {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: var(--space-xs) 0;
+  line-height: 1.3;
+}
+
+/* Item metadata/details */
+.item-details {
+  display: flex;
+  gap: var(--space-md);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   SCROLLABLE LISTS
+   Used by: era lists, alliance lists, opponent lists
+   ============================================ */
+
+.scrollable-list {
+  max-height: 30vh;
+  overflow-y: auto;
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.scrollable-list--short {
+  max-height: 20vh;
+}
+
+.scrollable-list--tall {
+  max-height: 40vh;
+}
+
+/* ============================================
+   COMPONENT-SPECIFIC OVERRIDES
+   Only use these when truly different from base pattern
+   ============================================ */
+
+/* Era items - larger name */
+.era-item .item-name {
+  font-size: 1.2rem;
+}
+
+/* Alliance items - flex container for card layout */
+.alliance-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: 250px;
+  max-width: 350px;
+}
+
+/* Opponent items - AI vs Human color coding */
+.opponent-item.ai-opponent:hover {
+  border-color: var(--warning);
+}
+
+.opponent-item.ai-opponent.selectable-item--selected {
+  border-color: var(--error);
+}
+
+.opponent-item.human-opponent:hover {
+  border-color: var(--accent);
+}
+
+.opponent-item.human-opponent.selectable-item--selected {
+  border-color: var(--primary);
+}
+
+/* ============================================
+   COLLAPSIBLE SECTIONS
+   Used by: opponent selection sections
+   ============================================ */
+
+.collapsible-section {
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  background: var(--bg-medium);
+}
+
+.collapsible-section__header {
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.collapsible-section__header:hover {
+  background: var(--bg-light);
+}
+
+.collapsible-section__header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--text-primary);
+}
+
+.collapsible-section__icon {
+  font-size: 0.8rem;
+  color: var(--primary);
+  transition: transform var(--transition-fast);
+}
+
+.collapsible-section__icon--expanded {
+  transform: rotate(90deg);
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--text-dim);
+}
+
+.empty-state p {
+  margin: var(--space-xs) 0;
+}
+
+.empty-state__hint {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 480px) {
+  .selectable-item {
+    padding: var(--space-sm);
+  }
+  
+  .item-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+  
+  .item-name {
+    font-size: 1rem;
+  }
+  
+  .item-details {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+  
+  .scrollable-list {
+    max-height: 35vh;
+    padding: var(--space-sm);
+  }
+  
+  .alliance-item {
+    min-width: auto;
+    max-width: none;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .scrollable-list {
+    max-height: 32vh;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .scrollable-list {
+    max-height: 25vh;
+  }
+}
+
+@media (max-height: 500px) {
+  .scrollable-list {
+    max-height: 20vh;
+  }
+}
+
+@media (min-width: 1024px) {
+  .scrollable-list--tall {
+    max-height: 45vh;
+  }
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 480px) {
+  .selectable-item {
+    padding: var(--space-sm);
+  }
+  
+  .item-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+  }
+  
+  .item-name {
+    font-size: 1rem;
+  }
+  
+  .item-details {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+  
+  .scrollable-list {
+    max-height: 35vh;
+    padding: var(--space-sm);
+  }
+  
+  .alliance-item {
+    min-width: auto;
+    max-width: none;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .scrollable-list {
+    max-height: 32vh;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .scrollable-list {
+    max-height: 25vh;
+  }
+}
+
+@media (max-height: 500px) {
+  .scrollable-list {
+    max-height: 20vh;
+  }
+}
+
+@media (min-width: 1024px) {
+  .scrollable-list--tall {
+    max-height: 45vh;
+  }
+}
+
+/* EOF */

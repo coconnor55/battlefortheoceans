@@ -1,4 +1,4 @@
-/* src/styles/responsive.css */
+/* src/styles/responsive.css v1.0.1 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Responsive design - consolidated mobile/tablet breakpoints */
 
@@ -67,6 +67,14 @@
   .content-pane,
   .content-pane--narrow,
   .content-pane--wide {
+    padding: var(--space-lg);
+    max-width: 95%;
+  }
+  
+  /* Card system */
+  .card,
+  .card--narrow,
+  .card--wide {
     padding: var(--space-lg);
     max-width: 95%;
   }

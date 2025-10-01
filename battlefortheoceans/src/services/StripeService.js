@@ -63,9 +63,9 @@ class StripeService {
       
       // Return fallback price to prevent UI breakage
       const fallback = {
-        amount: 4.99,
+        amount: 99.99,
         currency: 'usd',
-        formatted: '$4.99',
+        formatted: '$99.99',
         error: error.message
       };
       

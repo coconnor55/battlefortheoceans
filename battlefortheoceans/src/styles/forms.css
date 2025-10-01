@@ -89,6 +89,11 @@
   margin-top: var(--space-xs);
 }
 
+.character-count {
+  text-align: right;
+  margin-top: var(--space-xs);
+}
+
 /* ============================================
    CHECKBOX & RADIO
    ============================================ */

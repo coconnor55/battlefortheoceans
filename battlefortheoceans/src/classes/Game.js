@@ -9,7 +9,7 @@ import Alliance from './Alliance.js';
 import Visualizer from './Visualizer.js';
 import Message from './Message.js';
 
-const version = "v0.3.4";
+const version = "v0.4.6";
 
 // Environment-aware CDN path
 const SOUND_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
@@ -54,31 +54,28 @@ class Game {
       shotAnimation: 500,
       resultAnimation: 300,
       soundDelay: 200,
-      speedFactor: 1.0
+      speedFactor: 1.0,
+      gameOverDelay: 6000 // v0.4.4: 6 second delay before transitioning to OverPage
     };
     
-    // CRITICAL: Initialize gameLog BEFORE sound system
     this.gameLog = [];
     this.startTime = null;
     this.endTime = null;
     this.turnTimeout = null;
     this.maxTurnTime = 30000;
     this.uiUpdateCallback = null;
-    this.gameEndCallback = null; // ADDED: Callback for game end
+    this.gameEndCallback = null;
     this.battleBoardRef = null;
     this.humanPlayerId = null;
     this.lastAttackResult = null;
     
-    // Sound system - initialize AFTER gameLog
+    // Sound system
     this.soundEnabled = true;
     this.soundEffects = {};
     this.soundLoadErrors = [];
     this.initializeSounds();
     
-    this.log(`Game created: ${this.id}, Mode: ${gameMode}`);
-    this.message.post(this.message.types.SYSTEM, {
-      message: `Game initialized: ${eraConfig.name}`
-    }, [this.message.channels.LOG]);
+    console.log(`[Game ${this.id}] Game created: ${this.id}, Mode: ${gameMode}`);
   }
 
   initializeSounds() {
@@ -87,61 +84,38 @@ class Game {
       incomingWhistle: 'incoming-whistle.mp3',
       explosionBang: 'explosion-bang.mp3',
       splash: 'splash.mp3',
-        sinkingShip: 'sinking-ship.mp3'
+      sinkingShip: 'sinking-ship.mp3',
+      victoryFanfare: 'victory-fanfare.mp3',  // v0.4.4: Victory sound
+      funeralMarch: 'funeral-march.mp3'       // v0.4.4: Defeat sound
     };
 
     Object.entries(soundFiles).forEach(([key, filename]) => {
       try {
         const fullPath = `${SOUND_BASE_URL}/sounds/${filename}`;
-        console.log(`[SOUND] Loading ${key} from: ${fullPath}`);
-        
         const audio = new Audio(fullPath);
         audio.preload = 'auto';
-        
-        audio.addEventListener('canplaythrough', () => {
-          console.log(`[SOUND] ${key} loaded successfully`);
-        });
-        
-        audio.addEventListener('error', (e) => {
-          console.warn(`[SOUND] Failed to load ${key}, game will continue without this sound`);
-          this.soundLoadErrors.push(key);
-        });
-        
         audio.load();
         this.soundEffects[key] = audio;
       } catch (error) {
-        console.warn(`[SOUND] Exception loading ${filename}, game will continue without this sound:`, error);
         this.soundLoadErrors.push(key);
       }
     });
-
-    if (this.soundLoadErrors.length > 0) {
-      console.warn(`[SOUND] ${this.soundLoadErrors.length} sound(s) failed to load: ${this.soundLoadErrors.join(', ')}`);
-    }
-
-    this.log('Sound system initialized');
   }
 
   playSound(soundType, delay = 0) {
-    if (!this.soundEnabled) {
-      return;
-    }
+    if (!this.soundEnabled) return;
     
     setTimeout(() => {
       const audio = this.soundEffects[soundType];
-      if (audio && audio.readyState >= 2) { // Check if audio is loaded
+      if (audio && audio.readyState >= 2) {
         audio.currentTime = 0;
-        audio.play().catch(err => {
-          // Silently fail - autoplay blocked or file unavailable
-          console.debug(`[SOUND] ${soundType} play failed (this is normal if user hasn't interacted yet)`);
-        });
+        audio.play().catch(() => {});
       }
     }, delay);
   }
 
   toggleSound(enabled) {
     this.soundEnabled = enabled;
-    this.log(`Sound ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   queueAction(action) {
@@ -166,7 +140,7 @@ class Game {
         action.onComplete();
       }
     } catch (error) {
-      console.error(`[ACTION QUEUE] Error processing action:`, error);
+      console.error(`[ACTION QUEUE] Error:`, error);
     }
     
     setTimeout(() => this.processNextAction(), 0);
@@ -176,9 +150,7 @@ class Game {
     const { type, player, target } = action;
     
     if (type === 'ai_attack') {
-      // AI fires cannon
       this.playSound('cannonBlast');
-      
       this.notifyOpponentShot(target.row, target.col, 'firing');
       await this.delay(this.animationSettings.shotAnimation * this.animationSettings.speedFactor);
       
@@ -201,32 +173,6 @@ class Game {
 
   updateAnimationSettings(settings) {
     this.animationSettings = { ...this.animationSettings, ...settings };
-  }
-
-  static validateEraConfig(eraConfig) {
-    const errors = [];
-    
-    if (!eraConfig.name) errors.push('Missing era name');
-    if (!eraConfig.rows || !eraConfig.cols) errors.push('Missing board dimensions');
-    if (!eraConfig.terrain) errors.push('Missing terrain configuration');
-    if (!eraConfig.ships) errors.push('Missing ship configuration');
-    
-    if (!eraConfig.game_rules) {
-      errors.push('Missing game_rules configuration');
-    } else {
-      const requiredRules = ['turn_required', 'turn_on_hit', 'turn_on_miss'];
-      const missingRules = requiredRules.filter(rule =>
-        eraConfig.game_rules[rule] === undefined
-      );
-      if (missingRules.length > 0) {
-        errors.push(`Missing game rules: ${missingRules.join(', ')}`);
-      }
-    }
-    
-    return {
-      isValid: errors.length === 0,
-      errors: errors
-    };
   }
 
   setUIUpdateCallback(callback) {
@@ -253,7 +199,6 @@ class Game {
 
   notifyGameEnd() {
     if (this.gameEndCallback) {
-      this.log('Notifying CoreEngine of game end');
       this.gameEndCallback();
     }
   }
@@ -281,12 +226,21 @@ class Game {
       throw new Error(`Alliance name required for player ${name}`);
     }
     
+    const alliance = Array.from(this.alliances.values()).find(a => a.name === allianceName);
+    if (!alliance) {
+      throw new Error(`Alliance not found: ${allianceName}`);
+    }
+    
+    alliance.addPlayer(player);
+    this.playerAlliances.set(player.id, alliance.id);
+    
     const fleet = Fleet.fromEraConfig(player.id, this.eraConfig, allianceName);
     
     this.players.push(player);
     this.playerFleets.set(player.id, fleet);
     
-    this.log(`Player added: ${name} (${type}) with ${fleet.count} ships from ${allianceName} alliance`);
+    this.battleLog(`${name}${type === 'ai' ? ' (ai)' : ''} joins the game`);
+    
     return player;
   }
 
@@ -299,66 +253,53 @@ class Game {
     this.eraConfig.alliances.forEach(allianceConfig => {
       const alliance = Alliance.fromConfig(allianceConfig, null);
       this.alliances.set(alliance.id, alliance);
-      this.log(`Alliance created: ${alliance.name}`);
     });
   }
 
-  assignPlayerToAlliance(playerId, allianceName, owner = false) {
-    const alliance = Array.from(this.alliances.values()).find(a => a.name === allianceName);
+  /**
+   * SIMPLIFIED: Check if firing player can attack target player
+   * Rule: Cannot attack players in same alliance
+   */
+  canAttack(firingPlayerId, targetPlayerId) {
+    if (firingPlayerId === targetPlayerId) return false;
     
-    if (!alliance) {
-      throw new Error(`Alliance not found: ${allianceName}`);
-    }
-
-    const player = this.getPlayer(playerId);
-    if (!player) {
-      throw new Error(`Player not found: ${playerId}`);
-    }
-
-    if (owner) {
-      alliance.changeOwner(playerId);
-      this.log(`Player ${player.name} is now owner of alliance ${alliance.name}`);
-    }
-
-    alliance.addPlayer(player);
-    this.playerAlliances.set(playerId, alliance.id);
+    const firingAlliance = this.playerAlliances.get(firingPlayerId);
+    const targetAlliance = this.playerAlliances.get(targetPlayerId);
     
-    this.log(`Player ${player.name} assigned to alliance ${alliance.name}`);
-    return true;
+    return firingAlliance !== targetAlliance;
   }
 
+  /**
+   * SIMPLIFIED: Process an attack at coordinates
+   */
   receiveAttack(row, col, firingPlayer, damage = 1.0) {
-    const attackStart = Date.now();
-    
-    if (row < 0 || row >= this.eraConfig.rows || col < 0 || col >= this.eraConfig.cols) {
+    if (!this.board?.isValidCoordinate(row, col)) {
       const result = { result: 'invalid', ships: [] };
       this.lastAttackResult = result;
       return result;
     }
 
     const cellName = `${String.fromCharCode(65 + col)}${row + 1}`;
-    const cellData = this.board ? this.board.getShipDataAt(row, col) : [];
+    const cellData = this.board.getShipDataAt(row, col);
     
+    // Filter to only enemy ships (different alliance)
     const enemyShips = cellData.filter(shipData => {
       const targetPlayerId = this.shipOwnership.get(shipData.shipId);
       return this.canAttack(firingPlayer.id, targetPlayerId);
     });
     
-    const targetPlayer = enemyShips.length > 0 ? this.getPlayer(this.shipOwnership.get(enemyShips[0].shipId)) : null;
-    const finalDamage = targetPlayer ? this.calculateDamage(firingPlayer, targetPlayer, damage) : 0;
-    
+    // MISS - no enemy ships at this cell
     if (enemyShips.length === 0) {
-      // Miss - play splash sound
       this.playSound('splash');
-      
       firingPlayer.misses++;
+      firingPlayer.recordMiss(row, col); // v0.4.3: Track player's miss
       
       this.message.post(this.message.types.MISS, {
         attacker: firingPlayer,
         position: cellName
       }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
       
-      this.log(`Miss at ${cellName} by ${firingPlayer.name}`);
+      this.battleLog(`t${this.currentTurn}-Miss at ${cellName} by ${firingPlayer.name}`, 'miss');
       
       if (this.board) {
         this.board.recordShot(row, col, firingPlayer, 'miss');
@@ -373,7 +314,7 @@ class Game {
       return result;
     }
 
-    // Hit - play incoming whistle and explosion
+    // HIT - process damage to enemy ships
     this.playSound('incomingWhistle');
     this.playSound('explosionBang', 500);
 
@@ -391,6 +332,7 @@ class Game {
       const ship = fleet.ships.find(s => s.id === shipId);
       if (!ship) continue;
       
+      const finalDamage = this.calculateDamage(firingPlayer, targetPlayer, damage);
       const shipHealth = ship.receiveHit(cellIndex, finalDamage);
       
       const result = ship.isSunk() ? 'sunk' : 'hit';
@@ -403,7 +345,7 @@ class Game {
       });
       
       if (result === 'sunk') {
-          this.playSound('sinkingShip');
+        this.playSound('sinkingShip');
         this.message.post(this.message.types.SUNK, {
           attacker: firingPlayer,
           target: targetPlayer,
@@ -414,6 +356,8 @@ class Game {
         
         firingPlayer.sunk++;
         firingPlayer.score += 10;
+        
+        this.battleLog(`t${this.currentTurn}-SUNK: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`, 'sunk');
       } else {
         this.message.post(this.message.types.HIT, {
           attacker: firingPlayer,
@@ -423,21 +367,14 @@ class Game {
         }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
         
         firingPlayer.score += 1;
-      }
-      
-      this.log(`${result.toUpperCase()}: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`);
-      
-      if (this.gameRules.ship_capture && ship.isSunk()) {
-        const captureRoll = Math.random();
-        if (captureRoll <= this.gameRules.capture_chance) {
-          this.handleShipCapture(ship, firingPlayer, targetPlayer);
-        }
+        
+        this.battleLog(`t${this.currentTurn}-HIT: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`, 'hit');
       }
     }
     
     if (hitResults.length > 0) {
       firingPlayer.hits++;
-      firingPlayer.hitsDamage += finalDamage;
+      firingPlayer.hitsDamage += hitResults.reduce((sum, h) => sum + h.damage, 0);
     }
     
     if (this.board) {
@@ -458,63 +395,27 @@ class Game {
       });
     }
     
-    const result = { result: resultType, ships: hitResults, damage: finalDamage };
+    const result = { result: resultType, ships: hitResults, damage };
     this.lastAttackResult = result;
     return result;
   }
 
-  canAttack(firingPlayerId, targetPlayerId) {
-    if (firingPlayerId === targetPlayerId) return false;
-    
-    const firingAlliance = this.playerAlliances.get(firingPlayerId);
-    const targetAlliance = this.playerAlliances.get(targetPlayerId);
-    
-    if (firingAlliance === targetAlliance) {
-      return false;
-    }
-    
-    return true;
-  }
-
   calculateDamage(firingPlayer, targetPlayer, baseDamage) {
-    let finalDamage = baseDamage;
-    return Math.max(0, finalDamage);
-  }
-
-  handleShipCapture(sunkShip, firingPlayer, targetPlayer) {
-    if (!this.gameRules.ship_capture) return;
-    
-    const firingFleet = this.playerFleets.get(firingPlayer.id);
-    const targetFleet = this.playerFleets.get(targetPlayer.id);
-    
-    if (firingFleet && targetFleet) {
-      if (targetFleet.removeShip(sunkShip)) {
-        sunkShip.reset();
-        if (firingFleet.addShip(sunkShip)) {
-          this.shipOwnership.set(sunkShip.id, firingPlayer.id);
-          this.log(`Ship captured: ${sunkShip.name} by ${firingPlayer.name}`);
-        }
-      }
-    }
+    return Math.max(0, baseDamage);
   }
 
   registerShipPlacement(ship, shipCells, orientation, playerId) {
     this.shipOwnership.set(ship.id, playerId);
     
     if (this.board) {
-      const registered = this.board.registerShipPlacement(ship, shipCells);
-      if (registered) {
-        return true;
-      }
+      return this.board.registerShipPlacement(ship, shipCells);
     }
     
     return false;
   }
 
   getShipCells(shipId) {
-    if (!this.board) {
-      return [];
-    }
+    if (!this.board) return [];
     return this.board.getShipCells(shipId);
   }
 
@@ -525,7 +426,6 @@ class Game {
   setBoard(board) {
     this.board = board;
     this.visualizer = new Visualizer(this.eraConfig.rows, this.eraConfig.cols);
-    this.log('Board and visualizer set for game');
   }
 
   async startGame() {
@@ -536,7 +436,6 @@ class Game {
     if (!this.board) {
       this.board = new Board(this.eraConfig.rows, this.eraConfig.cols, this.eraConfig.terrain);
       this.visualizer = new Visualizer(this.eraConfig.rows, this.eraConfig.cols);
-      this.log('New board and visualizer created');
     }
 
     for (const player of this.players) {
@@ -559,8 +458,7 @@ class Game {
       players: this.players
     }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
     
-    this.log('Game started');
-    
+    this.battleLog('Game started');
     this.postTurnMessage();
     this.checkAndTriggerAITurn();
     
@@ -577,9 +475,15 @@ class Game {
     }
   }
 
+  /**
+   * Auto-place ships for a player
+   * v0.4.5: Now notifies UI after each ship placement for immediate visual feedback
+   */
   async autoPlaceShips(player) {
     const fleet = this.playerFleets.get(player.id);
     if (!fleet) return;
+
+    console.log(`[Game ${this.id}] Auto-placing ships for ${player.name}`);
 
     for (const ship of fleet.ships) {
       if (ship.isPlaced) continue;
@@ -588,40 +492,35 @@ class Game {
       let attempts = 0;
 
       while (!placed && attempts < 100) {
-        const row = Math.floor(Math.random() * this.eraConfig.rows);
-        const col = Math.floor(Math.random() * this.eraConfig.cols);
+        const startCell = this.board.getRandomEmptyCell();
+        if (!startCell) {
+          throw new Error(`No empty cells available for ${ship.name}`);
+        }
+        
         const horizontal = Math.random() > 0.5;
 
         const cells = [];
         for (let i = 0; i < ship.size; i++) {
-          const cellRow = horizontal ? row : row + i;
-          const cellCol = horizontal ? col + i : col;
+          const cellRow = horizontal ? startCell.row : startCell.row + i;
+          const cellCol = horizontal ? startCell.col + i : startCell.col;
           cells.push({ row: cellRow, col: cellCol });
         }
-        
-        const isValid = cells.every(cell =>
-          cell.row >= 0 && cell.row < this.eraConfig.rows &&
-          cell.col >= 0 && cell.col < this.eraConfig.cols &&
-          this.eraConfig.terrain[cell.row][cell.col] !== 'excluded'
-        );
 
-        if (isValid) {
-          try {
-            const registered = this.registerShipPlacement(
-              ship,
-              cells,
-              horizontal ? 'horizontal' : 'vertical',
-              player.id
-            );
-            
-            if (registered) {
-              ship.place();
-              placed = true;
-              this.log(`${player.name}: Placed ${ship.name} at ${row},${col} ${horizontal ? 'H' : 'V'}`);
-            }
-          } catch (error) {
-            ship.reset();
-          }
+        const registered = this.registerShipPlacement(
+          ship,
+          cells,
+          horizontal ? 'horizontal' : 'vertical',
+          player.id
+        );
+        
+        if (registered) {
+          ship.place();
+          placed = true;
+          
+          // v0.4.5: Notify UI immediately after placing each ship
+          // This triggers CanvasBoard redraw via observer pattern
+          console.log(`[Game ${this.id}] Placed ${ship.name}, notifying UI`);
+          this.notifyUIUpdate();
         }
         
         attempts++;
@@ -631,6 +530,10 @@ class Game {
         throw new Error(`Failed to place ${ship.name} for ${player.name}`);
       }
     }
+    
+    // v0.4.5: Final notification after all ships placed
+    console.log(`[Game ${this.id}] All ships placed for ${player.name}, final UI notification`);
+    this.notifyUIUpdate();
   }
 
   getCurrentPlayer() {
@@ -647,34 +550,35 @@ class Game {
     throw new Error(`Unknown action: ${action}`);
   }
 
-    async processAttack(attacker, row, col) {
-        if (this.state !== 'playing') {
-          throw new Error('Game is not in playing state');
-        }
+  async processAttack(attacker, row, col) {
+    if (this.state !== 'playing') {
+      throw new Error('Game is not in playing state');
+    }
 
-        if (!this.isValidAttack(row, col)) {
-          throw new Error('Invalid attack position');
-        }
+    if (!this.isValidAttack(row, col, attacker)) {
+      throw new Error('Invalid attack position');
+    }
 
-        // Human fires cannon
-        if (attacker.type === 'human') {
-          this.playSound('cannonBlast');
-        }
+    if (attacker.type === 'human') {
+      this.playSound('cannonBlast');
+    }
 
-        const result = this.receiveAttack(row, col, attacker);
-        
-        // CRITICAL FIX: Check game end after human shot
-        if (this.checkGameEnd()) {
-          this.endGame();
-          return result;
-        }
-        
-        // Handle turn progression (which may trigger AI turn)
-        this.handleTurnProgression(result.result === 'hit' || result.result === 'sunk');
-        
-        return result;
-      }
+    const result = this.receiveAttack(row, col, attacker);
     
+    if (this.checkGameEnd()) {
+      this.endGame();
+      return result;
+    }
+    
+    this.handleTurnProgression(result.result === 'hit' || result.result === 'sunk');
+    
+    return result;
+  }
+    
+  /**
+   * SIMPLIFIED: Check if game is over
+   * Game ends when only one alliance has ships remaining
+   */
   checkGameEnd() {
     const activeAlliances = Array.from(this.alliances.values()).filter(alliance => {
       if (alliance.players.length === 0) return false;
@@ -729,9 +633,11 @@ class Game {
       try {
         await this.executeAITurnQueued(currentPlayer);
       } catch (error) {
-        console.error(`AI turn failed for ${currentPlayer.name}:`, error);
-        this.nextTurn();
-        this.checkAndTriggerAITurn();
+        console.error(`[Game] AI turn failed for ${currentPlayer.name}:`, error);
+        // AI can't move - must be no valid targets, game should be over
+        if (this.checkGameEnd()) {
+          this.endGame();
+        }
       }
     }
   }
@@ -752,13 +658,11 @@ class Game {
       player: aiPlayer,
       target: aiDecision,
       onComplete: () => {
-        // CRITICAL: Check game end AFTER AI shot completes
         if (this.checkGameEnd()) {
           this.endGame();
           return;
         }
         
-        // Only continue turn progression if game isn't over
         this.handleTurnProgression(
           this.lastAttackResult?.result === 'hit' ||
           this.lastAttackResult?.result === 'sunk'
@@ -773,24 +677,63 @@ class Game {
     this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
     this.currentTurn++;
     
-    const currentPlayer = this.getCurrentPlayer();
-    this.log(`Turn ${this.currentTurn}: ${currentPlayer.name}'s turn`);
-    
     this.postTurnMessage();
   }
 
-  isValidAttack(row, col) {
-    if (row < 0 || row >= this.eraConfig.rows) return false;
-    if (col < 0 || col >= this.eraConfig.cols) return false;
+  /**
+   * Check if attack is valid for a specific player
+   * Valid if: coordinate is valid AND player hasn't missed here AND (no ship OR ship cell has health > 0)
+   * v0.4.3: FIXED - Now uses per-player miss tracking
+   */
+  isValidAttack(row, col, firingPlayer) {
+    if (!this.board) return false;
     
-    if (this.eraConfig.terrain[row][col] === 'excluded') return false;
+    // Check coordinate is valid (bounds + terrain)
+    if (!this.board.isValidCoordinate(row, col)) return false;
     
-    return true;
+    // Check if this player has already missed here (water/land)
+    if (firingPlayer && firingPlayer.hasMissedAt(row, col)) return false;
+    
+    // Get ships at this location
+    const cellData = this.board.getShipDataAt(row, col);
+    
+    // If no ships, it's valid water/land (first time for this player)
+    if (cellData.length === 0) return true;
+    
+    // If ships present, valid only if at least one ship cell still has health > 0
+    return cellData.some(shipData => {
+      const targetPlayerId = this.shipOwnership.get(shipData.shipId);
+      const fleet = this.playerFleets.get(targetPlayerId);
+      if (!fleet) return false;
+      
+      const ship = fleet.ships.find(s => s.id === shipData.shipId);
+      if (!ship) return false;
+      
+      // Check if this specific cell still has health > 0
+      return ship.health[shipData.cellIndex] > 0;
+    });
   }
 
+  /**
+   * End game with victory/defeat audio and 6-second delay
+   * v0.4.6: Victory/defeat audio plays 1 second after game ends to allow animations to finish
+   */
   endGame() {
     this.state = 'finished';
     this.endTime = new Date();
+    
+    // Determine if human player won
+    const humanPlayer = this.players.find(p => p.id === this.humanPlayerId);
+    const humanWon = this.winner && humanPlayer && this.winner.id === humanPlayer.id;
+    
+    // v0.4.6: Play victory or defeat audio with 1 second delay
+    if (humanWon) {
+      console.log(`[Game ${this.id}] Human victory - playing fanfare in 1 second`);
+      this.playSound('victoryFanfare', 1000); // 1 second delay
+    } else {
+      console.log(`[Game ${this.id}] Human defeat - playing funeral march in 1 second`);
+      this.playSound('funeralMarch', 1000); // 1 second delay
+    }
     
     this.message.post(this.message.types.GAME_END, {
       winner: this.winner,
@@ -798,16 +741,19 @@ class Game {
     }, [this.message.channels.CONSOLE, this.message.channels.UI, this.message.channels.LOG]);
     
     if (this.winner) {
-      this.log(`Game ended: ${this.winner.name} wins!`);
+      this.battleLog(`Game ended: ${this.winner.name} wins!`, 'victory');
     } else {
-      this.log('Game ended: Draw');
+      this.battleLog('Game ended: Draw', 'draw');
     }
 
     this.cleanupTemporaryAlliances();
     
-    // CRITICAL FIX: Notify CoreEngine to trigger state transition
-    // This calls the callback that dispatches OVER event: play → over
-    this.notifyGameEnd();
+    // v0.4.4: Delay transition to OverPage by 6 seconds to let animations/audio finish
+    console.log(`[Game ${this.id}] Delaying transition to OverPage by ${this.animationSettings.gameOverDelay}ms`);
+    setTimeout(() => {
+      console.log(`[Game ${this.id}] Notifying game end to CoreEngine`);
+      this.notifyGameEnd();
+    }, this.animationSettings.gameOverDelay);
   }
 
   cleanupTemporaryAlliances() {
@@ -815,7 +761,6 @@ class Game {
     
     temporaryAlliances.forEach(alliance => {
       this.alliances.delete(alliance.id);
-      this.log(`Temporary alliance ${alliance.name} dissolved after game end`);
     });
 
     this.playerAlliances.forEach((allianceId, playerId) => {
@@ -857,8 +802,6 @@ class Game {
       if (fleet) fleet.ships.forEach(ship => ship.reset());
       player.reset();
     });
-    
-    this.log('Game reset');
   }
 
   getGameStats() {
@@ -895,13 +838,16 @@ class Game {
     };
   }
 
-  log(message) {
+  battleLog(message, type = 'info') {
+    const elapsed = this.startTime ? (Date.now() - this.startTime) / 1000 : 0;
     const timestamp = new Date().toISOString();
+    
     const entry = {
       timestamp,
+      elapsed: elapsed.toFixed(1),
       turn: this.currentTurn,
-      message,
-      type: 'game'
+      message: `[BATTLE] ${message}`,
+      type: type
     };
     
     this.gameLog.push(entry);

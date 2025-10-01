@@ -1,232 +1,112 @@
 // src/classes/Player.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-import Fleet from './Fleet.js';
-
-const version = "v0.3.0"
+const version = "v0.4.0";
 
 class Player {
   constructor(id, name, playerType = 'human') {
+    // Core identity
     this.id = id;
     this.name = name;
-    this.type = playerType; // 'human', 'ai'
+    this.type = playerType;
     
-    // Game state
-    this.isActive = true;
-    this.isEliminated = false;
+    // STATISTICS (initialized here, updated by Game.js)
+    this.hits = 0; // successful shots that hit ships
+    this.misses = 0; // shots that missed
+    this.sunk = 0; // ships sunk by this player
+    this.hitsDamage = 0.0; // cumulative damage dealt
+    this.score = 0; // calculated game score
     
-    // STATISTICS (v0.3.0 standardized)
-    this.hits = 0;           // successful shots that hit ships
-    this.misses = 0;         // shots that missed
-    this.sunk = 0;           // ships sunk by this player
-    this.hitsDamage = 0.0;   // cumulative damage dealt
-    this.score = 0;          // calculated game score
+    // MISS TRACKING (v0.4.0)
+    // Each player maintains their own map of water cells they've shot at
+    // Ship cells are handled by Game.isValidAttack() checking ship health
+    this.missedShots = new Set(); // "row,col" of water/land cells this player has targeted
     
-    // Computed properties available via getters:
-    // - shots (hits + misses)
-    // - accuracy ((hits/shots) * 100)
-    // - averageDamage (hitsDamage/hits)
-    // - damagePerShot (hitsDamage/shots)
-    
-    // Timestamps
-    this.joinedAt = Date.now();
-    this.eliminatedAt = null;
-    this.lastActionAt = null;
-    
-    // Player configuration
-    this.color = this.generatePlayerColor();
-    this.avatar = null;
+    console.log(`Player ${name} created (${playerType})`);
   }
 
   /**
-   * Computed property: Total shots fired
+   * Check if this player has already missed at these coordinates
+   * v0.4.0: New method for per-player miss tracking
    */
+  hasMissedAt(row, col) {
+    return this.missedShots.has(`${row},${col}`);
+  }
+
+  /**
+   * Record that this player has missed at these coordinates
+   * v0.4.0: Called by Game when result is 'miss'
+   */
+  recordMiss(row, col) {
+    this.missedShots.add(`${row},${col}`);
+  }
+
+  /**
+   * Get all coordinates this player has missed at
+   * v0.4.0: New method for debugging/UI
+   */
+  getMissedShots() {
+    return Array.from(this.missedShots).map(key => {
+      const [row, col] = key.split(',').map(Number);
+      return { row, col };
+    });
+  }
+
+  // Computed properties (getters)
   get shots() {
     return this.hits + this.misses;
   }
 
-  /**
-   * Computed property: Accuracy percentage
-   */
   get accuracy() {
     return this.shots > 0 ? ((this.hits / this.shots) * 100).toFixed(1) : 0;
   }
 
-  /**
-   * Computed property: Average damage per hit
-   */
   get averageDamage() {
     return this.hits > 0 ? (this.hitsDamage / this.hits).toFixed(2) : 0;
   }
 
-  /**
-   * Computed property: Average damage per shot (including misses)
-   */
   get damagePerShot() {
     return this.shots > 0 ? (this.hitsDamage / this.shots).toFixed(2) : 0;
   }
 
   /**
-   * Take a shot at coordinates (to be overridden by subclasses)
+   * Check if player can play (has fleet, etc.)
    */
-  async selectTarget(gameState, availableTargets) {
-    throw new Error('Player.selectTarget() must be implemented by subclass');
+  canPlay() {
+    return true;
   }
 
   /**
-   * React to being attacked (can be overridden by subclasses)
-   */
-  onAttacked(attacker, attackResult) {
-    this.lastActionAt = Date.now();
-    
-    if (attackResult.result === 'hit' || attackResult.result === 'sunk') {
-      console.log(`Player ${this.name}: Received ${attackResult.result} from ${attacker.name}`);
-    }
-  }
-
-  /**
-   * Mark player as eliminated
-   */
-  eliminate() {
-    this.isEliminated = true;
-    this.isActive = false;
-    this.eliminatedAt = Date.now();
-    console.log(`Player ${this.name} eliminated`);
-  }
-
-  /**
-   * Check if player can still play (requires gameInstance for fleet access)
-   */
-  canPlay(gameInstance = null) {
-    if (!this.isActive || this.isEliminated) {
-      return false;
-    }
-    
-    // If no gameInstance provided, assume player can play (basic check)
-    if (!gameInstance) {
-      return true;
-    }
-    
-    // Check fleet status through gameInstance
-    const fleet = gameInstance.playerFleets.get(this.id);
-    return fleet && !fleet.isDefeated();
-  }
-
-  /**
-   * Get player statistics (requires gameInstance for fleet status)
-   */
-  getStats(gameInstance = null) {
-    // Get fleet status if gameInstance provided
-    let fleetStatus = null;
-    if (gameInstance) {
-      const fleet = gameInstance.playerFleets.get(this.id);
-      fleetStatus = fleet ? fleet.getStats() : null;
-    }
-    
-    return {
-      id: this.id,
-      name: this.name,
-      type: this.type,
-      score: this.score,
-      shots: this.shots,           // computed
-      hits: this.hits,
-      misses: this.misses,
-      sunk: this.sunk,
-      hitsDamage: this.hitsDamage,
-      accuracy: parseFloat(this.accuracy),        // computed
-      averageDamage: parseFloat(this.averageDamage), // computed
-      damagePerShot: parseFloat(this.damagePerShot), // computed
-      isEliminated: this.isEliminated,
-      survivalTime: (this.eliminatedAt || Date.now()) - this.joinedAt,
-      fleetStatus: fleetStatus
-    };
-  }
-
-  /**
-   * Get available targets for this player (requires gameInstance for fleet status)
-   */
-  getAvailableTargets(allPlayers, gameInstance = null) {
-    return allPlayers.filter(player => {
-      if (player.id === this.id) return false; // Can't target self
-      
-      // Basic check without fleet status
-      if (!gameInstance) {
-        return player.isActive && !player.isEliminated;
-      }
-      
-      // Full check with fleet status
-      return player.canPlay(gameInstance);
-    });
-  }
-
-  /**
-   * Generate a unique color for this player
-   */
-  generatePlayerColor() {
-    const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
-    ];
-    
-    const hash = this.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  }
-
-  /**
-   * Reset player for new game
+   * Reset player statistics for new game
    */
   reset() {
-    // Reset all statistics
     this.hits = 0;
     this.misses = 0;
     this.sunk = 0;
     this.hitsDamage = 0.0;
     this.score = 0;
-    
-    // Reset state
-    this.isActive = true;
-    this.isEliminated = false;
-    this.eliminatedAt = null;
-    this.lastActionAt = null;
-    
+    this.missedShots.clear();
     console.log(`Player ${this.name} reset for new game`);
   }
 
   /**
-   * Serialize player data for network/storage (requires gameInstance for fleet data)
+   * Get player statistics summary
    */
-  serialize(gameInstance = null) {
-    // Get fleet status if gameInstance provided
-    let fleetData = null;
-    if (gameInstance) {
-      const fleet = gameInstance.playerFleets.get(this.id);
-      fleetData = fleet ? fleet.getDetailedStatus() : null;
-    }
-    
+  getStats() {
     return {
       id: this.id,
       name: this.name,
       type: this.type,
-      color: this.color,
-      stats: this.getStats(gameInstance),
-      fleet: fleetData
+      shots: this.shots,
+      hits: this.hits,
+      misses: this.misses,
+      sunk: this.sunk,
+      hitsDamage: this.hitsDamage,
+      score: this.score,
+      accuracy: parseFloat(this.accuracy),
+      averageDamage: parseFloat(this.averageDamage),
+      damagePerShot: parseFloat(this.damagePerShot)
     };
-  }
-
-  /**
-   * Create appropriate player subclass from data
-   * Note: Dynamic imports used to avoid circular dependency
-   */
-  static async fromData(data) {
-    switch (data.type) {
-      case 'ai':
-        const AiPlayer = (await import('./AiPlayer.js')).default;
-        return new AiPlayer(data.id, data.name, data.strategy || 'random');
-      case 'human':
-      default:
-        const HumanPlayer = (await import('./HumanPlayer.js')).default;
-        return new HumanPlayer(data.id, data.name);
-    }
   }
 }
 

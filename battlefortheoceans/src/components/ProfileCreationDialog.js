@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.2';
+const version = 'v0.1.4';
 
 const ProfileCreationDialog = ({ userData, onComplete }) => {
   const { createUserProfile } = useGame();
@@ -87,10 +87,10 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
 
   return (
     <div className="modal-overlay">
-      <div className="content-pane content-pane--narrow">
+      <div className="card">
         <div className="card-header">
           <h2 className="card-title">Choose Your Game Handle</h2>
-          <p className="card-subtitle">Welcome to Battle for the Oceans! Choose a unique name that other players will see.</p>
+          <p className="card-subtitle">Welcome to Battle for the Oceans! Choose a unique name which other players will see and know you by. You will not be able to change it later.</p>
         </div>
         
         <div className="card-body">
@@ -109,13 +109,12 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
                 autoFocus
               />
               
-              <div className="form-help">
-                <div className="character-count">
-                  {gameName.length}/32 characters
-                </div>
-                <div className="input-rules">
-                  Letters, numbers, spaces, hyphens, and underscores only
-                </div>
+              <div className="character-count italics">
+                {gameName.length}/32
+              </div>
+              
+              <div className="input-rules italics">
+                Letters, numbers, spaces, hyphens, and underscores only
               </div>
               
               {validationError && (
@@ -137,13 +136,6 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
               </button>
             </div>
           </form>
-        </div>
-        
-        <div className="card-footer">
-          <p className="privacy-note">
-            Your game handle will be visible to other players in battles and leaderboards.
-            Choose carefully - this cannot be changed later.
-          </p>
         </div>
       </div>
     </div>

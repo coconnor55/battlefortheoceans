@@ -1,10 +1,10 @@
-// src/components/LoginDialog.js
+// src/components/LoginDialog.js 
 // Copyright(c) 2025, Clint H. O'Connor
 
 import { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.38';
+const version = 'v0.1.39';
 
 const LoginDialog = ({ onClose }) => {
   const [email, setEmail] = useState('');
@@ -189,12 +189,12 @@ const LoginDialog = ({ onClose }) => {
             Don't see the email? Check your spam folder or click below to resend.
           </p>
         </div>
-        {error && <p className="message--error">{error}</p>}
+        {error && <p className="message message--error">{error}</p>}
         <div className="confirmation-actions">
-          <button className='btn btn--secondary' onClick={handleResendConfirmation}>
+          <button className="btn btn--secondary" onClick={handleResendConfirmation}>
             Resend Confirmation Email
           </button>
-          <button className='btn btn--primary' onClick={handleBackToLogin}>
+          <button className="btn btn--primary" onClick={handleBackToLogin}>
             Back to Login
           </button>
         </div>
@@ -214,9 +214,9 @@ const LoginDialog = ({ onClose }) => {
       
       {error && (
         <div className="error-section">
-          <p className="message--error">{error}</p>
+          <p className="message message--error">{error}</p>
           {mode === 'login' && loginAttempted && error.includes('Account not found') && (
-            <button className='btn btn--secondary btn--sm' onClick={switchToSignup}>
+            <button className="btn btn--secondary btn--sm" onClick={switchToSignup}>
               Sign Up Instead
             </button>
           )}
@@ -226,7 +226,7 @@ const LoginDialog = ({ onClose }) => {
       <form onSubmit={mode === 'login' ? handleLogin : mode === 'signup' ? handleSignUp : handleForgotPassword}>
         <div className="form-group">
           <input
-            className='form-input'
+            className="form-input"
             type="email"
             name="email"
             autoComplete="username email"
@@ -240,7 +240,7 @@ const LoginDialog = ({ onClose }) => {
         {mode !== 'forgot' && (
           <div className="form-group password-group">
             <input
-              className='form-input'
+              className="form-input"
               type={showPassword ? 'text' : 'password'}
               name="password"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
@@ -264,12 +264,12 @@ const LoginDialog = ({ onClose }) => {
         <div className="form-actions">
           {mode === 'login' && (
             <>
-              <button className='btn btn--primary' type="submit">Login</button>
+              <button className="btn btn--primary" type="submit">Login</button>
               <div className="auth-links">
-                <button type="button" className='link-button' onClick={switchToSignup}>
+                <button type="button" className="link-button" onClick={switchToSignup}>
                   Don't have an account? Sign up
                 </button>
-                <button type="button" className='link-button' onClick={switchToForgot}>
+                <button type="button" className="link-button" onClick={switchToForgot}>
                   Forgot password?
                 </button>
               </div>
@@ -278,9 +278,9 @@ const LoginDialog = ({ onClose }) => {
           
           {mode === 'signup' && (
             <>
-              <button className='btn btn--primary' type="submit">Create Account</button>
+              <button className="btn btn--primary" type="submit">Create Account</button>
               <div className="auth-links">
-                <button type="button" className='link-button' onClick={switchToLogin}>
+                <button type="button" className="link-button" onClick={switchToLogin}>
                   Already have an account? Login
                 </button>
               </div>
@@ -289,9 +289,9 @@ const LoginDialog = ({ onClose }) => {
           
           {mode === 'forgot' && (
             <>
-              <button className='btn btn--primary' type="submit">Send Reset Email</button>
+              <button className="btn btn--primary" type="submit">Send Reset Email</button>
               <div className="auth-links">
-                <button type="button" className='link-button' onClick={switchToLogin}>
+                <button type="button" className="link-button" onClick={switchToLogin}>
                   Back to Login
                 </button>
               </div>
@@ -305,7 +305,7 @@ const LoginDialog = ({ onClose }) => {
           <div className="divider">
             <span>or</span>
           </div>
-          <button className='btn btn--primary' onClick={handleGuest}>
+          <button className="btn btn--primary" onClick={handleGuest}>
             Play as Guest
           </button>
         </div>

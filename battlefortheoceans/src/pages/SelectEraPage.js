@@ -1,11 +1,11 @@
-// src/pages/SelectEraPage.js
+// src/pages/SelectEraPage.js v0.4.1
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 import PurchasePage from './PurchasePage';
 
-const version = 'v0.3.6';
+const version = 'v0.4.1';
 
 const SelectEraPage = () => {
   const {
@@ -15,6 +15,17 @@ const SelectEraPage = () => {
     getUserRights,
     eraService
   } = useGame();
+  
+  // Auto-create guest user if no profile exists
+  useEffect(() => {
+    if (!userProfile) {
+      console.log(version, 'No user profile detected - creating guest session');
+      const guestId = `guest-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      dispatch(events.SELECTERA, {
+        userData: { id: guestId }
+      });
+    }
+  }, [userProfile, dispatch, events]);
   
   // Local UI state for browsing - not committed to game logic until button click
   const [selectedEra, setSelectedEra] = useState(null);
@@ -158,11 +169,13 @@ const SelectEraPage = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-        <div className="loading">
-          <div className="spinner spinner--lg"></div>
-          <h2>Loading Battle Eras...</h2>
-          <p>Fetching available game configurations</p>
+      <div className="container flex flex-column flex-center">
+        <div className="content-pane content-pane--narrow">
+          <div className="loading">
+            <div className="spinner spinner--lg"></div>
+            <h2>Setting up...</h2>
+            <p>Getting battle options...</p>
+          </div>
         </div>
       </div>
     );
@@ -171,7 +184,7 @@ const SelectEraPage = () => {
   // Error state
   if (error) {
     return (
-      <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
+      <div className="container flex flex-column flex-center">
         <div className="content-pane content-pane--narrow">
           <div className="card-header">
             <h2 className="card-title">Error Loading Eras</h2>
@@ -195,7 +208,7 @@ const SelectEraPage = () => {
   // No eras found
   if (!loading && eras.length === 0) {
     return (
-      <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
+      <div className="container flex flex-column flex-center">
         <div className="content-pane content-pane--narrow">
           <div className="card-header">
             <h2 className="card-title">No Battle Eras Available</h2>
@@ -217,14 +230,15 @@ const SelectEraPage = () => {
   }
 
   return (
-    <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-      <div className="content-pane content-pane--wide" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+    <div className="container flex flex-column flex-center">
+      <div className="content-pane content-pane--wide">
         <div className="card-header">
           <h2 className="card-title">Select Battle Era</h2>
           <p className="card-subtitle">Choose your naval battlefield</p>
         </div>
 
-        <div className="era-list">
+        {/* Era list using new shared classes */}
+        <div className="era-list scrollable-list">
           {eras.map((era) => {
             const badgeType = getEraBadge(era);
             const isAccessible = badgeType === 'free' || badgeType === 'owned';
@@ -232,17 +246,17 @@ const SelectEraPage = () => {
             return (
               <div
                 key={era.id}
-                className={`era-item ${selectedEra?.id === era.id ? 'era-item--selected' : ''} ${!isAccessible ? 'era-item--locked' : ''}`}
+                className={`selectable-item era-item ${selectedEra?.id === era.id ? 'selectable-item--selected' : ''} ${!isAccessible ? 'selectable-item--locked' : ''}`}
                 onClick={() => handleEraSelect(era)}
               >
-                <div className="era-header">
-                  <span className="era-name">{era.name}</span>
+                <div className="item-header">
+                  <span className="item-name">{era.name}</span>
                   {badgeType === 'free' && <span className="badge badge--success">FREE</span>}
                   {badgeType === 'owned' && <span className="badge badge--success">✓</span>}
                   {badgeType === 'buy' && <span className="badge badge--primary">BUY</span>}
                 </div>
-                <div className="era-description">{era.era_description}</div>
-                <div className="era-details">
+                <div className="item-description">{era.era_description}</div>
+                <div className="item-details">
                   <span className="era-grid">{era.rows}×{era.cols} grid</span>
                   <span className="era-players">Max {era.max_players} players</span>
                 </div>
@@ -257,32 +271,25 @@ const SelectEraPage = () => {
         </div>
 
         {/* Action Section - Always Visible */}
-        <div className="action-section" style={{
-          padding: '2rem',
-          textAlign: 'center',
-          minHeight: '100px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '1rem'
-        }}>
+        <div className="action-section">
           {!selectedEra ? (
-            <p style={{ color: 'rgba(148, 163, 184, 0.8)' }}>
+            <p className="text-dim text-center">
               Select an era above to continue
             </p>
           ) : (
-            <button
-              className="btn btn--primary btn--lg"
-              onClick={handlePlayEra}
-            >
-              Play {selectedEra.name}
-            </button>
+            <div className="flex flex-center">
+              <button
+                className="btn btn--primary btn--lg"
+                onClick={handlePlayEra}
+              >
+                Play {selectedEra.name}
+              </button>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Purchase Page Modal - Uses new CSS classes */}
+      {/* Purchase Page Modal */}
       {showPurchasePage && (
         <div className="modal-overlay modal-overlay--transparent">
           <PurchasePage

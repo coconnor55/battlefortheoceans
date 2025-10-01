@@ -1,4 +1,4 @@
-/* src/styles/modal-overlay.css */
+/* src/styles/modal-overlay.css v1.0.3 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Modal and overlay components */
 
@@ -18,8 +18,9 @@
   margin: 0 auto;
 }
 
+/* v1.0.3: Increased from 900px to 1400px for proper desktop landscape width */
 .content-pane--wide {
-  max-width: 900px;
+  max-width: 1400px;
 }
 
 .content-pane--narrow {
@@ -159,6 +160,71 @@
   padding: var(--space-lg);
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
+}
+
+/* ============================================
+   CARD SYSTEM
+   ============================================ */
+
+/* Card - themed styling matching current theme */
+.card {
+  background: var(--bg-overlay);
+  backdrop-filter: blur(10px);
+  border-radius: var(--border-radius-lg);
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-subtle);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.card--narrow {
+  max-width: 400px;
+}
+
+/* v1.0.3: Increased from 900px to 1400px for consistency */
+.card--wide {
+  max-width: 1400px;
+}
+
+/* Card - white background variant */
+.card.white {
+  background: #FFFFFF;
+  backdrop-filter: none;
+  color: #333333;
+  border: 1px solid #E0E0E0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.card.white .card-title {
+  color: #333333;
+}
+
+.card.white .card-subtitle {
+  color: #666666;
+}
+
+.card.white .form-label {
+  color: #333333;
+}
+
+.card.white .form-input {
+  background: #F8F9FA;
+  color: #333333;
+  border: 1px solid #D0D0D0;
+}
+
+.card.white .form-input:focus {
+  border-color: #007BFF;
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+}
+
+.card.white .form-help {
+  color: #666666;
+}
+
+.card.white .form-error {
+  color: #DC3545;
 }
 
 /* EOF */

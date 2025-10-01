@@ -57,6 +57,30 @@
 }
 
 /* ============================================
+   TEXT UTILITIES
+   ============================================ */
+
+.text-success { color: var(--success); }
+.text-error { color: var(--error); }
+.text-warning { color: var(--warning); }
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-dim { color: var(--text-dim); }
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.italics { font-style: italic; }
+.bold { font-weight: bold; }
+.uppercase { text-transform: uppercase; }
+
+.bg-success-subtle { background: rgba(0, 255, 136, 0.1); }
+.bg-error-subtle { background: rgba(255, 51, 102, 0.1); }
+.bg-warning-subtle { background: rgba(232, 170, 66, 0.1); }
+.bg-primary-subtle { background: rgba(0, 217, 255, 0.1); }
+
+/* ============================================
    ALERTS / NOTIFICATIONS - CONSOLIDATED
    ============================================ */
 

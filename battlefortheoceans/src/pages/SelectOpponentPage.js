@@ -1,24 +1,37 @@
-// src/pages/SelectOpponentPage.js
+// src/pages/SelectOpponentPage.js v0.4.2
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.3.5';
+const version = 'v0.4.2';
 
 const SelectOpponentPage = () => {
   const {
     dispatch,
     events,
-    eraConfig
+    eraConfig,
+    userProfile
   } = useGame();
+  
+  // Redirect to login if no user profile
+  useEffect(() => {
+    if (!userProfile) {
+      console.log(version, 'No user profile detected - redirecting to login');
+      dispatch(events.LOGIN);
+    }
+  }, [userProfile, dispatch, events]);
   
   // Local UI state - alliance selection happens HERE now
   const [selectedAlliance, setSelectedAlliance] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
   const [onlineHumans, setOnlineHumans] = useState([]);
   const [loading, setLoading] = useState(false);
+  
+  // Collapsible sections state
+  const [aiExpanded, setAiExpanded] = useState(true);
+  const [humanExpanded, setHumanExpanded] = useState(false);
 
   // Handle alliance selection (for choose_alliance eras)
   const handleAllianceSelect = useCallback((allianceName) => {
@@ -128,24 +141,22 @@ const SelectOpponentPage = () => {
     fetchOnlineHumans();
   }, [fetchOnlineHumans]);
 
+  // Don't render if no userProfile (will redirect)
+  if (!userProfile) {
+    return null;
+  }
+
   // Error state - missing era
   if (!eraConfig) {
     return (
-      <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-        <div className="content-pane content-pane-narrow">
+      <div className="container flex flex-column flex-center">
+        <div className="content-pane content-pane--narrow">
           <div className="card-header">
             <h2 className="card-title">No Era Selected</h2>
           </div>
           <div className="card-body">
             <p>Please select an era first</p>
-          </div>
-          <div className="card-footer">
-            <button
-              className="btn btn-primary"
-              onClick={() => dispatch(events.ERA)}
-            >
-              Back to Era Selection
-            </button>
+            <p className="text-secondary">Use your browser's back button to return to era selection</p>
           </div>
         </div>
       </div>
@@ -157,146 +168,158 @@ const SelectOpponentPage = () => {
   const availableAICaptains = getAvailableAICaptains();
 
   return (
-    <div className="container flex flex-column flex-center" style={{ minHeight: '100vh' }}>
-      <div className="content-pane content-pane-wide" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+    <div className="container flex flex-column flex-center">
+      <div className="content-pane content-pane--wide">
         <div className="card-header">
           <h2 className="card-title">Select Opponent</h2>
           <p className="card-subtitle">Playing: <strong>{eraConfig.name}</strong></p>
           {selectedAlliance && <p className="card-subtitle">Alliance: <strong>{selectedAlliance}</strong></p>}
         </div>
 
-        {/* Alliance Selection - FIRST if required */}
-        {requiresAlliance && !selectedAlliance && (
-          <div className="alliance-selection">
-            <div className="game-info">
-              <h3>Choose Your Side</h3>
-              <p>Select which alliance you want to command</p>
-            </div>
-            
-            <div className="alliance-list">
-              {eraConfig.alliances.map((alliance) => (
-                <div
-                  key={alliance.name}
-                  className={`alliance-item ${selectedAlliance === alliance.name ? 'selected' : ''}`}
-                  onClick={() => handleAllianceSelect(alliance.name)}
-                >
-                  <div className="alliance-header">
-                    <span className="alliance-name">{alliance.name}</span>
-                    <span className="ship-count">
-                      {alliance.ships?.length || 0} Ships
-                    </span>
-                  </div>
-                  <div className="alliance-description">
-                    {alliance.description}
-                  </div>
-                  <div className="alliance-ships">
-                    <strong>Fleet:</strong> {alliance.ships?.map((ship, idx) => (
-                      <span key={idx} className="ship-name">
-                        {ship.name}
-                        {idx < alliance.ships.length - 1 ? ', ' : ''}
+        <div className="card-body">
+          {/* Alliance Selection - FIRST if required */}
+          {requiresAlliance && !selectedAlliance && (
+            <div className="alliance-selection">
+              <div className="game-info">
+                <h3>Choose Your Side</h3>
+                <p>Select which alliance you want to command</p>
+              </div>
+              
+              <div className="alliance-list">
+                {eraConfig.alliances.map((alliance) => (
+                  <div
+                    key={alliance.name}
+                    className={`selectable-item alliance-item ${selectedAlliance === alliance.name ? 'selectable-item--selected' : ''}`}
+                    onClick={() => handleAllianceSelect(alliance.name)}
+                  >
+                    <div className="item-header">
+                      <span className="item-name">{alliance.name}</span>
+                      <span className="ship-count">
+                        {alliance.ships?.length || 0} Ships
                       </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* AI Opponents - Show after alliance selected OR if no alliance required */}
-        {(!requiresAlliance || selectedAlliance) && (
-          <div className="ai-opponents">
-            <div className="game-info">
-              <h3>AI Opponents</h3>
-              <p>Battle against computer captains</p>
-              {requiresAlliance && selectedAlliance && (
-                <p className="hint">Facing opponents from opposing alliance</p>
-              )}
-            </div>
-            
-            <div className="opponent-list">
-              {availableAICaptains.length === 0 ? (
-                <div className="no-humans">
-                  <p>No AI captains available</p>
-                  <p className="hint">Check era configuration</p>
-                </div>
-              ) : (
-                availableAICaptains.map((opponent, index) => (
-                  <div
-                    key={index}
-                    className={`opponent-item ai-opponent ${selectedOpponent?.name === opponent.name ? 'selected' : ''}`}
-                    onClick={() => handleAIOpponentSelect(opponent)}
-                  >
-                    <div className="opponent-header">
-                      <div className="opponent-name">{opponent.name}</div>
-                      <div className="green-badge">
-                        {opponent.difficulty?.toUpperCase() || 'NORMAL'}
-                      </div>
                     </div>
-                    <div className="opponent-description">{opponent.description}</div>
-                    <div className="opponent-type">AI Captain</div>
+                    <div className="item-description">
+                      {alliance.description}
+                    </div>
+                    <div className="alliance-fleet">
+                      <strong>Fleet:</strong> {alliance.ships?.map((ship, idx) => (
+                        <span key={idx} className="ship-name">
+                          {ship.name}
+                          {idx < alliance.ships.length - 1 ? ', ' : ''}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                ))
-              )}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Human Opponents - Show after alliance selected OR if no alliance required */}
-        {(!requiresAlliance || selectedAlliance) && (
-          <div className="human-opponents">
-            <div className="game-info">
-              <h3>Human Opponents</h3>
-              <p>Challenge other players online</p>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={fetchOnlineHumans}
-                disabled={loading}
+          {/* Collapsible AI Opponents */}
+          {(!requiresAlliance || selectedAlliance) && (
+            <div className="collapsible-section">
+              <div
+                className="collapsible-section__header"
+                onClick={() => setAiExpanded(!aiExpanded)}
               >
-                {loading ? 'Searching...' : 'Refresh'}
-              </button>
-            </div>
-            
-            <div className="opponent-list">
-              {onlineHumans.length === 0 ? (
-                <div className="no-humans">
-                  <p>No human players online</p>
-                  <p className="hint">Human vs Human battles coming soon!</p>
-                </div>
-              ) : (
-                onlineHumans.map((human) => (
-                  <div
-                    key={human.id}
-                    className={`opponent-item human-opponent ${selectedOpponent?.id === human.id ? 'selected' : ''}`}
-                    onClick={() => handleHumanOpponentSelect(human)}
-                  >
-                    <div className="opponent-header">
-                      <div className="opponent-name">
-                        {human.game_name || 'Player'}
+                <h4>
+                  <span className="collapsible-section__icon">{aiExpanded ? '▼' : '▶'}</span>
+                  AI Opponents ({availableAICaptains.length})
+                </h4>
+                <p className="text-secondary">Battle against computer captains</p>
+              </div>
+              
+              {aiExpanded && (
+                <div className="opponent-list scrollable-list scrollable-list--short">
+                  {availableAICaptains.length === 0 ? (
+                    <div className="empty-state">
+                      <p>No AI captains available</p>
+                      <p className="empty-state__hint">Check era configuration</p>
+                    </div>
+                  ) : (
+                    availableAICaptains.map((opponent, index) => (
+                      <div
+                        key={index}
+                        className={`selectable-item opponent-item ai-opponent ${selectedOpponent?.name === opponent.name ? 'selectable-item--selected' : ''}`}
+                        onClick={() => handleAIOpponentSelect(opponent)}
+                      >
+                        <div className="item-header">
+                          <div className="item-name">{opponent.name}</div>
+                          <div className="badge badge--success">
+                            {opponent.difficulty?.toUpperCase() || 'NORMAL'}
+                          </div>
+                        </div>
+                        <div className="item-description">{opponent.description}</div>
+                        <div className="opponent-type text-dim italics">AI Captain</div>
                       </div>
-                      <div className="online-badge">ONLINE</div>
-                    </div>
-                    <div className="opponent-description">
-                      Last seen: {new Date(human.last_seen).toLocaleTimeString()}
-                    </div>
-                    <div className="opponent-type">Human Player</div>
-                  </div>
-                ))
+                    ))
+                  )}
+                </div>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="action-buttons">
+          {/* Collapsible Human Opponents */}
+          {(!requiresAlliance || selectedAlliance) && (
+            <div className="collapsible-section">
+              <div
+                className="collapsible-section__header"
+                onClick={() => setHumanExpanded(!humanExpanded)}
+              >
+                <h4>
+                  <span className="collapsible-section__icon">{humanExpanded ? '▼' : '▶'}</span>
+                  Human Opponents ({onlineHumans.length})
+                </h4>
+                <p className="text-secondary">Challenge other players online</p>
+                <button
+                  className="btn btn--secondary btn--sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fetchOnlineHumans();
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? 'Searching...' : 'Refresh'}
+                </button>
+              </div>
+              
+              {humanExpanded && (
+                <div className="opponent-list scrollable-list scrollable-list--short">
+                  {onlineHumans.length === 0 ? (
+                    <div className="empty-state">
+                      <p>No human players online</p>
+                      <p className="empty-state__hint">Human vs Human battles coming soon!</p>
+                    </div>
+                  ) : (
+                    onlineHumans.map((human) => (
+                      <div
+                        key={human.id}
+                        className={`selectable-item opponent-item human-opponent ${selectedOpponent?.id === human.id ? 'selectable-item--selected' : ''}`}
+                        onClick={() => handleHumanOpponentSelect(human)}
+                      >
+                        <div className="item-header">
+                          <div className="item-name">
+                            {human.game_name || 'Player'}
+                          </div>
+                          <div className="badge badge--online">ONLINE</div>
+                        </div>
+                        <div className="item-description">
+                          Last seen: {new Date(human.last_seen).toLocaleTimeString()}
+                        </div>
+                        <div className="opponent-type text-dim italics">Human Player</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* v0.4.2: Removed "Back to Era Selection" button - browser back button handles navigation */}
+        <div className="card-footer">
           <button
-            className="btn btn-secondary"
-            onClick={() => dispatch(events.ERA)}
-          >
-            Back to Eras
-          </button>
-          
-          <button
-            className="btn btn-primary btn-lg"
+            className="btn btn--primary btn--lg"
             disabled={!canProceed}
             onClick={handleBeginBattle}
           >

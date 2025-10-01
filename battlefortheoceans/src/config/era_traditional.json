@@ -22,6 +22,33 @@
     "turn_on_miss": false,
     "placement_restriction": 10
   },
+  "theme": {
+    "primary": "#00D9FF",
+    "primary_glow": "rgba(0, 217, 255, 0.8)",
+    "primary_dim": "rgba(0, 217, 255, 0.3)",
+    "primary_dark": "#0099BB",
+    "bg_dark": "#0A1628",
+    "bg_medium": "#132B47",
+    "bg_light": "#1E4D6B",
+    "bg_overlay": "rgba(10, 22, 40, 0.9)",
+    "accent": "#00FFD4",
+    "accent_secondary": "#4A90E2",
+    "warning": "#FF6B35",
+    "success": "#00FF88",
+    "error": "#FF3366",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#B8E6F0",
+    "text_dim": "#7A9FAD",
+    "text_disabled": "#4A5C68",
+    "border_color": "#00D9FF",
+    "border_subtle": "rgba(0, 217, 255, 0.2)",
+    "border_strong": "#00D9FF",
+    "shadow": "0 0 20px rgba(0, 217, 255, 0.8)",
+    "shadow_sm": "0 0 10px rgba(0, 217, 255, 0.3)",
+    "shadow_lg": "0 0 40px rgba(0, 217, 255, 0.8)",
+    "btn_border_primary": "#00D9FF",
+    "btn_border_primary_hover": "#00D9FF"
+  },
   "alliances": [
     {
       "name": "Player",
