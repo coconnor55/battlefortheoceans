@@ -1,4 +1,4 @@
-// src/pages/PlacementPage.js v0.4.2
+// src/pages/PlacementPage.js v0.4.3
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -6,7 +6,7 @@ import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.4.2';
+const version = 'v0.4.3';
 
 const PlacementPage = () => {
   const {
@@ -74,7 +74,7 @@ const PlacementPage = () => {
     }
   }, [eraConfig, humanPlayer, selectedOpponent, gameInstance, board]);
 
-  // v0.4.0: Handle ship placement - NO automatic transition to battle
+  // Handle ship placement
   const handleShipPlaced = (ship, shipCells, orientation) => {
     try {
       console.log(version, `Placing ${ship.name} with ${shipCells.length} cells`);
@@ -84,7 +84,6 @@ const PlacementPage = () => {
       if (success) {
         console.log(version, `Successfully placed ${ship.name}`);
         
-        // Log placement progress but DON'T auto-transition
         const placementProgress = gameInstance?.playerFleets?.get(humanPlayer.id);
         if (placementProgress) {
           const placedCount = placementProgress.ships.filter(ship => ship.isPlaced).length;
@@ -110,7 +109,7 @@ const PlacementPage = () => {
     }
   };
 
-  // v0.4.2: Auto-place ships with auto-clear functionality
+  // Auto-place ships with auto-clear functionality
   const handleAutoPlace = async () => {
     if (!gameInstance || !humanPlayer || !board || isAutoPlacing) {
       return;
@@ -147,7 +146,7 @@ const PlacementPage = () => {
     }
   };
 
-  // v0.4.0: Manual start button - only transitions when player clicks
+  // Manual start button
   const handleStartBattle = () => {
     console.log(version, 'Player confirmed - starting battle');
     
@@ -238,7 +237,12 @@ const PlacementPage = () => {
 
   return (
     <div className="container flex flex-column flex-center">
-      <div className="content-pane content-pane--wide">
+      <div className="content-pane content-pane--wide" style={{
+        overflow: 'hidden',
+        height: '95vh',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
         
         <div className="card-header">
           <h2 className="card-title">Place Your Fleet</h2>
@@ -247,7 +251,12 @@ const PlacementPage = () => {
 
         <div className="divider"></div>
 
-        <div className="game-board-container">
+        <div className="game-board-container" style={{
+          flex: 1,
+          overflow: 'auto',
+          touchAction: 'none',
+          overscrollBehavior: 'contain'
+        }}>
           <CanvasBoard
             mode="placement"
             eraConfig={eraConfig}

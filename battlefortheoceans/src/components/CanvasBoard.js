@@ -1,10 +1,10 @@
-// src/components/CanvasBoard.js
+// src/components/CanvasBoard.js v0.1.15
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.14';
+const version = 'v0.1.15';
 
 const CanvasBoard = forwardRef(({
   eraConfig,
@@ -93,41 +93,41 @@ const CanvasBoard = forwardRef(({
     }
   }, []);
 
-    // Validate ship placement
-    const isValidShipPlacement = useCallback((cells) => {
-      if (!cells || cells.length === 0 || !currentShip) return false;
-      
-      for (const cell of cells) {
-        // Check bounds
-        if (cell.row < 0 || cell.row >= eraConfig.rows ||
-            cell.col < 0 || cell.col >= eraConfig.cols) {
-          return false;
-        }
-        
-        // Check if excluded terrain - FIX: use isValidCoordinate instead
-        if (!gameBoard.isValidCoordinate(cell.row, cell.col)) {
-          return false;
-        }
-        
-        // Check terrain compatibility - FIX: access terrain array directly
-        const terrain = gameBoard.terrain[cell.row][cell.col];
-        if (!currentShip.terrain.includes(terrain)) {
-          return false;
-        }
-        
-        // Check for existing ships
-        try {
-          const shipDataArray = gameBoard.getShipDataAt(cell.row, cell.col);
-          if (shipDataArray && shipDataArray.length > 0) {
-            return false;
-          }
-        } catch (error) {
-          console.warn(version, 'Error checking ship overlap at', cell.row, cell.col);
-        }
+  // Validate ship placement
+  const isValidShipPlacement = useCallback((cells) => {
+    if (!cells || cells.length === 0 || !currentShip) return false;
+    
+    for (const cell of cells) {
+      // Check bounds
+      if (cell.row < 0 || cell.row >= eraConfig.rows ||
+          cell.col < 0 || cell.col >= eraConfig.cols) {
+        return false;
       }
       
-      return true;
-    }, [currentShip, eraConfig, gameBoard]);
+      // Check if excluded terrain - FIX: use isValidCoordinate instead
+      if (!gameBoard.isValidCoordinate(cell.row, cell.col)) {
+        return false;
+      }
+      
+      // Check terrain compatibility - FIX: access terrain array directly
+      const terrain = gameBoard.terrain[cell.row][cell.col];
+      if (!currentShip.terrain.includes(terrain)) {
+        return false;
+      }
+      
+      // Check for existing ships
+      try {
+        const shipDataArray = gameBoard.getShipDataAt(cell.row, cell.col);
+        if (shipDataArray && shipDataArray.length > 0) {
+          return false;
+        }
+      } catch (error) {
+        console.warn(version, 'Error checking ship overlap at', cell.row, cell.col);
+      }
+    }
+    
+    return true;
+  }, [currentShip, eraConfig, gameBoard]);
     
   // Main canvas drawing function
   const drawCanvas = useCallback(() => {
@@ -436,39 +436,38 @@ const CanvasBoard = forwardRef(({
     ctx.restore();
   }, [cellSize, labelSize]);
 
-    // Around line 443, update useImperativeHandle:
-    useImperativeHandle(ref, () => ({
-      recordOpponentShot: (row, col, result) => {
-        console.log('[OPPONENT SHOT]', version, 'Recording at:', row, col, 'Result:', result);
-        
-        // Show animation for opponent shot
-        if (result === 'firing') {
-          showOpponentAnimation(row, col, 'firing');
-        } else {
-          showOpponentAnimation(row, col, result);
-          
-          if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
-            drawCanvas();
-          }
-        }
-      },
+  useImperativeHandle(ref, () => ({
+    recordOpponentShot: (row, col, result) => {
+      console.log('[OPPONENT SHOT]', version, 'Recording at:', row, col, 'Result:', result);
       
-      // NEW v0.1.14: Capture board as PNG
-      captureBoard: () => {
-        if (!canvasRef.current) return null;
-        try {
-          // Ensure canvas is fully rendered before capture
-          const ctx = canvasRef.current.getContext('2d');
-          if (ctx && gameBoard && eraConfig && gameInstance) {
-            drawCanvas(); // Force final redraw
-          }
-          return canvasRef.current.toDataURL('image/png');
-        } catch (error) {
-          console.error('[CANVAS]', version, 'Failed to capture board:', error);
-          return null;
+      // Show animation for opponent shot
+      if (result === 'firing') {
+        showOpponentAnimation(row, col, 'firing');
+      } else {
+        showOpponentAnimation(row, col, result);
+        
+        if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+          drawCanvas();
         }
       }
-    }), [gameBoard, eraConfig, gameInstance, drawCanvas]);
+    },
+    
+    // Capture board as PNG
+    captureBoard: () => {
+      if (!canvasRef.current) return null;
+      try {
+        // Ensure canvas is fully rendered before capture
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx && gameBoard && eraConfig && gameInstance) {
+          drawCanvas(); // Force final redraw
+        }
+        return canvasRef.current.toDataURL('image/png');
+      } catch (error) {
+        console.error('[CANVAS]', version, 'Failed to capture board:', error);
+        return null;
+      }
+    }
+  }), [gameBoard, eraConfig, gameInstance, drawCanvas]);
     
   // Show opponent shot animation
   const showOpponentAnimation = useCallback((row, col, result) => {
@@ -695,6 +694,143 @@ const CanvasBoard = forwardRef(({
     lastProcessedCell.current = null;
   }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced]);
 
+  // NEW v0.1.15: Touch event handlers
+  const handleTouchStart = useCallback((e) => {
+    e.preventDefault(); // CRITICAL: Prevent page scrolling
+    if (mode !== 'placement' || !currentShip || isPlacing) return;
+
+    const touch = e.touches[0];
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    const col = Math.floor((x - 20 - labelSize) / cellSize);
+    const row = Math.floor((y - 20 - labelSize) / cellSize);
+
+    if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
+      setStartCell({ row, col });
+      setIsPlacing(true);
+      lastProcessedCell.current = { row, col };
+      
+      const defaultCells = [];
+      for (let i = 0; i < currentShip.size; i++) {
+        defaultCells.push({ row, col: col + i });
+      }
+      
+      setPreviewCells(defaultCells);
+      setIsValidPlacement(isValidShipPlacement(defaultCells));
+      
+      requestAnimationFrame(() => {
+        if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+          drawCanvas();
+        }
+      });
+    }
+  }, [mode, currentShip, isPlacing, cellSize, labelSize, eraConfig, isValidShipPlacement, gameBoard, gameInstance, drawCanvas]);
+
+  const handleTouchMove = useCallback((e) => {
+    e.preventDefault(); // CRITICAL: Prevent page scrolling
+    if (mode !== 'placement' || !currentShip || !isPlacing || !startCell) return;
+
+    const touch = e.touches[0];
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    const col = Math.floor((x - 20 - labelSize) / cellSize);
+    const row = Math.floor((y - 20 - labelSize) / cellSize);
+
+    if (row < 0 || row >= eraConfig.rows || col < 0 || col >= eraConfig.cols) return;
+    
+    const cellChanged = !lastProcessedCell.current ||
+                       lastProcessedCell.current.row !== row ||
+                       lastProcessedCell.current.col !== col;
+    
+    if (!cellChanged) return;
+    
+    lastProcessedCell.current = { row, col };
+
+    const deltaRow = row - startCell.row;
+    const deltaCol = col - startCell.col;
+    
+    let cells = [];
+    let direction = 'right';
+    
+    if (Math.abs(deltaRow) > Math.abs(deltaCol)) {
+      direction = deltaRow >= 0 ? 'down' : 'up';
+    } else {
+      direction = deltaCol >= 0 ? 'right' : 'left';
+    }
+    
+    for (let i = 0; i < currentShip.size; i++) {
+      let cellRow = startCell.row;
+      let cellCol = startCell.col;
+      
+      switch (direction) {
+        case 'right': cellCol = startCell.col + i; break;
+        case 'left': cellCol = startCell.col - i; break;
+        case 'down': cellRow = startCell.row + i; break;
+        case 'up': cellRow = startCell.row - i; break;
+      }
+      
+      cells.push({ row: cellRow, col: cellCol });
+    }
+    
+    const isValid = isValidShipPlacement(cells);
+    
+    setPreviewCells(cells);
+    setIsValidPlacement(isValid);
+    
+    const ctx = canvasRef.current?.getContext('2d');
+    if (ctx && gameBoard && eraConfig && gameInstance) {
+      drawCanvas();
+      
+      const offsetX = 20;
+      const offsetY = 20;
+      
+      cells.forEach(({ row: cellRow, col: cellCol }) => {
+        const x = offsetX + cellCol * cellSize + labelSize + 1;
+        const y = offsetY + cellRow * cellSize + labelSize + 1;
+        const size = cellSize - 2;
+        
+        ctx.fillStyle = isValid ?
+          'rgba(144, 238, 144, 0.8)' :
+          'rgba(255, 179, 179, 0.8)';
+        ctx.fillRect(x, y, size, size);
+        
+        ctx.strokeStyle = isValid ? '#228B22' : '#DC143C';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, size, size);
+      });
+    }
+  }, [mode, currentShip, isPlacing, startCell, cellSize, labelSize, eraConfig, gameBoard, gameInstance, isValidShipPlacement, drawCanvas]);
+
+  const handleTouchEnd = useCallback((e) => {
+    e.preventDefault(); // CRITICAL: Prevent page scrolling
+    if (mode !== 'placement' || !currentShip || !isPlacing) {
+      setPreviewCells([]);
+      setIsValidPlacement(false);
+      setStartCell(null);
+      setIsPlacing(false);
+      lastProcessedCell.current = null;
+      return;
+    }
+
+    if (isValidPlacement && previewCells.length > 0) {
+      const deltaRow = previewCells[previewCells.length - 1].row - previewCells[0].row;
+      const deltaCol = previewCells[previewCells.length - 1].col - previewCells[0].col;
+      const isHorizontal = deltaCol !== 0;
+      
+      const success = onShipPlaced?.(currentShip, previewCells, isHorizontal ? 'horizontal' : 'vertical');
+    }
+
+    setPreviewCells([]);
+    setIsValidPlacement(false);
+    setStartCell(null);
+    setIsPlacing(false);
+    lastProcessedCell.current = null;
+  }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced]);
+
   // Show player shot animation
   const showShotAnimation = useCallback((shotResult, row, col) => {
     const animId = Date.now() + Math.random();
@@ -767,10 +903,14 @@ const CanvasBoard = forwardRef(({
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{
         cursor: getCursorStyle(),
         border: '1px solid #ccc',
-        borderRadius: '4px'
+        borderRadius: '4px',
+        touchAction: 'none' // Prevent all default touch behaviors
       }}
     />
   );
