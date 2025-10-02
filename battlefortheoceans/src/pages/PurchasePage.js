@@ -1,4 +1,4 @@
-// src/pages/PurchasePage.js v0.3.1
+// src/pages/PurchasePage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +7,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { useGame } from '../context/GameContext';
 import StripeService from '../services/StripeService';
 
-const version = 'v0.3.1';
+const version = 'v0.3.3';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -284,12 +284,17 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     features.push(`${eraInfo.rows}x${eraInfo.cols} battlefield with authentic Pacific terrain`);
   }
 
+  // Image URL construction - CDN first, fallback to public/assets/images
   const backgroundImageUrl = eraInfo.promotional?.background_image
-    ? `${gameCDN}/${eraInfo.promotional.background_image}`
+    ? gameCDN
+      ? `${gameCDN}/assets/images/${eraInfo.promotional.background_image}`
+      : `/assets/images/${eraInfo.promotional.background_image}`
     : null;
 
   const promotionalImageUrl = eraInfo.promotional?.promotional_image
-    ? `${gameCDN}/${eraInfo.promotional.promotional_image}`
+    ? gameCDN
+      ? `${gameCDN}/assets/images/${eraInfo.promotional.promotional_image}`
+      : `/assets/images/${eraInfo.promotional.promotional_image}`
     : null;
 
   return (
@@ -577,4 +582,3 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
 export default PurchasePage;
 
 // EOF
-
