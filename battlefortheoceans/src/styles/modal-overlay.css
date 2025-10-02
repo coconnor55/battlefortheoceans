@@ -1,4 +1,4 @@
-/* src/styles/modal-overlay.css v1.0.3 */
+/* src/styles/modal-overlay.css v1.0.4 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Modal and overlay components */
 
@@ -18,9 +18,10 @@
   margin: 0 auto;
 }
 
-/* v1.0.3: Increased from 900px to 1400px for proper desktop landscape width */
+/* v1.0.4: Fixed width to prevent horizontal movement */
 .content-pane--wide {
-  max-width: 1400px;
+  width: 1400px;
+  max-width: 95vw;
 }
 
 .content-pane--narrow {
@@ -182,9 +183,10 @@
   max-width: 400px;
 }
 
-/* v1.0.3: Increased from 900px to 1400px for consistency */
+/* v1.0.4: Fixed width to prevent horizontal movement */
 .card--wide {
-  max-width: 1400px;
+  width: 1400px;
+  max-width: 95vw;
 }
 
 /* Card - white background variant */

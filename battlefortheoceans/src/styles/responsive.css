@@ -1,4 +1,4 @@
-/* src/styles/responsive.css v1.0.3 */
+/* src/styles/responsive.css v1.0.4 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Responsive design - consolidated mobile/tablet breakpoints */
 
@@ -228,13 +228,12 @@
 
 /* ============================================
    DESKTOP (1024px+)
-   v1.0.3: Optimized for high-DPI displays
+   v1.0.4: Removed card--wide override - now uses fixed width from modal-overlay.css
    ============================================ */
 
 @media (min-width: 1024px) {
-  /* v1.0.3: Use 95% on high-res displays for better space utilization */
-  .content-pane--wide,
-  .card--wide {
+  /* v1.0.4: Only content-pane--wide uses 95%, card--wide has fixed width */
+  .content-pane--wide {
     max-width: 95%;
   }
   
