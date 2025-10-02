@@ -3,7 +3,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.1";
+const version = "v0.1.3";
 
 class LeaderboardService {
   constructor() {
@@ -13,31 +13,29 @@ class LeaderboardService {
 
   /**
    * Get leaderboard (top players by total score)
-   * Excludes guest and AI players
+   * Excludes guest and AI players - filtered in JavaScript since Supabase API doesn't support UUID::text casting
    */
   async getLeaderboard(limit = 10) {
     try {
-      console.log(version, 'Fetching leaderboard, limit:', limit);
-      
-      const { data: leaderboard, error } = await supabase
+      // Fetch more rows than needed to account for guest/AI filtering
+      const { data, error } = await supabase
         .from('user_profiles')
-        .select('game_name, total_score, total_wins, total_games, best_accuracy, total_ships_sunk')
-        .not('id', 'like', 'guest-%')
-        .not('id', 'like', 'ai-%')
+        .select('id, game_name, total_score, total_wins, total_games, best_accuracy')
         .order('total_score', { ascending: false })
-        .limit(limit);
+        .limit(limit * 3); // Get 3x to ensure enough after filtering
 
-      if (error) {
-        console.error(version, 'Error fetching leaderboard:', error);
-        return [];
-      }
-
-      console.log(version, 'Leaderboard fetched:', leaderboard.length, 'players');
-      return leaderboard;
-
+      if (error) throw error;
+      
+      // Filter out guests and AI in JavaScript
+      const filtered = (data || []).filter(profile => {
+        const idStr = String(profile.id);
+        return !idStr.startsWith('guest-') && !idStr.startsWith('ai-');
+      }).slice(0, limit);
+      
+      return filtered;
     } catch (error) {
-      console.error(version, 'Failed to fetch leaderboard:', error);
-      return [];
+      console.error('[LeaderboardService]', version, 'getLeaderboard error:', error);
+      throw error;
     }
   }
 
@@ -60,23 +58,30 @@ class LeaderboardService {
           user_profiles!inner(game_name, id)
         `)
         .eq('won', true)
-        .not('player_id', 'like', 'guest-%')
-        .not('player_id', 'like', 'ai-%')
         .gte('created_at', thirtyDaysAgo.toISOString())
         .order('score', { ascending: false })
-        .limit(limit);
+        .limit(limit * 3); // Get extra to account for filtering
 
       if (error) {
         console.error(version, 'Error fetching recent champions:', error);
         return [];
       }
 
-      return champions.map(champion => ({
-        game_name: champion.user_profiles.game_name,
-        era_name: champion.era_name,
-        score: champion.score,
-        date: champion.created_at
-      }));
+      // Filter out guests and AI in JavaScript
+      const filtered = (champions || [])
+        .filter(champion => {
+          const idStr = String(champion.player_id);
+          return !idStr.startsWith('guest-') && !idStr.startsWith('ai-');
+        })
+        .slice(0, limit)
+        .map(champion => ({
+          game_name: champion.user_profiles.game_name,
+          era_name: champion.era_name,
+          score: champion.score,
+          date: champion.created_at
+        }));
+
+      return filtered;
 
     } catch (error) {
       console.error(version, 'Failed to fetch recent champions:', error);
@@ -105,19 +110,25 @@ class LeaderboardService {
         return null;
       }
 
-      const { count, error: countError } = await supabase
+      // Get all profiles with higher scores, then filter in JavaScript
+      const { data: allProfiles, error } = await supabase
         .from('user_profiles')
-        .select('*', { count: 'exact' })
+        .select('id, total_score')
         .gt('total_score', profile.total_score)
-        .not('id', 'like', 'guest-%')
-        .not('id', 'like', 'ai-%');
+        .order('total_score', { ascending: false });
 
-      if (countError) {
-        console.error(version, 'Error calculating player ranking:', countError);
+      if (error) {
+        console.error(version, 'Error calculating player ranking:', error);
         return null;
       }
 
-      return count + 1;
+      // Filter out guests and AI
+      const filtered = (allProfiles || []).filter(p => {
+        const idStr = String(p.id);
+        return !idStr.startsWith('guest-') && !idStr.startsWith('ai-');
+      });
+
+      return filtered.length + 1;
 
     } catch (error) {
       console.error(version, 'Failed to get player ranking:', error);
@@ -138,16 +149,25 @@ class LeaderboardService {
       const ranking = await this.getPlayerRanking(userId);
       if (!ranking) return null;
 
-      const { count: totalPlayers, error } = await supabase
+      // Get all profiles, filter in JavaScript
+      const { data: allProfiles, error } = await supabase
         .from('user_profiles')
-        .select('*', { count: 'exact' })
-        .not('id', 'like', 'guest-%')
-        .not('id', 'like', 'ai-%');
+        .select('id')
+        .order('total_score', { ascending: false });
 
-      if (error || !totalPlayers) {
+      if (error) {
         console.error(version, 'Error fetching total player count:', error);
         return null;
       }
+
+      // Filter out guests and AI
+      const filtered = (allProfiles || []).filter(p => {
+        const idStr = String(p.id);
+        return !idStr.startsWith('guest-') && !idStr.startsWith('ai-');
+      });
+
+      const totalPlayers = filtered.length;
+      if (!totalPlayers) return null;
 
       const percentile = Math.round(((totalPlayers - ranking + 1) / totalPlayers) * 100);
       return percentile;

@@ -1,4 +1,4 @@
-// src/App.js v0.2.6
+// src/App.js v0.2.12
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -13,7 +13,7 @@ import OverPage from './pages/OverPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import './App.css';
 
-const version = 'v0.2.6';
+const version = 'v0.2.12';
 
 const SceneRenderer = () => {
   const { currentState, eraConfig, subscribeToUpdates, coreEngine } = useGame();
@@ -42,7 +42,7 @@ const SceneRenderer = () => {
     console.log('[DEBUG]', version, 'Applying era theme');
     
     if (eraConfig?.theme) {
-      // Apply theme from era config
+      // Apply theme CSS variables from era config
       console.log('[DEBUG]', version, 'Loading theme from era config:', eraConfig.name);
       
       Object.entries(eraConfig.theme).forEach(([key, value]) => {
@@ -50,6 +50,42 @@ const SceneRenderer = () => {
         document.body.style.setProperty(cssVar, value);
         console.log('[DEBUG]', version, `Set ${cssVar} = ${value}`);
       });
+      
+      // Apply background image if present in promotional section
+      if (eraConfig.promotional?.background_image) {
+        const cdnBase = process.env.REACT_APP_GAME_CDN || '';
+        const imageUrl = cdnBase
+          ? `${cdnBase}/assets/backgrounds/${eraConfig.promotional.background_image}`
+          : `/assets/backgrounds/${eraConfig.promotional.background_image}`;
+        console.log('[DEBUG]', version, 'Setting background image:', imageUrl);
+        
+        // Apply background image with gradient overlay for readability
+        const bgDark = eraConfig.theme?.bg_dark || 'rgba(43, 79, 95, 0.9)';
+        const backgroundValue = `linear-gradient(to bottom, ${bgDark}cc, ${bgDark}dd), url('${imageUrl}')`;
+        
+        // Set body background image
+        document.body.style.backgroundImage = backgroundValue;
+        document.body.setAttribute('data-has-background-image', 'true');
+        
+        // Hide .App background by setting CSS variable
+        document.body.style.setProperty('--app-background', 'none');
+        
+        // Hide the body::before gradient pattern overlay
+        document.body.style.setProperty('--body-before-opacity', '0');
+        
+        console.log('[DEBUG]', version, 'Background image applied');
+      } else {
+        // Reset to gradient-only background if no image
+        console.log('[DEBUG]', version, 'No background image, using gradient');
+        
+        // Clear body background and show .App default background
+        document.body.style.backgroundImage = '';
+        document.body.removeAttribute('data-has-background-image');
+        document.body.style.removeProperty('--app-background');
+        
+        // Restore the body::before pattern overlay
+        document.body.style.setProperty('--body-before-opacity', '0.3');
+      }
       
       // Set data-era attribute for any era-specific CSS rules
       const eraKey = eraConfig.era || 'traditional';
@@ -66,12 +102,25 @@ const SceneRenderer = () => {
       };
       const eraKey = eraMap[eraConfig.name] || 'traditional';
       document.body.setAttribute('data-era', eraKey);
+      
+      // Clear body background and show .App default background
+      document.body.style.backgroundImage = '';
+      document.body.removeAttribute('data-has-background-image');
+      document.body.style.removeProperty('--app-background');
+      document.body.style.setProperty('--body-before-opacity', '0.3');
+      
       console.log('[DEBUG]', version, 'Fallback theme switched to:', eraKey);
       
     } else {
-      // No era config, use default theme
+      // No era config, use default theme and .App background
       console.log('[DEBUG]', version, 'No era config, using default theme');
       document.body.setAttribute('data-era', 'traditional');
+      
+      // Clear body background and show .App default background
+      document.body.style.backgroundImage = '';
+      document.body.removeAttribute('data-has-background-image');
+      document.body.style.removeProperty('--app-background');
+      document.body.style.setProperty('--body-before-opacity', '0.3');
     }
   }, [eraConfig]);
   

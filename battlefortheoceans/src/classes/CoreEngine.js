@@ -1,4 +1,4 @@
-// src/classes/CoreEngine.js v0.3.7
+// src/classes/CoreEngine.js v0.3.8
 // Copyright(c) 2025, Clint H. O'Connor
 
 import Game from './Game.js';
@@ -10,7 +10,7 @@ import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
 import EraService from '../services/EraService.js';
 
-const version = "v0.3.7";
+const version = "v0.3.8";
 
 class CoreEngine {
   constructor() {
@@ -55,8 +55,9 @@ class CoreEngine {
       play: { on: { [this.events.OVER]: 'over' } },
       over: {
         on: {
-          [this.events.ERA]: 'era',
-          [this.events.PLACEMENT]: 'placement'
+          [this.events.ERA]: 'era',                    // Choose new era
+          [this.events.SELECTOPPONENT]: 'opponent',    // Change opponent (keeps same era)
+          [this.events.PLACEMENT]: 'placement'         // Battle again (same settings)
         }
       }
     };
@@ -366,24 +367,12 @@ class CoreEngine {
     } else {
       playerAlliance = this.eraConfig.alliances?.[0]?.name || 'Player';
       opponentAlliance = this.eraConfig.alliances?.[1]?.name || 'Opponent';
-        
-        // ADD THIS DEBUG BLOCK:
-        console.log('[DEBUG CoreEngine] ========== ALLIANCE DEBUG ==========');
-        console.log('[DEBUG CoreEngine] Player alliance:', playerAlliance);
-        console.log('[DEBUG CoreEngine] Opponent alliance:', opponentAlliance);
-        console.log('[DEBUG CoreEngine] Era config alliances:', this.eraConfig.alliances?.map(a => a.name));
-        console.log('[DEBUG CoreEngine] Available game alliances:', Array.from(this.gameInstance.alliances.values()).map(a => ({ id: a.id, name: a.name })));
-        console.log('[DEBUG CoreEngine] =======================================');
     }
     
     if (!opponentAlliance) {
       throw new Error('Cannot determine opponent alliance');
     }
     
-      console.log('[DEBUG] Player alliance:', playerAlliance);
-      console.log('[DEBUG] Opponent alliance:', opponentAlliance);
-      console.log('[DEBUG] Available alliances:', Array.from(this.gameInstance.alliances.values()).map(a => a.name));
-      
     // Add players (alliance assignment happens inside addPlayer)
     const humanPlayerAdded = this.gameInstance.addPlayer(
       this.humanPlayer.id,

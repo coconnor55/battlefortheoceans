@@ -1,4 +1,4 @@
-/* src/styles/theme.css (v0.1.1) */
+/* src/styles/theme.css (v0.1.4) */
 /* Copyright(c) 2025, Clint H. O'Connor */
 
 /* ============================================
@@ -41,6 +41,9 @@
   --z-modal: 100;
   --z-overlay: 200;
   --z-toast: 300;
+  
+  /* Background overlay control */
+  --body-before-opacity: 0.3;
 }
 
 /* ============================================
@@ -123,12 +126,31 @@ body {
   --btn-border-primary-hover: var(--primary);
  
   /* Apply theme */
-  background: radial-gradient(ellipse at bottom, var(--bg-medium) 0%, var(--bg-dark) 100%);
   color: var(--text-primary);
   font-family: var(--font-body);
   line-height: 1.6;
   transition: background var(--transition-slow) ease,
               color var(--transition-speed) ease;
+}
+
+body:not([data-has-background-image="true"]) {
+  background-image: radial-gradient(ellipse at bottom, var(--bg-medium) 0%, var(--bg-dark) 100%);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* When era has background image, use that instead of gradient */
+body[data-has-background-image="true"] {
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+/* Hide the ::before pattern overlay when custom background is present */
+body[data-has-background-image="true"]::before {
+  display: none;
 }
 
 /* Background overlay pattern for depth */
@@ -147,7 +169,7 @@ body::before {
       rgba(0, 217, 255, 0.03) 2px,
       rgba(0, 217, 255, 0.03) 4px
     );
-  opacity: 0.3;
+  opacity: var(--body-before-opacity);
   z-index: var(--z-background);
   pointer-events: none;
 }

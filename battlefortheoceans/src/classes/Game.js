@@ -9,7 +9,7 @@ import Alliance from './Alliance.js';
 import Visualizer from './Visualizer.js';
 import Message from './Message.js';
 
-const version = "v0.4.6";
+const version = "v0.4.7";
 
 // Environment-aware CDN path
 const SOUND_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
@@ -722,6 +722,15 @@ class Game {
     this.state = 'finished';
     this.endTime = new Date();
     
+      // v0.4.7: Capture final board state before any transitions
+      if (this.battleBoardRef?.current?.captureBoard) {
+        console.log(`[Game ${this.id}] Capturing final board state`);
+        this.finalBoardImage = this.battleBoardRef.current.captureBoard();
+        if (this.finalBoardImage) {
+          console.log(`[Game ${this.id}] Board captured successfully (${this.finalBoardImage.length} bytes)`);
+        }
+      }
+      
     // Determine if human player won
     const humanPlayer = this.players.find(p => p.id === this.humanPlayerId);
     const humanWon = this.winner && humanPlayer && this.winner.id === humanPlayer.id;

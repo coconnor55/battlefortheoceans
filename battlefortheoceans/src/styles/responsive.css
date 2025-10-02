@@ -233,7 +233,8 @@
 
 @media (min-width: 1024px) {
   /* v1.0.3: Use 95% on high-res displays for better space utilization */
-  .content-pane--wide {
+  .content-pane--wide,
+  .card--wide {
     max-width: 95%;
   }
   

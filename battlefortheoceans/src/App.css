@@ -1,4 +1,4 @@
-/* src/App.css (v0.5.0) */
+/* src/App.css (v0.5.1) */
 /* Copyright(c) 2025, Clint H. O'Connor */
 
 /* Global style imports - New modular CSS architecture */
@@ -10,14 +10,15 @@
 @import './styles/utilities.css';
 @import './styles/responsive.css';
 
-/* Application wrapper */
+/* Application wrapper - default background */
 .App {
   margin: 0;
   padding: 0;
   width: 100vw;
   height: 300vh;
   overflow: hidden;
-  background-image: url('https://cdn.battlefortheoceans.com/battlefortheoceans.jpg');
+  /* Use CSS variable for background control, with fallback to default image */
+  background-image: var(--app-background, url('https://cdn.battlefortheoceans.com/battlefortheoceans.jpg'));
   background-size: cover;
   background-position: center;
   background-attachment: scroll;

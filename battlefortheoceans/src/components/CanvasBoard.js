@@ -4,7 +4,7 @@
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.13';
+const version = 'v0.1.14';
 
 const CanvasBoard = forwardRef(({
   eraConfig,
@@ -93,38 +93,42 @@ const CanvasBoard = forwardRef(({
     }
   }, []);
 
-  // Validate ship placement
-  const isValidShipPlacement = useCallback((cells) => {
-    if (!cells || cells.length === 0 || !currentShip) return false;
-    
-    for (const cell of cells) {
-      if (cell.row < 0 || cell.row >= eraConfig.rows ||
-          cell.col < 0 || cell.col >= eraConfig.cols) {
-        return false;
-      }
+    // Validate ship placement
+    const isValidShipPlacement = useCallback((cells) => {
+      if (!cells || cells.length === 0 || !currentShip) return false;
       
-      if (gameBoard.isExcludedTerrain(cell.row, cell.col)) {
-        return false;
-      }
-      
-      const terrain = gameBoard.getTerrainAt(cell.row, cell.col);
-      if (!currentShip.terrain.includes(terrain)) {
-        return false;
-      }
-      
-      try {
-        const shipDataArray = gameBoard.getShipDataAt(cell.row, cell.col);
-        if (shipDataArray && shipDataArray.length > 0) {
+      for (const cell of cells) {
+        // Check bounds
+        if (cell.row < 0 || cell.row >= eraConfig.rows ||
+            cell.col < 0 || cell.col >= eraConfig.cols) {
           return false;
         }
-      } catch (error) {
-        console.warn(version, 'Error checking ship overlap at', cell.row, cell.col);
+        
+        // Check if excluded terrain - FIX: use isValidCoordinate instead
+        if (!gameBoard.isValidCoordinate(cell.row, cell.col)) {
+          return false;
+        }
+        
+        // Check terrain compatibility - FIX: access terrain array directly
+        const terrain = gameBoard.terrain[cell.row][cell.col];
+        if (!currentShip.terrain.includes(terrain)) {
+          return false;
+        }
+        
+        // Check for existing ships
+        try {
+          const shipDataArray = gameBoard.getShipDataAt(cell.row, cell.col);
+          if (shipDataArray && shipDataArray.length > 0) {
+            return false;
+          }
+        } catch (error) {
+          console.warn(version, 'Error checking ship overlap at', cell.row, cell.col);
+        }
       }
-    }
+      
+      return true;
+    }, [currentShip, eraConfig, gameBoard]);
     
-    return true;
-  }, [currentShip, eraConfig, gameBoard]);
-
   // Main canvas drawing function
   const drawCanvas = useCallback(() => {
     console.log('[CANVAS]', version, 'drawCanvas() executing');
@@ -432,27 +436,40 @@ const CanvasBoard = forwardRef(({
     ctx.restore();
   }, [cellSize, labelSize]);
 
-  // CRITICAL: Expose recordOpponentShot method to Game.js via ref
-  useImperativeHandle(ref, () => ({
-    recordOpponentShot: (row, col, result) => {
-      console.log('[OPPONENT SHOT]', version, 'Recording at:', row, col, 'Result:', result);
-      
-      // Show animation for opponent shot
-      if (result === 'firing') {
-        // Initial shot animation (incoming)
-        showOpponentAnimation(row, col, 'firing');
-      } else {
-        // Result animation (hit/miss)
-        showOpponentAnimation(row, col, result);
+    // Around line 443, update useImperativeHandle:
+    useImperativeHandle(ref, () => ({
+      recordOpponentShot: (row, col, result) => {
+        console.log('[OPPONENT SHOT]', version, 'Recording at:', row, col, 'Result:', result);
         
-        // Redraw canvas to show updated visual state
-        if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
-          drawCanvas();
+        // Show animation for opponent shot
+        if (result === 'firing') {
+          showOpponentAnimation(row, col, 'firing');
+        } else {
+          showOpponentAnimation(row, col, result);
+          
+          if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+            drawCanvas();
+          }
+        }
+      },
+      
+      // NEW v0.1.14: Capture board as PNG
+      captureBoard: () => {
+        if (!canvasRef.current) return null;
+        try {
+          // Ensure canvas is fully rendered before capture
+          const ctx = canvasRef.current.getContext('2d');
+          if (ctx && gameBoard && eraConfig && gameInstance) {
+            drawCanvas(); // Force final redraw
+          }
+          return canvasRef.current.toDataURL('image/png');
+        } catch (error) {
+          console.error('[CANVAS]', version, 'Failed to capture board:', error);
+          return null;
         }
       }
-    }
-  }), [gameBoard, eraConfig, gameInstance, drawCanvas]);
-
+    }), [gameBoard, eraConfig, gameInstance, drawCanvas]);
+    
   // Show opponent shot animation
   const showOpponentAnimation = useCallback((row, col, result) => {
     const animId = Date.now() + Math.random();

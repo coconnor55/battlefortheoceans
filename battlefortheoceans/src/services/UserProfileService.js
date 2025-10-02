@@ -2,49 +2,43 @@
 // Copyright(c) 2025, Clint H. O'Connor
 
 import { supabase } from '../utils/supabaseClient';
+import { Filter } from 'bad-words';
 
-const version = "v0.1.0";
+const version = "v0.1.2";
 
 class UserProfileService {
   constructor() {
     this.version = version;
+    this.profanityFilter = new Filter();
+    
+    // Add reserved system names
+    this.profanityFilter.addWords('guest', 'ai', 'admin', 'moderator', 'mod', 'system');
+    
     this.log('UserProfileService initialized');
   }
 
   /**
-   * Get user profile by UUID
+   * Get user profile by ID
    */
   async getUserProfile(userId) {
-    if (!userId) {
-      console.error(version, 'Cannot get profile without user ID');
-      return null;
-    }
-
     try {
-      console.log(version, 'Fetching user profile for:', userId);
-      
-      const { data: profile, error } = await supabase
+      const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = not found
-        console.error(version, 'Error fetching user profile:', error);
-        return null;
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw error;
       }
 
-      if (profile) {
-        console.log(version, 'Found existing profile:', profile.game_name);
-        return profile;
-      }
-
-      console.log(version, 'No profile found for user:', userId);
-      return null;
-
+      return data;
     } catch (error) {
-      console.error(version, 'Failed to fetch user profile:', error);
-      return null;
+      console.error(this.version, 'Error fetching user profile:', error);
+      throw error;
     }
   }
 
@@ -52,110 +46,117 @@ class UserProfileService {
    * Create new user profile
    */
   async createUserProfile(userId, gameName) {
-    if (!userId || !gameName) {
-      console.error(version, 'Cannot create profile without user ID and game name');
-      return null;
-    }
-
-    // Validate game name
-    if (gameName.length < 3 || gameName.length > 32) {
-      throw new Error('Game name must be between 3 and 32 characters');
-    }
-
     try {
-      console.log(version, 'Creating user profile:', { userId, gameName });
+      const validation = await this.validateGameName(gameName);
       
-      const { data: profile, error } = await supabase
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+
+      const { data, error } = await supabase
         .from('user_profiles')
-        .insert([{
-          id: userId,
-          game_name: gameName.trim(),
-          total_games: 0,
-          total_wins: 0,
-          total_score: 0,
-          best_accuracy: 0.00,
-          total_ships_sunk: 0,
-          total_damage: 0.00
-        }])
+        .insert([
+          {
+            id: userId,
+            game_name: validation.gameName,
+            total_games: 0,
+            total_wins: 0,
+            total_score: 0,
+            best_accuracy: 0,
+            total_ships_sunk: 0,
+            total_damage: 0
+          }
+        ])
         .select()
         .single();
 
-      if (error) {
-        if (error.code === '23505') { // Unique constraint violation
-          throw new Error('Game name already taken');
-        }
-        console.error(version, 'Error creating user profile:', error);
-        throw new Error('Failed to create profile');
-      }
+      if (error) throw error;
 
-      console.log(version, 'Profile created successfully:', profile.game_name);
-      return profile;
-
+      this.log(`Profile created for user ${userId} with name ${validation.gameName}`);
+      return data;
     } catch (error) {
-      console.error(version, 'Failed to create user profile:', error);
+      console.error(this.version, 'Error creating user profile:', error);
       throw error;
     }
   }
 
   /**
-   * Validate game name format
+   * Validate game name
+   * Checks length, profanity, reserved words, and availability
    */
-  validateGameName(gameName) {
+  async validateGameName(gameName) {
     if (!gameName || typeof gameName !== 'string') {
-      return { valid: false, error: 'Game name is required' };
+      return {
+        valid: false,
+        error: 'Game name is required'
+      };
     }
 
     const trimmed = gameName.trim();
     
+    // Length validation
     if (trimmed.length < 3) {
-      return { valid: false, error: 'Game name must be at least 3 characters' };
+      return {
+        valid: false,
+        error: 'Game name must be at least 3 characters'
+      };
+    }
+    
+    if (trimmed.length > 20) {
+      return {
+        valid: false,
+        error: 'Game name must be 20 characters or less'
+      };
     }
 
-    if (trimmed.length > 32) {
-      return { valid: false, error: 'Game name must be 32 characters or less' };
+    // Profanity and reserved words check
+    if (this.profanityFilter.isProfane(trimmed)) {
+      return {
+        valid: false,
+        error: 'Please choose an appropriate name'
+      };
     }
 
-    // Allow alphanumeric, spaces, hyphens, underscores
-    const validPattern = /^[a-zA-Z0-9\s\-_]+$/;
-    if (!validPattern.test(trimmed)) {
-      return { valid: false, error: 'Game name can only contain letters, numbers, spaces, hyphens, and underscores' };
+    // Check availability
+    try {
+      const isAvailable = await this.checkGameNameAvailability(trimmed);
+      if (!isAvailable) {
+        return {
+          valid: false,
+          error: 'This name is already taken'
+        };
+      }
+    } catch (error) {
+      console.error(this.version, 'Error checking name availability:', error);
+      return {
+        valid: false,
+        error: 'Unable to verify name availability'
+      };
     }
 
-    return { valid: true, trimmed };
+    return {
+      valid: true,
+      gameName: trimmed
+    };
   }
 
   /**
    * Check if game name is available
    */
   async checkGameNameAvailability(gameName) {
-    const validation = this.validateGameName(gameName);
-    if (!validation.valid) {
-      return { available: false, error: validation.error };
-    }
-
     try {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('game_name')
-        .eq('game_name', validation.trimmed)
-        .single();
+        .select('id')
+        .ilike('game_name', gameName)
+        .limit(1);
 
-      if (error && error.code === 'PGRST116') {
-        // Not found = available
-        return { available: true };
-      }
+      if (error) throw error;
 
-      if (error) {
-        console.error(version, 'Error checking game name availability:', error);
-        return { available: false, error: 'Unable to check availability' };
-      }
-
-      // Found existing name
-      return { available: false, error: 'Game name already taken' };
-
+      return !data || data.length === 0;
     } catch (error) {
-      console.error(version, 'Failed to check game name availability:', error);
-      return { available: false, error: 'Unable to check availability' };
+      console.error(this.version, 'Error checking game name availability:', error);
+      throw error;
     }
   }
 
@@ -169,4 +170,3 @@ class UserProfileService {
 
 export default UserProfileService;
 // EOF
-
