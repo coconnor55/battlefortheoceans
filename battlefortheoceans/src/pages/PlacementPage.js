@@ -1,4 +1,4 @@
-// src/pages/PlacementPage.js v0.4.3
+// src/pages/PlacementPage.js v0.4.5
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -6,7 +6,7 @@ import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.4.3';
+const version = 'v0.4.5';
 
 const PlacementPage = () => {
   const {
@@ -237,12 +237,7 @@ const PlacementPage = () => {
 
   return (
     <div className="container flex flex-column flex-center">
-      <div className="content-pane content-pane--wide" style={{
-        overflow: 'hidden',
-        height: '95vh',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+      <div className="content-pane content-pane--wide">
         
         <div className="card-header">
           <h2 className="card-title">Place Your Fleet</h2>
@@ -251,12 +246,7 @@ const PlacementPage = () => {
 
         <div className="divider"></div>
 
-        <div className="game-board-container" style={{
-          flex: 1,
-          overflow: 'auto',
-          touchAction: 'none',
-          overscrollBehavior: 'contain'
-        }}>
+        <div className="game-board-container">
           <CanvasBoard
             mode="placement"
             eraConfig={eraConfig}

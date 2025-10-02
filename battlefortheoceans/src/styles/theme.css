@@ -1,4 +1,4 @@
-/* src/styles/theme.css (v0.1.4) */
+/* src/styles/theme.css (v0.1.5) */
 /* Copyright(c) 2025, Clint H. O'Connor */
 
 /* ============================================
@@ -133,6 +133,11 @@ body {
               color var(--transition-speed) ease;
 }
 
+/* v0.1.5: Background transparency fix for era backgrounds */
+body[data-has-background-image="true"] .content-pane {
+  backdrop-filter: blur(8px);
+}
+
 body:not([data-has-background-image="true"]) {
   background-image: radial-gradient(ellipse at bottom, var(--bg-medium) 0%, var(--bg-dark) 100%);
   background-size: cover;
@@ -172,6 +177,11 @@ body::before {
   opacity: var(--body-before-opacity);
   z-index: var(--z-background);
   pointer-events: none;
+}
+
+/* Ensure container shows background */
+.container {
+  position: relative;
 }
 
 /* ============================================

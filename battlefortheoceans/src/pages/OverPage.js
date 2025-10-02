@@ -1,4 +1,4 @@
-// src/pages/OverPage.js v0.3.6
+// src/pages/OverPage.js v0.3.7
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +7,7 @@ import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
 import LeaderboardService from '../services/LeaderboardService';
 
-const version = 'v0.3.9';
+const version = 'v0.3.7';
 
 const OverPage = () => {
   const {
@@ -15,7 +15,7 @@ const OverPage = () => {
     events,
     gameInstance,
     eraConfig,
-      humanPlayer,
+    humanPlayer,
     selectedOpponent,
     userProfile,
     hasEraAccess
@@ -85,76 +85,68 @@ const OverPage = () => {
   // Get game results
   const gameStats = gameInstance?.getGameStats() || {};
   const gameLog = gameInstance?.gameLog || [];
+  
+  // Determine if player won
+  const didPlayerWin = gameStats.winner === humanPlayer?.name;
 
-    // Format game log for display/export - UPDATE THIS FUNCTION
-    const formatGameLog = (includeImage = false) => {
-      const header = `Battle for the Oceans - Game Log\n` +
-                     `Era: ${eraConfig?.name || 'Unknown'}\n` +
-                     `Opponent: ${selectedOpponent?.name || 'Unknown'}\n` +
-                     `Date: ${new Date().toLocaleString()}\n` +
-                     `Winner: ${gameStats.winner || 'Draw'}\n\n`;
-      
-      const entries = gameLog
-        .filter(entry => entry.message?.includes('[BATTLE]'))
-        .map(entry => {
-          const elapsed = entry.elapsed || '0.0';
-          const msg = entry.message.replace('[BATTLE] ', '');
-          return `[+${elapsed}s] ${msg}`;
-        })
-        .join('\n');
-      
-//      if (includeImage && gameInstance?.finalBoardImage) {
-//        // For markdown format (clipboard)
-//        return header + `![Final Board](${gameInstance.finalBoardImage})\n\n` + entries;
-//      }
-      
-      return header + entries;
-    };
+  // Format game log for display/export
+  const formatGameLog = (includeImage = false) => {
+    const header = `Battle for the Oceans - Game Log\n` +
+                   `Era: ${eraConfig?.name || 'Unknown'}\n` +
+                   `Opponent: ${selectedOpponent?.name || 'Unknown'}\n` +
+                   `Date: ${new Date().toLocaleString()}\n` +
+                   `Winner: ${gameStats.winner || 'Draw'}\n\n`;
+    
+    const entries = gameLog
+      .filter(entry => entry.message?.includes('[BATTLE]'))
+      .map(entry => {
+        const elapsed = entry.elapsed || '0.0';
+        const msg = entry.message.replace('[BATTLE] ', '');
+        return `[+${elapsed}s] ${msg}`;
+      })
+      .join('\n');
+    
+    return header + entries;
+  };
 
-    // Copy game log to clipboard - UPDATE
-    const copyGameLog = () => {
-      const logText = formatGameLog(true); // Include image reference
-      navigator.clipboard.writeText(logText).then(() => {
-        alert('Game log copied to clipboard with board image!');
-      }).catch(err => {
-        console.error('Failed to copy log:', err);
-        alert('Failed to copy log. Check console for details.');
-      });
-    };
+  // Copy game log to clipboard
+  const copyGameLog = () => {
+    const logText = formatGameLog(true);
+    navigator.clipboard.writeText(logText).then(() => {
+      alert('Game log copied to clipboard with board image!');
+    }).catch(err => {
+      console.error('Failed to copy log:', err);
+      alert('Failed to copy log. Check console for details.');
+    });
+  };
 
-    // Email game log - UPDATE TO USE HTML
-    const emailGameLog = () => {
-      const logText = formatGameLog();
-      const subject = encodeURIComponent(`Battle for the Oceans - ${eraConfig?.name || 'Game'} Results`);
-      
-      // Build HTML email body with inline image
-      let htmlBody = `<h2>Battle for the Oceans - Game Log</h2>`;
-      htmlBody += `<p><strong>Era:</strong> ${eraConfig?.name || 'Unknown'}</p>`;
-      htmlBody += `<p><strong>Opponent:</strong> ${selectedOpponent?.name || 'Unknown'}</p>`;
-      htmlBody += `<p><strong>Date:</strong> ${new Date().toLocaleString()}</p>`;
-      htmlBody += `<p><strong>Winner:</strong> ${gameStats.winner || 'Draw'}</p>`;
-      
-//      // Include board image if available
-//      if (gameInstance?.finalBoardImage) {
-//        htmlBody += `<h3>Final Board State</h3>`;
-//        htmlBody += `<img src="${gameInstance.finalBoardImage}" alt="Final Board" style="max-width: 600px; border: 2px solid #00D9FF; border-radius: 8px;" />`;
-//      }
-      
-      htmlBody += `<h3>Battle Log</h3><pre style="background: #f5f5f5; padding: 16px; border-radius: 4px;">`;
-      htmlBody += gameLog
-        .filter(entry => entry.message?.includes('[BATTLE]'))
-        .map(entry => {
-          const elapsed = entry.elapsed || '0.0';
-          const msg = entry.message.replace('[BATTLE] ', '');
-          return `[+${elapsed}s] ${msg}`;
-        })
-        .join('\n');
-      htmlBody += `</pre>`;
-      
-      const body = encodeURIComponent(htmlBody);
-      const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
-      window.open(mailtoLink);
-    };
+  // Email game log
+  const emailGameLog = () => {
+    const logText = formatGameLog();
+    const subject = encodeURIComponent(`Battle for the Oceans - ${eraConfig?.name || 'Game'} Results`);
+    
+    // Build HTML email body
+    let htmlBody = `<h2>Battle for the Oceans - Game Log</h2>`;
+    htmlBody += `<p><strong>Era:</strong> ${eraConfig?.name || 'Unknown'}</p>`;
+    htmlBody += `<p><strong>Opponent:</strong> ${selectedOpponent?.name || 'Unknown'}</p>`;
+    htmlBody += `<p><strong>Date:</strong> ${new Date().toLocaleString()}</p>`;
+    htmlBody += `<p><strong>Winner:</strong> ${gameStats.winner || 'Draw'}</p>`;
+    
+    htmlBody += `<h3>Battle Log</h3><pre style="background: #f5f5f5; padding: 16px; border-radius: 4px;">`;
+    htmlBody += gameLog
+      .filter(entry => entry.message?.includes('[BATTLE]'))
+      .map(entry => {
+        const elapsed = entry.elapsed || '0.0';
+        const msg = entry.message.replace('[BATTLE] ', '');
+        return `[+${elapsed}s] ${msg}`;
+      })
+      .join('\n');
+    htmlBody += `</pre>`;
+    
+    const body = encodeURIComponent(htmlBody);
+    const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
+    window.open(mailtoLink);
+  };
     
   // Handle play again - go back to opponent selection
   const handlePlayAgain = () => {
@@ -163,7 +155,7 @@ const OverPage = () => {
     }
   };
 
-  // v0.3.6: Restored - go back to era selection
+  // Go back to era selection
   const handleChangeEra = () => {
     if (dispatch && events) {
       dispatch(events.ERA);
@@ -203,7 +195,7 @@ const OverPage = () => {
           <h2 className="card-title">Battle Complete</h2>
           <p className="card-subtitle">{eraConfig?.name || 'Naval Combat'}</p>
           <p className="battle-summary">
-        {humanPlayer?.name || 'Player'} vs {selectedOpponent?.name || 'Unknown Opponent'}
+            {humanPlayer?.name || 'Player'} vs {selectedOpponent?.name || 'Unknown Opponent'}
           </p>
         </div>
 
@@ -240,7 +232,7 @@ const OverPage = () => {
           )}
           
           {gameStats.players && (
-            <div className="battle-stats">
+            <div className={`battle-stats ${didPlayerWin ? 'battle-stats--winner' : 'battle-stats--loser'}`}>
               <h4>Battle Statistics</h4>
               <div className="stats-grid">
                 {gameStats.players.map((player, index) => (
@@ -356,7 +348,6 @@ const OverPage = () => {
           />
         )}
 
-        {/* v0.3.6: Restored "Change Era" button */}
         <div className="over-actions">
           <button
             className="btn btn--secondary btn--lg"

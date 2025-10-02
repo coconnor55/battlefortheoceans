@@ -54,15 +54,16 @@ const SceneRenderer = () => {
       // Apply background image if present in promotional section
       if (eraConfig.promotional?.background_image) {
         const cdnBase = process.env.REACT_APP_GAME_CDN || '';
-        const imageUrl = cdnBase
-          ? `${cdnBase}/assets/backgrounds/${eraConfig.promotional.background_image}`
-          : `/assets/backgrounds/${eraConfig.promotional.background_image}`;
+          const imageUrl = cdnBase
+            ? `${cdnBase}/assets/images/${eraConfig.promotional.background_image}`
+            : `/assets/images/${eraConfig.promotional.background_image}`;        
         console.log('[DEBUG]', version, 'Setting background image:', imageUrl);
         
         // Apply background image with gradient overlay for readability
-        const bgDark = eraConfig.theme?.bg_dark || 'rgba(43, 79, 95, 0.9)';
-        const backgroundValue = `linear-gradient(to bottom, ${bgDark}cc, ${bgDark}dd), url('${imageUrl}')`;
-        
+//        const bgDark = eraConfig.theme?.bg_dark || 'rgba(43, 79, 95, 0.9)';
+//        const backgroundValue = `linear-gradient(to bottom, ${bgDark}cc, ${bgDark}dd), url('${imageUrl}')`;
+          const backgroundValue = `url('${imageUrl}')`;
+          
         // Set body background image
         document.body.style.backgroundImage = backgroundValue;
         document.body.setAttribute('data-has-background-image', 'true');
