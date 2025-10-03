@@ -149,8 +149,7 @@ body:not([data-has-background-image="true"]) {
 body[data-has-background-image="true"] {
   background-size: cover;
   background-position: center;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+  background-attachment: scroll;
 }
 
 /* Hide the ::before pattern overlay when custom background is present */
