@@ -57,6 +57,29 @@
 }
 
 /* ============================================
+   BUTTON DISABLED STATE
+   LaunchPage specific styling
+   ============================================ */
+
+.btn--disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   GAME VERSION DISPLAY
+   ============================================ */
+
+.game-version {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  margin: 0;
+  padding: var(--space-sm) 0;
+  font-family: var(--font-mono);
+}
+
+/* ============================================
    TEXT UTILITIES
    ============================================ */
 

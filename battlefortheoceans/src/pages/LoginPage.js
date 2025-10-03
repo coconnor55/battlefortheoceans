@@ -1,12 +1,12 @@
-// src/pages/LoginPage.js v0.3.5
+// src/pages/LoginPage.js v0.3.6
 // Copyright(c) 2025, Clint H. O'Connor
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import LoginDialog from '../components/LoginDialog';
 import ProfileCreationDialog from '../components/ProfileCreationDialog';
 
-const version = 'v0.3.5';
+const version = 'v0.3.6';
 
 const LoginPage = () => {
   const { dispatch, events, getUserProfile } = useGame();
@@ -15,6 +15,15 @@ const LoginPage = () => {
   const [authenticatedUser, setAuthenticatedUser] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showSignup, setShowSignup] = useState(false);
+
+  // Check for showSignup flag in URL or state
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('signup') === 'true') {
+      setShowSignup(true);
+    }
+  }, []);
   
   const handleLoginComplete = async (userData) => {
     if (userData) {
@@ -50,6 +59,7 @@ const LoginPage = () => {
         } else {
           console.log(version, 'No profile found, requiring profile creation');
           // User needs to create profile
+          setIsLoading(false);
           setAuthStep('profile-creation');
         }
       } catch (error) {
@@ -83,6 +93,7 @@ const LoginPage = () => {
     setAuthenticatedUser(null);
     setIsLoading(false);
     setError(null);
+    setShowSignup(false);
   };
 
   // Debug logging for state changes
@@ -90,14 +101,18 @@ const LoginPage = () => {
     authStep,
     hasUser: !!authenticatedUser,
     isLoading,
-    hasError: !!error
+    hasError: !!error,
+    showSignup
   });
 
   return (
     <div className="container flex flex-column flex-center">
       {authStep === 'login' && !isLoading && (
         <>
-          <LoginDialog onClose={handleLoginComplete} />
+          <LoginDialog
+            onClose={handleLoginComplete}
+            showSignup={showSignup}
+          />
           {error && (
             <div className="content-pane content-pane--narrow mt-md">
               <p className="message message--error">{error}</p>

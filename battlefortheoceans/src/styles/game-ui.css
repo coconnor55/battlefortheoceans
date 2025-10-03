@@ -199,6 +199,50 @@
   font-weight: 700;
 }
 
+/* Add to game-ui.css v2.2.0 */
+/* Canvas Board Styles - NEW SECTION */
+
+/* ============================================
+   CANVAS BOARD
+   v2.2.0: Added canvas board styling
+   ============================================ */
+
+.canvas-board {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius);
+  touch-action: none; /* Prevent default touch behaviors */
+  transition: box-shadow var(--transition-fast);
+}
+
+/* Battle mode cursors */
+.canvas-board--battle {
+  cursor: crosshair;
+}
+
+.canvas-board--battle-waiting {
+  cursor: not-allowed;
+}
+
+/* Placement mode cursors */
+.canvas-board--placement {
+  cursor: copy;
+}
+
+.canvas-board--placement-empty {
+  cursor: default;
+}
+
+/* Loading state */
+.loading-container {
+  text-align: center;
+  padding: var(--space-lg);
+}
+
+.loading-container p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
 /* ============================================
    GAME BOARD
    v2.1.1: Canvas aspect ratio preservation
@@ -224,6 +268,41 @@
   width: auto;
   height: auto;
   object-fit: contain;
+}
+
+/* ============================================
+   FINAL BOARD DISPLAY (OverPage)
+   v2.2.0: Final board image styling
+   ============================================ */
+
+.final-board-section {
+  margin-top: var(--space-xl);
+  margin-bottom: var(--space-xl);
+}
+
+.final-board-container {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-md);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-subtle);
+}
+
+.final-board-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--border-radius);
+  border: 2px solid var(--border-color);
+}
+
+/* ============================================
+   AUTOPLAY TOGGLE BUTTON
+   PlayingPage specific styling
+   ============================================ */
+
+.autoplay-toggle {
+  margin-left: var(--space-md);
 }
 
 /* ============================================
@@ -333,9 +412,11 @@
   background-color: var(--text-dim);
 }
 
+/* Update game-ui.css - Replace the battle-stats section with this: */
+
 /* ============================================
    BATTLE STATS
-   v2.1.1: Winner/loser border colors
+   v2.2.0: Winner/loser borders on individual player cards
    ============================================ */
 
 .battle-stats {
@@ -345,16 +426,6 @@
   margin: var(--space-lg) 0;
   border: 2px solid var(--border-subtle);
   transition: all var(--transition-speed);
-}
-
-.battle-stats--winner {
-  border-color: var(--primary);
-  box-shadow: 0 0 20px var(--primary-glow);
-}
-
-.battle-stats--loser {
-  border-color: var(--error);
-  box-shadow: 0 0 20px rgba(255, 51, 102, 0.4);
 }
 
 .battle-stats h4 {
@@ -374,7 +445,20 @@
   background: var(--bg-medium);
   border-radius: var(--border-radius);
   padding: var(--space-md);
-  border: 1px solid var(--border-subtle);
+  border: 2px solid var(--border-subtle);
+  transition: all var(--transition-speed);
+}
+
+/* Winner gets gold/primary border and glow */
+.player-stats--winner {
+  border-color: #FFD700; /* Gold */
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+/* Loser gets red border and glow */
+.player-stats--loser {
+  border-color: var(--error);
+  box-shadow: 0 0 20px rgba(255, 51, 102, 0.4);
 }
 
 .player-name {

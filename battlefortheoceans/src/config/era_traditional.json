@@ -1,5 +1,5 @@
 {
-  "version": "0.2.4",
+  "version": "0.2.5",
   "era": "traditional",
   "name": "Traditional Battleship",
   "era_description": "Classic naval warfare on the high seas. Command your fleet in the timeless battle of strategy and luck that has captivated players since the 1930s.",
@@ -77,7 +77,7 @@
           "name": "Ensign Jack",
           "strategy": "random",
           "skill_level": "novice",
-          "difficulty": "easy",
+          "difficulty": 0.8,
           "description": "A fresh naval academy graduate still learning the ropes of sea warfare. Fires quickly but without much strategy.",
           "avatar": "captains/ensign-jack.png"
         },
@@ -86,17 +86,17 @@
           "name": "Captain Flynn",
           "strategy": "aggressive",
           "skill_level": "experienced",
-          "difficulty": "normal",
+          "difficulty": 1.2,
           "description": "A dashing naval officer who strikes with bold precision and calculated daring. Inspired by the swashbuckling heroes of old.",
           "avatar": "captains/captain-flynn.png"
         },
         {
           "id": "admiral-swift",
           "name": "Admiral Swift",
-          "strategy": "methodical_random",
-          "skill_level": "expert",
-          "difficulty": "hard",
-          "description": "A seasoned fleet commander who systematically hunts enemy vessels with patience and tactical brilliance.",
+          "strategy": "methodical_optimal",
+          "skill_level": "experienced",
+          "difficulty": 1.4,
+          "description": "A seasoned fleet commander who systematically hunts enemy vessels with an optimal search pattern and tactical precision.",
           "avatar": "captains/admiral-swift.png"
         }
       ]

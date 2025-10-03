@@ -4,11 +4,12 @@
 
 import Player from './Player.js';
 
-const version = "v0.3.0";
+const version = "v0.3.1";
 
 export class AiPlayer extends Player {
-  constructor(id, name, strategy = 'random', skillLevel = 'novice') {
-    super(id, name, 'ai');
+  constructor(id, name, strategy = 'random', skillLevel = 'novice', difficulty = 1.0) {
+    // v0.3.1: Pass difficulty to Player constructor
+    super(id, name, 'ai', difficulty);
     
     this.strategy = strategy;
     this.skillLevel = skillLevel;
@@ -27,7 +28,7 @@ export class AiPlayer extends Player {
       quarters: []
     };
     
-    console.log(`AiPlayer ${name} created with strategy: ${strategy}, skill: ${skillLevel}`);
+    console.log(`AiPlayer ${name} created with strategy: ${strategy}, skill: ${skillLevel}, difficulty: ${difficulty}`);
   }
 
   makeMove(gameInstance) {
@@ -426,6 +427,7 @@ export class AiPlayer extends Player {
     return {
       strategy: this.strategy,
       skillLevel: this.skillLevel,
+      difficulty: this.difficulty,
       hits: this.memory.hits.size,
       misses: this.memory.misses.size,
       activeTargets: this.memory.targetQueue.length,

@@ -1,14 +1,19 @@
 // src/classes/Player.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.4.0";
+const version = "v0.4.1";
 
 class Player {
-  constructor(id, name, playerType = 'human') {
+  constructor(id, name, playerType = 'human', difficulty = 1.0) {
     // Core identity
     this.id = id;
     this.name = name;
     this.type = playerType;
+    
+    // DIFFICULTY (v0.4.1)
+    // Score multiplier for beating this player
+    // 0.8 = Easy (less score), 1.0 = Medium (baseline), 1.2-1.5 = Hard (bonus score)
+    this.difficulty = difficulty;
     
     // STATISTICS (initialized here, updated by Game.js)
     this.hits = 0; // successful shots that hit ships
@@ -22,7 +27,7 @@ class Player {
     // Ship cells are handled by Game.isValidAttack() checking ship health
     this.missedShots = new Set(); // "row,col" of water/land cells this player has targeted
     
-    console.log(`Player ${name} created (${playerType})`);
+    console.log(`Player ${name} created (${playerType}, difficulty: ${difficulty})`);
   }
 
   /**
@@ -97,6 +102,7 @@ class Player {
       id: this.id,
       name: this.name,
       type: this.type,
+      difficulty: this.difficulty,
       shots: this.shots,
       hits: this.hits,
       misses: this.misses,

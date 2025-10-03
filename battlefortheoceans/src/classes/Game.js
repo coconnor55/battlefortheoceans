@@ -9,7 +9,7 @@ import Alliance from './Alliance.js';
 import Visualizer from './Visualizer.js';
 import Message from './Message.js';
 
-const version = "v0.4.7";
+const version = "v0.4.8";
 
 // Environment-aware CDN path
 const SOUND_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
@@ -209,15 +209,17 @@ class Game {
     }
   }
 
-  addPlayer(id, type = 'human', name = 'Player', allianceName = null, strategy = null, skillLevel = null) {
+  addPlayer(id, type = 'human', name = 'Player', allianceName = null, strategy = null, skillLevel = null, difficulty = 1.0) {
     if (this.players.length >= (this.eraConfig.max_players || 2)) {
       throw new Error(`Maximum ${this.eraConfig.max_players || 2} players allowed`);
     }
 
     let player;
     if (type === 'ai') {
-      player = new AiPlayer(id, name, strategy || 'random', skillLevel || 'novice');
+      // v0.4.8: Pass difficulty to AiPlayer constructor
+      player = new AiPlayer(id, name, strategy || 'random', skillLevel || 'novice', difficulty);
     } else {
+      // Human players default to difficulty 1.0 (set in Player constructor)
       player = new HumanPlayer(id, name);
       this.humanPlayerId = id;
     }
@@ -271,6 +273,7 @@ class Game {
 
   /**
    * SIMPLIFIED: Process an attack at coordinates
+   * v0.4.8: Apply difficulty multiplier when human player scores against AI
    */
   receiveAttack(row, col, firingPlayer, damage = 1.0) {
     if (!this.board?.isValidCoordinate(row, col)) {
@@ -355,7 +358,17 @@ class Game {
         resultType = 'sunk';
         
         firingPlayer.sunk++;
-        firingPlayer.score += 10;
+        
+        // v0.4.8: Apply difficulty multiplier for SUNK scoring
+        // Human vs AI: apply target's difficulty multiplier
+        // AI vs Human or AI vs AI: no multiplier
+        if (firingPlayer.type === 'human' && targetPlayer.type === 'ai') {
+          const multiplier = targetPlayer.difficulty || 1.0;
+          firingPlayer.score += Math.round(10 * multiplier);
+          console.log(`[Game ${this.id}] ${firingPlayer.name} sunk ${targetPlayer.name}'s ship: 10 * ${multiplier} = ${Math.round(10 * multiplier)} points`);
+        } else {
+          firingPlayer.score += 10;
+        }
         
         this.battleLog(`t${this.currentTurn}-SUNK: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`, 'sunk');
       } else {
@@ -366,7 +379,16 @@ class Game {
           position: cellName
         }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
         
-        firingPlayer.score += 1;
+        // v0.4.8: Apply difficulty multiplier for HIT scoring
+        // Human vs AI: apply target's difficulty multiplier
+        // AI vs Human or AI vs AI: no multiplier
+        if (firingPlayer.type === 'human' && targetPlayer.type === 'ai') {
+          const multiplier = targetPlayer.difficulty || 1.0;
+          firingPlayer.score += multiplier;
+          console.log(`[Game ${this.id}] ${firingPlayer.name} hit ${targetPlayer.name}'s ship: 1 * ${multiplier} = ${multiplier} points`);
+        } else {
+          firingPlayer.score += 1;
+        }
         
         this.battleLog(`t${this.currentTurn}-HIT: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`, 'hit');
       }
@@ -824,6 +846,7 @@ class Game {
       return {
         name: player.name,
         type: player.type,
+        difficulty: player.difficulty,
         shots: player.shots,
         hits: player.hits,
         misses: player.misses,

@@ -32,6 +32,25 @@
   pointer-events: none;
 }
 
+/* Pulse glow animation for important actions */
+.btn--pulse {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px var(--primary),
+                0 0 10px var(--primary),
+                0 0 15px var(--primary);
+  }
+  50% {
+    box-shadow: 0 0 10px var(--primary),
+                0 0 20px var(--primary),
+                0 0 30px var(--primary),
+                0 0 40px var(--primary);
+  }
+}
+
 /* ============================================
    BUTTON VARIANTS
    ============================================ */

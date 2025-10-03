@@ -1,13 +1,14 @@
-// src/pages/LaunchPage.js
+// src/pages/LaunchPage.js v0.3.6
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.6: Get appVersion from GameContext instead of props
 
 import { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.3.4';
+const version = 'v0.3.6';
 
 const LaunchPage = () => {
-  const { dispatch, events } = useGame();
+  const { dispatch, events, appVersion } = useGame();
   const [canProceed, setCanProceed] = useState(false);
 
   // Minimum 1-second display time for readability
@@ -44,18 +45,17 @@ const LaunchPage = () => {
         </div>
         <div className="card-body flex flex-center">
           <button
-            className="btn btn--primary btn--lg"
+            className={`btn btn--primary btn--lg ${!canProceed ? 'btn--disabled' : ''}`}
             onClick={handleCloseDialog}
             disabled={!canProceed}
-            style={{
-              opacity: canProceed ? 1 : 0.6,
-              cursor: canProceed ? 'pointer' : 'not-allowed'
-            }}
           >
             Play Game
           </button>
         </div>
         <div className="card-footer">
+          {appVersion && (
+            <p className="game-version">{appVersion}</p>
+          )}
         </div>
       </div>
     </div>

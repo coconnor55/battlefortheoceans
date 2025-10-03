@@ -4,7 +4,8 @@
 import React, { createContext, useContext } from 'react';
 import CoreEngine from '../classes/CoreEngine';
 
-const version = "v0.3.0";
+const version = "v0.3.1";
+const APP_VERSION = 'v1.0.0'; // Update this with each release
 
 const GameState = createContext();
 
@@ -16,7 +17,10 @@ export const GameProvider = ({ children }) => {
   
   return (
     <GameState.Provider value={{
-      // State machine
+        // Version
+        appVersion: APP_VERSION,
+
+        // State machine
       get currentState() { return coreEngine.currentState; },
       get events() { return coreEngine.events; },
       

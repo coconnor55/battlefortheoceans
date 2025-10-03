@@ -1,10 +1,11 @@
-// src/components/CanvasBoard.js v0.1.15
+// src/components/CanvasBoard.js v0.1.16
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.16: Removed inline styles, replaced with CSS classes
 
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.15';
+const version = 'v0.1.16';
 
 const CanvasBoard = forwardRef(({
   eraConfig,
@@ -694,9 +695,9 @@ const CanvasBoard = forwardRef(({
     lastProcessedCell.current = null;
   }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced]);
 
-  // NEW v0.1.15: Touch event handlers
+  // Touch event handlers
   const handleTouchStart = useCallback((e) => {
-    e.preventDefault(); // CRITICAL: Prevent page scrolling
+    e.preventDefault();
     if (mode !== 'placement' || !currentShip || isPlacing) return;
 
     const touch = e.touches[0];
@@ -729,7 +730,7 @@ const CanvasBoard = forwardRef(({
   }, [mode, currentShip, isPlacing, cellSize, labelSize, eraConfig, isValidShipPlacement, gameBoard, gameInstance, drawCanvas]);
 
   const handleTouchMove = useCallback((e) => {
-    e.preventDefault(); // CRITICAL: Prevent page scrolling
+    e.preventDefault();
     if (mode !== 'placement' || !currentShip || !isPlacing || !startCell) return;
 
     const touch = e.touches[0];
@@ -806,7 +807,7 @@ const CanvasBoard = forwardRef(({
   }, [mode, currentShip, isPlacing, startCell, cellSize, labelSize, eraConfig, gameBoard, gameInstance, isValidShipPlacement, drawCanvas]);
 
   const handleTouchEnd = useCallback((e) => {
-    e.preventDefault(); // CRITICAL: Prevent page scrolling
+    e.preventDefault();
     if (mode !== 'placement' || !currentShip || !isPlacing) {
       setPreviewCells([]);
       setIsValidPlacement(false);
@@ -879,18 +880,30 @@ const CanvasBoard = forwardRef(({
     requestAnimationFrame(animate);
   }, [gameBoard, eraConfig, gameInstance, drawCanvas]);
 
-  // Determine cursor style
-  const getCursorStyle = () => {
+  // Determine canvas CSS classes
+  const getCanvasClasses = () => {
+    const classes = ['canvas-board'];
+    
     if (mode === 'battle') {
-      return gameState?.isPlayerTurn && gameState?.isGameActive ? 'crosshair' : 'not-allowed';
+      if (gameState?.isPlayerTurn && gameState?.isGameActive) {
+        classes.push('canvas-board--battle');
+      } else {
+        classes.push('canvas-board--battle-waiting');
+      }
     } else {
-      return currentShip ? 'copy' : 'default';
+      if (currentShip) {
+        classes.push('canvas-board--placement');
+      } else {
+        classes.push('canvas-board--placement-empty');
+      }
     }
+    
+    return classes.join(' ');
   };
 
   if (!eraConfig || !gameBoard || !gameInstance) {
     return (
-      <div className="text-center" style={{ padding: '20px' }}>
+      <div className="loading-container">
         <p>Loading game board...</p>
       </div>
     );
@@ -899,6 +912,7 @@ const CanvasBoard = forwardRef(({
   return (
     <canvas
       ref={canvasRef}
+      className={getCanvasClasses()}
       onClick={handleCanvasClick}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -906,12 +920,6 @@ const CanvasBoard = forwardRef(({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={{
-        cursor: getCursorStyle(),
-        border: '1px solid #ccc',
-        borderRadius: '4px',
-        touchAction: 'none' // Prevent all default touch behaviors
-      }}
     />
   );
 });

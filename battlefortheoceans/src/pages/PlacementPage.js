@@ -1,12 +1,13 @@
-// src/pages/PlacementPage.js v0.4.5
+// src/pages/PlacementPage.js v0.4.6
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.6: Added pulse glow to Start Battle button when all ships placed
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.4.5';
+const version = 'v0.4.6';
 
 const PlacementPage = () => {
   const {
@@ -285,9 +286,9 @@ const PlacementPage = () => {
             {isAutoPlacing ? 'Placing Ships...' : 'Autoplace Ships'}
           </button>
 
-          {/* Start Battle button - only enabled when all ships placed */}
+          {/* Start Battle button - pulse glow when ready */}
           <button
-            className="btn btn--primary btn--lg"
+            className={`btn btn--primary btn--lg ${isPlacementComplete && !isAutoPlacing ? 'btn--pulse' : ''}`}
             onClick={handleStartBattle}
             disabled={!isPlacementComplete || isAutoPlacing}
           >

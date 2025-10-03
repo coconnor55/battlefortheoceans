@@ -1,5 +1,6 @@
-// src/classes/CoreEngine.js v0.3.8
+// src/classes/CoreEngine.js v0.4.0
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.0: Pass AI captain difficulty to Game.addPlayer()
 
 import Game from './Game.js';
 import Board from './Board.js';
@@ -10,7 +11,7 @@ import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
 import EraService from '../services/EraService.js';
 
-const version = "v0.3.8";
+const version = "v0.4.1";
 
 class CoreEngine {
   constructor() {
@@ -57,7 +58,8 @@ class CoreEngine {
         on: {
           [this.events.ERA]: 'era',                    // Choose new era
           [this.events.SELECTOPPONENT]: 'opponent',    // Change opponent (keeps same era)
-          [this.events.PLACEMENT]: 'placement'         // Battle again (same settings)
+          [this.events.PLACEMENT]: 'placement',        // Battle again (same settings)
+          [this.events.LOGIN]: 'login'                 // Guest signup / account switch
         }
       }
     };
@@ -86,6 +88,7 @@ class CoreEngine {
     this.gameInstance = null;
     this.board = null;
     this.userProfile = null;
+    this.loginEventData = null; // For passing data to LoginPage
     
     // Observer pattern for UI updates
     this.updateCounter = 0;
@@ -124,6 +127,12 @@ class CoreEngine {
 
   async processEventData(event, eventData) {
     if (!eventData) return;
+    
+    // Store LOGIN event data for LoginPage to access
+    if (event === this.events.LOGIN && eventData.showSignup !== undefined) {
+      this.loginEventData = { showSignup: eventData.showSignup };
+      this.log(`LOGIN event with showSignup: ${eventData.showSignup}`);
+    }
     
     if (event === this.events.SELECTERA && eventData.userData) {
       const isGuest = eventData.userData.id.startsWith('guest-');
@@ -176,7 +185,7 @@ class CoreEngine {
     } else if (event === this.events.PLACEMENT) {
       if (eventData?.selectedOpponent) {
         this.selectedOpponent = eventData.selectedOpponent;
-        this.log(`Opponent selected: ${eventData.selectedOpponent.name}`);
+        this.log(`Opponent selected: ${eventData.selectedOpponent.name} (difficulty: ${eventData.selectedOpponent.difficulty || 1.0})`);
       }
       if (eventData?.selectedAlliance && !this.selectedAlliance) {
         this.selectedAlliance = eventData.selectedAlliance;
@@ -191,6 +200,12 @@ class CoreEngine {
       const oldState = this.currentState;
       this.currentState = nextState;
       this.lastEvent = event;
+      
+      // Clear game state when transitioning to login (guest signup / account switch)
+      if (nextState === 'login') {
+        this.clearGameState();
+      }
+      
       this.syncURL();
       this.log(`State transition: ${oldState} → ${this.currentState}`);
     } else {
@@ -198,15 +213,37 @@ class CoreEngine {
     }
   }
 
+  clearGameState() {
+    this.log('Clearing game state for clean login');
+    this.eraConfig = null;
+    this.selectedOpponent = null;
+    this.selectedGameMode = null;
+    this.selectedAlliance = null;
+    this.humanPlayer = null;
+    this.gameInstance = null;
+    this.board = null;
+    this.userProfile = null;
+    // Don't clear loginEventData - LoginPage needs it
+  }
+
   syncURL() {
     const route = this.stateToRoute[this.currentState];
     if (route && typeof window !== 'undefined' && window.history) {
+      // Preserve existing URL parameters (like ?signup=true)
+      const currentUrl = new URL(window.location);
+      const newUrl = new URL(route, window.location.origin);
+      
+      // Copy over any existing search parameters
+      currentUrl.searchParams.forEach((value, key) => {
+        newUrl.searchParams.set(key, value);
+      });
+      
       window.history.pushState(
         { state: this.currentState, timestamp: Date.now() },
         '',
-        route
+        newUrl.pathname + newUrl.search
       );
-      this.log(`URL synced: ${route}`);
+      this.log(`URL synced: ${newUrl.pathname + newUrl.search}`);
     }
   }
 
@@ -253,8 +290,8 @@ class CoreEngine {
       'over': ['era']
     };
     
-    // Login is always accessible from era/opponent/placement
-    if (to === 'login' && ['era', 'opponent', 'placement'].includes(from)) {
+    // Login is always accessible from era/opponent/placement/over
+    if (to === 'login' && ['era', 'opponent', 'placement', 'over'].includes(from)) {
       return true;
     }
     
@@ -323,7 +360,7 @@ class CoreEngine {
 
   /**
    * SIMPLIFIED v0.3.7: Alliance assignment now happens inside addPlayer()
-   * No need to call assignPlayerToAlliance() separately
+   * v0.4.0: Pass difficulty from selectedOpponent to AiPlayer
    */
   async initializeForPlacement() {
     this.log('Initializing for placement phase');
@@ -373,24 +410,30 @@ class CoreEngine {
       throw new Error('Cannot determine opponent alliance');
     }
     
-    // Add players (alliance assignment happens inside addPlayer)
+    // Add human player (difficulty defaults to 1.0 in Player constructor)
     const humanPlayerAdded = this.gameInstance.addPlayer(
       this.humanPlayer.id,
       'human',
       this.userProfile.game_name,
       playerAlliance,
-      null,
-      null
+      null,  // strategy (not used for human)
+      null   // skillLevel (not used for human)
     );
     
+    // v0.4.0: Add AI player with difficulty from captain config
     const aiId = this.generateAIPlayerUUID();
+    const aiDifficulty = this.selectedOpponent.difficulty || 1.0;
+    
+    this.log(`Creating AI player with difficulty: ${aiDifficulty}`);
+    
     const aiPlayerAdded = this.gameInstance.addPlayer(
       aiId,
       'ai',
       this.selectedOpponent.name,
       opponentAlliance,
       this.selectedOpponent.strategy || 'random',
-      this.selectedOpponent.skill_level || 'novice'
+      this.selectedOpponent.skill_level || 'novice',
+      aiDifficulty  // v0.4.0: Pass difficulty to Game.addPlayer()
     );
     
     if (!humanPlayerAdded || !aiPlayerAdded) {

@@ -1,5 +1,5 @@
 {
-  "version": "0.2.1",
+  "version": "0.2.2",
   "era": "midway",
   "name": "Midway Island",
   "era_description": "Battle of Midway, June 4-7, 1942. Fight for control of this strategic Pacific atoll where American forces turned the tide against the Japanese Navy in World War II.",
@@ -72,24 +72,24 @@
         { "name": "USS Hammann", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
       ],
       "ai_captains": [
-        {
-          "id": "commander-spruance",
-          "name": "Cmdr. Spruance",
-          "strategy": "methodical_random",
-          "skill_level": "experienced",
-          "difficulty": "normal",
-          "description": "A methodical US Navy commander who systematically searches for enemy vessels with disciplined precision.",
-          "avatar": "captains/commander-spruance.png"
-        },
-        {
-          "id": "admiral-nimitz",
-          "name": "Admiral Nimitz",
-          "strategy": "methodical_optimal",
-          "skill_level": "expert",
-          "difficulty": "hard",
-          "description": "The legendary Pacific Fleet commander who combines strategic brilliance with tactical mastery to dominate naval warfare.",
-          "avatar": "captains/admiral-nimitz.png"
-        }
+          {
+            "id": "commander-spruance",
+            "name": "Cmdr. Spruance",
+            "strategy": "methodical_random",
+            "skill_level": "experienced",
+            "difficulty": 1.2,
+            "description": "A methodical US Navy commander who systematically searches for enemy vessels with disciplined precision.",
+            "avatar": "captains/commander-spruance.png"
+          },
+          {
+            "id": "admiral-nimitz",
+            "name": "Admiral Nimitz",
+            "strategy": "methodical_optimal",
+            "skill_level": "expert",
+            "difficulty": 1.6,
+            "description": "The legendary Pacific Fleet commander who combines strategic brilliance with tactical mastery to dominate naval warfare.",
+            "avatar": "captains/admiral-nimitz.png"
+          }
       ]
     },
     {
@@ -105,24 +105,24 @@
         { "name": "I-168", "class": "Submarine", "size": 3, "terrain": ["deep"] }
       ],
       "ai_captains": [
-        {
-          "id": "lt-yamamoto",
-          "name": "Lt. Yamamoto",
-          "strategy": "aggressive",
-          "skill_level": "novice",
-          "difficulty": "easy",
-          "description": "A young Imperial Navy officer eager to prove himself in battle. Strikes boldly but lacks experience in complex naval tactics.",
-          "avatar": "captains/lt-yamamoto.png"
-        },
-        {
-          "id": "admiral-nagumo",
-          "name": "Admiral Nagumo",
-          "strategy": "quartering",
-          "skill_level": "expert",
-          "difficulty": "hard",
-          "description": "Commander of the Kido Butai carrier strike force. Divides the battlefield systematically to locate and destroy enemy vessels.",
-          "avatar": "captains/admiral-nagumo.png"
-        }
+          {
+            "id": "lt-yamamoto",
+            "name": "Lt. Yamamoto",
+            "strategy": "aggressive",
+            "skill_level": "novice",
+            "difficulty": 0.8,
+            "description": "A young Imperial Navy officer eager to prove himself in battle. Strikes boldly but lacks experience in complex naval tactics.",
+            "avatar": "captains/lt-yamamoto.png"
+          },
+          {
+            "id": "admiral-nagumo",
+            "name": "Admiral Nagumo",
+            "strategy": "quartering",
+            "skill_level": "expert",
+            "difficulty": 1.5,
+            "description": "Commander of the Kido Butai carrier strike force. Divides the battlefield systematically to locate and destroy enemy vessels.",
+            "avatar": "captains/admiral-nagumo.png"
+          }
       ]
     }
   ],
@@ -130,13 +130,13 @@
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "shallow", "land", "shallow", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "shallow", "shoal", "land", "shallow", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "shallow", "deep", "shallow", "shoal", "land", "shallow", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "shallow", "shallow", "deep", "shallow", "land", "shallow", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "shallow", "deep", "deep", "deep"],
     ["deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "shallow", "shallow", "shoal", "shoal", "shallow", "shallow", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "shallow", "shoal", "shoal", "land", "shoal", "shallow", "shallow", "deep", "deep"],
-    ["deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "shoal", "shallow", "deep", "deep"],
-    ["deep", "deep", "deep", "shallow", "shallow", "shoal", "land", "shoal", "shoal", "shallow", "deep", "deep"],
-    ["deep", "deep", "deep", "deep", "shallow", "shallow", "shoal", "shoal", "shallow", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
     ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
   ],

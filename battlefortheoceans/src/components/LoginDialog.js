@@ -1,19 +1,26 @@
-// src/components/LoginDialog.js 
+// src/components/LoginDialog.js v0.1.40
 // Copyright(c) 2025, Clint H. O'Connor
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.39';
+const version = 'v0.1.40';
 
-const LoginDialog = ({ onClose }) => {
+const LoginDialog = ({ onClose, showSignup = false }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
-  const [mode, setMode] = useState('login'); // 'login' | 'signup' | 'forgot'
+  const [mode, setMode] = useState(showSignup ? 'signup' : 'login'); // Initialize based on prop
   const [loginAttempted, setLoginAttempted] = useState(false);
+
+  // Update mode if showSignup prop changes
+  useEffect(() => {
+    if (showSignup) {
+      setMode('signup');
+    }
+  }, [showSignup]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -22,7 +29,7 @@ const LoginDialog = ({ onClose }) => {
       return;
     }
     
-    console.log(`Attempting user login with email:`, email);
+    console.log(`${version} Attempting user login with email:`, email);
     setLoginAttempted(true);
     
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
@@ -34,7 +41,7 @@ const LoginDialog = ({ onClose }) => {
         setError(error.message);
       }
     } else {
-      console.log('Login successful, user:', data.user);
+      console.log(`${version} Login successful, user:`, data.user);
       
       // Check if email is confirmed
       if (!data.user.email_confirmed_at) {
@@ -59,17 +66,17 @@ const LoginDialog = ({ onClose }) => {
       return;
     }
     
-    console.log(`Attempting user signup with email:`, email);
+    console.log(`${version} Attempting user signup with email:`, email);
     const { error, data } = await supabase.auth.signUp({ email, password });
     
     if (error) {
       setError(error.message);
     } else {
-      console.log('Sign-up successful, user:', data.user);
+      console.log(`${version} Sign-up successful, user:`, data.user);
       
       // Check if email confirmation is required
       if (data.user && !data.user.email_confirmed_at) {
-        console.log(`Email confirmation required for:`, email);
+        console.log(`${version} Email confirmation required for:`, email);
         setPendingConfirmation(true);
         setError(null);
         return;
@@ -95,9 +102,9 @@ const LoginDialog = ({ onClose }) => {
       ? 'https://battlefortheoceans.com'
       : window.location.origin;
     
-    console.log(`Forgot password redirect URL:`, redirectUrl);
-    console.log(`Current hostname:`, window.location.hostname);
-    console.log(`Is production:`, isProduction);
+    console.log(`${version} Forgot password redirect URL:`, redirectUrl);
+    console.log(`${version} Current hostname:`, window.location.hostname);
+    console.log(`${version} Is production:`, isProduction);
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl
@@ -114,7 +121,7 @@ const LoginDialog = ({ onClose }) => {
     // Generate guest ID with timestamp and random string
     const guestId = `guest-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     
-    console.log('Playing as guest with ID:', guestId);
+    console.log(`${version} Playing as guest with ID:`, guestId);
     
     // Create guest user object
     const guestUser = {

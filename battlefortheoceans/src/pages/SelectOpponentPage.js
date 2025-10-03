@@ -1,11 +1,12 @@
-// src/pages/SelectOpponentPage.js v0.4.2
+// src/pages/SelectOpponentPage.js v0.4.3
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.3: Fix difficulty badge display - use helper function instead of .toUpperCase()
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.4.2';
+const version = 'v0.4.3';
 
 const SelectOpponentPage = () => {
   const {
@@ -33,6 +34,20 @@ const SelectOpponentPage = () => {
   const [aiExpanded, setAiExpanded] = useState(true);
   const [humanExpanded, setHumanExpanded] = useState(false);
 
+  // Helper function to get difficulty label from numeric value
+  const getDifficultyLabel = (difficulty) => {
+    if (difficulty < 1.0) return 'Easy';
+    if (difficulty === 1.0) return 'Medium';
+    return 'Hard';
+  };
+
+  // Helper function to get badge class for difficulty
+  const getDifficultyBadgeClass = (difficulty) => {
+    if (difficulty < 1.0) return 'badge--success'; // Easy - green
+    if (difficulty === 1.0) return 'badge--primary'; // Medium - blue
+    return 'badge--warning'; // Hard - orange/red
+  };
+
   // Handle alliance selection (for choose_alliance eras)
   const handleAllianceSelect = useCallback((allianceName) => {
     console.log(version, 'Alliance selected:', allianceName);
@@ -51,7 +66,7 @@ const SelectOpponentPage = () => {
       type: 'ai'
     };
     
-    console.log(version, 'AI Opponent selected:', completeOpponent.name);
+    console.log(version, 'AI Opponent selected:', completeOpponent.name, 'difficulty:', completeOpponent.difficulty);
     setSelectedOpponent(completeOpponent);
   }, []);
 
@@ -237,22 +252,25 @@ const SelectOpponentPage = () => {
                       <p className="empty-state__hint">Check era configuration</p>
                     </div>
                   ) : (
-                    availableAICaptains.map((opponent, index) => (
-                      <div
-                        key={index}
-                        className={`selectable-item opponent-item ai-opponent ${selectedOpponent?.name === opponent.name ? 'selectable-item--selected' : ''}`}
-                        onClick={() => handleAIOpponentSelect(opponent)}
-                      >
-                        <div className="item-header">
-                          <div className="item-name">{opponent.name}</div>
-                          <div className="badge badge--success">
-                            {opponent.difficulty?.toUpperCase() || 'NORMAL'}
+                    availableAICaptains.map((opponent, index) => {
+                      const difficulty = opponent.difficulty || 1.0;
+                      return (
+                        <div
+                          key={index}
+                          className={`selectable-item opponent-item ai-opponent ${selectedOpponent?.name === opponent.name ? 'selectable-item--selected' : ''}`}
+                          onClick={() => handleAIOpponentSelect(opponent)}
+                        >
+                          <div className="item-header">
+                            <div className="item-name">{opponent.name}</div>
+                            <div className={`badge ${getDifficultyBadgeClass(difficulty)}`}>
+                              {getDifficultyLabel(difficulty)} - {difficulty}x
+                            </div>
                           </div>
+                          <div className="item-description">{opponent.description}</div>
+                          <div className="opponent-type text-dim italics">AI Captain</div>
                         </div>
-                        <div className="item-description">{opponent.description}</div>
-                        <div className="opponent-type text-dim italics">AI Captain</div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}

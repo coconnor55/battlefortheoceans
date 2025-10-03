@@ -1,12 +1,13 @@
-// src/pages/PlayingPage.js v0.3.5
+// src/pages/PlayingPage.js v0.3.6
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.6: Removed inline style from AutoPlay button
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.3.5';
+const version = 'v0.3.6';
 
 const PlayingPage = () => {
   const {
@@ -224,9 +225,8 @@ const PlayingPage = () => {
           {/* AutoPlay toggle - only visible for testing account */}
           {isTestingAccount && isGameActive && (
             <button
-              className={`btn btn--sm ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
+              className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
               onClick={handleAutoPlayToggle}
-              style={{ marginLeft: 'var(--space-md)' }}
             >
               {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ AutoPlay'}
             </button>
@@ -255,4 +255,3 @@ const PlayingPage = () => {
 
 export default PlayingPage;
 // EOF
-
