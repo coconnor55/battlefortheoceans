@@ -1,11 +1,11 @@
-// src/components/CanvasBoard.js v0.1.16
+// src/components/CanvasBoard.js v0.1.17
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.1.16: Removed inline styles, replaced with CSS classes
+// v0.1.17: Fixed touch events for battle mode - tap to fire shots
 
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.16';
+const version = 'v0.1.17';
 
 const CanvasBoard = forwardRef(({
   eraConfig,
@@ -105,12 +105,12 @@ const CanvasBoard = forwardRef(({
         return false;
       }
       
-      // Check if excluded terrain - FIX: use isValidCoordinate instead
+      // Check if excluded terrain
       if (!gameBoard.isValidCoordinate(cell.row, cell.col)) {
         return false;
       }
       
-      // Check terrain compatibility - FIX: access terrain array directly
+      // Check terrain compatibility
       const terrain = gameBoard.terrain[cell.row][cell.col];
       if (!currentShip.terrain.includes(terrain)) {
         return false;
@@ -808,7 +808,30 @@ const CanvasBoard = forwardRef(({
 
   const handleTouchEnd = useCallback((e) => {
     e.preventDefault();
-    if (mode !== 'placement' || !currentShip || !isPlacing) {
+    
+    // Battle mode - handle tap to fire
+    if (mode === 'battle') {
+      const touch = e.changedTouches[0]; // Use changedTouches for touchend
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      const col = Math.floor((x - 20 - labelSize) / cellSize);
+      const row = Math.floor((y - 20 - labelSize) / cellSize);
+
+      if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
+        if (onShotFired && gameState?.isPlayerTurn) {
+          const shotResult = onShotFired(row, col);
+          if (shotResult) {
+            showShotAnimation(shotResult, row, col);
+          }
+        }
+      }
+      return;
+    }
+    
+    // Placement mode - existing logic
+    if (!currentShip || !isPlacing) {
       setPreviewCells([]);
       setIsValidPlacement(false);
       setStartCell(null);
@@ -822,7 +845,7 @@ const CanvasBoard = forwardRef(({
       const deltaCol = previewCells[previewCells.length - 1].col - previewCells[0].col;
       const isHorizontal = deltaCol !== 0;
       
-      const success = onShipPlaced?.(currentShip, previewCells, isHorizontal ? 'horizontal' : 'vertical');
+      onShipPlaced?.(currentShip, previewCells, isHorizontal ? 'horizontal' : 'vertical');
     }
 
     setPreviewCells([]);
@@ -830,7 +853,7 @@ const CanvasBoard = forwardRef(({
     setStartCell(null);
     setIsPlacing(false);
     lastProcessedCell.current = null;
-  }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced]);
+  }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced, cellSize, labelSize, eraConfig, onShotFired, gameState, showShotAnimation]);
 
   // Show player shot animation
   const showShotAnimation = useCallback((shotResult, row, col) => {
