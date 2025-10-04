@@ -1,6 +1,6 @@
-// src/pages/OverPage.js v0.4.0
+// src/pages/OverPage.js v0.4.1
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.4.0: Display opponent difficulty badge and include in battle log export
+// v0.4.1: Round score display, add sortable leaderboard columns
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
@@ -8,7 +8,7 @@ import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
 import LeaderboardService from '../services/LeaderboardService';
 
-const version = 'v0.4.0';
+const version = 'v0.4.1';
 
 const OverPage = () => {
   const {
@@ -38,6 +38,8 @@ const OverPage = () => {
   const [playerRank, setPlayerRank] = useState(null);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
   const [leaderboardError, setLeaderboardError] = useState(null);
+  const [sortField, setSortField] = useState('total_score'); // Default sort by score
+  const [sortDirection, setSortDirection] = useState('desc');
 
   const leaderboardService = new LeaderboardService();
   const isGuest = userProfile?.id?.startsWith('guest-');
@@ -83,6 +85,40 @@ const OverPage = () => {
 
     checkPromotionEligibility();
   }, [eraConfig, userProfile, hasEraAccess]);
+
+  // Sort leaderboard data
+  const sortedLeaderboard = [...leaderboard].sort((a, b) => {
+    let aVal = a[sortField];
+    let bVal = b[sortField];
+    
+    // Handle null/undefined values
+    if (aVal == null) aVal = 0;
+    if (bVal == null) bVal = 0;
+    
+    if (sortDirection === 'asc') {
+      return aVal > bVal ? 1 : -1;
+    } else {
+      return aVal < bVal ? 1 : -1;
+    }
+  });
+
+  // Handle column header click
+  const handleSort = (field) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to descending (highest first)
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  // Get sort indicator
+  const getSortIndicator = (field) => {
+    if (sortField !== field) return '';
+    return sortDirection === 'asc' ? ' ▲' : ' ▼';
+  };
 
   // Get game results
   const gameStats = gameInstance?.getGameStats() || {};
@@ -282,7 +318,7 @@ const OverPage = () => {
                       </div>
                       <div className="stat-row">
                         <span>Score:</span>
-                        <span>{player.score || 0}</span>
+                        <span>{Math.round(player.score || 0)}</span>
                       </div>
                     </div>
                   );
@@ -323,14 +359,38 @@ const OverPage = () => {
                   <thead>
                     <tr>
                       <th>Rank</th>
-                      <th>Player</th>
-                      <th>Score</th>
-                      <th>Accuracy</th>
-                      <th>Wins</th>
+                      <th
+                        className="sortable-header"
+                        onClick={() => handleSort('game_name')}
+                        title="Click to sort by player name"
+                      >
+                        Player{getSortIndicator('game_name')}
+                      </th>
+                      <th
+                        className="sortable-header"
+                        onClick={() => handleSort('total_score')}
+                        title="Click to sort by score"
+                      >
+                        Score{getSortIndicator('total_score')}
+                      </th>
+                      <th
+                        className="sortable-header"
+                        onClick={() => handleSort('best_accuracy')}
+                        title="Click to sort by accuracy"
+                      >
+                        Accuracy{getSortIndicator('best_accuracy')}
+                      </th>
+                      <th
+                        className="sortable-header"
+                        onClick={() => handleSort('total_wins')}
+                        title="Click to sort by wins"
+                      >
+                        Wins{getSortIndicator('total_wins')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {leaderboard.map((entry, index) => {
+                    {sortedLeaderboard.map((entry, index) => {
                       const isCurrentPlayer = !isGuest && entry.game_name === userProfile?.game_name;
                       return (
                         <tr key={index} className={isCurrentPlayer ? 'player-row' : ''}>

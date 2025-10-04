@@ -1,11 +1,11 @@
-// src/components/CanvasBoard.js v0.1.17
+// src/components/CanvasBoard.js v0.1.18
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.1.17: Fixed touch events for battle mode - tap to fire shots
+// v0.1.18: Fixed function declaration order for touch events in battle mode
 
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.17';
+const version = 'v0.1.18';
 
 const CanvasBoard = forwardRef(({
   eraConfig,
@@ -541,6 +541,54 @@ const CanvasBoard = forwardRef(({
     requestAnimationFrame(animate);
   }, [gameBoard, eraConfig, gameInstance, drawCanvas]);
 
+  // Show player shot animation (MUST be defined before touch handlers)
+  const showShotAnimation = useCallback((shotResult, row, col) => {
+    const animId = Date.now() + Math.random();
+
+    const animation = {
+      id: animId,
+      type: shotResult.result === 'miss' ? 'miss' : 'hit',
+      row: row,
+      col: col,
+      radius: shotResult.result === 'miss' ? 8 : 12,
+      color: shotResult.result === 'miss' ? 'rgba(153, 153, 153, 0.7)' : 'rgba(204, 0, 0, 0.9)',
+      progress: 0
+    };
+    
+    // Add to ref
+    animationsRef.current = [...animationsRef.current, animation];
+    
+    const startTime = Date.now();
+    const duration = 600;
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Update progress in ref
+      animationsRef.current = animationsRef.current.map(anim =>
+        anim.id === animId ? { ...anim, progress } : anim
+      );
+      
+      if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+        drawCanvas();
+      }
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setTimeout(() => {
+          animationsRef.current = animationsRef.current.filter(anim => anim.id !== animId);
+          if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+            drawCanvas();
+          }
+        }, 200);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }, [gameBoard, eraConfig, gameInstance, drawCanvas]);
+
   // Handle mouse down for placement start
   const handleMouseDown = useCallback((e) => {
     if (mode !== 'placement' || !currentShip || isPlacing) return;
@@ -591,7 +639,7 @@ const CanvasBoard = forwardRef(({
         }
       }
     }
-  }, [mode, gameState, onShotFired, cellSize, labelSize, eraConfig]);
+  }, [mode, gameState, onShotFired, cellSize, labelSize, eraConfig, showShotAnimation]);
 
   // Handle mouse move for placement preview
   const handleMouseMove = useCallback((e) => {
@@ -854,54 +902,6 @@ const CanvasBoard = forwardRef(({
     setIsPlacing(false);
     lastProcessedCell.current = null;
   }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced, cellSize, labelSize, eraConfig, onShotFired, gameState, showShotAnimation]);
-
-  // Show player shot animation
-  const showShotAnimation = useCallback((shotResult, row, col) => {
-    const animId = Date.now() + Math.random();
-
-    const animation = {
-      id: animId,
-      type: shotResult.result === 'miss' ? 'miss' : 'hit',
-      row: row,
-      col: col,
-      radius: shotResult.result === 'miss' ? 8 : 12,
-      color: shotResult.result === 'miss' ? 'rgba(153, 153, 153, 0.7)' : 'rgba(204, 0, 0, 0.9)',
-      progress: 0
-    };
-    
-    // Add to ref
-    animationsRef.current = [...animationsRef.current, animation];
-    
-    const startTime = Date.now();
-    const duration = 600;
-    
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Update progress in ref
-      animationsRef.current = animationsRef.current.map(anim =>
-        anim.id === animId ? { ...anim, progress } : anim
-      );
-      
-      if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
-        drawCanvas();
-      }
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        setTimeout(() => {
-          animationsRef.current = animationsRef.current.filter(anim => anim.id !== animId);
-          if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
-            drawCanvas();
-          }
-        }, 200);
-      }
-    };
-    
-    requestAnimationFrame(animate);
-  }, [gameBoard, eraConfig, gameInstance, drawCanvas]);
 
   // Determine canvas CSS classes
   const getCanvasClasses = () => {

@@ -5,7 +5,7 @@ import React, { createContext, useContext } from 'react';
 import CoreEngine from '../classes/CoreEngine';
 
 const version = "v0.3.1";
-const APP_VERSION = 'v1.0.0'; // Update this with each release
+const APP_VERSION = 'v1.0.1'; // Update this with each release
 
 const GameState = createContext();
 
