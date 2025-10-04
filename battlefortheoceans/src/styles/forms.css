@@ -1,4 +1,4 @@
-/* src/styles/forms.css */
+/* src/styles/forms.css v1.0.1 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Form inputs, validation, and authentication components */
 
@@ -68,6 +68,26 @@
   background-repeat: no-repeat;
   background-position: right var(--space-md) center;
   padding-right: calc(var(--space-md) * 3);
+}
+
+/* ============================================
+   STRIPE CARD ELEMENT (v1.0.1)
+   CRITICAL: Enhanced visibility for payment input
+   ============================================ */
+
+.stripe-card-input {
+  background: var(--bg-dark);
+  padding: var(--space-md);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--space-lg);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  min-height: 44px;
+}
+
+.stripe-card-input:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.2);
 }
 
 /* ============================================
@@ -317,32 +337,4 @@
   color: var(--text-secondary);
 }
 
-/* ============================================
-   RESPONSIVE ADJUSTMENTS
-   ============================================ */
-
-@media (max-width: 480px) {
-  .form-input,
-  .form-textarea,
-  .form-select {
-    padding: var(--space-sm);
-    font-size: 0.9rem;
-  }
-  
-  .form-label {
-    font-size: 0.8rem;
-  }
-
-  .reset-password-form,
-  .reset-success,
-  .reset-error,
-  .login-dialog {
-    margin: 0 var(--space-md);
-  }
-  
-  .reset-password-form .form-actions {
-    margin-top: var(--space-lg);
-  }
-}
-
-/* EOF */
+/* EOF - Responsive rules in responsive.css */

@@ -1,4 +1,4 @@
-/* src/styles/shared-components.css v1.0.0 */
+/* src/styles/shared-components.css v1.0.1 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Consolidated shared component patterns - eliminates duplication */
 
@@ -193,121 +193,120 @@
 }
 
 /* ============================================
-   RESPONSIVE ADJUSTMENTS
+   PURCHASE PAGE COMPONENTS (v1.0.1)
+   Reusable purchase/marketing components
    ============================================ */
 
-@media (max-width: 480px) {
-  .selectable-item {
-    padding: var(--space-sm);
-  }
-  
-  .item-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-xs);
-  }
-  
-  .item-name {
-    font-size: 1rem;
-  }
-  
-  .item-details {
-    flex-direction: column;
-    gap: var(--space-xs);
-  }
-  
-  .scrollable-list {
-    max-height: 35vh;
-    padding: var(--space-sm);
-  }
-  
-  .alliance-item {
-    min-width: auto;
-    max-width: none;
-  }
+/* Purchase card body - scrollable */
+.purchase-body {
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
-@media (min-width: 481px) and (max-width: 768px) {
-  .scrollable-list {
-    max-height: 32vh;
-  }
+/* Image grid for product photos */
+.image-grid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
 }
 
-@media (orientation: landscape) and (max-height: 600px) {
-  .scrollable-list {
-    max-height: 25vh;
-  }
+.promo-image {
+  max-width: 400px;
+  height: 200px;
+  object-fit: contain;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-subtle);
 }
 
-@media (max-height: 500px) {
-  .scrollable-list {
-    max-height: 20vh;
-  }
+/* Section headers */
+.section-header {
+  color: var(--primary);
+  font-size: 1.1rem;
+  margin-bottom: var(--space-md);
 }
 
-@media (min-width: 1024px) {
-  .scrollable-list--tall {
-    max-height: 45vh;
-  }
+/* Feature checklist */
+.feature-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
-/* ============================================
-   RESPONSIVE ADJUSTMENTS
-   ============================================ */
-
-@media (max-width: 480px) {
-  .selectable-item {
-    padding: var(--space-sm);
-  }
-  
-  .item-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-xs);
-  }
-  
-  .item-name {
-    font-size: 1rem;
-  }
-  
-  .item-details {
-    flex-direction: column;
-    gap: var(--space-xs);
-  }
-  
-  .scrollable-list {
-    max-height: 35vh;
-    padding: var(--space-sm);
-  }
-  
-  .alliance-item {
-    min-width: auto;
-    max-width: none;
-  }
+.feature-checklist li {
+  padding: var(--space-xs) 0 var(--space-xs) var(--space-md);
+  position: relative;
+  color: var(--text-secondary);
 }
 
-@media (min-width: 481px) and (max-width: 768px) {
-  .scrollable-list {
-    max-height: 32vh;
-  }
+.feature-checklist li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--primary);
+  font-weight: bold;
 }
 
-@media (orientation: landscape) and (max-height: 600px) {
-  .scrollable-list {
-    max-height: 25vh;
-  }
+/* Info card - highlighted information box */
+.info-card {
+  background: var(--bg-overlay);
+  padding: var(--space-lg);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--border-subtle);
 }
 
-@media (max-height: 500px) {
-  .scrollable-list {
-    max-height: 20vh;
-  }
+.info-card--center {
+  text-align: center;
 }
 
-@media (min-width: 1024px) {
-  .scrollable-list--tall {
-    max-height: 45vh;
-  }
+.info-card__title {
+  color: var(--primary);
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin: 0 0 var(--space-md) 0;
 }
 
-/* EOF */
+.info-list {
+  margin: 0;
+  padding-left: var(--space-lg);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Tab buttons */
+.tab-buttons {
+  display: flex;
+  gap: var(--space-sm);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-sm);
+}
+
+/* Price display box */
+.price-box {
+  text-align: center;
+  padding: var(--space-md);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius);
+}
+
+.price-amount {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--primary);
+  margin-bottom: var(--space-xs);
+}
+
+.price-note {
+  font-size: 0.875rem;
+  color: var(--text-dim);
+}
+
+/* Text alignment utilities */
+.text-center {
+  text-align: center;
+}
+
+/* EOF - Responsive rules in responsive.css */

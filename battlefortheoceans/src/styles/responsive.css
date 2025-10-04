@@ -1,4 +1,4 @@
-/* src/styles/responsive.css v1.0.4 */
+/* src/styles/responsive.css v1.0.5 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Responsive design - consolidated mobile/tablet breakpoints */
 
@@ -77,6 +77,48 @@
   .card--wide {
     padding: var(--space-lg);
     max-width: 95%;
+  }
+  
+  /* Purchase page (v1.0.5) */
+  .purchase-card {
+    margin: var(--space-sm);
+  }
+  
+  .purchase-body {
+    max-height: 60vh;
+  }
+  
+  .image-grid {
+    gap: var(--space-md);
+  }
+  
+  .promo-image {
+    max-width: 100%;
+    height: 150px;
+  }
+  
+  .info-card {
+    padding: var(--space-md);
+  }
+  
+  .section-header {
+    font-size: 1rem;
+  }
+  
+  .price-amount {
+    font-size: 1.5rem;
+  }
+  
+  .tab-buttons {
+    flex-direction: column;
+  }
+  
+  .tab-buttons .btn {
+    width: 100%;
+  }
+  
+  .stripe-card-input {
+    padding: var(--space-lg);
   }
   
   /* Era selection */
@@ -168,6 +210,25 @@
 }
 
 /* ============================================
+   VERY SMALL SCREENS (360px and below)
+   v1.0.5: iPhone SE, small Android phones
+   ============================================ */
+
+@media (max-width: 360px) {
+  .price-amount {
+    font-size: 1.25rem;
+  }
+  
+  .promo-image {
+    height: 120px;
+  }
+  
+  .tab-buttons {
+    gap: var(--space-xs);
+  }
+}
+
+/* ============================================
    TABLET RANGE (481px to 768px)
    ============================================ */
 
@@ -206,6 +267,10 @@
   .opponent-list {
     max-height: 20vh;
   }
+  
+  .purchase-body {
+    max-height: 50vh;
+  }
 }
 
 /* ============================================
@@ -224,20 +289,21 @@
   .opponent-list {
     max-height: 15vh;
   }
+  
+  .purchase-body {
+    max-height: 45vh;
+  }
 }
 
 /* ============================================
    DESKTOP (1024px+)
-   v1.0.4: Removed card--wide override - now uses fixed width from modal-overlay.css
    ============================================ */
 
 @media (min-width: 1024px) {
-  /* v1.0.4: Only content-pane--wide uses 95%, card--wide has fixed width */
   .content-pane--wide {
     max-width: 95%;
   }
   
-  /* Optimize era/alliance layouts for wide screens */
   .alliance-list {
     max-height: 35vh;
   }
@@ -297,20 +363,6 @@
   
   .console-content-combined {
     padding: var(--space-sm);
-    font-size: 0.8rem;
-  }
-}
-
-/* Form responsive adjustments */
-@media (max-width: 480px) {
-  .form-input,
-  .form-textarea,
-  .form-select {
-    padding: var(--space-sm);
-    font-size: 0.9rem;
-  }
-  
-  .form-label {
     font-size: 0.8rem;
   }
 }

@@ -1,4 +1,4 @@
-// src/pages/PurchasePage.js
+// src/pages/PurchasePage.js v0.4.0
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +7,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { useGame } from '../context/GameContext';
 import StripeService from '../services/StripeService';
 
-const version = 'v0.3.3';
+const version = 'v0.4.0';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -74,22 +74,26 @@ const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-group">
-        <CardElement
-          options={{
-            style: {
-              base: {
-                fontSize: '16px',
-                color: 'var(--text-primary)',
-                '::placeholder': {
-                  color: 'var(--text-dim)',
+        <label className="form-label">Card Information</label>
+        <div className="stripe-card-input">
+          <CardElement
+            options={{
+              style: {
+                base: {
+                  fontSize: '16px',
+                  color: '#FFFFFF',
+                  fontFamily: 'var(--font-body)',
+                  '::placeholder': {
+                    color: '#888888',
+                  },
+                },
+                invalid: {
+                  color: '#FF3366',
                 },
               },
-              invalid: {
-                color: 'var(--error)',
-              },
-            },
-          }}
-        />
+            }}
+          />
+        </div>
       </div>
       
       <button
@@ -190,11 +194,10 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     setError(errorMessage);
   };
 
-  // Handle login/signup redirect for guest users
   const handleGuestLogin = () => {
     console.log('[PAYMENT]', version, 'Guest user redirecting to login');
-    onCancel(); // Close purchase page
-    dispatch(events.LOGIN); // Go back to login page
+    onCancel();
+    dispatch(events.LOGIN);
   };
 
   const handleVoucherRedemption = async () => {
@@ -203,7 +206,6 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
       return;
     }
     
-    // Guest users cannot redeem vouchers
     if (isGuest) {
       setError('Guest users cannot redeem vouchers. Please create an account to continue.');
       return;
@@ -284,7 +286,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     features.push(`${eraInfo.rows}x${eraInfo.cols} battlefield with authentic Pacific terrain`);
   }
 
-  // Image URL construction - CDN first, fallback to public/assets/images
+  // Image URL construction
   const backgroundImageUrl = eraInfo.promotional?.background_image
     ? gameCDN
       ? `${gameCDN}/assets/images/${eraInfo.promotional.background_image}`
@@ -298,114 +300,52 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     : null;
 
   return (
-    <div className="card card--wide">
-      {/* Header */}
+    <div className="card card--wide purchase-card">
       <div className="card-header">
         <h2 className="card-title">Unlock {eraInfo.name}</h2>
       </div>
 
-      {/* Body - Scrollable content */}
-      <div className="card-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-        {/* Images - centered with 30px spacing */}
+      <div className="card-body purchase-body">
+        {/* Images */}
         {(backgroundImageUrl || promotionalImageUrl) && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '30px',
-            marginBottom: 'var(--space-lg)',
-            flexWrap: 'wrap'
-          }}>
+          <div className="image-grid">
             {backgroundImageUrl && (
               <img
                 src={backgroundImageUrl}
                 alt={`${eraInfo.name} background`}
-                style={{
-                  maxWidth: '400px',
-                  height: '200px',
-                  objectFit: 'contain',
-                  borderRadius: 'var(--border-radius)',
-                  border: '1px solid var(--border-subtle)'
-                }}
+                className="promo-image"
               />
             )}
             {promotionalImageUrl && (
               <img
                 src={promotionalImageUrl}
                 alt={`${eraInfo.name} promotional`}
-                style={{
-                  maxWidth: '400px',
-                  height: '200px',
-                  objectFit: 'contain',
-                  borderRadius: 'var(--border-radius)',
-                  border: '1px solid var(--border-subtle)'
-                }}
+                className="promo-image"
               />
             )}
           </div>
         )}
 
         {/* Description */}
-        <p style={{ marginBottom: 'var(--space-lg)' }}>
+        <p className="item-description mb-lg">
           {eraInfo.promotional?.marketing_description || eraInfo.era_description}
         </p>
 
         {/* Features */}
-        <div style={{ marginBottom: 'var(--space-lg)' }}>
-          <h3 style={{
-            color: 'var(--primary)',
-            marginBottom: 'var(--space-md)',
-            fontSize: '1.1rem'
-          }}>
-            What's Included:
-          </h3>
-          <ul style={{
-            listStyleType: 'none',
-            padding: 0,
-            margin: 0
-          }}>
+        <div className="mb-lg">
+          <h3 className="section-header">What's Included:</h3>
+          <ul className="feature-checklist">
             {features.map((feature, index) => (
-              <li
-                key={index}
-                style={{
-                  padding: 'var(--space-xs) 0',
-                  paddingLeft: 'var(--space-md)',
-                  position: 'relative',
-                  color: 'var(--text-secondary)'
-                }}
-              >
-                <span style={{
-                  position: 'absolute',
-                  left: 0,
-                  color: 'var(--primary)'
-                }}>✓</span>
-                {feature}
-              </li>
+              <li key={index}>{feature}</li>
             ))}
           </ul>
         </div>
 
-        {/* Guest User Message - Prompt to create account */}
+        {/* Guest User Message */}
         {isGuest && (
-          <div style={{
-            background: 'var(--bg-overlay)',
-            padding: 'var(--space-lg)',
-            borderRadius: 'var(--border-radius)',
-            marginBottom: 'var(--space-lg)',
-            border: '1px solid var(--border-subtle)',
-            textAlign: 'center'
-          }}>
-            <h3 style={{
-              color: 'var(--primary)',
-              marginBottom: 'var(--space-md)',
-              fontSize: '1.1rem'
-            }}>
-              Create an Account to Purchase
-            </h3>
-            <p style={{
-              marginBottom: 'var(--space-lg)',
-              color: 'var(--text-secondary)'
-            }}>
+          <div className="info-card info-card--center">
+            <h3>Create an Account to Purchase</h3>
+            <p>
               Guest users cannot make purchases. Create a free account to unlock premium eras and save your progress!
             </p>
             <button
@@ -414,24 +354,15 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
             >
               Login or Sign Up
             </button>
-            <p style={{
-              marginTop: 'var(--space-md)',
-              fontSize: '0.875rem',
-              color: 'var(--text-dim)'
-            }}>
+            <p className="form-help mt-md">
               Creating an account takes less than 30 seconds
             </p>
           </div>
         )}
 
-        {/* Payment Method Tabs - Only show for registered users */}
+        {/* Payment Method Tabs */}
         {!isGuest && (
-          <div style={{
-            display: 'flex',
-            gap: 'var(--space-sm)',
-            marginBottom: 'var(--space-lg)',
-            borderBottom: '1px solid var(--border-subtle)'
-          }}>
+          <div className="tab-buttons mb-lg">
             <button
               className={purchaseMethod === 'stripe' ? 'btn btn--primary btn--sm' : 'btn btn--secondary btn--sm'}
               onClick={() => setPurchaseMethod('stripe')}
@@ -447,53 +378,19 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           </div>
         )}
 
-        {/* Stripe Payment - Only for registered users */}
+        {/* Stripe Payment */}
         {!isGuest && purchaseMethod === 'stripe' && (
           <div>
-            <div style={{
-              textAlign: 'center',
-              marginBottom: 'var(--space-lg)',
-              padding: 'var(--space-md)',
-              background: 'var(--bg-overlay)',
-              borderRadius: 'var(--border-radius)'
-            }}>
-              <div style={{
-                fontSize: '2rem',
-                fontWeight: 'bold',
-                color: 'var(--primary)',
-                marginBottom: 'var(--space-xs)'
-              }}>
+            <div className="price-box mb-lg">
+              <div className="price-amount">
                 {priceInfo?.formatted || '[price unavailable]'}
               </div>
-              <div style={{
-                fontSize: '0.875rem',
-                color: 'var(--text-dim)'
-              }}>
-                One-time purchase
-              </div>
+              <div className="price-note">One-time purchase</div>
             </div>
 
-            <div style={{
-              background: 'var(--bg-overlay)',
-              padding: 'var(--space-md)',
-              borderRadius: 'var(--border-radius)',
-              marginBottom: 'var(--space-lg)',
-              border: '1px solid var(--border-subtle)'
-            }}>
-              <p style={{
-                margin: 0,
-                marginBottom: 'var(--space-sm)',
-                color: 'var(--primary)',
-                fontWeight: 'bold'
-              }}>
-                Secure payment powered by Stripe
-              </p>
-              <ul style={{
-                margin: 0,
-                paddingLeft: 'var(--space-lg)',
-                color: 'var(--text-secondary)',
-                fontSize: '0.875rem'
-              }}>
+            <div className="info-card mb-lg">
+              <p className="info-card__title">Secure payment powered by Stripe</p>
+              <ul className="info-list">
                 <li>Instant access after payment</li>
                 <li>No subscription or recurring charges</li>
                 <li>30-day money-back guarantee</li>
@@ -511,13 +408,10 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           </div>
         )}
 
-        {/* Voucher Redemption - Only for registered users */}
+        {/* Voucher Redemption */}
         {!isGuest && purchaseMethod === 'voucher' && (
           <div>
-            <p style={{
-              marginBottom: 'var(--space-md)',
-              color: 'var(--text-secondary)'
-            }}>
+            <p className="item-description mb-md">
               Have a voucher code? Enter it below to unlock this era for free!
             </p>
             
@@ -540,32 +434,17 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
               {isProcessing ? 'Redeeming...' : 'Redeem Voucher'}
             </button>
 
-            <p style={{
-              marginTop: 'var(--space-md)',
-              fontSize: '0.875rem',
-              color: 'var(--text-dim)',
-              textAlign: 'center'
-            }}>
+            <p className="form-help text-center mt-md">
               Voucher codes are case-sensitive and can only be used once.
             </p>
           </div>
         )}
 
         {/* Messages */}
-        {error && (
-          <div className="message message--error" style={{ marginTop: 'var(--space-md)' }}>
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="message message--success" style={{ marginTop: 'var(--space-md)' }}>
-            {success}
-          </div>
-        )}
+        {error && <div className="message message--error mt-md">{error}</div>}
+        {success && <div className="message message--success mt-md">{success}</div>}
       </div>
 
-      {/* Footer */}
       <div className="card-footer">
         <button
           onClick={onCancel}
