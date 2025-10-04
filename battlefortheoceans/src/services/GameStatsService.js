@@ -1,10 +1,11 @@
-// src/services/GameStatsService.js v0.3.1
+// src/services/GameStatsService.js v0.3.2
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.2: CRITICAL FIX - Round scores to integers to match database schema
 // v0.3.1: Added getTotalGamesPlayed() method
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.3.1";
+const version = "v0.3.2";
 
 class GameStatsService {
   constructor() {
@@ -26,10 +27,10 @@ class GameStatsService {
 
       const userId = userProfile.id;
       
-      // Calculate new totals
+      // Calculate new totals - ROUND score to integer to match database schema
       const newTotalGames = userProfile.total_games + 1;
       const newTotalWins = userProfile.total_wins + (gameResults.won ? 1 : 0);
-      const newTotalScore = userProfile.total_score + gameResults.score;
+      const newTotalScore = userProfile.total_score + Math.round(gameResults.score);
       const newBestAccuracy = Math.max(userProfile.best_accuracy || 0, gameResults.accuracy);
       const newTotalShipsSunk = (userProfile.total_ships_sunk || 0) + gameResults.ships_sunk;
       const newTotalDamage = (userProfile.total_damage || 0) + gameResults.hits_damage;
@@ -55,7 +56,7 @@ class GameStatsService {
         return false;
       }
 
-      // Insert game result record
+      // Insert game result record - also round score here for consistency
       const { error: resultError } = await supabase
         .from('game_results')
         .insert([{
@@ -69,7 +70,7 @@ class GameStatsService {
           misses: gameResults.misses,
           sunk: gameResults.ships_sunk,
           hits_damage: gameResults.hits_damage,
-          score: gameResults.score,
+          score: Math.round(gameResults.score),
           accuracy: gameResults.accuracy,
           turns: gameResults.turns,
           duration_seconds: gameResults.duration_seconds
@@ -143,7 +144,7 @@ class GameStatsService {
         misses: humanPlayer.misses || 0,            // missed shots
         ships_sunk: humanPlayer.sunk || 0,          // ships sunk by player
         hits_damage: humanPlayer.hitsDamage || 0.0, // cumulative damage dealt
-        score: humanPlayer.score || 0,              // calculated game score
+        score: humanPlayer.score || 0,              // calculated game score (may have decimals)
         accuracy: parseFloat(humanPlayer.accuracy) || 0,  // computed from hits/shots
         turns: gameStats.totalTurns || 0,
         duration_seconds: gameStats.duration || 0
