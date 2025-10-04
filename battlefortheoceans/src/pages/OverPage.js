@@ -44,7 +44,7 @@ const OverPage = () => {
   const leaderboardService = new LeaderboardService();
   const isGuest = userProfile?.id?.startsWith('guest-');
 
-  // Fetch leaderboard on mount
+  // Fetch leaderboard on mount and when game instance updates (after stats update)
   useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoadingLeaderboard(true);
@@ -69,7 +69,7 @@ const OverPage = () => {
     };
 
     fetchLeaderboard();
-  }, [userProfile?.id, isGuest]);
+  }, [userProfile?.id, isGuest, gameInstance]);
 
   // Check if user needs to see Midway Island promotion
   useEffect(() => {
