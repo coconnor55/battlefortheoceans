@@ -1,9 +1,11 @@
-// src/services/LeaderboardService.js
+
+// src/services/LeaderboardService.js v0.1.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.5: Removed getTotalGamesPlayed() - moved to GameStatsService
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.3";
+const version = "v0.1.5";
 
 class LeaderboardService {
   constructor() {
@@ -59,7 +61,7 @@ class LeaderboardService {
         `)
         .eq('won', true)
         .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('score', { ascending: false })
+        .order('score', { ascending: false})
         .limit(limit * 3); // Get extra to account for filtering
 
       if (error) {

@@ -1,5 +1,7 @@
-// src/classes/CoreEngine.js v0.4.0
+// src/classes/CoreEngine.js v0.4.2
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.2: CRITICAL FIX - Await stats update in handleGameOver() to prevent data loss
+// v0.4.1: Minor logging improvements
 // v0.4.0: Pass AI captain difficulty to Game.addPlayer()
 
 import Game from './Game.js';
@@ -11,7 +13,7 @@ import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
 import EraService from '../services/EraService.js';
 
-const version = "v0.4.1";
+const version = "v0.4.2";
 
 class CoreEngine {
   constructor() {
@@ -471,9 +473,11 @@ class CoreEngine {
       );
       
       if (gameResults) {
-        this.updateGameStats(gameResults).catch(error => {
-          console.error(`${version} Failed to update game stats:`, error);
-        });
+        // CRITICAL FIX v0.4.2: AWAIT stats update to ensure completion before state transition
+        await this.updateGameStats(gameResults);
+        this.log('Stats update completed successfully');
+      } else {
+        console.error(`${version} Failed to calculate game results`);
       }
     } catch (error) {
       console.error(`${version} Error processing game completion stats:`, error);

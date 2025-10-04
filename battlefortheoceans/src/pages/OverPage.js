@@ -1,14 +1,15 @@
-// src/pages/OverPage.js v0.4.1
+// src/pages/OverPage.js v0.4.3
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.4.1: Round score display, add sortable leaderboard columns
+// v0.4.3: Use GameStatsService for total games, removed artificial delay
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
 import LeaderboardService from '../services/LeaderboardService';
+import GameStatsService from '../services/GameStatsService';
 
-const version = 'v0.4.1';
+const version = 'v0.4.3';
 
 const OverPage = () => {
   const {
@@ -35,6 +36,7 @@ const OverPage = () => {
   const [showPurchasePage, setShowPurchasePage] = useState(false);
   const [purchaseEraId, setPurchaseEraId] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [totalGamesPlayed, setTotalGamesPlayed] = useState(0);
   const [playerRank, setPlayerRank] = useState(null);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
   const [leaderboardError, setLeaderboardError] = useState(null);
@@ -42,9 +44,10 @@ const OverPage = () => {
   const [sortDirection, setSortDirection] = useState('desc');
 
   const leaderboardService = new LeaderboardService();
+  const gameStatsService = new GameStatsService();
   const isGuest = userProfile?.id?.startsWith('guest-');
 
-  // Fetch leaderboard on mount and when game instance updates (after stats update)
+  // Fetch leaderboard on mount - no artificial delay needed
   useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoadingLeaderboard(true);
@@ -54,6 +57,11 @@ const OverPage = () => {
         const top10 = await leaderboardService.getLeaderboard(10);
         console.log(version, 'Leaderboard data received:', top10);
         setLeaderboard(top10 || []);
+        
+        // Get total games count from GameStatsService
+        const totalGames = await gameStatsService.getTotalGamesPlayed();
+        console.log(version, 'Total games played:', totalGames);
+        setTotalGamesPlayed(totalGames);
         
         // Get player's rank if not a guest
         if (userProfile?.id && !isGuest) {
@@ -69,7 +77,7 @@ const OverPage = () => {
     };
 
     fetchLeaderboard();
-  }, [userProfile?.id, isGuest, gameInstance]);
+  }, [userProfile?.id, isGuest]);
 
   // Check if user needs to see Midway Island promotion
   useEffect(() => {
@@ -337,6 +345,13 @@ const OverPage = () => {
         {/* Top 10 Leaderboard */}
         <div className="leaderboard-section">
           <h4>Top 10 Leaderboard</h4>
+          
+          {/* Total Games Played Subtitle */}
+          {totalGamesPlayed > 0 && (
+            <p className="leaderboard-subtitle text-center">
+              Total Games Played: {totalGamesPlayed.toLocaleString()}
+            </p>
+          )}
           
           {loadingLeaderboard ? (
             <div className="loading">

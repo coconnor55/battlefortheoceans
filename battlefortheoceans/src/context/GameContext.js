@@ -5,10 +5,11 @@ import React, { createContext, useContext } from 'react';
 import CoreEngine from '../classes/CoreEngine';
 
 const version = "v0.3.1";
-const APP_VERSION = 'v1.0.2'; // Update this with each release
+const APP_VERSION = 'v1.0.3'; // Update this with each release
 // v1.0.0 initial
 // v1.0.1 css fixes
 // v1.0.2 css, mobile fixes
+// v1.0.3 fix game stats update
 
 const GameState = createContext();
 

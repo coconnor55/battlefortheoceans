@@ -1,9 +1,10 @@
-// src/services/GameStatsService.js
+// src/services/GameStatsService.js v0.3.1
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.1: Added getTotalGamesPlayed() method
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.3.0";
+const version = "v0.3.1";
 
 class GameStatsService {
   constructor() {
@@ -85,6 +86,30 @@ class GameStatsService {
     } catch (error) {
       console.error(version, 'Failed to update game stats:', error);
       return false;
+    }
+  }
+
+  /**
+   * Get total games played across all players (from game_results table)
+   * v0.3.1: Moved from LeaderboardService for better separation of concerns
+   */
+  async getTotalGamesPlayed() {
+    try {
+      // Get count of all game_results records (excludes guests/AI via player_id foreign key)
+      const { count, error } = await supabase
+        .from('game_results')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) {
+        console.error(version, 'Error fetching total games count:', error);
+        return 0;
+      }
+
+      return count || 0;
+
+    } catch (error) {
+      console.error(version, 'Failed to get total games played:', error);
+      return 0;
     }
   }
 

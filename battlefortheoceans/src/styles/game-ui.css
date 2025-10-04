@@ -509,6 +509,12 @@
   font-size: 1.3rem;
 }
 
+.leaderboard-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: var(--space-sm) 0 var(--space-lg) 0;
+}
+
 .leaderboard-table {
   overflow-x: auto;
   margin-bottom: var(--space-md);
