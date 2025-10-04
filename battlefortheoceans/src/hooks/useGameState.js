@@ -61,38 +61,39 @@ const useGameState = () => {
   const placementProgress = getPlacementProgress();
 
   // Handle player attack using Game's unified turn management
-  const handleAttack = useCallback(async (row, col) => {
-    if (!gameInstance || !gameInstance.isValidAttack(row, col)) {
-      console.log(version + ': Invalid attack attempt:', { row, col });
-      return false;
-    }
+    // Handle player attack using Game's unified turn management
+    const handleAttack = useCallback((row, col) => {
+      if (!gameInstance || !gameInstance.isValidAttack(row, col)) {
+        console.log(version + ': Invalid attack attempt:', { row, col });
+        return false;
+      }
 
-    // Only allow human attacks when it's the human's turn
-    const currentPlayer = gameInstance.getCurrentPlayer();
-    if (currentPlayer?.type !== 'human') {
-      console.log(version + ': Attack blocked - not human turn');
-      return false;
-    }
+      // Only allow human attacks when it's the human's turn
+      const currentPlayer = gameInstance.getCurrentPlayer();
+      if (currentPlayer?.type !== 'human') {
+        console.log(version + ': Attack blocked - not human turn');
+        return false;
+      }
 
-    try {
-      console.log(version + ': Processing human attack through Game instance:', { row, col });
-      
-      // Execute attack through Game's unified processing
-      // Game will handle turn progression and trigger AI moves automatically
-      const result = await gameInstance.processPlayerAction('attack', { row, col });
-      
-      // Canvas (useBattleBoard) will handle visual updates automatically
-      // Messages will be handled by Message system automatically
-      
-      console.log(version + ': Attack completed:', result.result);
-      return result;
-      
-    } catch (error) {
-      console.error(version + ': Attack processing failed:', error);
-      return false;
-    }
-  }, [gameInstance]);
-
+      try {
+        console.log(version + ': Processing human attack through Game instance:', { row, col });
+        
+        // Execute attack through Game's unified processing (SYNCHRONOUS)
+        // Game will handle turn progression and trigger AI moves automatically
+        const result = gameInstance.processPlayerAction('attack', { row, col });
+        
+        // Canvas will handle visual updates automatically
+        // Messages will be handled by Message system automatically
+        
+        console.log(version + ': Attack completed:', result.result);
+        return result;
+        
+      } catch (error) {
+        console.error(version + ': Attack processing failed:', error);
+        return false;
+      }
+    }, [gameInstance]);
+    
   // Reset game
   const resetGame = useCallback(() => {
     if (gameInstance) {

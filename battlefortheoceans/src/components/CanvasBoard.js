@@ -1,11 +1,12 @@
-// src/components/CanvasBoard.js v0.1.19
+// src/components/CanvasBoard.js v0.2.0
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.0: Added particle explosion effects on hits
 // v0.1.19: Fixed mobile touch coordinate calculation with CSS scaling
 
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.19';
+const version = 'v0.2.0';
 
 const CanvasBoard = forwardRef(({
   eraConfig,
@@ -37,6 +38,7 @@ const CanvasBoard = forwardRef(({
 
   // Animation state - use ref for immediate access during animation loop
   const animationsRef = useRef([]);
+  const particlesRef = useRef([]); // NEW: Particle system
   const [animationTrigger, setAnimationTrigger] = useState(0);
 
   // Performance optimization - cache terrain layer
@@ -150,7 +152,6 @@ const CanvasBoard = forwardRef(({
     
   // Main canvas drawing function
   const drawCanvas = useCallback(() => {
-    console.log('[CANVAS]', version, 'drawCanvas() executing');
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx || !gameBoard || !eraConfig || !gameInstance) return;
 
@@ -179,8 +180,88 @@ const CanvasBoard = forwardRef(({
     if (animationsRef.current.length > 0) {
       animationsRef.current.forEach(anim => drawAnimation(ctx, anim, offsetX, offsetY));
     }
+
+    // Layer 4: Particles (NEW)
+    if (particlesRef.current.length > 0) {
+      particlesRef.current.forEach(particle => drawParticle(ctx, particle, offsetX, offsetY));
+    }
   }, [gameBoard, eraConfig, gameInstance, mode, gameState, previewCells, isValidPlacement, boardWidth, boardHeight]);
 
+  // NEW: Draw individual particle
+  const drawParticle = useCallback((ctx, particle, offsetX, offsetY) => {
+    ctx.save();
+    ctx.globalAlpha = particle.life;
+    ctx.fillStyle = particle.color;
+    ctx.fillRect(
+      offsetX + particle.x - particle.size / 2,
+      offsetY + particle.y - particle.size / 2,
+      particle.size,
+      particle.size
+    );
+    ctx.restore();
+  }, []);
+
+  // NEW: Create explosion particles
+    // NEW: Create explosion particles
+    const createExplosion = useCallback((row, col, isOpponentHit = false) => {
+      console.log('[EXPLOSION DEBUG]', version, 'Creating explosion at', row, col, 'opponent:', isOpponentHit);
+      const centerX = col * cellSize + labelSize + cellSize / 2;
+      const centerY = row * cellSize + labelSize + cellSize / 2;
+      
+      // Create 20-30 particles
+      const particleCount = 20 + Math.floor(Math.random() * 11);
+      const newParticles = [];
+      
+      for (let i = 0; i < particleCount; i++) {
+        const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.5;
+        const speed = 2 + Math.random() * 3; // Changed from 4-10 to 2-5 (50% slower)
+        
+        newParticles.push({
+          x: centerX,
+          y: centerY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 1.0,
+          size: 5 + Math.random() * 4,
+          color: isOpponentHit
+            ? `rgba(0, ${100 + Math.floor(Math.random() * 100)}, 255, 1)`
+            : `rgba(255, ${100 + Math.floor(Math.random() * 100)}, 0, 1)`
+        });
+      }
+      
+      particlesRef.current = [...particlesRef.current, ...newParticles];
+      
+      // Animate particles
+      const animateExplosion = () => {
+        let stillAlive = false;
+        
+        particlesRef.current = particlesRef.current.map(p => {
+          if (p.life > 0) {
+            stillAlive = true;
+            return {
+              ...p,
+              x: p.x + p.vx,
+              y: p.y + p.vy,
+              vy: p.vy + 0.1, // Reduced gravity from 0.2 to 0.1 (50% slower fall)
+              life: p.life - 0.03,
+              color: p.color.replace('1)', `${p.life})`)
+            };
+          }
+          return p;
+        }).filter(p => p.life > 0);
+        
+        // Redraw canvas with particles
+        if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+          drawCanvas();
+        }
+        
+        if (stillAlive) {
+          requestAnimationFrame(animateExplosion);
+        }
+      };
+      
+      requestAnimationFrame(animateExplosion);
+    }, [cellSize, labelSize, gameBoard, eraConfig, gameInstance, drawCanvas]);
   // Draw terrain and grid (cached for performance)
   const drawTerrainLayer = useCallback((ctx, offsetX, offsetY) => {
     if (!terrainLayerRef.current) {
@@ -465,6 +546,11 @@ const CanvasBoard = forwardRef(({
       } else {
         showOpponentAnimation(row, col, result);
         
+        // NEW: Trigger explosion for hits
+        if (result === 'hit' || result === 'sunk') {
+          createExplosion(row, col, true); // true = opponent hit
+        }
+        
         if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
           drawCanvas();
         }
@@ -486,7 +572,7 @@ const CanvasBoard = forwardRef(({
         return null;
       }
     }
-  }), [gameBoard, eraConfig, gameInstance, drawCanvas]);
+  }), [gameBoard, eraConfig, gameInstance, drawCanvas, createExplosion]);
     
   // Show opponent shot animation
   const showOpponentAnimation = useCallback((row, col, result) => {
@@ -560,53 +646,63 @@ const CanvasBoard = forwardRef(({
   }, [gameBoard, eraConfig, gameInstance, drawCanvas]);
 
   // Show player shot animation (MUST be defined before touch handlers)
-  const showShotAnimation = useCallback((shotResult, row, col) => {
-    const animId = Date.now() + Math.random();
+    const showShotAnimation = useCallback((shotResult, row, col) => {
+      console.log('[SHOT ANIM DEBUG]', version, 'showShotAnimation called:', shotResult, 'at', row, col);
+      
+      // Extract the actual result string from the nested object
+      const result = shotResult.result.result; // 'hit', 'miss', or 'sunk'
+      
+      const animId = Date.now() + Math.random();
 
-    const animation = {
-      id: animId,
-      type: shotResult.result === 'miss' ? 'miss' : 'hit',
-      row: row,
-      col: col,
-      radius: shotResult.result === 'miss' ? 8 : 12,
-      color: shotResult.result === 'miss' ? 'rgba(153, 153, 153, 0.7)' : 'rgba(204, 0, 0, 0.9)',
-      progress: 0
-    };
-    
-    // Add to ref
-    animationsRef.current = [...animationsRef.current, animation];
-    
-    const startTime = Date.now();
-    const duration = 600;
-    
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
+      const animation = {
+        id: animId,
+        type: result === 'miss' ? 'miss' : 'hit',
+        row: row,
+        col: col,
+        radius: result === 'miss' ? 8 : 12,
+        color: result === 'miss' ? 'rgba(153, 153, 153, 0.7)' : 'rgba(204, 0, 0, 0.9)',
+        progress: 0
+      };
       
-      // Update progress in ref
-      animationsRef.current = animationsRef.current.map(anim =>
-        anim.id === animId ? { ...anim, progress } : anim
-      );
+      // Add to ref
+      animationsRef.current = [...animationsRef.current, animation];
       
-      if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
-        drawCanvas();
+      // NEW: Trigger explosion for player hits
+      if (result === 'hit' || result === 'sunk') {
+        createExplosion(row, col, false); // false = player hit (red/orange)
       }
       
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        setTimeout(() => {
-          animationsRef.current = animationsRef.current.filter(anim => anim.id !== animId);
-          if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
-            drawCanvas();
-          }
-        }, 200);
-      }
-    };
+      const startTime = Date.now();
+      const duration = 600;
+      
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Update progress in ref
+        animationsRef.current = animationsRef.current.map(anim =>
+          anim.id === animId ? { ...anim, progress } : anim
+        );
+        
+        if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+          drawCanvas();
+        }
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          setTimeout(() => {
+            animationsRef.current = animationsRef.current.filter(anim => anim.id !== animId);
+            if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+              drawCanvas();
+            }
+          }, 200);
+        }
+      };
+      
+      requestAnimationFrame(animate);
+    }, [gameBoard, eraConfig, gameInstance, drawCanvas, createExplosion]);
     
-    requestAnimationFrame(animate);
-  }, [gameBoard, eraConfig, gameInstance, drawCanvas]);
-
   // Handle mouse down for placement start
   const handleMouseDown = useCallback((e) => {
     if (mode !== 'placement' || !currentShip || isPlacing) return;
@@ -648,6 +744,7 @@ const CanvasBoard = forwardRef(({
     if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
       if (mode === 'battle' && onShotFired && gameState?.isPlayerTurn) {
         const shotResult = onShotFired(row, col);
+          console.log('[PLAYER SHOT DEBUG]', version, 'shotResult received:', shotResult); // ADD THIS LINE
         if (shotResult) {
           showShotAnimation(shotResult, row, col);
         }

@@ -67,17 +67,18 @@ const PlayingPage = () => {
   }, [gameInstance]);
 
   // Stable shot handler to prevent retriggering
-  const handleShotFired = useCallback((row, col) => {
-    // Only allow shots during player turn
-    if (!isPlayerTurn || !isGameActive) {
-      console.log(version, 'Shot blocked - not player turn or game inactive');
-      return false;
-    }
+    const handleShotFired = useCallback((row, col) => {  // Synchronous
+      if (!isPlayerTurn || !isGameActive) {
+        console.log(version, 'Shot blocked - not player turn or game inactive');
+        return false;
+      }
+      
+      console.log(version, 'Player shot fired at', { row, col });
+      const result = handleAttack(row, col);  // Synchronous call
+      
+      return { result, row, col };
+    }, [isPlayerTurn, isGameActive, handleAttack]);
     
-    console.log(version, 'Player shot fired at', { row, col });
-    return handleAttack(row, col);
-  }, [isPlayerTurn, isGameActive, handleAttack]);
-
   // AutoPlay logic - fires at random valid targets
   // v0.3.5: Get humanPlayer directly from game instance to ensure same object reference
   const fireRandomShot = useCallback(() => {
