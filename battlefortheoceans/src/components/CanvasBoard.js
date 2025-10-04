@@ -1,11 +1,11 @@
-// src/components/CanvasBoard.js v0.1.18
+// src/components/CanvasBoard.js v0.1.19
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.1.18: Fixed function declaration order for touch events in battle mode
+// v0.1.19: Fixed mobile touch coordinate calculation with CSS scaling
 
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.18';
+const version = 'v0.1.19';
 
 const CanvasBoard = forwardRef(({
   eraConfig,
@@ -44,6 +44,24 @@ const CanvasBoard = forwardRef(({
   
   // Track last processed cell to prevent excessive updates
   const lastProcessedCell = useRef(null);
+  
+  // Helper function to get canvas coordinates accounting for CSS scaling
+  const getCanvasCoordinates = useCallback((clientX, clientY) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    
+    const rect = canvas.getBoundingClientRect();
+    
+    // Calculate scaling factors
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    // Apply scaling to coordinates
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+    
+    return { x, y };
+  }, []);
   
   // Clear terrain cache when era changes
   useEffect(() => {
@@ -593,9 +611,7 @@ const CanvasBoard = forwardRef(({
   const handleMouseDown = useCallback((e) => {
     if (mode !== 'placement' || !currentShip || isPlacing) return;
 
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
 
     const col = Math.floor((x - 20 - labelSize) / cellSize);
     const row = Math.floor((y - 20 - labelSize) / cellSize);
@@ -620,13 +636,11 @@ const CanvasBoard = forwardRef(({
         }
       });
     }
-  }, [mode, currentShip, isPlacing, cellSize, labelSize, eraConfig, isValidShipPlacement, gameBoard, gameInstance, drawCanvas]);
+  }, [mode, currentShip, isPlacing, cellSize, labelSize, eraConfig, isValidShipPlacement, gameBoard, gameInstance, drawCanvas, getCanvasCoordinates]);
 
   // Handle canvas clicks for battle mode
   const handleCanvasClick = useCallback((e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
 
     const col = Math.floor((x - 20 - labelSize) / cellSize);
     const row = Math.floor((y - 20 - labelSize) / cellSize);
@@ -639,15 +653,13 @@ const CanvasBoard = forwardRef(({
         }
       }
     }
-  }, [mode, gameState, onShotFired, cellSize, labelSize, eraConfig, showShotAnimation]);
+  }, [mode, gameState, onShotFired, cellSize, labelSize, eraConfig, showShotAnimation, getCanvasCoordinates]);
 
   // Handle mouse move for placement preview
   const handleMouseMove = useCallback((e) => {
     if (mode !== 'placement' || !currentShip || !isPlacing || !startCell) return;
 
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
 
     const col = Math.floor((x - 20 - labelSize) / cellSize);
     const row = Math.floor((y - 20 - labelSize) / cellSize);
@@ -715,7 +727,7 @@ const CanvasBoard = forwardRef(({
         ctx.strokeRect(x, y, size, size);
       });
     }
-  }, [mode, currentShip, isPlacing, startCell, cellSize, labelSize, eraConfig, gameBoard, gameInstance, isValidShipPlacement, drawCanvas]);
+  }, [mode, currentShip, isPlacing, startCell, cellSize, labelSize, eraConfig, gameBoard, gameInstance, isValidShipPlacement, drawCanvas, getCanvasCoordinates]);
 
   // Handle mouse up for placement completion
   const handleMouseUp = useCallback((e) => {
@@ -743,15 +755,13 @@ const CanvasBoard = forwardRef(({
     lastProcessedCell.current = null;
   }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced]);
 
-  // Touch event handlers
+  // Touch event handlers - FIXED with scaling
   const handleTouchStart = useCallback((e) => {
     e.preventDefault();
     if (mode !== 'placement' || !currentShip || isPlacing) return;
 
     const touch = e.touches[0];
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+    const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
 
     const col = Math.floor((x - 20 - labelSize) / cellSize);
     const row = Math.floor((y - 20 - labelSize) / cellSize);
@@ -775,16 +785,14 @@ const CanvasBoard = forwardRef(({
         }
       });
     }
-  }, [mode, currentShip, isPlacing, cellSize, labelSize, eraConfig, isValidShipPlacement, gameBoard, gameInstance, drawCanvas]);
+  }, [mode, currentShip, isPlacing, cellSize, labelSize, eraConfig, isValidShipPlacement, gameBoard, gameInstance, drawCanvas, getCanvasCoordinates]);
 
   const handleTouchMove = useCallback((e) => {
     e.preventDefault();
     if (mode !== 'placement' || !currentShip || !isPlacing || !startCell) return;
 
     const touch = e.touches[0];
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+    const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
 
     const col = Math.floor((x - 20 - labelSize) / cellSize);
     const row = Math.floor((y - 20 - labelSize) / cellSize);
@@ -852,20 +860,20 @@ const CanvasBoard = forwardRef(({
         ctx.strokeRect(x, y, size, size);
       });
     }
-  }, [mode, currentShip, isPlacing, startCell, cellSize, labelSize, eraConfig, gameBoard, gameInstance, isValidShipPlacement, drawCanvas]);
+  }, [mode, currentShip, isPlacing, startCell, cellSize, labelSize, eraConfig, gameBoard, gameInstance, isValidShipPlacement, drawCanvas, getCanvasCoordinates]);
 
   const handleTouchEnd = useCallback((e) => {
     e.preventDefault();
     
-    // Battle mode - handle tap to fire
+    // Battle mode - handle tap to fire - FIXED with scaling
     if (mode === 'battle') {
-      const touch = e.changedTouches[0]; // Use changedTouches for touchend
-      const rect = canvasRef.current.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
+      const touch = e.changedTouches[0];
+      const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
 
       const col = Math.floor((x - 20 - labelSize) / cellSize);
       const row = Math.floor((y - 20 - labelSize) / cellSize);
+
+      console.log('[TOUCH]', version, 'Touch at canvas coords:', x, y, '→ Cell:', row, col);
 
       if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
         if (onShotFired && gameState?.isPlayerTurn) {
@@ -901,7 +909,7 @@ const CanvasBoard = forwardRef(({
     setStartCell(null);
     setIsPlacing(false);
     lastProcessedCell.current = null;
-  }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced, cellSize, labelSize, eraConfig, onShotFired, gameState, showShotAnimation]);
+  }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced, cellSize, labelSize, eraConfig, onShotFired, gameState, showShotAnimation, getCanvasCoordinates]);
 
   // Determine canvas CSS classes
   const getCanvasClasses = () => {
