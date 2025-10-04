@@ -1,5 +1,5 @@
 {
-  "version": "0.2.5",
+  "version": "0.2.6",
   "era": "traditional",
   "name": "Traditional Battleship",
   "era_description": "Classic naval warfare on the high seas. Command your fleet in the timeless battle of strategy and luck that has captivated players since the 1930s.",
@@ -76,27 +76,24 @@
           "id": "ensign-jack",
           "name": "Ensign Jack",
           "strategy": "random",
-          "skill_level": "novice",
-          "difficulty": 0.8,
-          "description": "A fresh naval academy graduate still learning the ropes of sea warfare. Fires quickly but without much strategy.",
+          "difficulty": 0.7,
+          "description": "A fresh naval academy graduate still learning the ropes of sea warfare. Fires randomly without any tactical planning.",
           "avatar": "captains/ensign-jack.png"
         },
         {
           "id": "captain-flynn",
           "name": "Captain Flynn",
-          "strategy": "aggressive",
-          "skill_level": "experienced",
-          "difficulty": 1.2,
-          "description": "A dashing naval officer who strikes with bold precision and calculated daring. Inspired by the swashbuckling heroes of old.",
+          "strategy": "methodical_optimal",
+          "difficulty": 1.3,
+          "description": "A dashing naval officer who uses systematic grid search patterns with tactical precision. Inspired by the swashbuckling heroes of old.",
           "avatar": "captains/captain-flynn.png"
         },
         {
           "id": "admiral-swift",
           "name": "Admiral Swift",
-          "strategy": "methodical_optimal",
-          "skill_level": "experienced",
-          "difficulty": 1.4,
-          "description": "A seasoned fleet commander who systematically hunts enemy vessels with an optimal search pattern and tactical precision.",
+          "strategy": "aggressive",
+          "difficulty": 1.6,
+          "description": "A legendary fleet commander who combines center-mass probability targeting with relentless hunt tactics. The ultimate strategic challenge.",
           "avatar": "captains/admiral-swift.png"
         }
       ]

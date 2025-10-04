@@ -9,7 +9,10 @@ import Alliance from './Alliance.js';
 import Visualizer from './Visualizer.js';
 import Message from './Message.js';
 
-const version = "v0.4.9";
+const version = "v0.5.0";
+// v0.5.0: CRITICAL FIX - Score calculation bug causing string concatenation
+//         Changed: firingPlayer.score += multiplier
+//         To:      firingPlayer.score += Math.round(1 * multiplier)
 
 // Environment-aware CDN path
 const SOUND_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
@@ -209,14 +212,14 @@ class Game {
     }
   }
 
-  addPlayer(id, type = 'human', name = 'Player', allianceName = null, strategy = null, skillLevel = null, difficulty = 1.0) {
+  addPlayer(id, type = 'human', name = 'Player', allianceName = null, strategy = null, difficulty = 1.0) {
     if (this.players.length >= (this.eraConfig.max_players || 2)) {
       throw new Error(`Maximum ${this.eraConfig.max_players || 2} players allowed`);
     }
 
     let player;
     if (type === 'ai') {
-      player = new AiPlayer(id, name, strategy || 'random', skillLevel || 'novice', difficulty);
+      player = new AiPlayer(id, name, strategy || 'random', difficulty);
     } else {
       player = new HumanPlayer(id, name);
       this.humanPlayerId = id;
@@ -346,6 +349,7 @@ class Game {
         
         firingPlayer.sunk++;
         
+        // v0.5.0: Score calculation for SUNK (already correct)
         if (firingPlayer.type === 'human' && targetPlayer.type === 'ai') {
           const multiplier = targetPlayer.difficulty || 1.0;
           firingPlayer.score += Math.round(10 * multiplier);
@@ -363,10 +367,14 @@ class Game {
           position: cellName
         }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
         
+        // v0.5.0: CRITICAL FIX - Score calculation for HIT
+        // BEFORE: firingPlayer.score += multiplier; (caused string concatenation)
+        // AFTER:  firingPlayer.score += Math.round(1 * multiplier);
         if (firingPlayer.type === 'human' && targetPlayer.type === 'ai') {
           const multiplier = targetPlayer.difficulty || 1.0;
-          firingPlayer.score += multiplier;
-          console.log(`[Game ${this.id}] ${firingPlayer.name} hit ${targetPlayer.name}'s ship: 1 * ${multiplier} = ${multiplier} points`);
+          const hitPoints = Math.round(1 * multiplier);
+          firingPlayer.score += hitPoints;
+          console.log(`[Game ${this.id}] ${firingPlayer.name} hit ${targetPlayer.name}'s ship: 1 * ${multiplier} = ${hitPoints} points`);
         } else {
           firingPlayer.score += 1;
         }
@@ -536,7 +544,6 @@ class Game {
     return this.players[this.currentPlayerIndex];
   }
 
-  // v0.4.9: SYNCHRONOUS - removed async, returns result immediately
   processPlayerAction(action, data) {
     const currentPlayer = this.getCurrentPlayer();
     
@@ -547,7 +554,6 @@ class Game {
     throw new Error(`Unknown action: ${action}`);
   }
 
-  // v0.4.9: SYNCHRONOUS - removed async, returns result immediately
   processAttack(attacker, row, col) {
     if (this.state !== 'playing') {
       throw new Error('Game is not in playing state');

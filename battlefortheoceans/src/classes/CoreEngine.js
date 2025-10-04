@@ -1,5 +1,6 @@
-// src/classes/CoreEngine.js v0.4.2
+// src/classes/CoreEngine.js v0.4.3
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.3: Remove skillLevel parameter - difficulty is now a float multiplier
 // v0.4.2: CRITICAL FIX - Await stats update in handleGameOver() to prevent data loss
 // v0.4.1: Minor logging improvements
 // v0.4.0: Pass AI captain difficulty to Game.addPlayer()
@@ -13,7 +14,7 @@ import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
 import EraService from '../services/EraService.js';
 
-const version = "v0.4.2";
+const version = "v0.4.3";
 
 class CoreEngine {
   constructor() {
@@ -361,8 +362,9 @@ class CoreEngine {
   }
 
   /**
-   * SIMPLIFIED v0.3.7: Alliance assignment now happens inside addPlayer()
+   * v0.4.3: Removed skillLevel parameter completely - only difficulty (float) is used
    * v0.4.0: Pass difficulty from selectedOpponent to AiPlayer
+   * v0.3.7: Alliance assignment happens inside addPlayer()
    */
   async initializeForPlacement() {
     this.log('Initializing for placement phase');
@@ -412,17 +414,17 @@ class CoreEngine {
       throw new Error('Cannot determine opponent alliance');
     }
     
-    // Add human player (difficulty defaults to 1.0 in Player constructor)
+    // Add human player (difficulty defaults to 1.0)
     const humanPlayerAdded = this.gameInstance.addPlayer(
       this.humanPlayer.id,
       'human',
       this.userProfile.game_name,
       playerAlliance,
       null,  // strategy (not used for human)
-      null   // skillLevel (not used for human)
+      1.0    // difficulty (always 1.0 for human)
     );
     
-    // v0.4.0: Add AI player with difficulty from captain config
+    // v0.4.3: Add AI player with difficulty from captain config
     const aiId = this.generateAIPlayerUUID();
     const aiDifficulty = this.selectedOpponent.difficulty || 1.0;
     
@@ -434,8 +436,7 @@ class CoreEngine {
       this.selectedOpponent.name,
       opponentAlliance,
       this.selectedOpponent.strategy || 'random',
-      this.selectedOpponent.skill_level || 'novice',
-      aiDifficulty  // v0.4.0: Pass difficulty to Game.addPlayer()
+      aiDifficulty
     );
     
     if (!humanPlayerAdded || !aiPlayerAdded) {
