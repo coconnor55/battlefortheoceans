@@ -55,9 +55,9 @@ const PlayingPage = () => {
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(false);
   const autoPlayTimerRef = useRef(null);
   
-  // Check if user is testing account
-  const isTestingAccount = true //userProfile?.email === 'battleship301@gmail.com';
-
+    // Check if user has AutoPlay privileges (admin, developer, or tester roles)
+      const canUseAutoPlay = ['admin', 'developer', 'tester'].includes(userProfile?.role);
+    
   // Set battle board ref in game instance for opponent shot notifications
   useEffect(() => {
     if (gameInstance && canvasBoardRef.current) {
@@ -223,7 +223,7 @@ const PlayingPage = () => {
           <span className="stat-inline">Your Hits: {playerHits || 0}</span>
           <span className="stat-inline">Enemy Hits: {opponentHits || 0}</span>
           {/* AutoPlay toggle - only visible for testing account */}
-          {isTestingAccount && isGameActive && (
+          {canUseAutoPlay && isGameActive && (
             <button
               className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
               onClick={handleAutoPlayToggle}
