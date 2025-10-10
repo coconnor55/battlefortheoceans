@@ -1,5 +1,6 @@
-// src/pages/PlacementPage.js v0.4.8
+// src/pages/PlacementPage.js v0.4.9
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.9: Add beforeunload warning to prevent accidental refresh during placement
 // v0.4.8: Phase 4 Refactor - Simplified autoplace clearing (no more shipOwnership)
 // v0.4.7: Fixed autoplace by clearing shipOwnership map before re-placement
 
@@ -8,7 +9,7 @@ import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.4.8';
+const version = 'v0.4.9';
 
 const PlacementPage = () => {
   const {
@@ -31,6 +32,21 @@ const PlacementPage = () => {
     currentShip,
     isPlacementComplete
   } = useGameState();
+  
+  // Warn user before leaving page (refresh/close/navigate away)
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = ''; // Required for Chrome
+      return ''; // Required for other browsers
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
   
   useEffect(() => {
     if (!userProfile) {

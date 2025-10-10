@@ -1,5 +1,7 @@
-// src/pages/OverPage.js v0.4.3
+// src/pages/OverPage.js v0.4.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.5: Use sessionStorage to persist game results across page refresh
+// v0.4.4: Handle page refresh gracefully - redirect to era if game data missing
 // v0.4.3: Use GameStatsService for total games, removed artificial delay
 
 import React, { useState, useEffect } from 'react';
@@ -9,7 +11,8 @@ import PurchasePage from './PurchasePage';
 import LeaderboardService from '../services/LeaderboardService';
 import GameStatsService from '../services/GameStatsService';
 
-const version = 'v0.4.3';
+const version = 'v0.4.5';
+const SESSION_KEY = 'battleForOceans_gameResults';
 
 const OverPage = () => {
   const {
@@ -23,6 +26,47 @@ const OverPage = () => {
     hasEraAccess,
     appVersion
   } = useGame();
+
+  // State for game results (from CoreEngine or sessionStorage)
+  const [gameResults, setGameResults] = useState(null);
+
+  // Redirect to login if no user profile
+  useEffect(() => {
+    if (!userProfile) {
+      console.log(version, 'No user profile detected - redirecting to login');
+      dispatch(events.LOGIN);
+    }
+  }, [userProfile, dispatch, events]);
+
+  // Load game results on mount
+  useEffect(() => {
+    // Try to get from CoreEngine first (normal flow)
+    if (gameInstance && eraConfig && selectedOpponent && humanPlayer) {
+      const results = {
+        gameStats: gameInstance.getGameStats(),
+        gameLog: gameInstance.gameLog || [],
+        finalBoardImage: gameInstance.finalBoardImage,
+        eraName: eraConfig.name,
+        playerName: humanPlayer.name,
+        opponentName: selectedOpponent.name,
+        opponentDifficulty: selectedOpponent.difficulty || 1.0
+      };
+      
+      console.log(version, 'Saving game results to sessionStorage');
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(results));
+      setGameResults(results);
+    } else if (userProfile) {
+      // Try to restore from sessionStorage (after refresh)
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) {
+        console.log(version, 'Restoring game results from sessionStorage');
+        setGameResults(JSON.parse(saved));
+      } else {
+        console.log(version, 'No game results available - redirecting to era selection');
+        dispatch(events.ERA);
+      }
+    }
+  }, [gameInstance, eraConfig, selectedOpponent, humanPlayer, userProfile, dispatch, events]);
 
   // Redirect to login if no user profile
   useEffect(() => {
@@ -40,14 +84,14 @@ const OverPage = () => {
   const [playerRank, setPlayerRank] = useState(null);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
   const [leaderboardError, setLeaderboardError] = useState(null);
-  const [sortField, setSortField] = useState('total_score'); // Default sort by score
+  const [sortField, setSortField] = useState('total_score');
   const [sortDirection, setSortDirection] = useState('desc');
 
   const leaderboardService = new LeaderboardService();
   const gameStatsService = new GameStatsService();
   const isGuest = userProfile?.id?.startsWith('guest-');
 
-  // Fetch leaderboard on mount - no artificial delay needed
+  // Fetch leaderboard on mount
   useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoadingLeaderboard(true);
@@ -58,12 +102,10 @@ const OverPage = () => {
         console.log(version, 'Leaderboard data received:', top10);
         setLeaderboard(top10 || []);
         
-        // Get total games count from GameStatsService
         const totalGames = await gameStatsService.getTotalGamesPlayed();
         console.log(version, 'Total games played:', totalGames);
         setTotalGamesPlayed(totalGames);
         
-        // Get player's rank if not a guest
         if (userProfile?.id && !isGuest) {
           const rank = await leaderboardService.getPlayerRanking(userProfile.id);
           setPlayerRank(rank);
@@ -82,7 +124,7 @@ const OverPage = () => {
   // Check if user needs to see Midway Island promotion
   useEffect(() => {
     const checkPromotionEligibility = async () => {
-      if (eraConfig?.name !== 'Traditional Battleship' || !userProfile?.id) {
+      if (!gameResults || gameResults.eraName !== 'Traditional Battleship' || !userProfile?.id) {
         setShowPromotion(false);
         return;
       }
@@ -92,14 +134,13 @@ const OverPage = () => {
     };
 
     checkPromotionEligibility();
-  }, [eraConfig, userProfile, hasEraAccess]);
+  }, [gameResults, userProfile, hasEraAccess]);
 
   // Sort leaderboard data
   const sortedLeaderboard = [...leaderboard].sort((a, b) => {
     let aVal = a[sortField];
     let bVal = b[sortField];
     
-    // Handle null/undefined values
     if (aVal == null) aVal = 0;
     if (bVal == null) bVal = 0;
     
@@ -110,61 +151,48 @@ const OverPage = () => {
     }
   });
 
-  // Handle column header click
   const handleSort = (field) => {
     if (sortField === field) {
-      // Toggle direction if same field
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      // New field, default to descending (highest first)
       setSortField(field);
       setSortDirection('desc');
     }
   };
 
-  // Get sort indicator
   const getSortIndicator = (field) => {
     if (sortField !== field) return '';
     return sortDirection === 'asc' ? ' ▲' : ' ▼';
   };
 
-  // Get game results
-  const gameStats = gameInstance?.getGameStats() || {};
-  const gameLog = gameInstance?.gameLog || [];
-  
-  // Determine if player won
-  const didPlayerWin = gameStats.winner === humanPlayer?.name;
-
-  // Helper function to get difficulty badge class
   const getDifficultyBadgeClass = (difficulty) => {
-    if (difficulty < 1.0) return 'badge--success'; // Easy - green
-    if (difficulty === 1.0) return 'badge--primary'; // Medium - blue
-    return 'badge--warning'; // Hard - orange/red
+    if (difficulty < 1.0) return 'badge--success';
+    if (difficulty === 1.0) return 'badge--primary';
+    return 'badge--warning';
   };
 
-  // Helper function to get difficulty label
   const getDifficultyLabel = (difficulty) => {
     if (difficulty < 1.0) return 'Easy';
     if (difficulty === 1.0) return 'Medium';
     return 'Hard';
   };
 
-  // Format game log for display/export
   const formatGameLog = (includeImage = false) => {
-    // v0.4.0: Include opponent difficulty in header
-    const opponentDifficulty = selectedOpponent?.difficulty || 1.0;
+    if (!gameResults) return '';
+    
+    const opponentDifficulty = gameResults.opponentDifficulty || 1.0;
     const opponentLine = opponentDifficulty !== 1.0
-      ? `Opponent: ${selectedOpponent?.name || 'Unknown'} (${opponentDifficulty}x)\n`
-      : `Opponent: ${selectedOpponent?.name || 'Unknown'}\n`;
+      ? `Opponent: ${gameResults.opponentName} (${opponentDifficulty}x)\n`
+      : `Opponent: ${gameResults.opponentName}\n`;
     
     const header = `Battle for the Oceans - Game Log\n` +
                    `Version: ${appVersion || 'Unknown'}\n` +
-                   `Era: ${eraConfig?.name || 'Unknown'}\n` +
+                   `Era: ${gameResults.eraName}\n` +
                    opponentLine +
                    `Date: ${new Date().toLocaleString()}\n` +
-                   `Winner: ${gameStats.winner || 'Draw'}\n\n`;
+                   `Winner: ${gameResults.gameStats.winner || 'Draw'}\n\n`;
     
-    const entries = gameLog
+    const entries = gameResults.gameLog
       .filter(entry => entry.message?.includes('[BATTLE]'))
       .map(entry => {
         const elapsed = entry.elapsed || '0.0';
@@ -176,7 +204,6 @@ const OverPage = () => {
     return header + entries;
   };
 
-  // Copy game log to clipboard
   const copyGameLog = () => {
     const logText = formatGameLog(true);
     navigator.clipboard.writeText(logText).then(() => {
@@ -187,44 +214,35 @@ const OverPage = () => {
     });
   };
 
-  // Email game log
   const emailGameLog = () => {
     const logText = formatGameLog();
-    const subject = encodeURIComponent(`Battle for the Oceans - ${eraConfig?.name || 'Game'} Results`);
+    const subject = encodeURIComponent(`Battle for the Oceans - ${gameResults?.eraName || 'Game'} Results`);
     const body = encodeURIComponent(logText);
     
     const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
     window.open(mailtoLink);
   };
     
-  // Handle play again - go back to opponent selection
   const handlePlayAgain = () => {
-    if (dispatch && events) {
-      dispatch(events.SELECTOPPONENT);
-    }
+    sessionStorage.removeItem(SESSION_KEY);
+    dispatch(events.SELECTOPPONENT);
   };
 
-  // Go back to era selection
   const handleChangeEra = () => {
-    if (dispatch && events) {
-      dispatch(events.ERA);
-    }
+    sessionStorage.removeItem(SESSION_KEY);
+    dispatch(events.ERA);
   };
 
-  // Handle guest signup - sets URL parameter before state transition
   const handleGuestSignup = () => {
     console.log(version, 'Guest requesting signup - setting URL parameter');
     
-    // Set URL parameter BEFORE dispatch so CoreEngine preserves it
     const currentUrl = new URL(window.location);
     currentUrl.searchParams.set('signup', 'true');
     window.history.replaceState({}, '', currentUrl);
     
-    // Now dispatch - CoreEngine will preserve the parameter
     dispatch(events.LOGIN);
   };
 
-  // Handle purchase flow
   const handlePurchase = (eraId) => {
     console.log(version, 'Initiating purchase flow for era:', eraId);
     setPurchaseEraId(eraId);
@@ -245,13 +263,12 @@ const OverPage = () => {
     setPurchaseEraId(null);
   };
 
-  // Don't render if no userProfile (will redirect)
-  if (!userProfile) {
+  // Don't render until we have results and userProfile
+  if (!userProfile || !gameResults) {
     return null;
   }
 
-  // Get opponent difficulty for display
-  const opponentDifficulty = selectedOpponent?.difficulty || 1.0;
+  const { gameStats, gameLog, finalBoardImage, eraName, playerName, opponentName, opponentDifficulty } = gameResults;
   const showDifficultyBadge = opponentDifficulty !== 1.0;
 
   return (
@@ -259,9 +276,9 @@ const OverPage = () => {
       <div className="content-pane content-pane--wide">
         <div className="card-header">
           <h2 className="card-title">Battle Complete</h2>
-          <p className="card-subtitle">{eraConfig?.name || 'Naval Combat'}</p>
+          <p className="card-subtitle">{eraName || 'Naval Combat'}</p>
           <p className="battle-summary">
-            {humanPlayer?.name || 'Player'} vs {selectedOpponent?.name || 'Unknown Opponent'}
+            {playerName || 'Player'} vs {opponentName || 'Unknown Opponent'}
             {showDifficultyBadge && (
               <span className={`badge ${getDifficultyBadgeClass(opponentDifficulty)} ml-sm`}>
                 {getDifficultyLabel(opponentDifficulty)} - {opponentDifficulty}x
@@ -277,12 +294,11 @@ const OverPage = () => {
             </h3>
           </div>
 
-          {/* Final Board Screenshot */}
-          {gameInstance?.finalBoardImage && (
+          {finalBoardImage && (
             <div className="final-board-section">
               <div className="final-board-container">
                 <img
-                  src={gameInstance.finalBoardImage}
+                  src={finalBoardImage}
                   alt="Final battle board state"
                   className="final-board-image"
                 />
@@ -295,7 +311,6 @@ const OverPage = () => {
               <h4>Battle Statistics</h4>
               <div className="stats-grid">
                 {gameStats.players.map((player, index) => {
-                  // Determine if this player won
                   const isWinner = player.name === gameStats.winner;
                   
                   return (
@@ -346,7 +361,6 @@ const OverPage = () => {
         <div className="leaderboard-section">
           <h4>Top 10 Leaderboard</h4>
           
-          {/* Total Games Played Subtitle */}
           {totalGamesPlayed > 0 && (
             <p className="leaderboard-subtitle text-center">
               Total Games Played: {totalGamesPlayed.toLocaleString()}
@@ -424,7 +438,6 @@ const OverPage = () => {
                 </table>
               </div>
               
-              {/* Show player's rank if not in top 10 */}
               {!isGuest && playerRank && playerRank > 10 && (
                 <div className="player-rank-info">
                   <p>
@@ -459,13 +472,13 @@ const OverPage = () => {
         )}
 
         <div className="over-actions">
-            <button
+          <button
             className="btn btn--primary btn--lg"
             onClick={handlePlayAgain}
             title="Play another battle - choose a different opponent"
-            >
+          >
             Play Again
-            </button>
+          </button>
           <button
             className="btn btn--secondary btn--lg"
             onClick={handleChangeEra}

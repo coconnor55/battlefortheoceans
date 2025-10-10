@@ -11,16 +11,16 @@ const control = {
   SOUND: false,
   AI: false,
   ATTACK: false,
-  BOARD: true,
+  BOARD: false,
   CANVAS: false,
   NETWORK: false,
   STATS: false,
   PAYMENT: false,
   OPPONENT: false,
     OVERLAY: false,
-  DEBUG: false,
-    TARGETING: true,
-    GAME: true
+  DEBUG: true,
+    TARGETING: false,
+    GAME: false
 };
 
 // Store original console methods

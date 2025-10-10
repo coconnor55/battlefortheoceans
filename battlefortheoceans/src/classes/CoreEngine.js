@@ -1,14 +1,9 @@
 // src/classes/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.3: Synchronous session restoration using sessionStorage for both guests and registered users
+// v0.5.2: Fix page refresh - restore Supabase session and user profile
+// v0.5.1: Fix refresh issue - initialize state from URL in constructor (synchronous)
 // v0.5.0: OPTION 1 REFACTOR - Players are persistent entities across games
-//         Human player created once, reused across games
-//         AI players reuse object if same captain, create new if different
-//         Game.addPlayer() now accepts player objects instead of creating them
-// v0.4.4: Moved setBoard after players
-// v0.4.3: Remove skillLevel parameter - difficulty is now a float multiplier
-// v0.4.2: CRITICAL FIX - Await stats update in handleGameOver() to prevent data loss
-// v0.4.1: Minor logging improvements
-// v0.4.0: Pass AI captain difficulty to Game.addPlayer()
 
 import Game from './Game.js';
 import Board from './Board.js';
@@ -19,13 +14,14 @@ import GameStatsService from '../services/GameStatsService.js';
 import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
 import EraService from '../services/EraService.js';
+import { supabase } from '../utils/supabaseClient.js';
 
-const version = "v0.5.0";
+const version = "v0.5.3";
 
 class CoreEngine {
   constructor() {
     // State machine properties
-    this.currentState = 'launch';
+    this.currentState = null; // Will be set by initializeFromURL()
     this.lastEvent = null;
     
     // State definitions
@@ -65,10 +61,10 @@ class CoreEngine {
       play: { on: { [this.events.OVER]: 'over' } },
       over: {
         on: {
-          [this.events.ERA]: 'era',                    // Choose new era
-          [this.events.SELECTOPPONENT]: 'opponent',    // Change opponent (keeps same era)
-          [this.events.PLACEMENT]: 'placement',        // Battle again (same settings)
-          [this.events.LOGIN]: 'login'                 // Guest signup / account switch
+          [this.events.ERA]: 'era',
+          [this.events.SELECTOPPONENT]: 'opponent',
+          [this.events.PLACEMENT]: 'placement',
+          [this.events.LOGIN]: 'login'
         }
       }
     };
@@ -93,12 +89,12 @@ class CoreEngine {
     this.selectedOpponent = null;
     this.selectedGameMode = null;
     this.selectedAlliance = null;
-    this.humanPlayer = null;  // v0.5.0: Persistent entity, created once
-    this.aiPlayer = null;     // v0.5.0: Persistent entity, reused if same captain
+    this.humanPlayer = null;
+    this.aiPlayer = null;
     this.gameInstance = null;
     this.board = null;
     this.userProfile = null;
-    this.loginEventData = null; // For passing data to LoginPage
+    this.loginEventData = null;
     
     // Observer pattern for UI updates
     this.updateCounter = 0;
@@ -116,9 +112,203 @@ class CoreEngine {
       window.addEventListener('popstate', (event) => {
         this.handleBrowserNavigation(event);
       });
+      
+      // Restore session SYNCHRONOUSLY before anything else (v0.5.3)
+      this.restoreSessionSync();
+      
+      // Initialize state from URL synchronously (will set currentState)
+      this.initializeFromURL();
+      
+      // Fallback to launch if no valid state set
+      if (!this.currentState) {
+        this.currentState = 'launch';
+      }
+    } else {
+      // Server-side or test environment - default to launch
+      this.currentState = 'launch';
     }
     
     this.log('CoreEngine initialized');
+  }
+
+  // v0.5.3: Synchronous session restoration from sessionStorage
+  restoreSessionSync() {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const stored = sessionStorage.getItem('game_session');
+      if (!stored) {
+        this.log('No stored session found');
+        return;
+      }
+      
+      const context = JSON.parse(stored);
+      this.log('Restoring session context');
+      
+      // Restore user profile
+      if (context.user) {
+        this.userProfile = {
+          id: context.user.id,
+          game_name: context.user.game_name,
+          total_games: context.user.total_games || 0,
+          total_wins: context.user.total_wins || 0,
+          total_score: context.user.total_score || 0,
+          best_accuracy: context.user.best_accuracy || 0,
+          total_ships_sunk: context.user.total_ships_sunk || 0,
+          total_damage: context.user.total_damage || 0
+        };
+        
+        // Restore human player
+        this.humanPlayer = new HumanPlayer(context.user.id, context.user.game_name);
+        if (context.user.email) {
+          this.humanPlayer.email = context.user.email;
+        }
+        this.humanPlayer.gameName = context.user.game_name;
+        
+        this.log(`User restored: ${context.user.game_name}`);
+        
+        // For registered users, async refresh profile in background
+        if (context.user.type === 'registered') {
+          this.refreshProfileAsync(context.user.id);
+        }
+      }
+      
+      // Restore era config (async, non-blocking)
+      if (context.eraId) {
+        this.restoreEraAsync(context.eraId);
+      }
+      
+      // Restore opponent selection
+      if (context.selectedOpponent) {
+        this.selectedOpponent = context.selectedOpponent;
+        this.log(`Opponent restored: ${context.selectedOpponent.name}`);
+      }
+      
+      // Restore alliance selection
+      if (context.selectedAlliance) {
+        this.selectedAlliance = context.selectedAlliance;
+        this.log(`Alliance restored: ${context.selectedAlliance}`);
+      }
+      
+    } catch (error) {
+      console.error(`${version} Error restoring session:`, error);
+      sessionStorage.removeItem('game_session');
+    }
+  }
+
+  // v0.5.3: Background profile refresh for registered users (non-blocking)
+  async refreshProfileAsync(userId) {
+    try {
+      const profile = await this.userProfileService.getUserProfile(userId);
+      if (profile && profile.game_name) {
+        this.userProfile = profile;
+        if (this.humanPlayer) {
+          this.humanPlayer.name = profile.game_name;
+          this.humanPlayer.gameName = profile.game_name;
+        }
+        this.log(`Profile refreshed from database: ${profile.game_name}`);
+        this.notifySubscribers();
+      }
+    } catch (error) {
+      console.error(`${version} Error refreshing profile:`, error);
+    }
+  }
+
+  // v0.5.3: Background era restoration (non-blocking)
+  async restoreEraAsync(eraId) {
+    try {
+      this.eraConfig = await this.eraService.getEraById(eraId);
+      if (this.eraConfig) {
+        this.log(`Era restored: ${this.eraConfig.name}`);
+        this.notifySubscribers();
+      }
+    } catch (error) {
+      console.error(`${version} Error restoring era:`, error);
+    }
+  }
+
+  // v0.5.3: Store complete session context in sessionStorage
+  storeSessionContext() {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const context = {
+        // User context
+        user: this.userProfile ? {
+          id: this.userProfile.id,
+          game_name: this.userProfile.game_name,
+          type: this.userProfile.id.startsWith('guest-') ? 'guest' : 'registered',
+          email: this.humanPlayer?.email || null,
+          total_games: this.userProfile.total_games || 0,
+          total_wins: this.userProfile.total_wins || 0,
+          total_score: this.userProfile.total_score || 0,
+          best_accuracy: this.userProfile.best_accuracy || 0,
+          total_ships_sunk: this.userProfile.total_ships_sunk || 0,
+          total_damage: this.userProfile.total_damage || 0
+        } : null,
+        
+        // Game context (era, opponent, alliance)
+        eraId: this.eraConfig?.id || null,
+        selectedOpponent: this.selectedOpponent ? {
+          id: this.selectedOpponent.id,
+          name: this.selectedOpponent.name,
+          strategy: this.selectedOpponent.strategy,
+          difficulty: this.selectedOpponent.difficulty
+        } : null,
+        selectedAlliance: this.selectedAlliance || null,
+        
+        timestamp: Date.now()
+      };
+      
+      sessionStorage.setItem('game_session', JSON.stringify(context));
+      this.log('Session context stored');
+    } catch (error) {
+      console.error(`${version} Error storing session context:`, error);
+    }
+  }
+
+  // v0.5.3: Clear session context on logout
+  clearSessionContext() {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('game_session');
+      this.log('Session context cleared');
+    }
+  }
+
+  // v0.5.1: Synchronous - sets state from URL
+  initializeFromURL(path = typeof window !== 'undefined' ? window.location.pathname : '/') {
+    const targetState = this.routeToState[path] || 'launch';
+    
+    this.log(`Initializing from URL: ${path} → ${targetState}`);
+    
+    // Special case: Direct entry to SelectEra (e.g., QR code)
+    if (targetState === 'era') {
+      this.currentState = 'era';
+      if (typeof window !== 'undefined' && window.history) {
+        window.history.replaceState(
+          { state: 'era', timestamp: Date.now() },
+          '',
+          '/select-era'
+        );
+      }
+      this.notifySubscribers();
+      return;
+    }
+    
+    // All other states
+    if (targetState !== 'launch' && targetState !== 'login') {
+      this.log(`Direct URL to protected state ${targetState} - page will validate profile`);
+    }
+    
+    this.currentState = targetState;
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.replaceState(
+        { state: targetState, timestamp: Date.now() },
+        '',
+        this.stateToRoute[targetState] || '/'
+      );
+    }
+    this.notifySubscribers();
   }
 
   async dispatch(event, eventData = null) {
@@ -138,18 +328,15 @@ class CoreEngine {
   async processEventData(event, eventData) {
     if (!eventData) return;
     
-    // Store LOGIN event data for LoginPage to access
     if (event === this.events.LOGIN && eventData.showSignup !== undefined) {
       this.loginEventData = { showSignup: eventData.showSignup };
       this.log(`LOGIN event with showSignup: ${eventData.showSignup}`);
     }
     
-    // v0.5.0: Create player ONCE when SELECTERA fires, reuse across games
     if (event === this.events.SELECTERA && eventData.userData) {
       const isGuest = eventData.userData.id.startsWith('guest-');
       
       if (isGuest) {
-        // Create temporary in-memory profile for guest
         this.userProfile = {
           id: eventData.userData.id,
           game_name: 'Guest',
@@ -161,7 +348,6 @@ class CoreEngine {
           total_damage: 0
         };
         
-        // Only create player if doesn't exist
         if (!this.humanPlayer) {
           this.humanPlayer = new HumanPlayer(eventData.userData.id, 'Guest');
           this.log(`Guest player created: ${eventData.userData.id}`);
@@ -170,7 +356,6 @@ class CoreEngine {
         }
         
       } else {
-        // Load user profile for registered users
         const profile = await this.userProfileService.getUserProfile(eventData.userData.id);
         
         if (!profile || !profile.game_name) {
@@ -179,7 +364,6 @@ class CoreEngine {
         
         this.userProfile = profile;
         
-        // Only create player if doesn't exist
         if (!this.humanPlayer) {
           this.humanPlayer = new HumanPlayer(
             eventData.userData.id,
@@ -187,7 +371,6 @@ class CoreEngine {
           );
           this.log(`Human player created: ${profile.game_name} (${eventData.userData.id})`);
         } else {
-          // Update name if it changed
           this.humanPlayer.name = profile.game_name;
           this.log(`Reusing human player, updated name: ${profile.game_name}`);
         }
@@ -196,6 +379,9 @@ class CoreEngine {
         this.humanPlayer.userData = eventData.userData;
         this.humanPlayer.gameName = profile.game_name;
       }
+      
+      // Store session context after user login (v0.5.3)
+      this.storeSessionContext();
       
     } else if (event === this.events.SELECTOPPONENT) {
       if (eventData.eraConfig) {
@@ -207,6 +393,9 @@ class CoreEngine {
         this.log(`Alliance selected: ${eventData.selectedAlliance}`);
       }
       
+      // Store session context after era/alliance selection (v0.5.3)
+      this.storeSessionContext();
+      
     } else if (event === this.events.PLACEMENT) {
       if (eventData?.selectedOpponent) {
         this.selectedOpponent = eventData.selectedOpponent;
@@ -216,6 +405,15 @@ class CoreEngine {
         this.selectedAlliance = eventData.selectedAlliance;
         this.log(`Alliance selected from opponent page: ${eventData.selectedAlliance}`);
       }
+      
+      // v0.5.1: Restore eraConfig when coming from 'over' state (Battle Again)
+      if (this.currentState === 'over' && this.selectedEra) {
+        this.eraConfig = await this.eraService.getEraById(this.selectedEra);
+        this.log(`Restored eraConfig for Battle Again: ${this.eraConfig?.name}`);
+      }
+      
+      // Store session context after opponent selection (v0.5.3)
+      this.storeSessionContext();
     }
   }
 
@@ -226,7 +424,6 @@ class CoreEngine {
       this.currentState = nextState;
       this.lastEvent = event;
       
-      // Clear game state when transitioning to login (guest signup / account switch)
       if (nextState === 'login') {
         this.clearGameState();
       }
@@ -244,22 +441,22 @@ class CoreEngine {
     this.selectedOpponent = null;
     this.selectedGameMode = null;
     this.selectedAlliance = null;
-    this.humanPlayer = null;  // v0.5.0: Clear player on account switch
-    this.aiPlayer = null;     // v0.5.0: Clear AI player on account switch
+    this.humanPlayer = null;
+    this.aiPlayer = null;
     this.gameInstance = null;
     this.board = null;
     this.userProfile = null;
-    // Don't clear loginEventData - LoginPage needs it
+    
+    // Clear stored session context (v0.5.3)
+    this.clearSessionContext();
   }
 
   syncURL() {
     const route = this.stateToRoute[this.currentState];
     if (route && typeof window !== 'undefined' && window.history) {
-      // Preserve existing URL parameters (like ?signup=true)
       const currentUrl = new URL(window.location);
       const newUrl = new URL(route, window.location.origin);
       
-      // Copy over any existing search parameters
       currentUrl.searchParams.forEach((value, key) => {
         newUrl.searchParams.set(key, value);
       });
@@ -283,7 +480,6 @@ class CoreEngine {
     
     this.log(`Browser back/forward to: ${targetState}`);
     
-    // Block navigation away from active game
     if (this.currentState === 'play' && this.gameInstance?.state === 'playing') {
       this.log('Cannot navigate away from active game');
       window.history.pushState(
@@ -294,7 +490,6 @@ class CoreEngine {
       return;
     }
     
-    // Validate target state is accessible
     if (this.isValidBackwardTransition(this.currentState, targetState)) {
       this.currentState = targetState;
       this.handleStateTransition(targetState).catch(error => {
@@ -303,64 +498,22 @@ class CoreEngine {
       this.notifySubscribers();
     } else {
       this.log(`Invalid backward navigation from ${this.currentState} to ${targetState}`);
-      // Restore current state in URL
       this.syncURL();
     }
   }
 
   isValidBackwardTransition(from, to) {
-    // Define allowed backward transitions
     const backwardAllowed = {
       'opponent': ['era'],
       'placement': ['opponent'],
       'over': ['era']
     };
     
-    // Login is always accessible from era/opponent/placement/over
     if (to === 'login' && ['era', 'opponent', 'placement', 'over'].includes(from)) {
       return true;
     }
     
     return backwardAllowed[from]?.includes(to) || false;
-  }
-
-  async initializeFromURL(path = typeof window !== 'undefined' ? window.location.pathname : '/') {
-    const targetState = this.routeToState[path] || 'launch';
-    
-    this.log(`Initializing from URL: ${path} → ${targetState}`);
-    
-    // Special case: Direct entry to SelectEra (e.g., QR code)
-    // Guest creation handled by SelectEraPage itself
-    if (targetState === 'era') {
-      this.currentState = 'era';
-      // Push initial state to browser history
-      if (typeof window !== 'undefined' && window.history) {
-        window.history.replaceState(
-          { state: 'era', timestamp: Date.now() },
-          '',
-          '/select-era'
-        );
-      }
-      this.notifySubscribers(); // CRITICAL: Trigger UI update
-      return;
-    }
-    
-    // All other states require userProfile
-    // Pages will detect missing profile and redirect to login
-    if (targetState !== 'launch' && targetState !== 'login') {
-      this.log(`Direct URL to protected state ${targetState} - page will validate profile`);
-    }
-    
-    this.currentState = targetState;
-    // Push initial state to browser history
-    if (typeof window !== 'undefined' && window.history) {
-      window.history.replaceState(
-        { state: targetState, timestamp: Date.now() },
-        '',
-        this.stateToRoute[targetState] || '/'
-      );
-    }
-    this.notifySubscribers(); // CRITICAL: Trigger UI update
   }
 
   async handleStateTransition(newState) {
@@ -384,11 +537,6 @@ class CoreEngine {
     }
   }
 
-  /**
-   * v0.5.0: OPTION 1 REFACTOR - Players are entities, games are sessions
-   *         Reuse existing player objects, reset them for new game
-   *         AI player reused if same captain, created new if different
-   */
   async initializeForPlacement() {
     this.log('Initializing for placement phase');
     
@@ -403,12 +551,13 @@ class CoreEngine {
       throw new Error(`Cannot initialize placement - missing: ${missing.join(', ')}`);
     }
     
+    // Store selected era for Battle Again functionality
+    this.selectedEra = this.eraConfig.id;
+    
     this.gameInstance = new Game(this.eraConfig, this.selectedOpponent.gameMode || 'turnBased');
     
-    // Set UI update callback (triggers re-renders)
     this.gameInstance.setUIUpdateCallback(() => this.notifySubscribers());
     
-    // Set game end callback to trigger state transition
     this.gameInstance.setGameEndCallback(() => {
       this.log('Game end callback triggered - dispatching OVER event');
       this.dispatch(this.events.OVER).catch(error => {
@@ -416,13 +565,10 @@ class CoreEngine {
       });
     });
     
-    // Create alliances BEFORE adding players
     this.gameInstance.initializeAlliances();
     
-    // Create board (but DON'T set it on game yet)
     this.board = new Board(this.eraConfig.rows, this.eraConfig.cols, this.eraConfig.terrain);
 
-    // Determine alliance assignments
     let playerAlliance, opponentAlliance;
     if (this.eraConfig.game_rules?.choose_alliance && this.selectedAlliance) {
       playerAlliance = this.selectedAlliance;
@@ -436,20 +582,16 @@ class CoreEngine {
       throw new Error('Cannot determine opponent alliance');
     }
     
-    // v0.5.0: REUSE existing human player object
     const humanPlayerAdded = this.gameInstance.addPlayer(this.humanPlayer, playerAlliance);
     
-    // v0.5.0: AI player - reuse if same captain, create new if different
     const aiCaptain = this.selectedOpponent;
-    const aiId = `ai-${aiCaptain.id}`; // Stable ID based on captain
+    const aiId = `ai-${aiCaptain.id}`;
     
     if (this.aiPlayer && this.aiPlayer.id === aiId) {
-      // Same captain - reuse and update properties
       this.aiPlayer.strategy = aiCaptain.strategy || 'random';
       this.aiPlayer.difficulty = aiCaptain.difficulty || 1.0;
       this.log(`Reusing AI player ${aiCaptain.name}, updated properties (${this.aiPlayer.strategy}, ${this.aiPlayer.difficulty})`);
     } else {
-      // Different captain (or first time) - create new
       this.aiPlayer = new AiPlayer(
         aiId,
         aiCaptain.name,
@@ -465,7 +607,6 @@ class CoreEngine {
       throw new Error('Failed to add players to game');
     }
 
-    // NOW set the board - players exist, so they'll get the reference
     this.gameInstance.setBoard(this.board);
 
     this.log(`Game initialized with ${this.gameInstance.players.length} players`);
@@ -499,7 +640,6 @@ class CoreEngine {
       );
       
       if (gameResults) {
-        // CRITICAL FIX v0.4.2: AWAIT stats update to ensure completion before state transition
         await this.updateGameStats(gameResults);
         this.log('Stats update completed successfully');
       } else {
@@ -530,7 +670,6 @@ class CoreEngine {
   }
 
   async handleAttack(row, col) {
-    // Unlock audio on first user interaction
     if (!this.audioUnlocked) {
       Object.values(this.gameInstance.soundEffects).forEach(audio => {
         audio.play().then(() => audio.pause()).catch(() => {});
@@ -538,7 +677,6 @@ class CoreEngine {
       this.audioUnlocked = true;
     }
     
-    // Continue with normal attack logic
     if (!this.gameInstance || !this.gameInstance.isValidAttack(row, col)) {
       this.log(`Invalid attack attempt: ${row}, ${col}`);
       return false;
@@ -561,28 +699,27 @@ class CoreEngine {
     }
   }
 
-    getPlacementProgress() {
-        if (!this.gameInstance || !this.humanPlayer) {
-          return { current: 0, total: 0, currentShip: null, isComplete: false };
-        }
-        
-        // Phase 4: Access fleet directly from player
-        const fleet = this.humanPlayer.fleet;
-        if (!fleet) {
-          return { current: 0, total: 0, currentShip: null, isComplete: false };
-        }
-        
-        const placedCount = fleet.ships.filter(ship => ship.isPlaced).length;
-        const currentShip = fleet.ships.find(ship => !ship.isPlaced) || null;
-        
-        return {
-          current: placedCount,
-          total: fleet.ships.length,
-          currentShip: currentShip,
-          isComplete: placedCount === fleet.ships.length
-        };
-      }
+  getPlacementProgress() {
+    if (!this.gameInstance || !this.humanPlayer) {
+      return { current: 0, total: 0, currentShip: null, isComplete: false };
+    }
     
+    const fleet = this.humanPlayer.fleet;
+    if (!fleet) {
+      return { current: 0, total: 0, currentShip: null, isComplete: false };
+    }
+    
+    const placedCount = fleet.ships.filter(ship => ship.isPlaced).length;
+    const currentShip = fleet.ships.find(ship => !ship.isPlaced) || null;
+    
+    return {
+      current: placedCount,
+      total: fleet.ships.length,
+      currentShip: currentShip,
+      isComplete: placedCount === fleet.ships.length
+    };
+  }
+
   getUIState() {
     const currentPlayer = this.gameInstance?.getCurrentPlayer();
     
@@ -690,6 +827,10 @@ class CoreEngine {
     
     if (updatedProfile) {
       this.userProfile = updatedProfile;
+      
+      // Update stored session context with new stats (v0.5.3)
+      this.storeSessionContext();
+      
       this.notifySubscribers();
       return true;
     }

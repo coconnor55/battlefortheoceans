@@ -21,14 +21,14 @@ const SceneRenderer = () => {
   // Force re-render trigger when game logic changes
   const [, setRenderTrigger] = useState(0);
 
-  // Initialize from URL on mount
-  useEffect(() => {
-    console.log('[DEBUG]', version, 'Initializing from URL');
-    if (coreEngine?.initializeFromURL) {
-      coreEngine.initializeFromURL();
-    }
-  }, [coreEngine]);
-
+//  // Initialize from URL on mount
+//  useEffect(() => {
+//    console.log('[DEBUG]', version, 'Initializing from URL');
+//    if (coreEngine?.initializeFromURL) {
+//      coreEngine.initializeFromURL();
+//    }
+//  }, [coreEngine]);
+//
   // Subscribe to game logic updates for state machine transitions
   useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {
@@ -139,7 +139,7 @@ const SceneRenderer = () => {
   return (
     <div className="scene">
       {(() => {
-        switch (currentState) {
+          console.log('[DEBUG App.js] Rendering scene for currentState:', currentState);        switch (currentState) {
           case 'launch':
             return <LaunchPage />;
           case 'login':

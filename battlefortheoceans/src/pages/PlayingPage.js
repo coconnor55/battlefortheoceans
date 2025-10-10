@@ -1,5 +1,6 @@
-// src/pages/PlayingPage.js v0.3.8
+// src/pages/PlayingPage.js v0.3.9
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.9: Add beforeunload warning to prevent accidental refresh during active game
 // v0.3.8: Reordered view mode buttons (Fleet/Blended/Attack) and updated styling
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -7,7 +8,7 @@ import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.3.8';
+const version = 'v0.3.9';
 
 const PlayingPage = () => {
   const {
@@ -38,6 +39,21 @@ const PlayingPage = () => {
   } = useGameState();
   
   const [viewMode, setViewMode] = useState('blended');
+  
+  // Warn user before leaving page (refresh/close/navigate away)
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = ''; // Required for Chrome
+      return ''; // Required for other browsers
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
   
   useEffect(() => {
     if (!userProfile) {
