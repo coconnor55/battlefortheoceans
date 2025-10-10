@@ -1,5 +1,6 @@
-// src/pages/PlayingPage.js v0.3.9
+// src/pages/PlayingPage.js v0.3.10
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.10: Added InfoButton and InfoPanel with battle instructions
 // v0.3.9: Add beforeunload warning to prevent accidental refresh during active game
 // v0.3.8: Reordered view mode buttons (Fleet/Blended/Attack) and updated styling
 
@@ -7,8 +8,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
+import InfoButton from '../components/InfoButton';
+import InfoPanel from '../components/InfoPanel';
 
-const version = 'v0.3.9';
+const version = 'v0.3.10';
 
 const PlayingPage = () => {
   const {
@@ -39,6 +42,7 @@ const PlayingPage = () => {
   } = useGameState();
   
   const [viewMode, setViewMode] = useState('blended');
+  const [showInfo, setShowInfo] = useState(false);
   
   // Warn user before leaving page (refresh/close/navigate away)
   useEffect(() => {
@@ -194,68 +198,125 @@ const PlayingPage = () => {
 
   return (
     <div className="container flex flex-column flex-center">
-      <div className="content-pane content-pane--wide">
-        <div className="card-header text-center">
-          <h2 className="card-title">{eraConfig?.name}</h2>
-        </div>
+      <div className="page-with-info">
+        <InfoButton onClick={() => setShowInfo(true)} />
         
-        <div className="game-board-container">
-          <CanvasBoard
-            ref={canvasBoardRef}
-            mode="battle"
-            viewMode={viewMode}
-            eraConfig={eraConfig}
-            gameBoard={gameBoard}
-            gameInstance={gameInstance}
-            gameState={gameState}
-            onShotFired={handleShotFired}
-          />
-        </div>
-        
-        <div className="view-mode-controls">
-          <button
-            className={`view-mode-btn ${viewMode === 'fleet' ? 'view-mode-btn--active' : ''}`}
-            onClick={() => setViewMode('fleet')}
-          >
-            FLEET VIEW
-          </button>
-          <button
-            className={`view-mode-btn ${viewMode === 'blended' ? 'view-mode-btn--active' : ''}`}
-            onClick={() => setViewMode('blended')}
-          >
-            BLENDED VIEW
-          </button>
-          <button
-            className={`view-mode-btn ${viewMode === 'attack' ? 'view-mode-btn--active' : ''}`}
-            onClick={() => setViewMode('attack')}
-          >
-            ATTACK VIEW
-          </button>
-        </div>
-        
-        <div className="game-stats">
-          <span className="stat-inline">Your Hits: {playerHits || 0}</span>
-          <span className="stat-inline">Enemy Hits: {opponentHits || 0}</span>
-          {canUseAutoPlay && isGameActive && (
+        <InfoPanel
+          isOpen={showInfo}
+          onClose={() => setShowInfo(false)}
+          title="Battle Instructions"
+        >
+          <h4>Understanding the Board</h4>
+          <p>
+            The battle board shows a combined view of your fleet and attack results. Use the view mode buttons to change what you see.
+          </p>
+
+          <h4>View Modes</h4>
+          <ul>
+            <li><strong>Fleet View:</strong> Shows only your ships and where enemy has attacked you</li>
+            <li><strong>Blended View:</strong> Shows both your ships and your attack results (default)</li>
+            <li><strong>Attack View:</strong> Shows only your attacks on the enemy (hides your ships)</li>
+          </ul>
+
+          <h4>Board Symbols</h4>
+          <ul>
+            <li><strong>Blue ship outlines:</strong> Your fleet positions</li>
+          <li><strong>Blue dots:</strong> Enemy's missed shots (Fleet view)</li>
+            <li><strong>Gray dots:</strong> Your missed shots (Combined/Attack views)</li>
+            <li><strong>Red slash:</strong> Your hits on enemy ships</li>
+            <li><strong>Blue slash:</strong> Enemy hits on your ships</li>
+            <li><strong>Crater icons:</strong> Ship damaged/sunk</li>
+          </ul>
+
+          <h4>How to Attack</h4>
+          <ul>
+            <li>Wait for your turn (check the message console)</li>
+            <li>Click any unattacked cell on the grid</li>
+            <li>Watch for hit/miss feedback and particle effects</li>
+            <li>Repeat until all enemy ships are sunk!</li>
+          </ul>
+
+          <h4>Strategy Tips</h4>
+          <ul>
+            <li>After a hit, target adjacent cells to find the rest of the ship</li>
+            <li>Ships are oriented horizontally or vertically (not diagonal)</li>
+            <li>Terrain affects gameplay - check ship restrictions</li>
+            <li>Track enemy attack patterns to predict their strategy</li>
+          </ul>
+
+          <h4>Game Stats</h4>
+          <p>
+            Below the board, you'll see:
+          </p>
+          <ul>
+            <li><strong>Your Hits:</strong> Number of successful attacks you've made</li>
+            <li><strong>Enemy Hits:</strong> Number of times enemy has hit your ships</li>
+          </ul>
+        </InfoPanel>
+
+        <div className="content-pane content-pane--wide">
+          <div className="card-header text-center">
+            <h2 className="card-title">{eraConfig?.name}</h2>
+          </div>
+          
+          <div className="game-board-container">
+            <CanvasBoard
+              ref={canvasBoardRef}
+              mode="battle"
+              viewMode={viewMode}
+              eraConfig={eraConfig}
+              gameBoard={gameBoard}
+              gameInstance={gameInstance}
+              gameState={gameState}
+              onShotFired={handleShotFired}
+            />
+          </div>
+          
+          <div className="view-mode-controls">
             <button
-              className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
-              onClick={handleAutoPlayToggle}
+              className={`view-mode-btn ${viewMode === 'fleet' ? 'view-mode-btn--active' : ''}`}
+              onClick={() => setViewMode('fleet')}
             >
-              {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ AutoPlay'}
+              FLEET VIEW
             </button>
-          )}
-        </div>
-        
-        <div className="message-consoles">
-          <div className="console-combined">
-            <div className="console-header">Messages</div>
-            <div className="console-content-combined">
-              <div className="ui-message">
-                {uiMessage || 'Preparing for battle...'}
-              </div>
-              <div className="message-divider"></div>
-              <div className="battle-message">
-                {battleMessage || 'Awaiting battle action...'}
+            <button
+              className={`view-mode-btn ${viewMode === 'blended' ? 'view-mode-btn--active' : ''}`}
+              onClick={() => setViewMode('blended')}
+            >
+              BLENDED VIEW
+            </button>
+            <button
+              className={`view-mode-btn ${viewMode === 'attack' ? 'view-mode-btn--active' : ''}`}
+              onClick={() => setViewMode('attack')}
+            >
+              ATTACK VIEW
+            </button>
+          </div>
+          
+          <div className="game-stats">
+            <span className="stat-inline">Your Hits: {playerHits || 0}</span>
+            <span className="stat-inline">Enemy Hits: {opponentHits || 0}</span>
+            {canUseAutoPlay && isGameActive && (
+              <button
+                className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
+                onClick={handleAutoPlayToggle}
+              >
+                {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ AutoPlay'}
+              </button>
+            )}
+          </div>
+          
+          <div className="message-consoles">
+            <div className="console-combined">
+              <div className="console-header">Messages</div>
+              <div className="console-content-combined">
+                <div className="ui-message">
+                  {uiMessage || 'Preparing for battle...'}
+                </div>
+                <div className="message-divider"></div>
+                <div className="battle-message">
+                  {battleMessage || 'Awaiting battle action...'}
+                </div>
               </div>
             </div>
           </div>

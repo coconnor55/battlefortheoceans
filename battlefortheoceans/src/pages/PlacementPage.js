@@ -1,5 +1,7 @@
-// src/pages/PlacementPage.js v0.4.9
+// src/pages/PlacementPage.js v0.4.11
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.11: Positioned InfoButton relative to content pane, kept component reusable
+// v0.4.10: Added InfoButton and InfoPanel with placement instructions
 // v0.4.9: Add beforeunload warning to prevent accidental refresh during placement
 // v0.4.8: Phase 4 Refactor - Simplified autoplace clearing (no more shipOwnership)
 // v0.4.7: Fixed autoplace by clearing shipOwnership map before re-placement
@@ -8,8 +10,10 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
+import InfoButton from '../components/InfoButton';
+import InfoPanel from '../components/InfoPanel';
 
-const version = 'v0.4.9';
+const version = 'v0.4.11';
 
 const PlacementPage = () => {
   const {
@@ -32,6 +36,8 @@ const PlacementPage = () => {
     currentShip,
     isPlacementComplete
   } = useGameState();
+  
+  const [showInfo, setShowInfo] = useState(false);
   
   // Warn user before leaving page (refresh/close/navigate away)
   useEffect(() => {
@@ -249,62 +255,117 @@ const PlacementPage = () => {
 
   return (
     <div className="container flex flex-column flex-center">
-      <div className="content-pane content-pane--wide">
+      <div className="page-with-info">
+        <InfoButton onClick={() => setShowInfo(true)} />
         
-        <div className="card-header">
-          <h2 className="card-title">Place Your Fleet</h2>
-          <p className="card-subtitle">{currentPlayer?.name} vs {selectedOpponent.name}</p>
-        </div>
+        <InfoPanel
+          isOpen={showInfo}
+          onClose={() => setShowInfo(false)}
+          title="Ship Placement"
+        >
+          <h4>Ship Information</h4>
+          <p>
+            Below the board, you'll see your available ships with:
+          </p>
+          <ul>
+            <li><strong>Ship name</strong> and type</li>
+            <li><strong>Size</strong> in grid squares</li>
+            <li><strong>Terrain allowed</strong> (deep, shallow, shoal)</li>
+          </ul>
 
-        <div className="divider"></div>
+          <h4>How to Place Ships</h4>
+          <p>
+            Position your fleet strategically before battle.
+          </p>
+          
+          <p><strong>Manual Placement:</strong></p>
+          <ul>
+            <li>Choose a starting location</li>
+            <li>Tap or click to place the stern</li>
+            <li>Drag in the direction of the bow</li>
+            <li>Release to place the ship</li>
+            <li>A green outline indicates valid placement, red will not be placed</li>
+          </ul>
 
-        <div className="game-board-container">
-          <CanvasBoard
-            mode="placement"
-            eraConfig={eraConfig}
-            gameBoard={board}
-            gameInstance={gameInstance}
-            currentShip={currentShip}
-            onShipPlaced={handleShipPlaced}
-            humanPlayer={humanPlayer}
-          />
-        </div>
+          <p><strong>Quick Placement:</strong></p>
+          <ul>
+            <li>Click <strong>"Autoplace Ships"</strong> to randomly place all remaining ships</li>
+            <li>Computer will automatically position ships according to terrain rules</li>
+            <li>Autoplacement may result in a weaker position</li>
+          </ul>
 
-        <div className="message-consoles">
-          <div className="console-combined">
-            <div className="console-header">Fleet Placement</div>
-            <div className="console-content-combined">
-              <div className="ui-message">
-                {getUIMessage()}
-              </div>
-              <div className="message-divider"></div>
-              <div className="battle-message">
-                {getPlacementMessage()}
+          <h4>Placement Rules</h4>
+          <ul>
+            <li>Ships cannot overlap</li>
+            <li>Ships must fit within the grid</li>
+            <li>Each ship type has terrain restrictions</li>
+            <li>All ships must be placed before battle starts</li>
+          </ul>
+
+          <h4>Ready to Battle?</h4>
+          <p>
+            Once all ships are placed, the <strong>"Start Battle"</strong> button will activate.
+            Review your placement strategy before clicking to begin!
+          </p>
+        </InfoPanel>
+
+        <div className="content-pane content-pane--wide">
+          
+          <div className="card-header">
+            <h2 className="card-title">Place Your Fleet</h2>
+            <p className="card-subtitle">{currentPlayer?.name} vs {selectedOpponent.name}</p>
+          </div>
+
+          <div className="divider"></div>
+
+          <div className="game-board-container">
+            <CanvasBoard
+              mode="placement"
+              eraConfig={eraConfig}
+              gameBoard={board}
+              gameInstance={gameInstance}
+              currentShip={currentShip}
+              onShipPlaced={handleShipPlaced}
+              humanPlayer={humanPlayer}
+            />
+          </div>
+
+          <div className="message-consoles">
+            <div className="console-combined">
+              <div className="console-header">Fleet Placement</div>
+              <div className="console-content-combined">
+                <div className="ui-message">
+                  {getUIMessage()}
+                </div>
+                <div className="message-divider"></div>
+                <div className="battle-message">
+                  {getPlacementMessage()}
+                </div>
               </div>
             </div>
           </div>
+
+          <div className="divider"></div>
+
+          <div className="placement-actions">
+            <button
+              className="btn btn--secondary btn--lg"
+              onClick={handleAutoPlace}
+              disabled={isAutoPlacing}
+            >
+              {isAutoPlacing ? 'Placing Ships...' : 'Autoplace Ships'}
+            </button>
+
+            <button
+              className={`btn btn--primary btn--lg ${isPlacementComplete && !isAutoPlacing ? 'btn--pulse' : ''}`}
+              onClick={handleStartBattle}
+              disabled={!isPlacementComplete || isAutoPlacing}
+            >
+              Start Battle
+            </button>
+          </div>
+
         </div>
-
-        <div className="divider"></div>
-
-        <div className="placement-actions">
-          <button
-            className="btn btn--secondary btn--lg"
-            onClick={handleAutoPlace}
-            disabled={isAutoPlacing}
-          >
-            {isAutoPlacing ? 'Placing Ships...' : 'Autoplace Ships'}
-          </button>
-
-          <button
-            className={`btn btn--primary btn--lg ${isPlacementComplete && !isAutoPlacing ? 'btn--pulse' : ''}`}
-            onClick={handleStartBattle}
-            disabled={!isPlacementComplete || isAutoPlacing}
-          >
-            Start Battle
-          </button>
-        </div>
-
       </div>
     </div>
   );
