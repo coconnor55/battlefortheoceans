@@ -1,25 +1,17 @@
-// src/classes/AiPlayer.js v0.4.9
+// src/classes/AiPlayer.js v0.5.0
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.4.9: CRITICAL FIX - Updated to match Game.js 4-state attack results
-//         'hit' = live cells remain
-//         'destroyed' = just killed last live cell
-//         'all_destroyed' = wasted shot on dead cells (targeting bug)
-//         'miss' = water/land
-//         'invalid' = out of bounds
-// v0.4.7: Removed memory.misses - redundant with Player.dontShootMap
-//         Player stats (this.hits, this.misses) used for scoring only
-//         dontShootMap used for targeting logic only
-// v0.4.6: Fixed this.missedShots reference (should be this.memory.misses)
-// v0.4.5: Updated for 3-state attack results (hit/all_sunk/miss)
-// v0.4.4: CRITICAL FIX - Handle alreadyDestroyed ships correctly
-// v0.4.3: AI added its own hunt strategy
-// v0.4.2: Fixed aggressive strategy - x4 radiating pattern, then x2 backfill
-// v0.4.1: Player-owned targeting - uses canShootAt()
-// v0.4.0: Simplified strategy-based AI - skill levels removed
+// v0.5.0: MAJOR OVERHAUL - Fixed all strategies and hunt modes
+//         - Novice (0.7x): Random only, no hunt
+//         - Methodical Random (1.0x): Checkerboard + basic hunt (reverse on line)
+//         - Methodical Optimal (1.4x): Row-offset 4x4 grid + perpendicular hunt
+//         - Aggressive (1.6x): Radiating rings + recursive perpendicular hunt
+//         - AI-Hunt (1.8x): Probability heat map + advanced recursive hunt
+//         Fixed hunt mode: proper reversal, perpendicular searches, recursion
+// v0.4.9: Updated to match Game.js 4-state attack results
 
 import Player from './Player.js';
 
-const version = "v0.4.9";
+const version = "v0.5.1";
 
 export class AiPlayer extends Player {
   constructor(id, name, strategy = 'random', difficulty = 1.0) {
@@ -27,18 +19,20 @@ export class AiPlayer extends Player {
     
     this.strategy = strategy;
     
-    // AI memory system (targeting intelligence only)
-    // Shot history tracked in Player.dontShootMap
-    // Hit/miss stats tracked in Player.hits/misses
+    // AI memory system
     this.memory = {
       hits: new Map(),          // Hit locations for hunt mode
       targetQueue: [],          // Queued targets from hunt mode
       huntDirection: null,      // 'horizontal' or 'vertical'
       huntLine: null,           // { row: X } or { col: Y }
       huntHits: [],            // Hits in current hunt
-      checkerboard: new Set(),  // For methodical_random strategy
-      aggressivePhase: 'x4',    // For aggressive strategy
-      aggressiveRings: []       // For aggressive strategy
+      huntReversed: false,      // Has hunt reversed direction?
+      perpendicularDone: false, // Has perpendicular search been done?
+      checkerboard: new Set(),  // For methodical strategies
+      phase: 'primary',         // 'primary' or 'secondary' for multi-phase strategies
+      aggressiveRings: [],      // Ring distances for aggressive strategy
+      heatMap: null,            // Probability map for ai-hunt
+      recursiveHunt: []         // Stack for recursive hunt mode
     };
     
     console.log(`AiPlayer ${name} created with strategy: ${strategy}, difficulty: ${difficulty}`);
@@ -65,9 +59,6 @@ export class AiPlayer extends Player {
     const rows = gameInstance.eraConfig.rows;
     const cols = gameInstance.eraConfig.cols;
     
-    console.log(`[AI DEBUG] Board dimensions: ${rows}x${cols}`);
-    console.log(`[AI DEBUG] Current turn: ${gameInstance.currentTurn}`);
-    
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         if (gameInstance.board?.isValidCoordinate(row, col) && this.canShootAt(row, col)) {
@@ -76,12 +67,11 @@ export class AiPlayer extends Player {
       }
     }
     
-    console.log(`[AI DEBUG] Available targets found: ${targets.length}`);
     return targets;
   }
 
   selectTarget(availableTargets, gameInstance) {
-    // Hunt mode for strategies with it (not random)
+    // Hunt mode for all strategies except random/novice
     if (this.strategy !== 'random' && this.hasActiveHunt()) {
       const huntTarget = this.continueHunt(availableTargets, gameInstance);
       if (huntTarget) {
@@ -117,6 +107,7 @@ export class AiPlayer extends Player {
   }
 
   selectMethodicalRandom(availableTargets, gameInstance) {
+    // Initialize checkerboard on first use
     if (this.memory.checkerboard.size === 0) {
       for (let row = 0; row < gameInstance.eraConfig.rows; row++) {
         for (let col = 0; col < gameInstance.eraConfig.cols; col++) {
@@ -135,18 +126,32 @@ export class AiPlayer extends Player {
       return checkerboardTargets[Math.floor(Math.random() * checkerboardTargets.length)];
     }
 
+    // Fallback to random if checkerboard exhausted
     return this.selectRandom(availableTargets);
   }
 
   selectMethodicalOptimal(availableTargets, gameInstance) {
-    const phase1Targets = availableTargets.filter(target =>
-      (target.row % 4 === 0) && (target.col % 4 === 0)
-    );
-    
-    if (phase1Targets.length > 0) {
-      return phase1Targets[Math.floor(Math.random() * phase1Targets.length)];
+    // Phase 1: Row-offset 4x4 grid pattern
+    // Row 0: cols 0,4,8,12...
+    // Row 1: cols 1,5,9,13...
+    // Row 2: cols 2,6,10,14...
+    // Row 3: cols 3,7,11,15...
+    if (this.memory.phase === 'primary') {
+      const phase1Targets = availableTargets.filter(target => {
+        const offset = target.row % 4;
+        return (target.col % 4 === offset);
+      });
+      
+      if (phase1Targets.length > 0) {
+        return phase1Targets[Math.floor(Math.random() * phase1Targets.length)];
+      }
+
+      // Phase 1 complete, switch to phase 2
+      console.log(`AI ${this.name} (methodical_optimal): Switching to secondary phase (checkerboard)`);
+      this.memory.phase = 'secondary';
     }
 
+    // Phase 2: Remaining checkerboard pattern
     return this.selectMethodicalRandom(availableTargets, gameInstance);
   }
 
@@ -154,48 +159,144 @@ export class AiPlayer extends Player {
     const centerRow = Math.floor(gameInstance.eraConfig.rows / 2);
     const centerCol = Math.floor(gameInstance.eraConfig.cols / 2);
 
-    if (this.memory.aggressivePhase === 'x4') {
-      const x4Targets = availableTargets.filter(target =>
-        (target.row % 4 === 0) && (target.col % 4 === 0)
-      );
+    // Phase 1: Row-offset 4x4 grid, radiating from center
+    if (this.memory.phase === 'primary') {
+      const phase1Targets = availableTargets.filter(target => {
+        const offset = target.row % 4;
+        return (target.col % 4 === offset);
+      }).map(t => ({
+        ...t,
+        distance: Math.abs(t.row - centerRow) + Math.abs(t.col - centerCol)
+      })).sort((a, b) => a.distance - b.distance);
 
-      if (x4Targets.length > 0) {
-        const targetsByDistance = x4Targets.map(t => ({
-          ...t,
-          distance: Math.abs(t.row - centerRow) + Math.abs(t.col - centerCol)
-        })).sort((a, b) => a.distance - b.distance);
-
-        const currentDistance = targetsByDistance[0].distance;
-        const currentRing = targetsByDistance.filter(t => t.distance === currentDistance);
-        
-        console.log(`AI ${this.name} (aggressive): x4 phase, ring distance ${currentDistance}, ${currentRing.length} targets`);
-        return currentRing[Math.floor(Math.random() * currentRing.length)];
+      if (phase1Targets.length > 0) {
+        // Pick from closest ring
+        const minDistance = phase1Targets[0].distance;
+        const closestRing = phase1Targets.filter(t => t.distance === minDistance);
+        return closestRing[Math.floor(Math.random() * closestRing.length)];
       }
 
-      console.log(`AI ${this.name} (aggressive): Switching to x2 backfill phase`);
-      this.memory.aggressivePhase = 'x2';
+      // Phase 1 complete, switch to phase 2
+      console.log(`AI ${this.name} (aggressive): Switching to secondary phase (checkerboard)`);
+      this.memory.phase = 'secondary';
     }
 
-    if (this.memory.aggressivePhase === 'x2') {
-      const x2Targets = availableTargets.filter(target =>
-        (target.row + target.col) % 2 === 0
-      );
+    // Phase 2: Random checkerboard
+    return this.selectMethodicalRandom(availableTargets, gameInstance);
+  }
 
-      if (x2Targets.length > 0) {
-        console.log(`AI ${this.name} (aggressive): x2 phase, ${x2Targets.length} targets`);
-        return x2Targets[Math.floor(Math.random() * x2Targets.length)];
+  selectAIHunt(availableTargets, gameInstance) {
+    // Initialize or update heat map
+    if (!this.memory.heatMap) {
+      this.memory.heatMap = this.createHeatMap(gameInstance);
+    } else {
+      this.updateHeatMap(gameInstance);
+    }
+
+    // Find highest probability targets
+    let maxProb = -1;
+    const bestTargets = [];
+
+    for (const target of availableTargets) {
+      const prob = this.memory.heatMap[target.row]?.[target.col] || 0;
+      if (prob > maxProb) {
+        maxProb = prob;
+        bestTargets.length = 0;
+        bestTargets.push(target);
+      } else if (prob === maxProb) {
+        bestTargets.push(target);
       }
-
-      console.log(`AI ${this.name} (aggressive): Switching to cleanup phase`);
-      this.memory.aggressivePhase = 'cleanup';
     }
 
-    console.log(`AI ${this.name} (aggressive): Cleanup phase`);
-    return this.selectRandom(availableTargets);
+    if (bestTargets.length > 0) {
+      return bestTargets[Math.floor(Math.random() * bestTargets.length)];
+    }
+
+    // Fallback to checkerboard if heat map fails
+    return this.selectMethodicalRandom(availableTargets, gameInstance);
+  }
+
+  createHeatMap(gameInstance) {
+    const rows = gameInstance.eraConfig.rows;
+    const cols = gameInstance.eraConfig.cols;
+    const heatMap = Array(rows).fill(0).map(() => Array(cols).fill(0));
+
+    // Get remaining ship sizes from opponent
+    const opponent = gameInstance.players.find(p => p.id !== this.id);
+    if (!opponent) return heatMap;
+
+    const remainingShips = opponent.ships.filter(s => !s.isSunk());
+    const shipSizes = remainingShips.map(s => s.length);
+
+    // Calculate probability for each cell based on possible ship placements
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        if (!this.canShootAt(row, col)) continue;
+
+        let probability = 0;
+
+        // Check horizontal placements
+        for (const size of shipSizes) {
+          for (let startCol = Math.max(0, col - size + 1); startCol <= col && startCol + size <= cols; startCol++) {
+            if (this.canPlaceShipSegment(row, startCol, size, 'horizontal', gameInstance)) {
+              probability += 1;
+            }
+          }
+        }
+
+        // Check vertical placements
+        for (const size of shipSizes) {
+          for (let startRow = Math.max(0, row - size + 1); startRow <= row && startRow + size <= rows; startRow++) {
+            if (this.canPlaceShipSegment(startRow, col, size, 'vertical', gameInstance)) {
+              probability += 1;
+            }
+          }
+        }
+
+        heatMap[row][col] = probability;
+      }
+    }
+
+    return heatMap;
+  }
+
+  canPlaceShipSegment(startRow, startCol, size, orientation, gameInstance) {
+    for (let i = 0; i < size; i++) {
+      const row = orientation === 'vertical' ? startRow + i : startRow;
+      const col = orientation === 'horizontal' ? startCol + i : startCol;
+      
+      if (!gameInstance.board?.isValidCoordinate(row, col) || !this.canShootAt(row, col)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  updateHeatMap(gameInstance) {
+    // Boost probabilities around known hits
+    for (const [key, hitData] of this.memory.hits) {
+      const [row, col] = key.split(',').map(Number);
+      
+      // Boost adjacent cells
+      const adjacent = [
+        { row: row - 1, col },
+        { row: row + 1, col },
+        { row, col: col - 1 },
+        { row, col: col + 1 }
+      ];
+
+      for (const adj of adjacent) {
+        if (this.memory.heatMap[adj.row]?.[adj.col] !== undefined) {
+          this.memory.heatMap[adj.row][adj.col] *= 2;
+        }
+      }
+    }
   }
 
   hasActiveHunt() {
-    return this.memory.huntHits.length > 0 || this.memory.targetQueue.length > 0;
+    return this.memory.huntHits.length > 0 ||
+           this.memory.targetQueue.length > 0 ||
+           this.memory.recursiveHunt.length > 0;
   }
 
   continueHunt(availableTargets, gameInstance) {
@@ -203,18 +304,40 @@ export class AiPlayer extends Player {
       availableTargets.map(t => `${t.row},${t.col}`)
     );
 
+    // Detect direction after 2+ hits
     if (this.memory.huntHits.length >= 2 && !this.memory.huntDirection) {
       this.determineHuntDirection();
     }
 
+    // Follow directional hunt
     if (this.memory.huntDirection && this.memory.huntLine) {
       const directionalTarget = this.getDirectionalTarget(validTargets, gameInstance);
       if (directionalTarget) {
-        console.log(`AI ${this.name}: Following ${this.memory.huntDirection} direction`);
+        console.log(`AI ${this.name}: Following ${this.memory.huntDirection} direction${this.memory.huntReversed ? ' (reversed)' : ''}`);
         return directionalTarget;
+      } else {
+        // Hit a dead end
+        if (!this.memory.huntReversed) {
+          // First dead end - reverse direction
+          this.memory.huntReversed = true;
+          console.log(`AI ${this.name}: Reversing hunt direction`);
+          const reversedTarget = this.getDirectionalTarget(validTargets, gameInstance);
+          if (reversedTarget) {
+            return reversedTarget;
+          }
+          // Reversed direction also hit dead end immediately - fall through to perpendicular
+        }
+        
+        // Both directions exhausted, search perpendicular (for methodical_optimal, aggressive, ai-hunt)
+        if (!this.memory.perpendicularDone &&
+            (this.strategy === 'methodical_optimal' || this.strategy === 'aggressive' || this.strategy === 'ai-hunt')) {
+          this.searchPerpendicular(gameInstance);
+          this.memory.perpendicularDone = true;
+        }
       }
     }
 
+    // Process queued targets
     this.memory.targetQueue = this.memory.targetQueue.filter(target =>
       validTargets.has(`${target.row},${target.col}`)
     );
@@ -222,7 +345,21 @@ export class AiPlayer extends Player {
     if (this.memory.targetQueue.length > 0) {
       return this.memory.targetQueue.shift();
     }
+
+    // Check recursive hunt stack (for aggressive/ai-hunt)
+    if (this.memory.recursiveHunt.length > 0 &&
+        (this.strategy === 'aggressive' || this.strategy === 'ai-hunt')) {
+      const recursiveState = this.memory.recursiveHunt.pop();
+      this.memory.huntHits = recursiveState.huntHits;
+      this.memory.huntDirection = recursiveState.huntDirection;
+      this.memory.huntLine = recursiveState.huntLine;
+      this.memory.huntReversed = recursiveState.huntReversed;
+      console.log(`AI ${this.name}: Resuming recursive hunt`);
+      return this.continueHunt(availableTargets, gameInstance);
+    }
     
+    // No valid hunt targets, reset
+    this.resetHuntMode();
     return null;
   }
 
@@ -247,16 +384,6 @@ export class AiPlayer extends Player {
       this.memory.huntLine = { col: first.col };
       console.log(`AI ${this.name}: Detected vertical ship at col ${first.col}`);
     }
-
-    if (this.memory.huntDirection) {
-      this.memory.targetQueue = this.memory.targetQueue.filter(target => {
-        if (this.memory.huntDirection === 'horizontal') {
-          return target.row === this.memory.huntLine.row;
-        } else {
-          return target.col === this.memory.huntLine.col;
-        }
-      });
-    }
   }
 
   getDirectionalTarget(validTargets, gameInstance) {
@@ -273,53 +400,91 @@ export class AiPlayer extends Player {
     const firstHit = hits[0];
     const lastHit = hits[hits.length - 1];
 
-    const candidates = [];
-
     if (this.memory.huntDirection === 'horizontal') {
-      const leftTarget = { row: this.memory.huntLine.row, col: firstHit.col - 1 };
-      if (validTargets.has(`${leftTarget.row},${leftTarget.col}`)) {
-        candidates.push(leftTarget);
-      }
-      
-      const rightTarget = { row: this.memory.huntLine.row, col: lastHit.col + 1 };
-      if (validTargets.has(`${rightTarget.row},${rightTarget.col}`)) {
-        candidates.push(rightTarget);
+      // If not reversed, extend right; if reversed, extend left
+      if (!this.memory.huntReversed) {
+        const target = { row: this.memory.huntLine.row, col: lastHit.col + 1 };
+        if (validTargets.has(`${target.row},${target.col}`)) {
+          return target;
+        }
+      } else {
+        const target = { row: this.memory.huntLine.row, col: firstHit.col - 1 };
+        if (validTargets.has(`${target.row},${target.col}`)) {
+          return target;
+        }
       }
     } else {
-      const upTarget = { row: firstHit.row - 1, col: this.memory.huntLine.col };
-      if (validTargets.has(`${upTarget.row},${upTarget.col}`)) {
-        candidates.push(upTarget);
-      }
-      
-      const downTarget = { row: lastHit.row + 1, col: this.memory.huntLine.col };
-      if (validTargets.has(`${downTarget.row},${downTarget.col}`)) {
-        candidates.push(downTarget);
+      // If not reversed, extend down; if reversed, extend up
+      if (!this.memory.huntReversed) {
+        const target = { row: lastHit.row + 1, col: this.memory.huntLine.col };
+        if (validTargets.has(`${target.row},${target.col}`)) {
+          return target;
+        }
+      } else {
+        const target = { row: firstHit.row - 1, col: this.memory.huntLine.col };
+        if (validTargets.has(`${target.row},${target.col}`)) {
+          return target;
+        }
       }
     }
 
-    return candidates.length > 0 ? candidates[0] : null;
+    return null;
   }
 
-  /**
-   * v0.4.9: Updated to match Game.js 4-state attack results
-   * Process attack result and update AI memory
-   *
-   * Game.receiveAttack() returns one of 5 states:
-   * - 'hit': Live ships at cell, continue hunting
-   * - 'destroyed': Just killed last live cell (all ships now dead here)
-   * - 'all_destroyed': Wasted shot on already-dead cells (shouldn't happen)
-   * - 'miss': Water/land miss
-   * - 'invalid': Out of bounds (shouldn't happen)
-   *
-   * @param {Object} target - {row, col} coordinates attacked
-   * @param {Object} result - Attack result from Game.receiveAttack()
-   * @param {Game} gameInstance - Game instance reference
-   */
+  searchPerpendicular(gameInstance) {
+    if (this.memory.huntHits.length === 0) return;
+
+    const perpendicularTargets = [];
+
+    for (const hit of this.memory.huntHits) {
+      const candidates = [];
+      
+      if (this.memory.huntDirection === 'horizontal') {
+        // Search perpendicular (vertical)
+        candidates.push({ row: hit.row - 1, col: hit.col });
+        candidates.push({ row: hit.row + 1, col: hit.col });
+      } else {
+        // Search perpendicular (horizontal)
+        candidates.push({ row: hit.row, col: hit.col - 1 });
+        candidates.push({ row: hit.row, col: hit.col + 1 });
+      }
+
+      for (const candidate of candidates) {
+        if (gameInstance.board?.isValidCoordinate(candidate.row, candidate.col) &&
+            this.canShootAt(candidate.row, candidate.col)) {
+          
+          // For aggressive strategy, add every other perpendicular cell
+          if (this.strategy === 'aggressive' || this.strategy === 'ai-hunt') {
+            perpendicularTargets.push(candidate);
+          }
+          // For methodical_optimal, add one random perpendicular
+          else if (this.strategy === 'methodical_optimal' && Math.random() < 0.5) {
+            perpendicularTargets.push(candidate);
+            break; // Only one random perpendicular
+          }
+        }
+      }
+    }
+
+    // Add to queue
+    for (const target of perpendicularTargets) {
+      const alreadyQueued = this.memory.targetQueue.some(t =>
+        t.row === target.row && t.col === target.col
+      );
+      
+      if (!alreadyQueued) {
+        this.memory.targetQueue.push(target);
+      }
+    }
+
+    console.log(`AI ${this.name} (${this.strategy}): Added ${perpendicularTargets.length} perpendicular targets`);
+  }
+
   processAttackResult(target, result, gameInstance) {
     const key = `${target.row},${target.col}`;
     
-    if (result.result === 'hit') {
-      // Live ships at cell - continue hunting
+    if (result.result === 'hit' || result.result === 'destroyed') {
+      // Record the hit (both 'hit' and 'destroyed' are successful hits)
       const shipInfo = result.ships && result.ships.length > 0 ? result.ships[0] : null;
       this.memory.hits.set(key, {
         shipId: shipInfo?.ship?.id,
@@ -328,57 +493,69 @@ export class AiPlayer extends Player {
       });
 
       if (this.strategy !== 'random') {
-        this.memory.huntHits.push({ row: target.row, col: target.col });
+        // Check if any ships fully sank using the ship's isSunk() method
+        const anySunk = result.ships && result.ships.some(s => s.ship.isSunk());
         
-        // methodical_optimal and aggressive: Add 4-adjacent on first hit
-        if ((this.strategy === 'methodical_optimal' || this.strategy === 'aggressive')
-            && this.memory.huntHits.length === 1) {
-          this.addAdjacentTargets(target.row, target.col, gameInstance);
-          console.log(`AI ${this.name} (${this.strategy}): First hit! Added adjacent targets`);
-        }
-        // methodical_random: Only directional tracking
-        else if (this.memory.huntHits.length >= 2) {
-          this.determineHuntDirection();
-        }
-      }
-      
-      console.log(`AI ${this.name}: HIT at ${target.row},${target.col} - live ships remain`);
-    }
-    else if (result.result === 'destroyed') {
-      // Just killed last live cell at this location
-      // dontShootMap already updated by Game.js via recordDontShoot()
-      console.log(`AI ${this.name}: DESTROYED at ${target.row},${target.col} - all ships now dead`);
-      
-      // If we were hunting, check if ship(s) just sank
-      if (this.strategy !== 'random' && result.ships && result.ships.length > 0) {
-        const anySunk = result.ships.some(s => s.shipSunk);
         if (anySunk) {
-          // aggressive: Search for clustered ships
-          if (this.strategy === 'aggressive') {
-            this.searchForClusteredShips(gameInstance);
+          // Ship fully sunk - reset hunt mode
+          console.log(`AI ${this.name}: Ship sunk! Resetting hunt mode`);
+          this.resetHuntMode();
+        } else {
+          // Ship hit but not sunk - activate/continue hunt mode
+          // Check if this is a perpendicular hit (for recursive hunting)
+          const isPerpendicularHit = this.memory.huntDirection &&
+            this.isPerpendicularToCurrentHunt(target);
+
+          if (isPerpendicularHit &&
+              (this.strategy === 'aggressive' || this.strategy === 'ai-hunt')) {
+            // Save current hunt state and start recursive hunt
+            console.log(`AI ${this.name}: Perpendicular hit! Starting recursive hunt`);
+            this.memory.recursiveHunt.push({
+              huntHits: [...this.memory.huntHits],
+              huntDirection: this.memory.huntDirection,
+              huntLine: this.memory.huntLine,
+              huntReversed: this.memory.huntReversed
+            });
+            
+            // Start new hunt from perpendicular hit
+            this.memory.huntHits = [{ row: target.row, col: target.col }];
+            this.memory.huntDirection = null;
+            this.memory.huntLine = null;
+            this.memory.huntReversed = false;
+            this.memory.perpendicularDone = false;
+          } else {
+            // Normal hunt continuation or new hunt
+            this.memory.huntHits.push({ row: target.row, col: target.col });
           }
           
-          this.resetHuntMode();
-          console.log(`AI ${this.name} (${this.strategy}): Ship(s) sunk! Hunt mode reset`);
+          // Add 4-adjacent on first hit of current hunt
+          if (this.memory.huntHits.length === 1) {
+            this.addAdjacentTargets(target.row, target.col, gameInstance);
+            console.log(`AI ${this.name}: First hit! Added 4-adjacent targets`);
+          }
         }
       }
-    }
-    else if (result.result === 'all_destroyed') {
-      // Wasted shot on already-dead cells (shouldn't happen with proper targeting)
-      console.error(`AI ${this.name}: ALL_DESTROYED at ${target.row},${target.col} - targeting bug (shot dead cells)`);
-      console.error(`AI ${this.name}: canShootAt should have prevented this!`);
-      // Don't update memory - this is an error condition
+      
+      console.log(`AI ${this.name}: ${result.result.toUpperCase()} at ${target.row},${target.col}`);
     }
     else if (result.result === 'miss') {
-      // True water/land miss
-      // dontShootMap already updated by Game.js via recordDontShoot()
       console.log(`AI ${this.name}: MISS at ${target.row},${target.col}`);
     }
-    else if (result.result === 'invalid') {
-      // Out of bounds (shouldn't happen with proper coordinate validation)
-      console.error(`AI ${this.name}: INVALID coordinate ${target.row},${target.col} - targeting bug`);
-      console.error(`AI ${this.name}: getAvailableTargets should have prevented this!`);
-      // Don't update memory - this is an error condition
+  }
+
+  isPerpendicularToCurrentHunt(target) {
+    if (!this.memory.huntDirection || !this.memory.huntLine) return false;
+
+    if (this.memory.huntDirection === 'horizontal') {
+      // Check if target is on a different row but same col as a hunt hit
+      return this.memory.huntHits.some(hit =>
+        hit.col === target.col && hit.row !== target.row
+      );
+    } else {
+      // Check if target is on a different col but same row as a hunt hit
+      return this.memory.huntHits.some(hit =>
+        hit.row === target.row && hit.col !== target.col
+      );
     }
   }
 
@@ -390,8 +567,19 @@ export class AiPlayer extends Player {
       { row: row, col: col + 1 }
     ];
 
+    // For ai-hunt, also add diagonals
+    if (this.strategy === 'ai-hunt') {
+      adjacent.push(
+        { row: row - 1, col: col - 1 },
+        { row: row - 1, col: col + 1 },
+        { row: row + 1, col: col - 1 },
+        { row: row + 1, col: col + 1 }
+      );
+    }
+
     for (const target of adjacent) {
-      if (gameInstance.board?.isValidCoordinate(target.row, target.col) && this.canShootAt(target.row, target.col)) {
+      if (gameInstance.board?.isValidCoordinate(target.row, target.col) &&
+          this.canShootAt(target.row, target.col)) {
         const key = `${target.row},${target.col}`;
         const alreadyQueued = this.memory.targetQueue.some(t =>
           t.row === target.row && t.col === target.col
@@ -406,67 +594,14 @@ export class AiPlayer extends Player {
     console.log(`AI ${this.name}: Hunt queue now has ${this.memory.targetQueue.length} targets`);
   }
 
-  searchForClusteredShips(gameInstance) {
-    const huntArea = new Set();
-    
-    const hits = [...this.memory.huntHits].sort((a, b) => {
-      if (a.row !== b.row) return a.row - b.row;
-      return a.col - b.col;
-    });
-
-    if (hits.length === 0) return;
-
-    const firstHit = hits[0];
-    const lastHit = hits[hits.length - 1];
-    const isHorizontal = firstHit.row === lastHit.row;
-
-    if (isHorizontal) {
-      huntArea.add(`${firstHit.row},${firstHit.col - 1}`);
-      huntArea.add(`${lastHit.row},${lastHit.col + 1}`);
-      
-      for (const hit of hits) {
-        if (Math.random() < 0.4) {
-          huntArea.add(`${hit.row - 1},${hit.col}`);
-          huntArea.add(`${hit.row + 1},${hit.col}`);
-        }
-      }
-    } else {
-      huntArea.add(`${firstHit.row - 1},${firstHit.col}`);
-      huntArea.add(`${lastHit.row + 1},${lastHit.col}`);
-      
-      for (const hit of hits) {
-        if (Math.random() < 0.4) {
-          huntArea.add(`${hit.row},${hit.col - 1}`);
-          huntArea.add(`${hit.row},${hit.col + 1}`);
-        }
-      }
-    }
-
-    for (const key of huntArea) {
-      const [row, col] = key.split(',').map(Number);
-      
-      if (gameInstance.board?.isValidCoordinate(row, col)
-          && this.canShootAt(row, col)
-          && !this.memory.hits.has(key)) {
-        
-        const alreadyQueued = this.memory.targetQueue.some(t =>
-          t.row === row && t.col === col
-        );
-        
-        if (!alreadyQueued) {
-          this.memory.targetQueue.push({ row, col });
-        }
-      }
-    }
-
-    console.log(`AI ${this.name} (aggressive): Searching for clustered ships - ${this.memory.targetQueue.length} targets queued`);
-  }
-
   resetHuntMode() {
     this.memory.targetQueue = [];
     this.memory.huntDirection = null;
     this.memory.huntLine = null;
     this.memory.huntHits = [];
+    this.memory.huntReversed = false;
+    this.memory.perpendicularDone = false;
+    this.memory.recursiveHunt = [];
     console.log(`AI ${this.name}: Hunt mode reset`);
   }
 
@@ -478,9 +613,13 @@ export class AiPlayer extends Player {
       huntDirection: null,
       huntLine: null,
       huntHits: [],
+      huntReversed: false,
+      perpendicularDone: false,
       checkerboard: new Set(),
-      aggressivePhase: 'x4',
-      aggressiveRings: []
+      phase: 'primary',
+      aggressiveRings: [],
+      heatMap: null,
+      recursiveHunt: []
     };
     console.log(`AI ${this.name} memory reset for new game`);
   }
@@ -490,11 +629,12 @@ export class AiPlayer extends Player {
       strategy: this.strategy,
       difficulty: this.difficulty,
       hits: this.memory.hits.size,
-      misses: this.misses, // Use Player stat (updated by Game.js)
+      misses: this.misses,
       activeTargets: this.memory.targetQueue.length,
       huntDirection: this.memory.huntDirection,
       huntHits: this.memory.huntHits.length,
-      aggressivePhase: this.memory.aggressivePhase
+      phase: this.memory.phase,
+      recursiveDepth: this.memory.recursiveHunt.length
     };
   }
 }

@@ -1,11 +1,14 @@
-// src/pages/SelectEraPage.js v0.4.1
+// src/pages/SelectEraPage.js v0.4.2
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.2: Added InfoButton and InfoPanel with era selection instructions
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 import PurchasePage from './PurchasePage';
+import InfoButton from '../components/InfoButton';
+import InfoPanel from '../components/InfoPanel';
 
-const version = 'v0.4.1';
+const version = 'v0.4.2';
 
 const SelectEraPage = () => {
   const {
@@ -29,6 +32,7 @@ const SelectEraPage = () => {
   
   // Local UI state for browsing - not committed to game logic until button click
   const [selectedEra, setSelectedEra] = useState(null);
+  const [showInfo, setShowInfo] = useState(false);
   
   // Data fetching state
   const [eras, setEras] = useState([]);
@@ -231,61 +235,106 @@ const SelectEraPage = () => {
 
   return (
     <div className="container flex flex-column flex-center">
-      <div className="content-pane content-pane--wide">
-        <div className="card-header">
-          <h2 className="card-title">Select Battle Era</h2>
-          <p className="card-subtitle">Choose your naval battlefield</p>
-        </div>
+      <div className="page-with-info">
+        <InfoButton onClick={() => setShowInfo(true)} />
+        
+        <InfoPanel
+          isOpen={showInfo}
+          onClose={() => setShowInfo(false)}
+          title="Era Selection"
+        >
+          <h4>What is an Era?</h4>
+          <p>
+            Each era represents a different naval combat scenario with unique characteristics:
+          </p>
+          <ul>
+            <li><strong>Grid Size:</strong> Larger grids = more strategic positioning</li>
+            <li><strong>Ship Types:</strong> Different eras have different fleets</li>
+            <li><strong>Terrain:</strong> Water depth, islands, and obstacles vary by era</li>
+            <li><strong>Game Rules:</strong> Some eras have special mechanics</li>
+          </ul>
 
-        {/* Era list using new shared classes */}
-        <div className="era-list scrollable-list">
-          {eras.map((era) => {
-            const badgeType = getEraBadge(era);
-            const isAccessible = badgeType === 'free' || badgeType === 'owned';
-            
-            return (
-              <div
-                key={era.id}
-                className={`selectable-item era-item ${selectedEra?.id === era.id ? 'selectable-item--selected' : ''} ${!isAccessible ? 'selectable-item--locked' : ''}`}
-                onClick={() => handleEraSelect(era)}
-              >
-                <div className="item-header">
-                  <span className="item-name">{era.name}</span>
-                  {badgeType === 'free' && <span className="badge badge--success">FREE</span>}
-                  {badgeType === 'owned' && <span className="badge badge--success">✓</span>}
-                  {badgeType === 'buy' && <span className="badge badge--primary">BUY</span>}
+          <h4>Era Badges</h4>
+          <ul>
+            <li><strong className="badge badge--success">FREE</strong> - Play immediately, no purchase required</li>
+            <li><strong className="badge badge--success">✓</strong> - You own this era</li>
+            <li><strong className="badge badge--primary">BUY</strong> - Premium era, purchase to unlock</li>
+          </ul>
+
+          <h4>How to Select</h4>
+          <ol>
+            <li>Browse the available eras</li>
+            <li>Click on an era to select it (highlights in blue)</li>
+            <li>Review the grid size and player count</li>
+            <li>Click <strong>"Play [Era Name]"</strong> to continue</li>
+          </ol>
+
+          <h4>Premium Eras</h4>
+          <p>
+            Clicking a locked era (marked <strong className="badge badge--primary">BUY</strong>) will show purchase options:
+          </p>
+          <ul>
+            <li><strong>One-time purchase:</strong> Unlock forever with credit card</li>
+            <li><strong>Voucher code:</strong> Redeem a promotional code</li>
+          </ul>
+
+          <h4>Guest Players</h4>
+          <p>
+            If you're playing as a guest, only free eras are available. Create an account to access premium content!
+          </p>
+        </InfoPanel>
+
+        <div className="content-pane content-pane--wide">
+          <div className="card-header">
+            <h2 className="card-title">Select Battle Era</h2>
+            <p className="card-subtitle">Choose your naval battlefield</p>
+          </div>
+
+          {/* Era list using new shared classes */}
+          <div className="era-list scrollable-list">
+            {eras.map((era) => {
+              const badgeType = getEraBadge(era);
+              const isAccessible = badgeType === 'free' || badgeType === 'owned';
+              
+              return (
+                <div
+                  key={era.id}
+                  className={`selectable-item era-item ${selectedEra?.id === era.id ? 'selectable-item--selected' : ''} ${!isAccessible ? 'selectable-item--locked' : ''}`}
+                  onClick={() => handleEraSelect(era)}
+                >
+                  <div className="item-header">
+                    <span className="item-name">{era.name}</span>
+                    {badgeType === 'free' && <span className="badge badge--success">FREE</span>}
+                    {badgeType === 'owned' && <span className="badge badge--success">✓</span>}
+                    {badgeType === 'buy' && <span className="badge badge--primary">BUY</span>}
+                  </div>
+                  <div className="item-description">{era.era_description}</div>
+                  <div className="item-details">
+                    <span className="era-grid">{era.rows}×{era.cols} grid</span>
+                    <span className="era-players">Max {era.max_players} players</span>
+                  </div>
                 </div>
-                <div className="item-description">{era.era_description}</div>
-                <div className="item-details">
-                  <span className="era-grid">{era.rows}×{era.cols} grid</span>
-                  <span className="era-players">Max {era.max_players} players</span>
-                </div>
+              );
+            })}
+          </div>
+
+          {/* Action Section - Always Visible */}
+          <div className="action-section">
+            {!selectedEra ? (
+              <p className="text-dim text-center">
+                Select an era above to continue
+              </p>
+            ) : (
+              <div className="card-footer">
+                <button
+                  className="btn btn--primary btn--lg"
+                  onClick={handlePlayEra}
+                >
+                  Play {selectedEra.name}
+                </button>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Divider */}
-        <div className="divider">
-          <span>Choose Era</span>
-        </div>
-
-        {/* Action Section - Always Visible */}
-        <div className="action-section">
-          {!selectedEra ? (
-            <p className="text-dim text-center">
-              Select an era above to continue
-            </p>
-          ) : (
-            <div className="card-footer">
-              <button
-                className="btn btn--primary btn--lg"
-                onClick={handlePlayEra}
-              >
-                Play {selectedEra.name}
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

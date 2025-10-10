@@ -9,7 +9,7 @@ const control = {
   HOOK: false,
     PLACEMENT: false,
   SOUND: false,
-  AI: false,
+  AI: true,
   ATTACK: false,
   BOARD: false,
   CANVAS: false,
@@ -19,7 +19,7 @@ const control = {
   OPPONENT: false,
     OVERLAY: false,
   DEBUG: true,
-    TARGETING: false,
+    TARGETING: true,
     GAME: false
 };
 

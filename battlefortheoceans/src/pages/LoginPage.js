@@ -38,7 +38,7 @@ const LoginPage = () => {
           console.log(version, 'Guest user detected, proceeding directly to game');
           
           // Minimum 1.5 second display for visual feedback
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 400));
           
           dispatch(events.SELECTERA, { userData });
           return;
@@ -53,7 +53,7 @@ const LoginPage = () => {
           // User has profile, proceed to game
           
           // Minimum 1.5 second display for visual feedback
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 400));
           
           dispatch(events.SELECTERA, { userData });
         } else {
@@ -80,7 +80,7 @@ const LoginPage = () => {
     setIsLoading(true);
     
     // Minimum 1.5 second display for visual feedback
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 400));
     
     // Proceed to game with the authenticated user data
     dispatch(events.SELECTERA, { userData: authenticatedUser });
