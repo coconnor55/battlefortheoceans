@@ -1,12 +1,12 @@
-// src/pages/SelectOpponentPage.js v0.4.3
+// src/pages/SelectOpponentPage.js v0.4.4
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.4.3: Fix difficulty badge display - use helper function instead of .toUpperCase()
+// v0.4.4: Changed button text to "Play {Opponent Name}"
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.4.3';
+const version = 'v0.4.4';
 
 const SelectOpponentPage = () => {
   const {
@@ -16,7 +16,6 @@ const SelectOpponentPage = () => {
     userProfile
   } = useGame();
   
-  // Redirect to login if no user profile
   useEffect(() => {
     if (!userProfile) {
       console.log(version, 'No user profile detected - redirecting to login');
@@ -24,39 +23,32 @@ const SelectOpponentPage = () => {
     }
   }, [userProfile, dispatch, events]);
   
-  // Local UI state - alliance selection happens HERE now
   const [selectedAlliance, setSelectedAlliance] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
   const [onlineHumans, setOnlineHumans] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // Collapsible sections state
   const [aiExpanded, setAiExpanded] = useState(true);
   const [humanExpanded, setHumanExpanded] = useState(false);
 
-  // Helper function to get difficulty label from numeric value
   const getDifficultyLabel = (difficulty) => {
     if (difficulty < 1.0) return 'Easy';
     if (difficulty === 1.0) return 'Medium';
     return 'Hard';
   };
 
-  // Helper function to get badge class for difficulty
   const getDifficultyBadgeClass = (difficulty) => {
-    if (difficulty < 1.0) return 'badge--success'; // Easy - green
-    if (difficulty === 1.0) return 'badge--primary'; // Medium - blue
-    return 'badge--warning'; // Hard - orange/red
+    if (difficulty < 1.0) return 'badge--success';
+    if (difficulty === 1.0) return 'badge--primary';
+    return 'badge--warning';
   };
 
-  // Handle alliance selection (for choose_alliance eras)
   const handleAllianceSelect = useCallback((allianceName) => {
     console.log(version, 'Alliance selected:', allianceName);
     setSelectedAlliance(allianceName);
-    // Clear opponent selection when alliance changes
     setSelectedOpponent(null);
   }, []);
 
-  // Handle AI opponent selection
   const handleAIOpponentSelect = useCallback((opponent) => {
     const timestamp = Date.now();
     const sanitizedName = opponent.name.toLowerCase().replace(/\s+/g, '-');
@@ -70,7 +62,6 @@ const SelectOpponentPage = () => {
     setSelectedOpponent(completeOpponent);
   }, []);
 
-  // Handle human opponent selection
   const handleHumanOpponentSelect = useCallback((human) => {
     const completeOpponent = {
       ...human,
@@ -81,18 +72,15 @@ const SelectOpponentPage = () => {
     setSelectedOpponent(completeOpponent);
   }, []);
 
-  // Get AI captains based on era configuration
   const getAvailableAICaptains = useCallback(() => {
     if (!eraConfig) return [];
     
     const requiresAlliance = eraConfig.game_rules?.choose_alliance;
     
     if (requiresAlliance && selectedAlliance) {
-      // For choose_alliance eras, get AI captains from opposing alliance
       const opposingAlliance = eraConfig.alliances?.find(a => a.name !== selectedAlliance);
       return opposingAlliance?.ai_captains || [];
     } else if (!requiresAlliance) {
-      // For non-choose_alliance eras (Traditional), get AI captains from 'Opponent' alliance
       const opponentAlliance = eraConfig.alliances?.find(a => a.name === 'Opponent');
       return opponentAlliance?.ai_captains || [];
     }
@@ -100,7 +88,6 @@ const SelectOpponentPage = () => {
     return [];
   }, [eraConfig, selectedAlliance]);
 
-  // Proceed to placement
   const handleBeginBattle = useCallback(() => {
     if (!selectedOpponent) {
       console.error(version, 'No opponent selected');
@@ -109,7 +96,6 @@ const SelectOpponentPage = () => {
 
     const requiresAlliance = eraConfig?.game_rules?.choose_alliance;
 
-    // Check if alliance selection is required
     if (requiresAlliance && !selectedAlliance) {
       console.error(version, 'Alliance selection required but not selected');
       return;
@@ -120,8 +106,6 @@ const SelectOpponentPage = () => {
     console.log(version, 'Opponent:', selectedOpponent.name, selectedOpponent.type);
     console.log(version, 'Alliance:', selectedAlliance || 'none');
     
-    // Transition to placement with all data
-    // CoreEngine will handle storing this in processEventData
     dispatch(events.PLACEMENT, {
       eraConfig: eraConfig,
       selectedOpponent: selectedOpponent,
@@ -129,7 +113,6 @@ const SelectOpponentPage = () => {
     });
   }, [selectedOpponent, selectedAlliance, eraConfig, dispatch, events]);
 
-  // Fetch online human players
   const fetchOnlineHumans = useCallback(async () => {
     setLoading(true);
     try {
@@ -151,17 +134,14 @@ const SelectOpponentPage = () => {
     setLoading(false);
   }, []);
 
-  // Fetch online humans on mount
   useEffect(() => {
     fetchOnlineHumans();
   }, [fetchOnlineHumans]);
 
-  // Don't render if no userProfile (will redirect)
   if (!userProfile) {
     return null;
   }
 
-  // Error state - missing era
   if (!eraConfig) {
     return (
       <div className="container flex flex-column flex-center">
@@ -181,6 +161,8 @@ const SelectOpponentPage = () => {
   const requiresAlliance = eraConfig.game_rules?.choose_alliance;
   const canProceed = selectedOpponent && (!requiresAlliance || selectedAlliance);
   const availableAICaptains = getAvailableAICaptains();
+  
+  const buttonText = selectedOpponent ? `Play ${selectedOpponent.name}` : 'Select Opponent';
 
   return (
     <div className="container flex flex-column flex-center">
@@ -192,7 +174,6 @@ const SelectOpponentPage = () => {
         </div>
 
         <div className="card-body">
-          {/* Alliance Selection - FIRST if required */}
           {requiresAlliance && !selectedAlliance && (
             <div className="alliance-selection">
               <div className="game-info">
@@ -230,7 +211,6 @@ const SelectOpponentPage = () => {
             </div>
           )}
 
-          {/* Collapsible AI Opponents */}
           {(!requiresAlliance || selectedAlliance) && (
             <div className="collapsible-section">
               <div
@@ -277,7 +257,6 @@ const SelectOpponentPage = () => {
             </div>
           )}
 
-          {/* Collapsible Human Opponents */}
           {(!requiresAlliance || selectedAlliance) && (
             <div className="collapsible-section">
               <div
@@ -334,21 +313,28 @@ const SelectOpponentPage = () => {
           )}
         </div>
 
-        {/* v0.4.2: Removed "Back to Era Selection" button - browser back button handles navigation */}
-        <div className="card-footer">
-          <button
-            className="btn btn--primary btn--lg"
-            disabled={!canProceed}
-            onClick={handleBeginBattle}
-          >
-            Begin Battle
-          </button>
+          {/* Action Section */}
+          <div className="action-section">
+            {!selectedOpponent ? (
+              <p className="text-dim text-center">
+                Select an opponent above to continue
+              </p>
+            ) : (
+              <div className="card-footer">
+                <button
+                  className="btn btn--primary btn--lg"
+                  disabled={!canProceed}
+                  onClick={handleBeginBattle}
+                >
+                  Play {selectedOpponent.name}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
     </div>
   );
 };
 
 export default SelectOpponentPage;
-
 // EOF

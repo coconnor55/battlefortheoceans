@@ -1,7 +1,13 @@
 // src/classes/Board.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.0: Phase 4 Refactor - COMPLETE CLEANUP
+//         Removed cellContents (replaced by player.shipPlacements)
+//         Removed cellHealthCache (computed from player.fleet on demand)
+//         Removed registerShipPlacement, getShipDataAt, getShipCells, updateCellHealthCache, rebuildCellHealthCache
+//         Board now ONLY handles: dimensions, terrain, excluded cells, and coordinate validation
+//         Board is now a pure geometric/terrain data structure with no game state
 
-const version = "v0.2.4";
+const version = "v0.4.0";
 
 class Board {
   constructor(rows, cols, terrain) {
@@ -13,126 +19,52 @@ class Board {
     this.cols = cols;
     this.terrain = terrain;
     
-    // Spatial tracking
-    this.cellContents = new Map(); // "row,col" -> [{shipId, cellIndex}]
-    this.shotHistory = []; // [{row, col, player, result, timestamp}]
-    
     console.log('Board: Created', { rows, cols });
   }
 
+  /**
+   * Check if coordinates are valid (within bounds and not excluded)
+   */
   isValidCoordinate(row, col) {
     if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return false;
     if (this.terrain[row][col] === 'excluded') return false;
     return true;
   }
 
+  /**
+   * Check if a ship can be placed at the given cells
+   * Validates bounds and terrain compatibility only
+   * Note: Overlap checking is now done by Game.registerShipPlacement() using player.shipPlacements
+   */
   canPlaceShip(shipCells, shipTerrain) {
     if (!shipCells || shipCells.length === 0) return false;
     
     return shipCells.every(({ row, col }) => {
+      // Check bounds
       if (!this.isValidCoordinate(row, col)) return false;
-      if (!shipTerrain.includes(this.terrain[row][col])) return false;
       
-      const key = `${row},${col}`;
-      if (this.cellContents.has(key) && this.cellContents.get(key).length > 0) {
-        return false;
-      }
+      // Check terrain compatibility
+      if (!shipTerrain.includes(this.terrain[row][col])) return false;
       
       return true;
     });
   }
 
-  registerShipPlacement(ship, shipCells) {
-    if (!this.canPlaceShip(shipCells, ship.terrain)) {
-      return false;
-    }
-
-    shipCells.forEach((cell, index) => {
-      const key = `${cell.row},${cell.col}`;
-      
-      if (!this.cellContents.has(key)) {
-        this.cellContents.set(key, []);
-      }
-      
-      this.cellContents.get(key).push({
-        shipId: ship.id,
-        cellIndex: index
-      });
-    });
-
-    return true;
-  }
-
-  getShipDataAt(row, col) {
-    const key = `${row},${col}`;
-    return this.cellContents.get(key) || [];
-  }
-    
-  getShipCells(shipId) {
-    const shipCells = [];
-    this.cellContents.forEach((cellData, cellKey) => {
-      const [row, col] = cellKey.split(',').map(Number);
-      cellData.forEach(({ shipId: cellShipId }) => {
-        if (cellShipId === shipId) {
-          shipCells.push({ row, col });
-        }
-      });
-    });
-    return shipCells;
-  }
-
+  /**
+   * Check if coordinates are valid for attacking
+   * (Just validates coordinates, doesn't track shots)
+   */
   isValidAttackTarget(row, col) {
     return this.isValidCoordinate(row, col);
   }
 
   /**
-   * Record shot in history
-   */
-  recordShot(row, col, attacker, result) {
-    this.shotHistory.push({
-      row,
-      col,
-      attacker: attacker.id || attacker,
-      result,
-      timestamp: Date.now()
-    });
-  }
-
-  /**
-   * Get shot history for coordinates
-   */
-  getShotHistory(row, col) {
-    return this.shotHistory.filter(shot => shot.row === row && shot.col === col);
-  }
-
-  /**
-   * Check if coordinates have been attacked
-   */
-  wasAttacked(row, col) {
-    return this.shotHistory.some(shot => shot.row === row && shot.col === col);
-  }
-
-  /**
-   * Get most recent shot result at coordinates
-   */
-  getLastShotResult(row, col) {
-    const shots = this.getShotHistory(row, col);
-    return shots.length > 0 ? shots[shots.length - 1].result : null;
-  }
-
-  /**
-   * Clear shot history (keep ship placements)
-   */
-  clearShots() {
-    this.shotHistory = [];
-  }
-
-  /**
-   * Clear everything
+   * Clear board state (for game reset)
+   * Note: Board no longer stores game state, but keeping method for API compatibility
    */
   clear() {
-    this.cellContents.clear();
-    this.shotHistory = [];
+    // Nothing to clear anymore - board only holds terrain
+    console.log('Board: Cleared (no state to clear)');
   }
 
   /**
@@ -142,52 +74,13 @@ class Board {
     return {
       dimensions: { rows: this.rows, cols: this.cols },
       totalCells: this.rows * this.cols,
-      occupiedCells: this.cellContents.size,
-      totalShots: this.shotHistory.length
+      version
     };
   }
 
-  getPlayerView(playerId, playerFleets, shipOwnership) {
-    const view = Array(this.rows).fill().map(() => Array(this.cols).fill().map(() => ({
-      terrain: null,
-      hasOwnShip: false,
-      hasEnemyShip: false,
-      shotResult: null,
-      cellData: []
-    })));
-
-    for (let row = 0; row < this.rows; row++) {
-      for (let col = 0; col < this.cols; col++) {
-        view[row][col].terrain = this.terrain[row][col];
-      }
-    }
-
-    this.cellContents.forEach((cellData, key) => {
-      const [row, col] = key.split(',').map(Number);
-      
-      cellData.forEach(({ shipId }) => {
-        const ownerId = shipOwnership.get(shipId);
-        const fleet = playerFleets.get(ownerId);
-        const ship = fleet?.ships.find(s => s.id === shipId);
-        
-        if (ship) {
-          if (ownerId === playerId) {
-            view[row][col].hasOwnShip = true;
-          } else if (ship.isSunk()) {
-            view[row][col].hasEnemyShip = true;
-          }
-        }
-      });
-      
-      const lastShot = this.getLastShotResult(row, col);
-      if (lastShot) {
-        view[row][col].shotResult = lastShot;
-      }
-    });
-
-    return view;
-  }
-
+  /**
+   * Get a random valid cell (for AI ship placement)
+   */
   getRandomValidCell() {
     const validCells = [];
     for (let row = 0; row < this.rows; row++) {
@@ -202,21 +95,13 @@ class Board {
     return validCells[Math.floor(Math.random() * validCells.length)];
   }
 
+  /**
+   * Get a random empty cell
+   * Note: Since Board no longer tracks ship placements, caller must check player.shipPlacements
+   * This now just returns a random valid cell
+   */
   getRandomEmptyCell() {
-    const emptyCells = [];
-    for (let row = 0; row < this.rows; row++) {
-      for (let col = 0; col < this.cols; col++) {
-        if (this.isValidCoordinate(row, col)) {
-          const key = `${row},${col}`;
-          if (!this.cellContents.has(key) || this.cellContents.get(key).length === 0) {
-            emptyCells.push({ row, col });
-          }
-        }
-      }
-    }
-    
-    if (emptyCells.length === 0) return null;
-    return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+    return this.getRandomValidCell();
   }
 }
 

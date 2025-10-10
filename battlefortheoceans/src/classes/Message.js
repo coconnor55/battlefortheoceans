@@ -6,6 +6,8 @@ import MessageHelper from '../utils/MessageHelper.js';
 const version = "v0.1.1";
 
 class Message {
+    // All messages in the game must go through the message class to facilitate logging.
+    
   constructor(gameInstance, eraConfig) {
     this.gameInstance = gameInstance;
     this.eraConfig = eraConfig;

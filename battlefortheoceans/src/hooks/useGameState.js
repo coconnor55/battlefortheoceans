@@ -4,7 +4,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = "v0.2.4";
+const version = "v0.3.0";
+// v0.3.0: Phase 4 Refactor - Updated for missedShots → dontShoot rename
+//         Reflects that dontShoot includes both water misses AND destroyed ship cells
+//         Updated log messages and comments for clarity
+// v0.2.5: Phase 3 Refactor - Fixed handleAttack() to use correct isValidAttack signature
+//         Removed getPlayerView() which referenced deprecated playerFleets/shipOwnership
+//         Integration with player-owned fleet, shipPlacements, and miss tracking
 
 const useGameState = () => {
   const {
@@ -33,10 +39,10 @@ const useGameState = () => {
   // Subscribe to Message system updates
   useEffect(() => {
     if (gameInstance?.message) {
-      console.log(version + ': Subscribing to Message system');
+      console.log('[HOOK] Subscribing to Message system');
       
       const unsubscribe = gameInstance.message.subscribe((newMessages) => {
-        console.log(version + ': Message system update:', newMessages);
+        console.log('[HOOK] Message system update:', newMessages);
         setMessages(newMessages);
       });
       
@@ -61,38 +67,49 @@ const useGameState = () => {
   const placementProgress = getPlacementProgress();
 
   // Handle player attack using Game's unified turn management
-    // Handle player attack using Game's unified turn management
-    const handleAttack = useCallback((row, col) => {
-      if (!gameInstance || !gameInstance.isValidAttack(row, col)) {
-        console.log(version + ': Invalid attack attempt:', { row, col });
-        return false;
-      }
+  const handleAttack = useCallback((row, col) => {
+    if (!gameInstance) {
+      console.log('[HOOK] No game instance');
+      return false;
+    }
 
-      // Only allow human attacks when it's the human's turn
-      const currentPlayer = gameInstance.getCurrentPlayer();
-      if (currentPlayer?.type !== 'human') {
-        console.log(version + ': Attack blocked - not human turn');
-        return false;
-      }
+    // Get current player
+    const currentPlayer = gameInstance.getCurrentPlayer();
+    if (!currentPlayer || currentPlayer.type !== 'human') {
+      console.log('[HOOK] Attack blocked - not human turn');
+      return false;
+    }
 
-      try {
-        console.log(version + ': Processing human attack through Game instance:', { row, col });
-        
-        // Execute attack through Game's unified processing (SYNCHRONOUS)
-        // Game will handle turn progression and trigger AI moves automatically
-        const result = gameInstance.processPlayerAction('attack', { row, col });
-        
-        // Canvas will handle visual updates automatically
-        // Messages will be handled by Message system automatically
-        
-        console.log(version + ': Attack completed:', result.result);
-        return result;
-        
-      } catch (error) {
-        console.error(version + ': Attack processing failed:', error);
-        return false;
-      }
-    }, [gameInstance]);
+    // v0.3.0: isValidAttack checks board coordinates only
+    if (!gameInstance.isValidAttack(row, col)) {
+      console.log('[HOOK] Invalid attack attempt:', { row, col });
+      return false;
+    }
+
+    // v0.3.0: canShootAt checks dontShoot Set (both water misses AND destroyed ship cells)
+    if (!currentPlayer.canShootAt(row, col)) {
+      console.log('[HOOK] Already shot at this location (water miss or destroyed ship):', { row, col });
+      return false;
+    }
+
+    try {
+      console.log('[HOOK] Processing human attack through Game instance:', { row, col });
+      
+      // Execute attack through Game's unified processing (SYNCHRONOUS)
+      // Game will handle turn progression and trigger AI moves automatically
+      const result = gameInstance.processPlayerAction('attack', { row, col });
+      
+      // Canvas will handle visual updates automatically
+      // Messages will be handled by Message system automatically
+      
+      console.log('[HOOK] Attack completed:', result.result);
+      return result;
+      
+    } catch (error) {
+      console.error('[HOOK] Attack processing failed:', error);
+      return false;
+    }
+  }, [gameInstance]);
     
   // Reset game
   const resetGame = useCallback(() => {
@@ -110,19 +127,21 @@ const useGameState = () => {
 
   // Check if position is valid for attack - read directly from game instance
   const isValidAttack = useCallback((row, col) => {
-    return gameInstance ? gameInstance.isValidAttack(row, col) : false;
+    if (!gameInstance) return false;
+    
+    const currentPlayer = gameInstance.getCurrentPlayer();
+    if (!currentPlayer) return false;
+    
+    // v0.3.0: Check both board validity AND dontShoot tracking
+    return gameInstance.isValidAttack(row, col) && currentPlayer.canShootAt(row, col);
   }, [gameInstance]);
 
-  // Get player view from Board for UI rendering - read directly from board
-  const getPlayerView = useCallback((playerId) => {
-    if (!board || !gameInstance) return null;
-    
-    return board.getPlayerView(
-      playerId,
-      gameInstance.playerFleets,
-      gameInstance.shipOwnership
-    );
-  }, [board, gameInstance]);
+  // v0.3.0: REMOVED getPlayerView() - no longer needed with player-owned data
+  // Canvas components now read directly from:
+  // - player.fleet for ship data
+  // - player.shipPlacements for locations
+  // - player.dontShoot for preventing invalid targeting
+  // - ship.health for rendering craters/diagonals
 
   // Computed properties from game logic - no local state
   const isPlayerTurn = uiState.isPlayerTurn;
@@ -138,7 +157,7 @@ const useGameState = () => {
   // Determine appropriate UI message - prioritize turn messages, fallback to UI messages
   const uiMessage = messages.turn || messages.ui || 'Preparing for battle...';
 
-  console.log(version + ': useGameState render', {
+  console.log('[HOOK] useGameState render', {
     hasGameInstance: !!gameInstance,
     hasBoard: !!board,
     gamePhase: gamePhase,
@@ -188,7 +207,7 @@ const useGameState = () => {
     // Data accessors - computed properties
     getGameStats,
     isValidAttack,
-    getPlayerView,
+    // getPlayerView removed - no longer needed
     
     // Game instance access
     game: gameInstance,

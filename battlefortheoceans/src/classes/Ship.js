@@ -4,8 +4,11 @@
 const version = "v0.1.9"
 
 class Ship {
+    // Ship is a battle unit that has a name, size (1-5 cells), and allowed terrain (could be cannon on land too).  Each cell has health, initially 1.0, and can go negative if receiving a high power (>1.0) shot or a partial shot (e.g. 0.1) followed by a full (1.0) shot.  The ship is sunk when its total health drops to 0. Allowed ships are defined in the era-config file for a game. [FUTURE] A Ship can be captured (random chance) when its health falls to zero.  In this instance, a ship is reset with a random health between 50% and 75% and fires 50% power shots.  This, of course, messes up player maps because the ship disappears after being sunk and then reappears as a new ship.
+    
   constructor(name, size, terrain) {
-    this.id = `ship-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Use crypto.randomUUID() for guaranteed uniqueness
+      this.id = `ship-${crypto.randomUUID()}`;
     this.name = name;
     this.size = size;
     this.terrain = terrain; // allowed terrain types array

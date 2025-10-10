@@ -4,6 +4,8 @@
 const version = "v0.1.2"
 
 class Alliance {
+    // An Alliance is a group of players, each with a Fleet of Ships, with the common goal of defeating other alliances.  Players can be added and removed from the alliance.  Generally, the first player is the owner of the alliance but if the player leaves, the ownership of the alliance changes to another player.  The last alliance standing wins the game.  A 2-player game is a special case, where the alliances are Player and Opponent.
+    
   constructor(name, owner, avatar = null) {
     this.id = `alliance-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.name = name;

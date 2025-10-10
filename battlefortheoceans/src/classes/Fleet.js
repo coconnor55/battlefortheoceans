@@ -6,6 +6,8 @@ import Ship from './Ship.js';
 const version = "v0.1.6";
 
 class Fleet {
+    // Fleet is a battle group consisting of ships and owned by a player.  The fleet is defeated when the last ship has been sunk, eliminating the player from the game. A defeated fleet cannot capture a ship.
+    
   constructor(owner) {
     this.owner = owner; // playerID (required)
     this.ships = []; // array of Ship objects

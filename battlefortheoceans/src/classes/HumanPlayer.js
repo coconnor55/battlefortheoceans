@@ -6,6 +6,8 @@ import Player from './Player.js';
 const version = "v0.1.0"
 
 class HumanPlayer extends Player {
+    // This is the person playing the game.  Each person has a player name and may use the autoplace capability the AIs use.
+
   constructor(id, name, sessionData = {}) {
     super(id, name, 'human');
     

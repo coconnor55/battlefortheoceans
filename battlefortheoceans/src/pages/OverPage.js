@@ -459,19 +459,19 @@ const OverPage = () => {
         )}
 
         <div className="over-actions">
+            <button
+            className="btn btn--primary btn--lg"
+            onClick={handlePlayAgain}
+            title="Play another battle - choose a different opponent"
+            >
+            Play Again
+            </button>
           <button
             className="btn btn--secondary btn--lg"
             onClick={handleChangeEra}
             title="Select a different era"
           >
-            Change Era
-          </button>
-          <button
-            className="btn btn--primary btn--lg"
-            onClick={handlePlayAgain}
-            title="Play another battle - choose a different opponent"
-          >
-            Change Opponent
+            Play Another Era
           </button>
         </div>
 

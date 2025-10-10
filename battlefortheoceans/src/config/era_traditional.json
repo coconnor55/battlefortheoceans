@@ -1,5 +1,5 @@
 {
-  "version": "0.2.6",
+  "version": "0.2.7",
   "era": "traditional",
   "name": "Traditional Battleship",
   "era_description": "Classic naval warfare on the high seas. Command your fleet in the timeless battle of strategy and luck that has captivated players since the 1930s.",
@@ -95,6 +95,14 @@
           "difficulty": 1.6,
           "description": "A legendary fleet commander who combines center-mass probability targeting with relentless hunt tactics. The ultimate strategic challenge.",
           "avatar": "captains/admiral-swift.png"
+        },
+        {
+          "id": "grand-admiral-sonnet",
+          "name": "Grand Admiral Sonnet",
+          "strategy": "aggressive",
+          "difficulty": 1.7,
+          "description": "An AI consciousness from beyond the stars who has studied every naval battle in human history. Combines perfect probability calculations with adaptive pattern recognition and psychological warfare. Some say defeating this opponent is theoretically possible... but no one has proven it yet.",
+          "avatar": "captains/grand-admiral-sonnet.png"
         }
       ]
     }

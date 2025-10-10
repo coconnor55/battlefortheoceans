@@ -2,17 +2,27 @@
 // Copyright(c) 2025, Clint H. O'Connor
 
 import Board from './Board.js';
-import HumanPlayer from './HumanPlayer.js';
-import AiPlayer from './AiPlayer.js';
 import Fleet from './Fleet.js';
 import Alliance from './Alliance.js';
-import Visualizer from './Visualizer.js';
 import Message from './Message.js';
 
-const version = "v0.5.0";
-// v0.5.0: CRITICAL FIX - Score calculation bug causing string concatenation
-//         Changed: firingPlayer.score += multiplier
-//         To:      firingPlayer.score += Math.round(1 * multiplier)
+const version = "v0.9.0";
+/**
+ * v0.9.0: Phase 4 Refactor - COMPLETE CLEANUP
+ * - Removed shipOwnership Map (players own their ships via shipPlacements)
+ * - Removed playerFleets Map (players own their fleet via setFleet)
+ * - Removed getShipCells() method (use player.getShipCells() instead)
+ * - Removed Board.rebuildCellHealthCache() call (cache removed from Board)
+ * - Simplified registerShipPlacement() - no more dual-write, just player.shipPlacements
+ * - Game now delegates all ship/placement data to Player objects
+ * - Ship health computed on-demand from player.fleet, not cached
+ *
+ * v0.8.4: Phase 4 Refactor - VISUALIZER REMOVED (not used by any renderer)
+ * - Removed Visualizer.js import and instance
+ * - Updated recordDontShoot() calls (renamed from recordMiss)
+ * - Fixed turn progression: 'destroyed' continues turn if turn_on_hit enabled
+ * - dontShoot now includes both misses AND destroyed cells
+ */
 
 // Environment-aware CDN path
 const SOUND_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
@@ -40,13 +50,10 @@ class Game {
     
     this.players = [];
     this.board = null;
-    this.visualizer = null;
     this.winner = null;
     
     this.alliances = new Map();
     this.playerAlliances = new Map();
-    this.shipOwnership = new Map();
-    this.playerFleets = new Map();
     
     this.gameRules = { ...eraConfig.game_rules };
     this.message = new Message(this, eraConfig);
@@ -71,6 +78,9 @@ class Game {
     this.battleBoardRef = null;
     this.humanPlayerId = null;
     this.lastAttackResult = null;
+    
+    // Boost system (for future weapon upgrades)
+    this.boosts = {};
     
     // Sound system
     this.soundEnabled = true;
@@ -212,21 +222,31 @@ class Game {
     }
   }
 
-  addPlayer(id, type = 'human', name = 'Player', allianceName = null, strategy = null, difficulty = 1.0) {
+  /**
+   * v0.9.0: Phase 4 - Players own their fleets, simplified
+   * v0.8.0: Give player fleet reference via setFleet()
+   * Players are persistent entities that survive individual games
+   *
+   * @param {Player} player - Existing Player object (HumanPlayer or AiPlayer)
+   * @param {string} allianceName - Alliance name to join
+   * @returns {Player} - The player object (for chaining)
+   */
+  addPlayer(player, allianceName) {
     if (this.players.length >= (this.eraConfig.max_players || 2)) {
       throw new Error(`Maximum ${this.eraConfig.max_players || 2} players allowed`);
     }
 
-    let player;
-    if (type === 'ai') {
-      player = new AiPlayer(id, name, strategy || 'random', difficulty);
-    } else {
-      player = new HumanPlayer(id, name);
-      this.humanPlayerId = id;
+    // Reset player for new game (clears stats, placements, dontShoot)
+    player.reset();
+
+    // Give player the board reference if it already exists
+    if (this.board) {
+      player.setBoard(this.board);
     }
 
+    // Alliance assignment
     if (!allianceName) {
-      throw new Error(`Alliance name required for player ${name}`);
+      throw new Error(`Alliance name required for player ${player.name}`);
     }
     
     const alliance = Array.from(this.alliances.values()).find(a => a.name === allianceName);
@@ -237,12 +257,18 @@ class Game {
     alliance.addPlayer(player);
     this.playerAlliances.set(player.id, alliance.id);
     
+    // Create fleet for this game and give to player
     const fleet = Fleet.fromEraConfig(player.id, this.eraConfig, allianceName);
+    player.setFleet(fleet);
     
     this.players.push(player);
-    this.playerFleets.set(player.id, fleet);
     
-    this.battleLog(`${name}${type === 'ai' ? ' (ai)' : ''} joins the game`);
+    // Track human player ID
+    if (player.type === 'human') {
+      this.humanPlayerId = player.id;
+    }
+    
+    this.battleLog(`${player.name}${player.type === 'ai' ? ' (ai)' : ''} joins the game`);
     
     return player;
   }
@@ -259,16 +285,58 @@ class Game {
     });
   }
 
-  canAttack(firingPlayerId, targetPlayerId) {
-    if (firingPlayerId === targetPlayerId) return false;
+  /**
+   * v0.8.0: Renamed from canAttack() with inverted logic for clarity
+   * Check if two players are in the same alliance (including same player)
+   *
+   * @param {string} player1Id - First player ID
+   * @param {string} player2Id - Second player ID
+   * @returns {boolean} - True if same player or same alliance
+   */
+  isSameAlliance(player1Id, player2Id) {
+    // Same player = same "alliance"
+    if (player1Id === player2Id) return true;
     
-    const firingAlliance = this.playerAlliances.get(firingPlayerId);
-    const targetAlliance = this.playerAlliances.get(targetPlayerId);
+    const alliance1 = this.playerAlliances.get(player1Id);
+    const alliance2 = this.playerAlliances.get(player2Id);
     
-    return firingAlliance !== targetAlliance;
+    return alliance1 === alliance2;
   }
 
+  calculateDamage(firingPlayer, targetPlayer, baseDamage = 0.5) {
+    let finalDamage = baseDamage;
+
+    // Apply attack boost if firing player has one
+    const attackBoost = this.boosts?.[firingPlayer.id]?.attack || 0;
+    if (attackBoost > 0) {
+      finalDamage *= (1 + attackBoost);
+    }
+
+    // Apply defense boost if target player has one
+    const defenseBoost = this.boosts?.[targetPlayer.id]?.defense || 0;
+    if (defenseBoost > 0) {
+      finalDamage *= (1 - defenseBoost);
+    }
+
+    return Math.max(0, finalDamage);
+  }
+
+  /**
+   * v0.9.0: Phase 4 - Uses player.shipPlacements exclusively (no Board.cellContents)
+   * v0.8.4: Phase 4 Refactor - Updated to use recordDontShoot()
+   * v0.8.3: 4-STATE ATTACK RESULTS
+   * Returns: 'hit', 'destroyed', 'all_destroyed', 'miss'
+   *
+   * @param {number} row - Row coordinate
+   * @param {number} col - Column coordinate
+   * @param {Player} firingPlayer - Player making the attack
+   * @param {number} damage - Base damage amount (default 1.0)
+   * @returns {Object} - {result: string, ships: [...], damage: number}
+   */
   receiveAttack(row, col, firingPlayer, damage = 1.0) {
+    console.log(`[TARGETING] Called by ${firingPlayer.name} (${firingPlayer.type}) at ${row},${col}`);
+
+    // 1. VALIDATE COORDINATES
     if (!this.board?.isValidCoordinate(row, col)) {
       const result = { result: 'invalid', ships: [] };
       this.lastAttackResult = result;
@@ -276,17 +344,56 @@ class Game {
     }
 
     const cellName = `${String.fromCharCode(65 + col)}${row + 1}`;
-    const cellData = this.board.getShipDataAt(row, col);
     
-    const enemyShips = cellData.filter(shipData => {
-      const targetPlayerId = this.shipOwnership.get(shipData.shipId);
-      return this.canAttack(firingPlayer.id, targetPlayerId);
-    });
+    // 2. FIND ALL ENEMY SHIPS AT THIS LOCATION (using player.shipPlacements)
+    const liveTargets = [];
+    const deadTargets = [];
     
-    if (enemyShips.length === 0) {
+    for (const targetPlayer of this.players) {
+      // Skip if same alliance (includes self)
+      if (this.isSameAlliance(firingPlayer.id, targetPlayer.id)) {
+        continue;
+      }
+      
+      // Check if this enemy has a ship at this location
+      const placement = targetPlayer.getShipAt(row, col);
+      if (!placement) {
+        continue; // No ship here for this enemy
+      }
+      
+      // Get the actual ship from the player's fleet
+      const ship = targetPlayer.getShip(placement.shipId);
+      if (!ship) {
+        continue; // Ship not found (shouldn't happen)
+      }
+      
+      // Check if this cell is alive or dead
+      if (ship.health[placement.cellIndex] > 0) {
+        // LIVE target
+        liveTargets.push({
+          player: targetPlayer,
+          ship: ship,
+          cellIndex: placement.cellIndex
+        });
+      } else {
+        // DEAD target (already destroyed)
+        deadTargets.push({
+          player: targetPlayer,
+          ship: ship,
+          cellIndex: placement.cellIndex
+        });
+      }
+    }
+    
+    // 3. DETERMINE INITIAL STATE
+    const totalTargets = liveTargets.length + deadTargets.length;
+    
+    // 3a. MISS - No ships at this cell
+    if (totalTargets === 0) {
+      console.log(`[TARGETING] MISS - no ships at ${cellName}`);
       this.playSound('splash');
       firingPlayer.misses++;
-      firingPlayer.recordMiss(row, col);
+      firingPlayer.recordDontShoot(row, col);
       
       this.message.post(this.message.types.MISS, {
         attacker: firingPlayer,
@@ -295,49 +402,48 @@ class Game {
       
       this.battleLog(`t${this.currentTurn}-Miss at ${cellName} by ${firingPlayer.name}`, 'miss');
       
-      if (this.board) {
-        this.board.recordShot(row, col, firingPlayer, 'miss');
-      }
-      
-      if (this.visualizer) {
-        this.visualizer.updateCellVisuals(row, col, [], firingPlayer, 'miss');
-      }
-      
       const result = { result: 'miss', ships: [] };
       this.lastAttackResult = result;
       return result;
     }
-
+    
+    // 3b. ALL_DESTROYED - Only dead ships at this cell (wasted shot)
+    if (liveTargets.length === 0 && deadTargets.length > 0) {
+      console.log(`[TARGETING] ALL_DESTROYED - wasted shot on dead cells at ${cellName}`);
+      
+      // No stats update, no sounds, no visual change
+      const result = { result: 'all_destroyed', ships: [] };
+      this.lastAttackResult = result;
+      return result;
+    }
+    
+    // 3c. HIT - At least one live ship at this cell
+    console.log(`[TARGETING] HIT - ${liveTargets.length} live ships at ${cellName}`);
     this.playSound('incomingWhistle');
     this.playSound('explosionBang', 500);
-
+    
     const hitResults = [];
-    let resultType = 'hit';
-
-    for (const shipData of enemyShips) {
-      const { shipId, cellIndex } = shipData;
-      const targetPlayerId = this.shipOwnership.get(shipId);
-      const targetPlayer = this.getPlayer(targetPlayerId);
-      const fleet = this.playerFleets.get(targetPlayerId);
+    
+    // 4. PROCESS HITS ON LIVE TARGETS
+    for (const target of liveTargets) {
+      const { player: targetPlayer, ship, cellIndex } = target;
       
-      if (!targetPlayer || !fleet) continue;
-
-      const ship = fleet.ships.find(s => s.id === shipId);
-      if (!ship) continue;
-      
+      // Calculate and apply damage
       const finalDamage = this.calculateDamage(firingPlayer, targetPlayer, damage);
       const shipHealth = ship.receiveHit(cellIndex, finalDamage);
       
-      const result = ship.isSunk() ? 'sunk' : 'hit';
+      const shipNowSunk = ship.isSunk();
+      
       hitResults.push({
         ship: ship,
         player: targetPlayer,
-        result: result,
         damage: finalDamage,
-        shipHealth: shipHealth
+        shipHealth: shipHealth,
+        shipSunk: shipNowSunk
       });
       
-      if (result === 'sunk') {
+      // Individual ship sunk message
+      if (shipNowSunk) {
         this.playSound('sinkingShip');
         this.message.post(this.message.types.SUNK, {
           attacker: firingPlayer,
@@ -345,21 +451,20 @@ class Game {
           shipName: ship.name,
           position: cellName
         }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
-        resultType = 'sunk';
         
         firingPlayer.sunk++;
         
-        // v0.5.0: Score calculation for SUNK (already correct)
-        if (firingPlayer.type === 'human' && targetPlayer.type === 'ai') {
-          const multiplier = targetPlayer.difficulty || 1.0;
-          firingPlayer.score += Math.round(10 * multiplier);
-          console.log(`[Game ${this.id}] ${firingPlayer.name} sunk ${targetPlayer.name}'s ship: 10 * ${multiplier} = ${Math.round(10 * multiplier)} points`);
-        } else {
-          firingPlayer.score += 10;
-        }
+        // Score with difficulty multiplier (only once per ship)
+        const multiplier = (firingPlayer.type === 'human' && targetPlayer.type === 'ai')
+          ? (targetPlayer.difficulty || 1.0)
+          : 1.0;
+        firingPlayer.score += Math.round(10 * multiplier);
+        
+        console.log(`[Game ${this.id}] ${firingPlayer.name} sunk ${targetPlayer.name}'s ${ship.name}: 10 * ${multiplier} = ${Math.round(10 * multiplier)} points`);
         
         this.battleLog(`t${this.currentTurn}-SUNK: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`, 'sunk');
       } else {
+        // Hit but not sunk
         this.message.post(this.message.types.HIT, {
           attacker: firingPlayer,
           target: targetPlayer,
@@ -367,67 +472,93 @@ class Game {
           position: cellName
         }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
         
-        // v0.5.0: CRITICAL FIX - Score calculation for HIT
-        // BEFORE: firingPlayer.score += multiplier; (caused string concatenation)
-        // AFTER:  firingPlayer.score += Math.round(1 * multiplier);
-        if (firingPlayer.type === 'human' && targetPlayer.type === 'ai') {
-          const multiplier = targetPlayer.difficulty || 1.0;
-          const hitPoints = Math.round(1 * multiplier);
-          firingPlayer.score += hitPoints;
-          console.log(`[Game ${this.id}] ${firingPlayer.name} hit ${targetPlayer.name}'s ship: 1 * ${multiplier} = ${hitPoints} points`);
-        } else {
-          firingPlayer.score += 1;
-        }
-        
         this.battleLog(`t${this.currentTurn}-HIT: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`, 'hit');
       }
     }
     
-    if (hitResults.length > 0) {
-      firingPlayer.hits++;
-      firingPlayer.hitsDamage += hitResults.reduce((sum, h) => sum + h.damage, 0);
+    // 5. UPDATE FIRING PLAYER STATS (both 'hit' and 'destroyed' award points)
+    firingPlayer.hits++;
+    firingPlayer.hitsDamage += hitResults.reduce((sum, h) => sum + h.damage, 0);
+    
+    // Score for hitting (once per cell, regardless of stacked ships)
+    const multiplier = (firingPlayer.type === 'human' && hitResults[0]?.player?.type === 'ai')
+      ? (hitResults[0].player.difficulty || 1.0)
+      : 1.0;
+    firingPlayer.score += Math.round(1 * multiplier);
+    
+    console.log(`[Game ${this.id}] ${firingPlayer.name} hit at ${cellName}: 1 * ${multiplier} = ${Math.round(1 * multiplier)} points`);
+    
+    // 6. CHECK IF CELL NOW FULLY DESTROYED (transition from 'hit' to 'destroyed')
+    // After applying damage, check if ALL ships at cell are now dead
+    let stillAliveAtCell = false;
+    for (const target of liveTargets) {
+      if (target.ship.health[target.cellIndex] > 0) {
+        stillAliveAtCell = true;
+        break;
+      }
     }
     
-    if (this.board) {
-      this.board.recordShot(row, col, firingPlayer, resultType);
+    const cellNowFullyDestroyed = !stillAliveAtCell;
+    
+    // 7. DETERMINE FINAL RESULT
+    // 'hit' = live cells remain, 'destroyed' = just killed last live cell
+    const resultType = cellNowFullyDestroyed ? 'destroyed' : 'hit';
+    
+    // 8. MARK DESTROYED CELLS IN DONTSHOOT
+    if (resultType === 'destroyed') {
+      firingPlayer.recordDontShoot(row, col);
+      console.log(`[TARGETING] Marked ${cellName} as dontShoot (destroyed)`);
     }
     
-    if (this.visualizer) {
-      this.visualizer.updateCellVisuals(row, col, hitResults, firingPlayer, resultType);
-      
-      hitResults.forEach(({ ship, player }) => {
-        if (ship.isSunk()) {
-          const shipCells = this.getShipCells(ship.id);
-          if (shipCells.length > 0) {
-            const isPlayerShip = (player.id === this.humanPlayerId);
-            this.visualizer.updateShipSunk(shipCells, player.id, isPlayerShip);
-          }
-        }
-      });
-    }
-    
-    const result = { result: resultType, ships: hitResults, damage };
+    // 9. RETURN RESULT
+    const result = {
+      result: resultType,
+      ships: hitResults,
+      damage,
+      cellFullyDestroyed: cellNowFullyDestroyed
+    };
     this.lastAttackResult = result;
+    
+    console.log(`[TARGETING] Final result: ${resultType}`);
     return result;
   }
-
-  calculateDamage(firingPlayer, targetPlayer, baseDamage) {
-    return Math.max(0, baseDamage);
-  }
-
+  
+  /**
+   * v0.9.0: Phase 4 - Simplified, writes only to player.shipPlacements
+   * No more dual-write to Board.cellContents
+   */
   registerShipPlacement(ship, shipCells, orientation, playerId) {
-    this.shipOwnership.set(ship.id, playerId);
+    console.log(`[GAME] Attempting to place ${ship.name} for player ${playerId}`);
     
-    if (this.board) {
-      return this.board.registerShipPlacement(ship, shipCells);
+    // Validate board bounds and terrain
+    if (!this.board.canPlaceShip(shipCells, ship.terrain)) {
+      console.warn(`[GAME] Ship placement failed board validation (bounds/terrain)`);
+      return false;
     }
     
-    return false;
-  }
-
-  getShipCells(shipId) {
-    if (!this.board) return [];
-    return this.board.getShipCells(shipId);
+    // Check for overlap with player's OWN ships (using player.shipPlacements)
+    const player = this.getPlayer(playerId);
+    if (!player) {
+      console.warn(`[GAME] Player ${playerId} not found`);
+      return false;
+    }
+    
+    for (const cell of shipCells) {
+      if (player.hasShipAt(cell.row, cell.col)) {
+        console.warn(`[GAME] Player ${playerId} cannot overlap own ships at ${cell.row},${cell.col}`);
+        return false;
+      }
+    }
+    
+    console.log(`[GAME] Placement validated, registering ${ship.name}`);
+    
+    // Write to player's shipPlacements map
+    for (let i = 0; i < shipCells.length; i++) {
+      const cell = shipCells[i];
+      player.placeShip(cell.row, cell.col, ship.id, i);
+    }
+    
+    return true;
   }
 
   getPlayer(playerId) {
@@ -436,7 +567,15 @@ class Game {
 
   setBoard(board) {
     this.board = board;
-    this.visualizer = new Visualizer(this.eraConfig.rows, this.eraConfig.cols);
+
+    console.log(`[BOARD] setBoard called - Players count: ${this.players.length}`);
+
+    // Give all existing players the board reference
+    this.players.forEach(player => {
+      console.log(`[BOARD] Setting board for player: ${player.name}, had board: ${!!player.board}`);
+      player.setBoard(board);
+      console.log(`[BOARD] Player ${player.name} now has board: ${!!player.board}`);
+    });
   }
 
   async startGame() {
@@ -446,16 +585,22 @@ class Game {
     
     if (!this.board) {
       this.board = new Board(this.eraConfig.rows, this.eraConfig.cols, this.eraConfig.terrain);
-      this.visualizer = new Visualizer(this.eraConfig.rows, this.eraConfig.cols);
     }
 
+    // Safety check - ensure all players have board reference
+    this.players.forEach(player => {
+      if (!player.board) {
+        player.setBoard(this.board);
+      }
+    });
+
+    // Place AI ships
     for (const player of this.players) {
-      const fleet = this.playerFleets.get(player.id);
-      if (!fleet) {
+      if (!player.fleet) {
         throw new Error(`Player ${player.name} has no fleet`);
       }
       
-      if (player.type === 'ai' && !fleet.isPlaced()) {
+      if (player.type === 'ai' && !player.fleet.isPlaced()) {
         await this.autoPlaceShips(player);
       }
     }
@@ -487,59 +632,16 @@ class Game {
   }
 
   async autoPlaceShips(player) {
-    const fleet = this.playerFleets.get(player.id);
-    if (!fleet) return;
-
-    console.log(`[Game ${this.id}] Auto-placing ships for ${player.name}`);
-
-    for (const ship of fleet.ships) {
-      if (ship.isPlaced) continue;
-      
-      let placed = false;
-      let attempts = 0;
-
-      while (!placed && attempts < 100) {
-        const startCell = this.board.getRandomEmptyCell();
-        if (!startCell) {
-          throw new Error(`No empty cells available for ${ship.name}`);
-        }
-        
-        const horizontal = Math.random() > 0.5;
-
-        const cells = [];
-        for (let i = 0; i < ship.size; i++) {
-          const cellRow = horizontal ? startCell.row : startCell.row + i;
-          const cellCol = horizontal ? startCell.col + i : startCell.col;
-          cells.push({ row: cellRow, col: cellCol });
-        }
-
-        const registered = this.registerShipPlacement(
-          ship,
-          cells,
-          horizontal ? 'horizontal' : 'vertical',
-          player.id
-        );
-        
-        if (registered) {
-          ship.place();
-          placed = true;
-          
-          console.log(`[Game ${this.id}] Placed ${ship.name}, notifying UI`);
-          this.notifyUIUpdate();
-        }
-        
-        attempts++;
-      }
-
-      if (!placed) {
-        throw new Error(`Failed to place ${ship.name} for ${player.name}`);
-      }
+    if (!player.fleet) {
+      throw new Error(`[GAME] Player ${player.name} has no fleet`);
     }
+
+    await player.autoPlaceShips(this, player.fleet);
     
-    console.log(`[Game ${this.id}] All ships placed for ${player.name}, final UI notification`);
+    console.log(`[GAME] All ships placed for ${player.name}, final UI notification`);
     this.notifyUIUpdate();
   }
-
+    
   getCurrentPlayer() {
     return this.players[this.currentPlayerIndex];
   }
@@ -574,18 +676,19 @@ class Game {
       return result;
     }
     
-    this.handleTurnProgression(result.result === 'hit' || result.result === 'sunk');
+    // Both 'hit' and 'destroyed' continue turn if turn_on_hit enabled
+    const wasHit = (result.result === 'hit' || result.result === 'destroyed');
+    this.handleTurnProgression(wasHit);
     
     return result;
   }
-    
+  
   checkGameEnd() {
     const activeAlliances = Array.from(this.alliances.values()).filter(alliance => {
       if (alliance.players.length === 0) return false;
       
       return alliance.players.some(player => {
-        const fleet = this.playerFleets.get(player.id);
-        return fleet && !fleet.isDefeated();
+        return !player.isDefeated();
       });
     });
 
@@ -593,8 +696,7 @@ class Game {
       if (activeAlliances.length === 1) {
         const winningAlliance = activeAlliances[0];
         const survivingPlayers = winningAlliance.players.filter(player => {
-          const fleet = this.playerFleets.get(player.id);
-          return fleet && !fleet.isDefeated();
+          return !player.isDefeated();
         });
         this.winner = survivingPlayers[0] || winningAlliance.players[0];
         this.winningAlliance = winningAlliance;
@@ -633,7 +735,7 @@ class Game {
       try {
         await this.executeAITurnQueued(currentPlayer);
       } catch (error) {
-        console.error(`[Game] AI turn failed for ${currentPlayer.name}:`, error);
+        console.error(`[GAME] AI turn failed for ${currentPlayer.name}:`, error);
         if (this.checkGameEnd()) {
           this.endGame();
         }
@@ -662,11 +764,11 @@ class Game {
           return;
         }
         
-        this.handleTurnProgression(
-          this.lastAttackResult?.result === 'hit' ||
-          this.lastAttackResult?.result === 'sunk'
-        );
+        // Both 'hit' and 'destroyed' continue turn if turn_on_hit enabled
+        const wasHit = (this.lastAttackResult?.result === 'hit' ||
+                       this.lastAttackResult?.result === 'destroyed');
         
+        this.handleTurnProgression(wasHit);
         this.notifyUIUpdate();
       }
     });
@@ -682,26 +784,11 @@ class Game {
   isValidAttack(row, col, firingPlayer) {
     if (!this.board) return false;
     
-    if (!this.board.isValidCoordinate(row, col)) return false;
-    
-    if (firingPlayer && firingPlayer.hasMissedAt(row, col)) return false;
-    
-    const cellData = this.board.getShipDataAt(row, col);
-    
-    if (cellData.length === 0) return true;
-    
-    return cellData.some(shipData => {
-      const targetPlayerId = this.shipOwnership.get(shipData.shipId);
-      const fleet = this.playerFleets.get(targetPlayerId);
-      if (!fleet) return false;
-      
-      const ship = fleet.ships.find(s => s.id === shipData.shipId);
-      if (!ship) return false;
-      
-      return ship.health[shipData.cellIndex] > 0;
-    });
+    // Only check if coordinate is valid on the board
+    // Player manages their own dontShoot tracking via canShootAt()
+    return this.board.isValidCoordinate(row, col);
   }
-
+  
   endGame() {
     this.state = 'finished';
     this.endTime = new Date();
@@ -772,14 +859,8 @@ class Game {
     this.isProcessingAction = false;
     this.lastAttackResult = null;
     
-    this.shipOwnership.clear();
-    
     if (this.board) {
       this.board.clear();
-    }
-    
-    if (this.visualizer) {
-      this.visualizer.clearAll();
     }
     
     if (this.message) {
@@ -787,8 +868,9 @@ class Game {
     }
     
     this.players.forEach(player => {
-      const fleet = this.playerFleets.get(player.id);
-      if (fleet) fleet.ships.forEach(ship => ship.reset());
+      if (player.fleet) {
+        player.fleet.ships.forEach(ship => ship.reset());
+      }
       player.reset();
     });
   }
@@ -799,7 +881,7 @@ class Game {
       Math.floor((Date.now() - (this.startTime || Date.now())) / 1000);
     
     const playerStats = this.players.map(player => {
-      const fleet = this.playerFleets.get(player.id);
+      const fleet = player.fleet;
       
       return {
         name: player.name,
@@ -841,7 +923,7 @@ class Game {
     };
     
     this.gameLog.push(entry);
-    console.log(`[Game ${this.id}] ${message}`);
+    console.log(`[GAME] ${this.id} | ${message}`);
   }
 }
 

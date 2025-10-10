@@ -277,7 +277,7 @@ const SelectEraPage = () => {
               Select an era above to continue
             </p>
           ) : (
-            <div className="flex flex-center">
+            <div className="card-footer">
               <button
                 className="btn btn--primary btn--lg"
                 onClick={handlePlayEra}

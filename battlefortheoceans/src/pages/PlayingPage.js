@@ -1,13 +1,13 @@
-// src/pages/PlayingPage.js v0.3.6
+// src/pages/PlayingPage.js v0.3.8
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.3.6: Removed inline style from AutoPlay button
+// v0.3.8: Reordered view mode buttons (Fleet/Blended/Attack) and updated styling
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.3.6';
+const version = 'v0.3.8';
 
 const PlayingPage = () => {
   const {
@@ -37,7 +37,8 @@ const PlayingPage = () => {
     handleAttack
   } = useGameState();
   
-  // Redirect to login if no user profile
+  const [viewMode, setViewMode] = useState('blended');
+  
   useEffect(() => {
     if (!userProfile) {
       console.log(version, 'No user profile detected - redirecting to login');
@@ -45,20 +46,15 @@ const PlayingPage = () => {
     }
   }, [userProfile, dispatch, events]);
   
-  // Ref for CanvasBoard to receive opponent shots
   const canvasBoardRef = useRef(null);
   
-  // Force re-render trigger for observer pattern
   const [, setRenderTrigger] = useState(0);
   
-  // AutoPlay state (hidden feature for testing)
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(false);
   const autoPlayTimerRef = useRef(null);
   
-    // Check if user has AutoPlay privileges (admin, developer, or tester roles)
-      const canUseAutoPlay = ['admin', 'developer', 'tester'].includes(userProfile?.role);
-    
-  // Set battle board ref in game instance for opponent shot notifications
+  const canUseAutoPlay = ['admin', 'developer', 'tester'].includes(userProfile?.role);
+  
   useEffect(() => {
     if (gameInstance && canvasBoardRef.current) {
       gameInstance.setBattleBoardRef(canvasBoardRef);
@@ -66,40 +62,32 @@ const PlayingPage = () => {
     }
   }, [gameInstance]);
 
-  // Stable shot handler to prevent retriggering
-    const handleShotFired = useCallback((row, col) => {  // Synchronous
-      if (!isPlayerTurn || !isGameActive) {
-        console.log(version, 'Shot blocked - not player turn or game inactive');
-        return false;
-      }
-      
-      console.log(version, 'Player shot fired at', { row, col });
-      const result = handleAttack(row, col);  // Synchronous call
-      
-      return { result, row, col };
-    }, [isPlayerTurn, isGameActive, handleAttack]);
+  const handleShotFired = useCallback((row, col) => {
+    if (!isPlayerTurn || !isGameActive) {
+      console.log(version, 'Shot blocked - not player turn or game inactive');
+      return false;
+    }
     
-  // AutoPlay logic - fires at random valid targets
-  // v0.3.5: Get humanPlayer directly from game instance to ensure same object reference
+    console.log(version, 'Player shot fired at', { row, col });
+    const result = handleAttack(row, col);
+    
+    return { result, row, col };
+  }, [isPlayerTurn, isGameActive, handleAttack]);
+  
   const fireRandomShot = useCallback(() => {
     if (!gameInstance || !isPlayerTurn || !isGameActive) {
       return;
     }
 
-    // Get the human player from the game instance (not from context)
-    // This ensures we're using the same Player object that has missedShots Set
     const humanPlayerFromGame = gameInstance.players.find(p => p.type === 'human');
     if (!humanPlayerFromGame) {
       console.log(version, 'AutoPlay: No human player found in game instance');
       return;
     }
 
-    // Get all valid targets using Game's validation logic
-    // This includes checking shot history and ship health
     const validTargets = [];
     for (let row = 0; row < eraConfig.rows; row++) {
       for (let col = 0; col < eraConfig.cols; col++) {
-        // Use Game's isValidAttack with the actual Player object from game
         if (gameInstance.isValidAttack(row, col, humanPlayerFromGame)) {
           validTargets.push({ row, col });
         }
@@ -112,7 +100,6 @@ const PlayingPage = () => {
       return;
     }
 
-    // Pick random target
     const randomIndex = Math.floor(Math.random() * validTargets.length);
     const target = validTargets[randomIndex];
     
@@ -120,44 +107,37 @@ const PlayingPage = () => {
     handleShotFired(target.row, target.col);
   }, [gameInstance, isPlayerTurn, isGameActive, eraConfig, handleShotFired]);
 
-  // AutoPlay timer effect - triggers on turn changes
   useEffect(() => {
-    // Clear any existing timer
     if (autoPlayTimerRef.current) {
       clearTimeout(autoPlayTimerRef.current);
       autoPlayTimerRef.current = null;
     }
 
-    // If autoplay enabled, game active, and player's turn
     if (autoPlayEnabled && isGameActive && isPlayerTurn) {
       autoPlayTimerRef.current = setTimeout(() => {
         fireRandomShot();
-      }, 200); // 200ms delay between shots
+      }, 200);
     }
 
-    // Cleanup on unmount or when autoplay disabled
     return () => {
       if (autoPlayTimerRef.current) {
         clearTimeout(autoPlayTimerRef.current);
         autoPlayTimerRef.current = null;
       }
     };
-  }, [autoPlayEnabled, isGameActive, isPlayerTurn, fireRandomShot, battleMessage]); // Add battleMessage to retrigger after each shot
+  }, [autoPlayEnabled, isGameActive, isPlayerTurn, fireRandomShot, battleMessage]);
 
-  // Disable autoplay when game ends
   useEffect(() => {
     if (!isGameActive) {
       setAutoPlayEnabled(false);
     }
   }, [isGameActive]);
 
-  // Toggle autoplay
   const handleAutoPlayToggle = () => {
     setAutoPlayEnabled(prev => !prev);
     console.log(version, 'AutoPlay toggled:', !autoPlayEnabled);
   };
 
-  // Subscribe to game logic updates
   useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {
       setRenderTrigger(prev => prev + 1);
@@ -165,7 +145,6 @@ const PlayingPage = () => {
     return unsubscribe;
   }, [subscribeToUpdates]);
 
-  // Memoized game state to prevent unnecessary re-renders
   const gameState = React.useMemo(() => ({
     isPlayerTurn,
     currentPlayer,
@@ -179,12 +158,10 @@ const PlayingPage = () => {
     userId: humanPlayer?.id
   }), [isPlayerTurn, currentPlayer, battleMessage, uiMessage, playerHits, opponentHits, isGameActive, gamePhase, winner, humanPlayer?.id]);
 
-  // Don't render if no userProfile (will redirect)
   if (!userProfile) {
     return null;
   }
 
-  // Loading state - no game instance yet
   if (!gameInstance || !gameBoard) {
     return (
       <div className="container flex flex-column flex-center">
@@ -199,7 +176,6 @@ const PlayingPage = () => {
     );
   }
 
-  // Active game state - using CanvasBoard
   return (
     <div className="container flex flex-column flex-center">
       <div className="content-pane content-pane--wide">
@@ -211,6 +187,7 @@ const PlayingPage = () => {
           <CanvasBoard
             ref={canvasBoardRef}
             mode="battle"
+            viewMode={viewMode}
             eraConfig={eraConfig}
             gameBoard={gameBoard}
             gameInstance={gameInstance}
@@ -219,11 +196,30 @@ const PlayingPage = () => {
           />
         </div>
         
-        {/* Hit statistics - inline between board and console */}
+        <div className="view-mode-controls">
+          <button
+            className={`view-mode-btn ${viewMode === 'fleet' ? 'view-mode-btn--active' : ''}`}
+            onClick={() => setViewMode('fleet')}
+          >
+            FLEET VIEW
+          </button>
+          <button
+            className={`view-mode-btn ${viewMode === 'blended' ? 'view-mode-btn--active' : ''}`}
+            onClick={() => setViewMode('blended')}
+          >
+            BLENDED VIEW
+          </button>
+          <button
+            className={`view-mode-btn ${viewMode === 'attack' ? 'view-mode-btn--active' : ''}`}
+            onClick={() => setViewMode('attack')}
+          >
+            ATTACK VIEW
+          </button>
+        </div>
+        
         <div className="game-stats">
           <span className="stat-inline">Your Hits: {playerHits || 0}</span>
           <span className="stat-inline">Enemy Hits: {opponentHits || 0}</span>
-          {/* AutoPlay toggle - only visible for testing account */}
           {canUseAutoPlay && isGameActive && (
             <button
               className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
@@ -234,7 +230,6 @@ const PlayingPage = () => {
           )}
         </div>
         
-        {/* Consolidated message console - UI message on top, battle message below */}
         <div className="message-consoles">
           <div className="console-combined">
             <div className="console-header">Messages</div>

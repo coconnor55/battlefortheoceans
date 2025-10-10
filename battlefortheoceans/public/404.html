@@ -5,24 +5,76 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>404 - Battle for the Oceans</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Orbitron', sans-serif;
-      background: #0a1628;
+      background-image: url('./assets/images/underwater-ships.jpg');
+      background-size: cover;
+      background-attachment: scroll;
+      background-position: center;
+      background-repeat: no-repeat;
       color: #00D9FF;
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      margin: 0;
+      min-height: 100vh;
       text-align: center;
     }
-    h1 { font-size: 4rem; margin: 0; }
-    p { font-size: 1.5rem; }
-    a { color: #00FF88; text-decoration: none; }
+
+    .content {
+      background: rgba(10, 22, 40, 0.85);
+      backdrop-filter: blur(10px);
+      padding: 3rem;
+      border-radius: 1rem;
+      border: 2px solid rgba(0, 217, 255, 0.3);
+      max-width: 90%;
+    }
+
+    h1 {
+      font-size: 4rem;
+      margin: 0 0 1rem 0;
+      text-shadow: 0 0 20px rgba(0, 217, 255, 0.5);
+    }
+
+    p {
+      font-size: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    a {
+      color: #00FF88;
+      text-decoration: none;
+      font-size: 1.25rem;
+      padding: 0.75rem 1.5rem;
+      border: 2px solid #00FF88;
+      border-radius: 0.5rem;
+      display: inline-block;
+      transition: all 0.3s ease;
+    }
+
+    a:hover {
+      background: #00FF88;
+      color: #0a1628;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 255, 136, 0.3);
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+      h1 { font-size: 3rem; }
+      p { font-size: 1.25rem; }
+      .content { padding: 2rem; }
+    }
   </style>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div>
+  <div class="content">
     <h1>404</h1>
     <p>You have arrived in the Bermuda Triangle...</p>
     <a href="/">Return to Battle for the Oceans</a>

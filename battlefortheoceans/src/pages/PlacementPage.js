@@ -1,13 +1,14 @@
-// src/pages/PlacementPage.js v0.4.6
+// src/pages/PlacementPage.js v0.4.8
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.4.6: Added pulse glow to Start Battle button when all ships placed
+// v0.4.8: Phase 4 Refactor - Simplified autoplace clearing (no more shipOwnership)
+// v0.4.7: Fixed autoplace by clearing shipOwnership map before re-placement
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.4.6';
+const version = 'v0.4.8';
 
 const PlacementPage = () => {
   const {
@@ -31,7 +32,6 @@ const PlacementPage = () => {
     isPlacementComplete
   } = useGameState();
   
-  // Redirect to login if no user profile
   useEffect(() => {
     if (!userProfile) {
       console.log(version, 'No user profile detected - redirecting to login');
@@ -39,14 +39,11 @@ const PlacementPage = () => {
     }
   }, [userProfile, dispatch, events]);
   
-  // Only UI-specific state remains
   const [error, setError] = useState(null);
   const [isAutoPlacing, setIsAutoPlacing] = useState(false);
   
-  // Force re-render trigger for observer pattern
   const [, setRenderTrigger] = useState(0);
 
-  // Subscribe to game logic updates
   useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {
       setRenderTrigger(prev => prev + 1);
@@ -54,7 +51,6 @@ const PlacementPage = () => {
     return unsubscribe;
   }, [subscribeToUpdates]);
 
-  // Check if game is ready for ship placement
   useEffect(() => {
     if (!eraConfig || !humanPlayer || !selectedOpponent) {
       const missingItems = [];
@@ -75,7 +71,6 @@ const PlacementPage = () => {
     }
   }, [eraConfig, humanPlayer, selectedOpponent, gameInstance, board]);
 
-  // Handle ship placement
   const handleShipPlaced = (ship, shipCells, orientation) => {
     try {
       console.log(version, `Placing ${ship.name} with ${shipCells.length} cells`);
@@ -85,10 +80,11 @@ const PlacementPage = () => {
       if (success) {
         console.log(version, `Successfully placed ${ship.name}`);
         
-        const placementProgress = gameInstance?.playerFleets?.get(humanPlayer.id);
-        if (placementProgress) {
-          const placedCount = placementProgress.ships.filter(ship => ship.isPlaced).length;
-          const totalCount = placementProgress.ships.length;
+        // Phase 4: Access fleet directly from player
+        const fleet = humanPlayer?.fleet;
+        if (fleet) {
+          const placedCount = fleet.ships.filter(ship => ship.isPlaced).length;
+          const totalCount = fleet.ships.length;
           console.log(version, `Placement progress: ${placedCount}/${totalCount} ships placed`);
           
           if (placedCount === totalCount) {
@@ -110,7 +106,6 @@ const PlacementPage = () => {
     }
   };
 
-  // Auto-place ships with auto-clear functionality
   const handleAutoPlace = async () => {
     if (!gameInstance || !humanPlayer || !board || isAutoPlacing) {
       return;
@@ -120,23 +115,29 @@ const PlacementPage = () => {
     console.log(version, 'Starting auto-placement with auto-clear');
 
     try {
-      // Clear all existing ship placements
-      const fleet = gameInstance.playerFleets.get(humanPlayer.id);
+      // Phase 4: Access fleet directly from player
+      const fleet = humanPlayer.fleet;
       if (fleet) {
         console.log(version, 'Clearing existing ship placements');
         
-        // Reset each ship
+        // Phase 4: Clear player's placement map (the fix!)
+        humanPlayer.clearPlacements();
+        
+        // Reset ship flags
         fleet.ships.forEach(ship => {
           ship.reset();
         });
         
-        // Clear the board
+        console.log(`[BOARD] board === gameInstance.board:`, board === gameInstance.board);
+        console.log(`[BOARD] humanPlayer.board === board:`, humanPlayer.board === board);
+        console.log(`[BOARD] humanPlayer.board === gameInstance.board:`, humanPlayer.board === gameInstance.board);
+        
+        // Clear the board (terrain only now)
         board.clear();
         
         console.log(version, 'All ships cleared, ready for fresh auto-placement');
       }
 
-      // Now auto-place all ships
       await gameInstance.autoPlaceShips(humanPlayer);
       console.log(version, 'Auto-placement completed');
       
@@ -147,7 +148,6 @@ const PlacementPage = () => {
     }
   };
 
-  // Manual start button
   const handleStartBattle = () => {
     console.log(version, 'Player confirmed - starting battle');
     
@@ -158,7 +158,6 @@ const PlacementPage = () => {
     }
   };
 
-  // Get placement message for console
   const getPlacementMessage = () => {
     if (isAutoPlacing) {
       return 'Autoplacing ships...';
@@ -171,7 +170,6 @@ const PlacementPage = () => {
     }
   };
 
-  // Get UI message for console
   const getUIMessage = () => {
     if (isAutoPlacing) {
       return 'Autoplacing ships...';
@@ -184,12 +182,10 @@ const PlacementPage = () => {
     }
   };
 
-  // Don't render if no userProfile (will redirect)
   if (!userProfile) {
     return null;
   }
 
-  // Error state
   if (error) {
     console.log(version, 'Showing error state:', error);
     return (
@@ -214,7 +210,6 @@ const PlacementPage = () => {
     );
   }
 
-  // Loading state
   if (!board || !gameInstance || !humanPlayer) {
     const waitingFor = [];
     if (!board) waitingFor.push('board');
@@ -277,7 +272,6 @@ const PlacementPage = () => {
         <div className="divider"></div>
 
         <div className="placement-actions">
-          {/* Autoplace button */}
           <button
             className="btn btn--secondary btn--lg"
             onClick={handleAutoPlace}
@@ -286,7 +280,6 @@ const PlacementPage = () => {
             {isAutoPlacing ? 'Placing Ships...' : 'Autoplace Ships'}
           </button>
 
-          {/* Start Battle button - pulse glow when ready */}
           <button
             className={`btn btn--primary btn--lg ${isPlacementComplete && !isAutoPlacing ? 'btn--pulse' : ''}`}
             onClick={handleStartBattle}
@@ -302,5 +295,4 @@ const PlacementPage = () => {
 };
 
 export default PlacementPage;
-
 // EOF

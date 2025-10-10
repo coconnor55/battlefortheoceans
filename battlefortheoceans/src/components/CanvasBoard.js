@@ -1,78 +1,101 @@
-// src/components/CanvasBoard.js v0.2.0
+// src/components/CanvasBoard.js v0.3.4
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.2.0: Added particle explosion effects on hits
-// v0.1.19: Fixed mobile touch coordinate calculation with CSS scaling
+// v0.3.4: Added keyboard debug feature (z key) for admin users
+// v0.3.3: Fixed duplicate function definitions (removed code outside component)
+// v0.3.2: Added blue bounding boxes for player ships instead of shading
+// v0.3.1: Added viewMode prop support (fleet/attack/blended)
 
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { useGame } from '../context/GameContext';
+import TerrainRenderer from '../renderers/TerrainRenderer';
+import AnimationManager from '../renderers/AnimationManager';
+import HitOverlayRenderer from '../renderers/HitOverlayRenderer';
 
-const version = 'v0.2.0';
+const version = 'v0.3.4';
 
 const CanvasBoard = forwardRef(({
   eraConfig,
   gameBoard,
   gameInstance,
-  mode = 'battle', // 'battle' | 'placement'
-  // Battle mode props
+  mode = 'battle',
+  viewMode = 'blended',
   gameState = null,
   onShotFired = null,
-  // Placement mode props
   currentShip = null,
   onShipPlaced = null,
   humanPlayer = null
 }, ref) => {
   const canvasRef = useRef(null);
-  const { subscribeToUpdates } = useGame();
+  const { subscribeToUpdates, userProfile } = useGame();
   
-  // Canvas dimensions
   const cellSize = 30;
   const labelSize = 20;
   const boardWidth = eraConfig ? eraConfig.cols * cellSize + labelSize : 0;
   const boardHeight = eraConfig ? eraConfig.rows * cellSize + labelSize : 0;
 
-  // Placement mode state
   const [previewCells, setPreviewCells] = useState([]);
   const [isValidPlacement, setIsValidPlacement] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
   const [startCell, setStartCell] = useState(null);
 
-  // Animation state - use ref for immediate access during animation loop
-  const animationsRef = useRef([]);
-  const particlesRef = useRef([]); // NEW: Particle system
-  const [animationTrigger, setAnimationTrigger] = useState(0);
-
-  // Performance optimization - cache terrain layer
-  const terrainLayerRef = useRef(null);
+  const terrainRendererRef = useRef(new TerrainRenderer());
+  const animationManagerRef = useRef(new AnimationManager());
+  const hitOverlayRendererRef = useRef(new HitOverlayRenderer());
   
-  // Track last processed cell to prevent excessive updates
   const lastProcessedCell = useRef(null);
-  
-  // Helper function to get canvas coordinates accounting for CSS scaling
+
+  const isAdmin = userProfile?.role === 'admin';
+
+  // Keyboard debug feature for admin
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'z' || e.key === 'Z') {
+        window.DEBUG_SHOW_OPPONENT_SHIPS = true;
+        if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+          drawCanvas();
+        }
+      }
+    };
+
+    const handleKeyUp = (e) => {
+      if (e.key === 'z' || e.key === 'Z') {
+        window.DEBUG_SHOW_OPPONENT_SHIPS = false;
+        if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+          drawCanvas();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [isAdmin, gameBoard, eraConfig, gameInstance]);
+
   const getCanvasCoordinates = useCallback((clientX, clientY) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     
     const rect = canvas.getBoundingClientRect();
-    
-    // Calculate scaling factors
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    
-    // Apply scaling to coordinates
     const x = (clientX - rect.left) * scaleX;
     const y = (clientY - rect.top) * scaleY;
     
     return { x, y };
   }, []);
   
-  // Clear terrain cache when era changes
   useEffect(() => {
     if (eraConfig) {
-      terrainLayerRef.current = null;
+      terrainRendererRef.current.clearCache();
     }
   }, [eraConfig]);
 
-  // Clear placement preview when ship changes
   useEffect(() => {
     if (mode === 'placement') {
       setPreviewCells([]);
@@ -83,7 +106,6 @@ const CanvasBoard = forwardRef(({
     }
   }, [currentShip, mode]);
 
-  // Subscribe to game updates for real-time canvas redraw
   useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {
       if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
@@ -91,52 +113,32 @@ const CanvasBoard = forwardRef(({
       }
     });
     return unsubscribe;
-  }, [subscribeToUpdates]);
+  }, [subscribeToUpdates, gameBoard, eraConfig, gameInstance]);
 
-  // Initial canvas draw when components are ready
   useEffect(() => {
     if (gameBoard && eraConfig && gameInstance && canvasRef.current) {
       drawCanvas();
     }
-  }, [gameBoard, eraConfig, gameInstance]);
+  }, [gameBoard, eraConfig, gameInstance, viewMode]);
 
-  // Get terrain color
-  const getTerrainColor = useCallback((terrain) => {
-    switch (terrain) {
-      case 'deep': return '#FFFFFF';
-      case 'shallow': return '#B3D9FF';
-      case 'shoal': return '#87CEEB';
-      case 'marsh': return '#90EE90';
-      case 'land': return '#DEB887';
-      case 'rock': return '#A9A9A9';
-      case 'excluded': return 'transparent';
-      default: return '#FFFFFF';
-    }
-  }, []);
-
-  // Validate ship placement
   const isValidShipPlacement = useCallback((cells) => {
     if (!cells || cells.length === 0 || !currentShip) return false;
     
     for (const cell of cells) {
-      // Check bounds
       if (cell.row < 0 || cell.row >= eraConfig.rows ||
           cell.col < 0 || cell.col >= eraConfig.cols) {
         return false;
       }
       
-      // Check if excluded terrain
       if (!gameBoard.isValidCoordinate(cell.row, cell.col)) {
         return false;
       }
       
-      // Check terrain compatibility
       const terrain = gameBoard.terrain[cell.row][cell.col];
       if (!currentShip.terrain.includes(terrain)) {
         return false;
       }
       
-      // Check for existing ships
       try {
         const shipDataArray = gameBoard.getShipDataAt(cell.row, cell.col);
         if (shipDataArray && shipDataArray.length > 0) {
@@ -149,247 +151,89 @@ const CanvasBoard = forwardRef(({
     
     return true;
   }, [currentShip, eraConfig, gameBoard]);
-    
-  // Main canvas drawing function
-  const drawCanvas = useCallback(() => {
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx || !gameBoard || !eraConfig || !gameInstance) return;
 
-    // Set canvas size with equal margins
-    ctx.canvas.width = boardWidth + 40;
-    ctx.canvas.height = boardHeight + 40;
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-    // Equal 20px margins on all sides
-    const offsetX = 20;
-    const offsetY = 20;
-
-    // Layer 1: Static terrain + grid (cached)
-    drawTerrainLayer(ctx, offsetX, offsetY);
-
-    // Layer 2: Ships (different logic for battle vs placement)
-    if (mode === 'battle') {
-      drawBattleShips(ctx, offsetX, offsetY);
-      drawHitOverlay(ctx, offsetX, offsetY);
-    } else {
-      drawPlacementShips(ctx, offsetX, offsetY);
-      drawPlacementPreview(ctx, offsetX, offsetY);
-    }
-
-    // Layer 3: Animations - read directly from ref for current state
-    if (animationsRef.current.length > 0) {
-      animationsRef.current.forEach(anim => drawAnimation(ctx, anim, offsetX, offsetY));
-    }
-
-    // Layer 4: Particles (NEW)
-    if (particlesRef.current.length > 0) {
-      particlesRef.current.forEach(particle => drawParticle(ctx, particle, offsetX, offsetY));
-    }
-  }, [gameBoard, eraConfig, gameInstance, mode, gameState, previewCells, isValidPlacement, boardWidth, boardHeight]);
-
-  // NEW: Draw individual particle
-  const drawParticle = useCallback((ctx, particle, offsetX, offsetY) => {
-    ctx.save();
-    ctx.globalAlpha = particle.life;
-    ctx.fillStyle = particle.color;
-    ctx.fillRect(
-      offsetX + particle.x - particle.size / 2,
-      offsetY + particle.y - particle.size / 2,
-      particle.size,
-      particle.size
-    );
-    ctx.restore();
-  }, []);
-
-  // NEW: Create explosion particles
-    // NEW: Create explosion particles
-    const createExplosion = useCallback((row, col, isOpponentHit = false) => {
-      console.log('[EXPLOSION DEBUG]', version, 'Creating explosion at', row, col, 'opponent:', isOpponentHit);
-      const centerX = col * cellSize + labelSize + cellSize / 2;
-      const centerY = row * cellSize + labelSize + cellSize / 2;
-      
-      // Create 20-30 particles
-      const particleCount = 20 + Math.floor(Math.random() * 11);
-      const newParticles = [];
-      
-      for (let i = 0; i < particleCount; i++) {
-        const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.5;
-        const speed = 2 + Math.random() * 3; // Changed from 4-10 to 2-5 (50% slower)
+    const getShipBoundingBoxes = useCallback((playerId) => {
+        if (!gameInstance || !gameBoard) return [];
         
-        newParticles.push({
-          x: centerX,
-          y: centerY,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          life: 1.0,
-          size: 5 + Math.random() * 4,
-          color: isOpponentHit
-            ? `rgba(0, ${100 + Math.floor(Math.random() * 100)}, 255, 1)`
-            : `rgba(255, ${100 + Math.floor(Math.random() * 100)}, 0, 1)`
-        });
-      }
-      
-      particlesRef.current = [...particlesRef.current, ...newParticles];
-      
-      // Animate particles
-      const animateExplosion = () => {
-        let stillAlive = false;
+        // Phase 4: Get player directly from game instance
+        const player = gameInstance.players?.find(p => p.id === playerId);
+        if (!player) return [];
         
-        particlesRef.current = particlesRef.current.map(p => {
-          if (p.life > 0) {
-            stillAlive = true;
-            return {
-              ...p,
-              x: p.x + p.vx,
-              y: p.y + p.vy,
-              vy: p.vy + 0.1, // Reduced gravity from 0.2 to 0.1 (50% slower fall)
-              life: p.life - 0.03,
-              color: p.color.replace('1)', `${p.life})`)
-            };
+        const shipCells = new Map();
+        
+        // Phase 4: Read from player.shipPlacements instead of Board.cellContents
+        for (const [key, placement] of player.shipPlacements.entries()) {
+          const [row, col] = key.split(',').map(Number);
+          
+          // Validate coordinates are on board
+          if (row < 0 || row >= eraConfig.rows || col < 0 || col >= eraConfig.cols) {
+            continue;
           }
-          return p;
-        }).filter(p => p.life > 0);
-        
-        // Redraw canvas with particles
-        if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
-          drawCanvas();
-        }
-        
-        if (stillAlive) {
-          requestAnimationFrame(animateExplosion);
-        }
-      };
-      
-      requestAnimationFrame(animateExplosion);
-    }, [cellSize, labelSize, gameBoard, eraConfig, gameInstance, drawCanvas]);
-  // Draw terrain and grid (cached for performance)
-  const drawTerrainLayer = useCallback((ctx, offsetX, offsetY) => {
-    if (!terrainLayerRef.current) {
-      const terrainCanvas = document.createElement('canvas');
-      terrainCanvas.width = ctx.canvas.width;
-      terrainCanvas.height = ctx.canvas.height;
-      const terrainCtx = terrainCanvas.getContext('2d');
-      
-      // Draw row labels (numbers) - WHITE with black outline for visibility
-      terrainCtx.fillStyle = '#FFFFFF';
-      terrainCtx.font = 'bold 12px Arial';
-      terrainCtx.textAlign = 'center';
-      terrainCtx.strokeStyle = '#000000';
-      terrainCtx.lineWidth = 3;
-      
-      for (let row = 0; row < eraConfig.rows; row++) {
-        const text = (row + 1).toString();
-        const x = offsetX + labelSize / 2;
-        const y = offsetY + row * cellSize + labelSize + cellSize / 2 + 4;
-        
-        terrainCtx.strokeText(text, x, y);
-        terrainCtx.fillText(text, x, y);
-      }
-
-      // Draw column labels (letters)
-      for (let col = 0; col < eraConfig.cols; col++) {
-        const letter = String.fromCharCode(65 + col);
-        const x = offsetX + col * cellSize + labelSize + cellSize / 2;
-        const y = offsetY + labelSize / 2 + 4;
-        
-        terrainCtx.strokeText(letter, x, y);
-        terrainCtx.fillText(letter, x, y);
-      }
-
-      // Draw grid lines
-      terrainCtx.strokeStyle = '#000';
-      terrainCtx.lineWidth = 1;
-      for (let row = 0; row <= eraConfig.rows; row++) {
-        terrainCtx.beginPath();
-        terrainCtx.moveTo(offsetX + labelSize, offsetY + row * cellSize + labelSize);
-        terrainCtx.lineTo(offsetX + eraConfig.cols * cellSize + labelSize, offsetY + row * cellSize + labelSize);
-        terrainCtx.stroke();
-      }
-      for (let col = 0; col <= eraConfig.cols; col++) {
-        terrainCtx.beginPath();
-        terrainCtx.moveTo(offsetX + col * cellSize + labelSize, offsetY + labelSize);
-        terrainCtx.lineTo(offsetX + col * cellSize + labelSize, offsetY + eraConfig.rows * cellSize + labelSize);
-        terrainCtx.stroke();
-      }
-
-      // Draw terrain background
-      for (let row = 0; row < eraConfig.rows; row++) {
-        for (let col = 0; col < eraConfig.cols; col++) {
-          const terrain = eraConfig.terrain[row][col];
-          if (terrain !== 'excluded') {
-            const x = offsetX + col * cellSize + labelSize + 1;
-            const y = offsetY + row * cellSize + labelSize + 1;
-            const size = cellSize - 2;
-            
-            terrainCtx.fillStyle = getTerrainColor(terrain);
-            terrainCtx.fillRect(x, y, size, size);
+          
+          const shipId = placement.shipId;
+          if (!shipCells.has(shipId)) {
+            shipCells.set(shipId, []);
           }
+          shipCells.get(shipId).push({ row, col });
         }
-      }
-      
-      terrainLayerRef.current = terrainCanvas;
-    }
+        
+        const boundingBoxes = [];
+        for (const [, cells] of shipCells) {
+          if (cells.length === 0) continue;
+          
+          const minRow = Math.min(...cells.map(c => c.row));
+          const maxRow = Math.max(...cells.map(c => c.row));
+          const minCol = Math.min(...cells.map(c => c.col));
+          const maxCol = Math.max(...cells.map(c => c.col));
+          
+          boundingBoxes.push({
+            minRow,
+            maxRow,
+            minCol,
+            maxCol
+          });
+        }
+        
+        return boundingBoxes;
+      }, [gameInstance, gameBoard, eraConfig]);
     
-    ctx.drawImage(terrainLayerRef.current, 0, 0);
-  }, [eraConfig, cellSize, labelSize, getTerrainColor]);
-
-  // Draw ships for battle mode
+  const drawShipBoundingBoxes = useCallback((ctx, offsetX, offsetY, playerId, color = '#0011CC') => {
+    const boxes = getShipBoundingBoxes(playerId);
+    
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([]);
+    
+    boxes.forEach(box => {
+      const x = offsetX + box.minCol * cellSize + labelSize;
+      const y = offsetY + box.minRow * cellSize + labelSize;
+      const width = (box.maxCol - box.minCol + 1) * cellSize;
+      const height = (box.maxRow - box.minRow + 1) * cellSize;
+      
+      ctx.strokeRect(x, y, width, height);
+    });
+  }, [getShipBoundingBoxes, cellSize, labelSize]);
+    
   const drawBattleShips = useCallback((ctx, offsetX, offsetY) => {
     if (!gameState?.userId) return;
-
-    const playerView = gameBoard.getPlayerView(
-      gameState.userId,
-      gameInstance.playerFleets,
-      gameInstance.shipOwnership
-    );
-
-    for (let row = 0; row < eraConfig.rows; row++) {
-      for (let col = 0; col < eraConfig.cols; col++) {
-        const cellView = playerView[row][col];
-        
-        if (cellView.hasOwnShip) {
-          const x = offsetX + col * cellSize + labelSize + 1;
-          const y = offsetY + row * cellSize + labelSize + 1;
-          const size = cellSize - 2;
-          
-          ctx.fillStyle = 'rgba(173, 216, 230, 0.7)';
-          ctx.fillRect(x, y, size, size);
-        }
-      }
+    
+    // Always draw player ships in blue (fleet or blended view)
+    if (viewMode === 'fleet' || viewMode === 'blended') {
+      drawShipBoundingBoxes(ctx, offsetX, offsetY, gameState.userId, '#0066CC');
     }
-  }, [gameBoard, gameState, gameInstance, eraConfig, cellSize, labelSize]);
+    
+    // DEBUG: Draw opponent ships in orange (visible when holding 'z' key as admin)
+    const opponentPlayer = gameInstance?.players?.find(p => p.id !== gameState.userId);
+    if (opponentPlayer && window.DEBUG_SHOW_OPPONENT_SHIPS) {
+      drawShipBoundingBoxes(ctx, offsetX, offsetY, opponentPlayer.id, '#FF6600');
+    }
+  }, [gameState, viewMode, drawShipBoundingBoxes, gameInstance]);
 
-  // Draw ships for placement mode
   const drawPlacementShips = useCallback((ctx, offsetX, offsetY) => {
     if (!humanPlayer) return;
+    drawShipBoundingBoxes(ctx, offsetX, offsetY, humanPlayer.id);
+  }, [humanPlayer, drawShipBoundingBoxes]);
 
-    for (let row = 0; row < eraConfig.rows; row++) {
-      for (let col = 0; col < eraConfig.cols; col++) {
-        try {
-          const shipDataArray = gameBoard.getShipDataAt(row, col);
-          if (shipDataArray && shipDataArray.length > 0) {
-            const hasPlayerShip = shipDataArray.some(shipData => {
-              const ownerId = gameInstance.shipOwnership.get(shipData.shipId);
-              return ownerId === humanPlayer.id;
-            });
-            
-            if (hasPlayerShip) {
-              const x = offsetX + col * cellSize + labelSize + 1;
-              const y = offsetY + row * cellSize + labelSize + 1;
-              const size = cellSize - 2;
-              
-              ctx.fillStyle = 'rgba(173, 216, 230, 0.7)';
-              ctx.fillRect(x, y, size, size);
-            }
-          }
-        } catch (error) {
-          console.warn(version, 'Error checking ship data at', row, col);
-        }
-      }
-    }
-  }, [gameBoard, gameInstance, humanPlayer, eraConfig, cellSize, labelSize]);
-
-  // Draw placement preview
   const drawPlacementPreview = useCallback((ctx, offsetX, offsetY) => {
     if (previewCells.length === 0) return;
 
@@ -399,212 +243,78 @@ const CanvasBoard = forwardRef(({
       const size = cellSize - 2;
       
       ctx.fillStyle = isValidPlacement ?
-        'rgba(144, 238, 144, 0.8)' : // Light green for valid
-        'rgba(255, 179, 179, 0.8)';   // Light red for invalid
+        'rgba(144, 238, 144, 0.8)' :
+        'rgba(255, 179, 179, 0.8)';
       ctx.fillRect(x, y, size, size);
       
-      // Add border
       ctx.strokeStyle = isValidPlacement ? '#228B22' : '#DC143C';
       ctx.lineWidth = 2;
       ctx.strokeRect(x, y, size, size);
     });
   }, [previewCells, isValidPlacement, cellSize, labelSize]);
 
-  // Draw hit overlay for battle mode
-  const drawHitOverlay = useCallback((ctx, offsetX, offsetY) => {
-    if (mode !== 'battle' || !gameInstance?.visualizer) return;
-    
-    const visualState = gameInstance.visualizer.getVisualState();
-    
-    for (let row = 0; row < eraConfig.rows; row++) {
-      for (let col = 0; col < eraConfig.cols; col++) {
-        const cellVisuals = visualState[row][col];
-        const x = offsetX + col * cellSize + labelSize + 1;
-        const y = offsetY + row * cellSize + labelSize + 1;
-        const size = cellSize - 2;
-        const centerX = x + size / 2;
-        const centerY = y + size / 2;
+  const drawCanvas = useCallback(() => {
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx || !gameBoard || !eraConfig || !gameInstance) return;
 
-        if (cellVisuals.showSkull) {
-          // Draw skull indicator
-          ctx.strokeStyle = cellVisuals.skullType === 'blue' ? '#0066FF' :
-                          cellVisuals.skullType === 'red' ? '#CC0000' : '#666666';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(centerX - 6, centerY - 6);
-          ctx.lineTo(centerX + 6, centerY + 6);
-          ctx.moveTo(centerX + 6, centerY - 6);
-          ctx.lineTo(centerX - 6, centerY + 6);
-          ctx.stroke();
-        } else {
-          // Draw damage rings
-          if (cellVisuals.redRingPercent > 0) {
-            const ringRadius = size * 0.30;
-            const damagePercent = cellVisuals.redRingPercent / 100;
-            const damageAngle = (damagePercent * 2 * Math.PI) - (Math.PI / 2);
-            
-            ctx.strokeStyle = 'rgba(255, 182, 193, 0.4)';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, ringRadius, 0, 2 * Math.PI);
-            ctx.stroke();
-            
-            if (damagePercent > 0) {
-              ctx.strokeStyle = 'rgba(204, 0, 0, 0.9)';
-              ctx.beginPath();
-              ctx.arc(centerX, centerY, ringRadius, -Math.PI / 2, damageAngle);
-              ctx.stroke();
-            }
-          }
+    ctx.canvas.width = boardWidth + 40;
+    ctx.canvas.height = boardHeight + 40;
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-          if (cellVisuals.blueRingPercent > 0) {
-            const innerRadius = size * 0.25;
-            const damagePercent = cellVisuals.blueRingPercent / 100;
-            const damageAngle = (damagePercent * 2 * Math.PI) - (Math.PI / 2);
-            
-            ctx.strokeStyle = 'rgba(173, 216, 230, 0.4)';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
-            ctx.stroke();
-            
-            if (damagePercent > 0) {
-              ctx.strokeStyle = 'rgba(0, 102, 255, 0.9)';
-              ctx.beginPath();
-              ctx.arc(centerX, centerY, innerRadius, -Math.PI / 2, damageAngle);
-              ctx.stroke();
-            }
-          }
-        }
-      }
+    const offsetX = 20;
+    const offsetY = 20;
+
+    terrainRendererRef.current.drawTerrainLayer(ctx, eraConfig, cellSize, labelSize, offsetX, offsetY);
+
+    if (mode === 'battle') {
+      drawBattleShips(ctx, offsetX, offsetY);
+      hitOverlayRendererRef.current.drawHitOverlay(ctx, eraConfig, gameInstance, gameState, gameBoard, cellSize, labelSize, offsetX, offsetY, viewMode);
+    } else {
+      drawPlacementShips(ctx, offsetX, offsetY);
+      drawPlacementPreview(ctx, offsetX, offsetY);
     }
 
-    // Draw miss markers from shot history
-    if (gameState?.userId) {
-      const playerMissMarkers = gameBoard.shotHistory.filter(shot =>
-        shot.attacker === gameState.userId && shot.result === 'miss'
-      );
+    animationManagerRef.current.drawAllAnimations(ctx, offsetX, offsetY, cellSize, labelSize);
+    animationManagerRef.current.drawAllParticles(ctx, offsetX, offsetY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameBoard, eraConfig, gameInstance, mode, gameState, viewMode, boardWidth, boardHeight]);
+
+  const createExplosion = useCallback((row, col, isOpponentHit = false) => {
+    animationManagerRef.current.createExplosion(row, col, isOpponentHit, cellSize, labelSize);
+    
+    const animateExplosion = () => {
+      const stillAlive = animationManagerRef.current.updateParticles();
       
-      playerMissMarkers.forEach(shot => {
-        const centerX = offsetX + shot.col * cellSize + labelSize + cellSize / 2;
-        const centerY = offsetY + shot.row * cellSize + labelSize + cellSize / 2;
-        
-        ctx.fillStyle = '#666666';
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 4, 0, 2 * Math.PI);
-        ctx.fill();
-      });
-    }
-  }, [mode, gameInstance, eraConfig, gameState, gameBoard, cellSize, labelSize]);
-
-  // Draw animations
-  const drawAnimation = useCallback((ctx, anim, offsetX, offsetY) => {
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, 1 - anim.progress);
-    
-    // Calculate actual canvas position with offsets
-    const animX = offsetX + anim.col * cellSize + labelSize + cellSize / 2;
-    const animY = offsetY + anim.row * cellSize + labelSize + cellSize / 2;
-    
-    if (anim.type === 'hit') {
-      ctx.fillStyle = anim.color;
-      ctx.beginPath();
-      ctx.arc(animX, animY, anim.radius * (1 + anim.progress), 0, 2 * Math.PI);
-      ctx.fill();
-    } else if (anim.type === 'miss') {
-      ctx.strokeStyle = anim.color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(animX, animY, anim.radius * (1 + anim.progress * 2), 0, 2 * Math.PI);
-      ctx.stroke();
-    } else if (anim.type === 'splash') {
-      // Opponent splash animation
-      ctx.strokeStyle = anim.color;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(animX, animY, anim.radius * (1 + anim.progress * 2), 0, 2 * Math.PI);
-      ctx.stroke();
-      
-      // Add ripple effect
-      ctx.strokeStyle = `rgba(255, 165, 0, ${0.5 * (1 - anim.progress)})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(animX, animY, anim.radius * (1 + anim.progress * 3), 0, 2 * Math.PI);
-      ctx.stroke();
-    }
-    
-    ctx.restore();
-  }, [cellSize, labelSize]);
-
-  useImperativeHandle(ref, () => ({
-    recordOpponentShot: (row, col, result) => {
-      console.log('[OPPONENT SHOT]', version, 'Recording at:', row, col, 'Result:', result);
-      
-      // Show animation for opponent shot
-      if (result === 'firing') {
-        showOpponentAnimation(row, col, 'firing');
-      } else {
-        showOpponentAnimation(row, col, result);
-        
-        // NEW: Trigger explosion for hits
-        if (result === 'hit' || result === 'sunk') {
-          createExplosion(row, col, true); // true = opponent hit
-        }
-        
-        if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
-          drawCanvas();
-        }
+      if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+        drawCanvas();
       }
-    },
-    
-    // Capture board as PNG
-    captureBoard: () => {
-      if (!canvasRef.current) return null;
-      try {
-        // Ensure canvas is fully rendered before capture
-        const ctx = canvasRef.current.getContext('2d');
-        if (ctx && gameBoard && eraConfig && gameInstance) {
-          drawCanvas(); // Force final redraw
-        }
-        return canvasRef.current.toDataURL('image/png');
-      } catch (error) {
-        console.error('[CANVAS]', version, 'Failed to capture board:', error);
-        return null;
+      
+      if (stillAlive) {
+        requestAnimationFrame(animateExplosion);
       }
-    }
-  }), [gameBoard, eraConfig, gameInstance, drawCanvas, createExplosion]);
+    };
     
-  // Show opponent shot animation
+    requestAnimationFrame(animateExplosion);
+  }, [cellSize, labelSize, gameBoard, eraConfig, gameInstance, drawCanvas]);
+
   const showOpponentAnimation = useCallback((row, col, result) => {
     const animId = Date.now() + Math.random();
 
     let animType = 'splash';
-    let color = 'rgba(0, 120, 255, 0.8)'; // Blue for incoming (matches blue damage rings)
+    let color = 'rgba(0, 120, 255, 0.8)';
     let radius = 10;
     
     if (result === 'hit' || result === 'sunk') {
       animType = 'hit';
-      color = 'rgba(0, 102, 255, 0.9)'; // Darker blue for opponent hit (matches blue ring)
+      color = 'rgba(0, 102, 255, 0.9)';
       radius = 12;
     } else if (result === 'miss') {
       animType = 'splash';
-      color = 'rgba(0, 102, 204, 0.7)'; // Medium blue for miss
+      color = 'rgba(0, 102, 204, 0.7)';
       radius = 8;
     }
 
-    const animation = {
-      id: animId,
-      type: animType,
-      row: row,
-      col: col,
-      radius: radius,
-      color: color,
-      progress: 0
-    };
-    
-    // Add to ref for immediate access
-    animationsRef.current = [...animationsRef.current, animation];
-    console.log('[OPPONENT ANIM]', version, 'Animation added:', animType, 'at', row, col, '- Total animations:', animationsRef.current.length);
+    animationManagerRef.current.addAnimation(animId, animType, row, col, radius, color);
     
     const startTime = Date.now();
     const duration = 600;
@@ -613,16 +323,11 @@ const CanvasBoard = forwardRef(({
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
       
-      // Update progress in ref
-      animationsRef.current = animationsRef.current.map(anim =>
-        anim.id === animId ? { ...anim, progress } : anim
-      );
+      animationManagerRef.current.updateAnimationProgress(animId, progress);
       
-      // Redraw canvas each frame with current animations
       if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
         const ctx = canvasRef.current.getContext('2d');
         if (ctx) {
-          // Redraw everything
           drawCanvas();
         }
       }
@@ -630,11 +335,8 @@ const CanvasBoard = forwardRef(({
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
-        // Remove animation after completion
         setTimeout(() => {
-          animationsRef.current = animationsRef.current.filter(anim => anim.id !== animId);
-          console.log('[OPPONENT ANIM]', version, 'Animation removed - Remaining:', animationsRef.current.length);
-          // Final redraw
+          animationManagerRef.current.removeAnimation(animId);
           if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
             drawCanvas();
           }
@@ -645,70 +347,87 @@ const CanvasBoard = forwardRef(({
     requestAnimationFrame(animate);
   }, [gameBoard, eraConfig, gameInstance, drawCanvas]);
 
-  // Show player shot animation (MUST be defined before touch handlers)
-    const showShotAnimation = useCallback((shotResult, row, col) => {
-      console.log('[SHOT ANIM DEBUG]', version, 'showShotAnimation called:', shotResult, 'at', row, col);
-      
-      // Extract the actual result string from the nested object
-      const result = shotResult.result.result; // 'hit', 'miss', or 'sunk'
-      
-      const animId = Date.now() + Math.random();
+  const showShotAnimation = useCallback((shotResult, row, col) => {
+    const result = shotResult.result.result;
+    const animId = Date.now() + Math.random();
 
-      const animation = {
-        id: animId,
-        type: result === 'miss' ? 'miss' : 'hit',
-        row: row,
-        col: col,
-        radius: result === 'miss' ? 8 : 12,
-        color: result === 'miss' ? 'rgba(153, 153, 153, 0.7)' : 'rgba(204, 0, 0, 0.9)',
-        progress: 0
-      };
+    animationManagerRef.current.addAnimation(
+      animId,
+      result === 'miss' ? 'miss' : 'hit',
+      row,
+      col,
+      result === 'miss' ? 8 : 12,
+      result === 'miss' ? 'rgba(153, 153, 153, 0.7)' : 'rgba(204, 0, 0, 0.9)'
+    );
+    
+    if (result === 'hit' || result === 'sunk') {
+      createExplosion(row, col, false);
+    }
+    
+    const startTime = Date.now();
+    const duration = 600;
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
       
-      // Add to ref
-      animationsRef.current = [...animationsRef.current, animation];
+      animationManagerRef.current.updateAnimationProgress(animId, progress);
       
-      // NEW: Trigger explosion for player hits
-      if (result === 'hit' || result === 'sunk') {
-        createExplosion(row, col, false); // false = player hit (red/orange)
+      if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+        drawCanvas();
       }
       
-      const startTime = Date.now();
-      const duration = 600;
-      
-      const animate = () => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        setTimeout(() => {
+          animationManagerRef.current.removeAnimation(animId);
+          if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
+            drawCanvas();
+          }
+        }, 200);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }, [gameBoard, eraConfig, gameInstance, drawCanvas, createExplosion]);
+
+  useImperativeHandle(ref, () => ({
+    recordOpponentShot: (row, col, result) => {
+      if (result === 'firing') {
+        showOpponentAnimation(row, col, 'firing');
+      } else {
+        showOpponentAnimation(row, col, result);
         
-        // Update progress in ref
-        animationsRef.current = animationsRef.current.map(anim =>
-          anim.id === animId ? { ...anim, progress } : anim
-        );
+        if (result === 'hit' || result === 'sunk') {
+          createExplosion(row, col, true);
+        }
         
         if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
           drawCanvas();
         }
-        
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          setTimeout(() => {
-            animationsRef.current = animationsRef.current.filter(anim => anim.id !== animId);
-            if (canvasRef.current && gameBoard && eraConfig && gameInstance) {
-              drawCanvas();
-            }
-          }, 200);
-        }
-      };
-      
-      requestAnimationFrame(animate);
-    }, [gameBoard, eraConfig, gameInstance, drawCanvas, createExplosion]);
+      }
+    },
     
-  // Handle mouse down for placement start
+    captureBoard: () => {
+      if (!canvasRef.current) return null;
+      try {
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx && gameBoard && eraConfig && gameInstance) {
+          drawCanvas();
+        }
+        return canvasRef.current.toDataURL('image/png');
+      } catch (error) {
+        console.error('[CANVAS]', version, 'Failed to capture board:', error);
+        return null;
+      }
+    }
+  }), [showOpponentAnimation, gameBoard, eraConfig, gameInstance, drawCanvas, createExplosion]);
+    
   const handleMouseDown = useCallback((e) => {
     if (mode !== 'placement' || !currentShip || isPlacing) return;
 
     const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-
     const col = Math.floor((x - 20 - labelSize) / cellSize);
     const row = Math.floor((y - 20 - labelSize) / cellSize);
 
@@ -717,7 +436,6 @@ const CanvasBoard = forwardRef(({
       setIsPlacing(true);
       lastProcessedCell.current = { row, col };
       
-      // Show immediate horizontal preview
       const defaultCells = [];
       for (let i = 0; i < currentShip.size; i++) {
         defaultCells.push({ row, col: col + i });
@@ -734,17 +452,14 @@ const CanvasBoard = forwardRef(({
     }
   }, [mode, currentShip, isPlacing, cellSize, labelSize, eraConfig, isValidShipPlacement, gameBoard, gameInstance, drawCanvas, getCanvasCoordinates]);
 
-  // Handle canvas clicks for battle mode
   const handleCanvasClick = useCallback((e) => {
     const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-
     const col = Math.floor((x - 20 - labelSize) / cellSize);
     const row = Math.floor((y - 20 - labelSize) / cellSize);
 
     if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
       if (mode === 'battle' && onShotFired && gameState?.isPlayerTurn) {
         const shotResult = onShotFired(row, col);
-          console.log('[PLAYER SHOT DEBUG]', version, 'shotResult received:', shotResult); // ADD THIS LINE
         if (shotResult) {
           showShotAnimation(shotResult, row, col);
         }
@@ -752,12 +467,10 @@ const CanvasBoard = forwardRef(({
     }
   }, [mode, gameState, onShotFired, cellSize, labelSize, eraConfig, showShotAnimation, getCanvasCoordinates]);
 
-  // Handle mouse move for placement preview
   const handleMouseMove = useCallback((e) => {
     if (mode !== 'placement' || !currentShip || !isPlacing || !startCell) return;
 
     const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-
     const col = Math.floor((x - 20 - labelSize) / cellSize);
     const row = Math.floor((y - 20 - labelSize) / cellSize);
 
@@ -771,14 +484,13 @@ const CanvasBoard = forwardRef(({
     
     lastProcessedCell.current = { row, col };
 
-    const deltaRow = row - startCell.row;
     const deltaCol = col - startCell.col;
     
     let cells = [];
     let direction = 'right';
     
-    if (Math.abs(deltaRow) > Math.abs(deltaCol)) {
-      direction = deltaRow >= 0 ? 'down' : 'up';
+    if (Math.abs(row - startCell.row) > Math.abs(deltaCol)) {
+      direction = (row - startCell.row) >= 0 ? 'down' : 'up';
     } else {
       direction = deltaCol >= 0 ? 'right' : 'left';
     }
@@ -792,6 +504,7 @@ const CanvasBoard = forwardRef(({
         case 'left': cellCol = startCell.col - i; break;
         case 'down': cellRow = startCell.row + i; break;
         case 'up': cellRow = startCell.row - i; break;
+        default: break;
       }
       
       cells.push({ row: cellRow, col: cellCol });
@@ -826,7 +539,6 @@ const CanvasBoard = forwardRef(({
     }
   }, [mode, currentShip, isPlacing, startCell, cellSize, labelSize, eraConfig, gameBoard, gameInstance, isValidShipPlacement, drawCanvas, getCanvasCoordinates]);
 
-  // Handle mouse up for placement completion
   const handleMouseUp = useCallback((e) => {
     if (mode !== 'placement' || !currentShip || !isPlacing) {
       setPreviewCells([]);
@@ -838,11 +550,10 @@ const CanvasBoard = forwardRef(({
     }
 
     if (isValidPlacement && previewCells.length > 0) {
-      const deltaRow = previewCells[previewCells.length - 1].row - previewCells[0].row;
       const deltaCol = previewCells[previewCells.length - 1].col - previewCells[0].col;
       const isHorizontal = deltaCol !== 0;
       
-      const success = onShipPlaced?.(currentShip, previewCells, isHorizontal ? 'horizontal' : 'vertical');
+      onShipPlaced?.(currentShip, previewCells, isHorizontal ? 'horizontal' : 'vertical');
     }
 
     setPreviewCells([]);
@@ -852,14 +563,12 @@ const CanvasBoard = forwardRef(({
     lastProcessedCell.current = null;
   }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced]);
 
-  // Touch event handlers - FIXED with scaling
   const handleTouchStart = useCallback((e) => {
     e.preventDefault();
     if (mode !== 'placement' || !currentShip || isPlacing) return;
 
     const touch = e.touches[0];
     const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
-
     const col = Math.floor((x - 20 - labelSize) / cellSize);
     const row = Math.floor((y - 20 - labelSize) / cellSize);
 
@@ -890,7 +599,6 @@ const CanvasBoard = forwardRef(({
 
     const touch = e.touches[0];
     const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
-
     const col = Math.floor((x - 20 - labelSize) / cellSize);
     const row = Math.floor((y - 20 - labelSize) / cellSize);
 
@@ -904,14 +612,13 @@ const CanvasBoard = forwardRef(({
     
     lastProcessedCell.current = { row, col };
 
-    const deltaRow = row - startCell.row;
     const deltaCol = col - startCell.col;
     
     let cells = [];
     let direction = 'right';
     
-    if (Math.abs(deltaRow) > Math.abs(deltaCol)) {
-      direction = deltaRow >= 0 ? 'down' : 'up';
+    if (Math.abs(row - startCell.row) > Math.abs(deltaCol)) {
+      direction = (row - startCell.row) >= 0 ? 'down' : 'up';
     } else {
       direction = deltaCol >= 0 ? 'right' : 'left';
     }
@@ -925,6 +632,7 @@ const CanvasBoard = forwardRef(({
         case 'left': cellCol = startCell.col - i; break;
         case 'down': cellRow = startCell.row + i; break;
         case 'up': cellRow = startCell.row - i; break;
+        default: break;
       }
       
       cells.push({ row: cellRow, col: cellCol });
@@ -962,15 +670,11 @@ const CanvasBoard = forwardRef(({
   const handleTouchEnd = useCallback((e) => {
     e.preventDefault();
     
-    // Battle mode - handle tap to fire - FIXED with scaling
     if (mode === 'battle') {
       const touch = e.changedTouches[0];
       const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
-
       const col = Math.floor((x - 20 - labelSize) / cellSize);
       const row = Math.floor((y - 20 - labelSize) / cellSize);
-
-      console.log('[TOUCH]', version, 'Touch at canvas coords:', x, y, '→ Cell:', row, col);
 
       if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
         if (onShotFired && gameState?.isPlayerTurn) {
@@ -983,7 +687,6 @@ const CanvasBoard = forwardRef(({
       return;
     }
     
-    // Placement mode - existing logic
     if (!currentShip || !isPlacing) {
       setPreviewCells([]);
       setIsValidPlacement(false);
@@ -994,7 +697,6 @@ const CanvasBoard = forwardRef(({
     }
 
     if (isValidPlacement && previewCells.length > 0) {
-      const deltaRow = previewCells[previewCells.length - 1].row - previewCells[0].row;
       const deltaCol = previewCells[previewCells.length - 1].col - previewCells[0].col;
       const isHorizontal = deltaCol !== 0;
       
@@ -1008,7 +710,6 @@ const CanvasBoard = forwardRef(({
     lastProcessedCell.current = null;
   }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced, cellSize, labelSize, eraConfig, onShotFired, gameState, showShotAnimation, getCanvasCoordinates]);
 
-  // Determine canvas CSS classes
   const getCanvasClasses = () => {
     const classes = ['canvas-board'];
     

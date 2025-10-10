@@ -6,17 +6,21 @@ const version = "v0.1.2";
 
 // Control which categories are logged
 const control = {
-  PLACEMENT: false,
+  HOOK: false,
+    PLACEMENT: false,
   SOUND: false,
   AI: false,
   ATTACK: false,
-  BOARD: false,
+  BOARD: true,
   CANVAS: false,
   NETWORK: false,
   STATS: false,
-  PAYMENT: true,
+  PAYMENT: false,
   OPPONENT: false,
-  DEBUG: true
+    OVERLAY: false,
+  DEBUG: false,
+    TARGETING: true,
+    GAME: true
 };
 
 // Store original console methods

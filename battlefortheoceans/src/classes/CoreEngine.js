@@ -1,5 +1,10 @@
-// src/classes/CoreEngine.js v0.4.3
+// src/classes/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.0: OPTION 1 REFACTOR - Players are persistent entities across games
+//         Human player created once, reused across games
+//         AI players reuse object if same captain, create new if different
+//         Game.addPlayer() now accepts player objects instead of creating them
+// v0.4.4: Moved setBoard after players
 // v0.4.3: Remove skillLevel parameter - difficulty is now a float multiplier
 // v0.4.2: CRITICAL FIX - Await stats update in handleGameOver() to prevent data loss
 // v0.4.1: Minor logging improvements
@@ -8,13 +13,14 @@
 import Game from './Game.js';
 import Board from './Board.js';
 import HumanPlayer from './HumanPlayer.js';
+import AiPlayer from './AiPlayer.js';
 import UserProfileService from '../services/UserProfileService.js';
 import GameStatsService from '../services/GameStatsService.js';
 import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
 import EraService from '../services/EraService.js';
 
-const version = "v0.4.3";
+const version = "v0.5.0";
 
 class CoreEngine {
   constructor() {
@@ -87,7 +93,8 @@ class CoreEngine {
     this.selectedOpponent = null;
     this.selectedGameMode = null;
     this.selectedAlliance = null;
-    this.humanPlayer = null;
+    this.humanPlayer = null;  // v0.5.0: Persistent entity, created once
+    this.aiPlayer = null;     // v0.5.0: Persistent entity, reused if same captain
     this.gameInstance = null;
     this.board = null;
     this.userProfile = null;
@@ -137,6 +144,7 @@ class CoreEngine {
       this.log(`LOGIN event with showSignup: ${eventData.showSignup}`);
     }
     
+    // v0.5.0: Create player ONCE when SELECTERA fires, reuse across games
     if (event === this.events.SELECTERA && eventData.userData) {
       const isGuest = eventData.userData.id.startsWith('guest-');
       
@@ -152,9 +160,15 @@ class CoreEngine {
           total_ships_sunk: 0,
           total_damage: 0
         };
-        this.humanPlayer = new HumanPlayer(eventData.userData.id, 'Guest');
         
-        this.log(`Guest player created: ${eventData.userData.id}`);
+        // Only create player if doesn't exist
+        if (!this.humanPlayer) {
+          this.humanPlayer = new HumanPlayer(eventData.userData.id, 'Guest');
+          this.log(`Guest player created: ${eventData.userData.id}`);
+        } else {
+          this.log(`Reusing existing guest player: ${eventData.userData.id}`);
+        }
+        
       } else {
         // Load user profile for registered users
         const profile = await this.userProfileService.getUserProfile(eventData.userData.id);
@@ -164,15 +178,23 @@ class CoreEngine {
         }
         
         this.userProfile = profile;
-        this.humanPlayer = new HumanPlayer(
-          eventData.userData.id,
-          profile.game_name
-        );
+        
+        // Only create player if doesn't exist
+        if (!this.humanPlayer) {
+          this.humanPlayer = new HumanPlayer(
+            eventData.userData.id,
+            profile.game_name
+          );
+          this.log(`Human player created: ${profile.game_name} (${eventData.userData.id})`);
+        } else {
+          // Update name if it changed
+          this.humanPlayer.name = profile.game_name;
+          this.log(`Reusing human player, updated name: ${profile.game_name}`);
+        }
+        
         this.humanPlayer.email = eventData.userData.email;
         this.humanPlayer.userData = eventData.userData;
         this.humanPlayer.gameName = profile.game_name;
-        
-        this.log(`Human player created: ${profile.game_name} (${eventData.userData.id})`);
       }
       
     } else if (event === this.events.SELECTOPPONENT) {
@@ -222,7 +244,8 @@ class CoreEngine {
     this.selectedOpponent = null;
     this.selectedGameMode = null;
     this.selectedAlliance = null;
-    this.humanPlayer = null;
+    this.humanPlayer = null;  // v0.5.0: Clear player on account switch
+    this.aiPlayer = null;     // v0.5.0: Clear AI player on account switch
     this.gameInstance = null;
     this.board = null;
     this.userProfile = null;
@@ -362,9 +385,9 @@ class CoreEngine {
   }
 
   /**
-   * v0.4.3: Removed skillLevel parameter completely - only difficulty (float) is used
-   * v0.4.0: Pass difficulty from selectedOpponent to AiPlayer
-   * v0.3.7: Alliance assignment happens inside addPlayer()
+   * v0.5.0: OPTION 1 REFACTOR - Players are entities, games are sessions
+   *         Reuse existing player objects, reset them for new game
+   *         AI player reused if same captain, created new if different
    */
   async initializeForPlacement() {
     this.log('Initializing for placement phase');
@@ -396,10 +419,9 @@ class CoreEngine {
     // Create alliances BEFORE adding players
     this.gameInstance.initializeAlliances();
     
-    // Create board
+    // Create board (but DON'T set it on game yet)
     this.board = new Board(this.eraConfig.rows, this.eraConfig.cols, this.eraConfig.terrain);
-    this.gameInstance.setBoard(this.board);
-    
+
     // Determine alliance assignments
     let playerAlliance, opponentAlliance;
     if (this.eraConfig.game_rules?.choose_alliance && this.selectedAlliance) {
@@ -414,34 +436,37 @@ class CoreEngine {
       throw new Error('Cannot determine opponent alliance');
     }
     
-    // Add human player (difficulty defaults to 1.0)
-    const humanPlayerAdded = this.gameInstance.addPlayer(
-      this.humanPlayer.id,
-      'human',
-      this.userProfile.game_name,
-      playerAlliance,
-      null,  // strategy (not used for human)
-      1.0    // difficulty (always 1.0 for human)
-    );
+    // v0.5.0: REUSE existing human player object
+    const humanPlayerAdded = this.gameInstance.addPlayer(this.humanPlayer, playerAlliance);
     
-    // v0.4.3: Add AI player with difficulty from captain config
-    const aiId = this.generateAIPlayerUUID();
-    const aiDifficulty = this.selectedOpponent.difficulty || 1.0;
+    // v0.5.0: AI player - reuse if same captain, create new if different
+    const aiCaptain = this.selectedOpponent;
+    const aiId = `ai-${aiCaptain.id}`; // Stable ID based on captain
     
-    this.log(`Creating AI player with difficulty: ${aiDifficulty}`);
+    if (this.aiPlayer && this.aiPlayer.id === aiId) {
+      // Same captain - reuse and update properties
+      this.aiPlayer.strategy = aiCaptain.strategy || 'random';
+      this.aiPlayer.difficulty = aiCaptain.difficulty || 1.0;
+      this.log(`Reusing AI player ${aiCaptain.name}, updated properties (${this.aiPlayer.strategy}, ${this.aiPlayer.difficulty})`);
+    } else {
+      // Different captain (or first time) - create new
+      this.aiPlayer = new AiPlayer(
+        aiId,
+        aiCaptain.name,
+        aiCaptain.strategy || 'random',
+        aiCaptain.difficulty || 1.0
+      );
+      this.log(`Created new AI player ${aiCaptain.name} (${this.aiPlayer.strategy}, ${this.aiPlayer.difficulty})`);
+    }
     
-    const aiPlayerAdded = this.gameInstance.addPlayer(
-      aiId,
-      'ai',
-      this.selectedOpponent.name,
-      opponentAlliance,
-      this.selectedOpponent.strategy || 'random',
-      aiDifficulty
-    );
+    const aiPlayerAdded = this.gameInstance.addPlayer(this.aiPlayer, opponentAlliance);
     
     if (!humanPlayerAdded || !aiPlayerAdded) {
       throw new Error('Failed to add players to game');
     }
+
+    // NOW set the board - players exist, so they'll get the reference
+    this.gameInstance.setBoard(this.board);
 
     this.log(`Game initialized with ${this.gameInstance.players.length} players`);
   }
@@ -536,27 +561,28 @@ class CoreEngine {
     }
   }
 
-  getPlacementProgress() {
-    if (!this.gameInstance || !this.humanPlayer) {
-      return { current: 0, total: 0, currentShip: null, isComplete: false };
-    }
+    getPlacementProgress() {
+        if (!this.gameInstance || !this.humanPlayer) {
+          return { current: 0, total: 0, currentShip: null, isComplete: false };
+        }
+        
+        // Phase 4: Access fleet directly from player
+        const fleet = this.humanPlayer.fleet;
+        if (!fleet) {
+          return { current: 0, total: 0, currentShip: null, isComplete: false };
+        }
+        
+        const placedCount = fleet.ships.filter(ship => ship.isPlaced).length;
+        const currentShip = fleet.ships.find(ship => !ship.isPlaced) || null;
+        
+        return {
+          current: placedCount,
+          total: fleet.ships.length,
+          currentShip: currentShip,
+          isComplete: placedCount === fleet.ships.length
+        };
+      }
     
-    const fleet = this.gameInstance.playerFleets.get(this.humanPlayer.id);
-    if (!fleet) {
-      return { current: 0, total: 0, currentShip: null, isComplete: false };
-    }
-    
-    const placedCount = fleet.ships.filter(ship => ship.isPlaced).length;
-    const currentShip = fleet.ships.find(ship => !ship.isPlaced) || null;
-    
-    return {
-      current: placedCount,
-      total: fleet.ships.length,
-      currentShip: currentShip,
-      isComplete: placedCount === fleet.ships.length
-    };
-  }
-
   getUIState() {
     const currentPlayer = this.gameInstance?.getCurrentPlayer();
     
@@ -623,13 +649,6 @@ class CoreEngine {
     return this.eraConfig.alliances.find(alliance =>
       alliance.name !== selectedAlliance
     )?.name;
-  }
-
-  generateAIPlayerUUID() {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return `ai-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-    }
-    return `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
   subscribe(callback) {

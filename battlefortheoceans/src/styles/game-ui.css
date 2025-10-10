@@ -297,6 +297,53 @@
 }
 
 /* ============================================
+   VIEW MODE BUTTONs
+   PlayingPage specific styling
+   ============================================ */
+
+.view-mode-controls {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin: var(--space-md) auto;
+  width: 60%;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-md);
+  border-top: 2px solid var(--primary);
+  padding: 4px;
+}
+
+.view-mode-btn {
+  flex: 1;
+  padding: var(--space-sm) var(--space-lg);
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: var(--font-heading);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: var(--radius-sm);
+}
+
+.view-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.view-mode-btn--active {
+  background: var(--primary);
+  color: var(--text-dark);
+}
+
+.view-mode-btn--active:hover {
+  background: var(--primary);
+  color: var(--text-dark);
+}
+
+/* ============================================
    AUTOPLAY TOGGLE BUTTON
    PlayingPage specific styling
    ============================================ */
