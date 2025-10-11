@@ -24,6 +24,11 @@
   max-width: 95vw;
 }
 
+.content-pane--medium {
+  width: 800px;
+  max-width: 95vw;
+}
+
 .content-pane--narrow {
   max-width: 400px;
 }
@@ -181,6 +186,11 @@
 
 .card--narrow {
   max-width: 400px;
+}
+
+.card--medium {
+    width: 800px;
+    max-width: 95vw;
 }
 
 /* v1.0.4: Fixed width to prevent horizontal movement */

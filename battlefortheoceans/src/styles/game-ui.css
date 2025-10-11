@@ -17,6 +17,18 @@
   font-weight: 500;
 }
 
+/* Hero tagline styling */
+.hero-tagline {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  text-align: center;
+  margin-top: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 /* ============================================
    ALLIANCE SELECTION
    Layout specific to alliance cards

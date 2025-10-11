@@ -4,14 +4,14 @@
 //         - Novice (0.7x): Random only, no hunt
 //         - Methodical Random (1.0x): Checkerboard + basic hunt (reverse on line)
 //         - Methodical Optimal (1.4x): Row-offset 4x4 grid + perpendicular hunt
-//         - Aggressive (1.6x): Radiating rings + recursive perpendicular hunt
-//         - AI-Hunt (1.8x): Probability heat map + advanced recursive hunt
+//         - Aggressive (1.7x): Radiating rings + recursive perpendicular hunt
+//         - AI-Hunt (2.0x): Probability heat map + advanced recursive hunt
 //         Fixed hunt mode: proper reversal, perpendicular searches, recursion
 // v0.4.9: Updated to match Game.js 4-state attack results
 
 import Player from './Player.js';
 
-const version = "v0.5.1";
+const version = "v0.5.0";
 
 export class AiPlayer extends Player {
   constructor(id, name, strategy = 'random', difficulty = 1.0) {
@@ -186,34 +186,111 @@ export class AiPlayer extends Player {
   }
 
   selectAIHunt(availableTargets, gameInstance) {
-    // Initialize or update heat map
+    // Track game progress for strategy switching
+    const totalCells = gameInstance.eraConfig.rows * gameInstance.eraConfig.cols;
+    const shotsFired = this.shots;
+    const gameProgress = shotsFired / totalCells;
+
+    // Early game (0-25%): Use aggressive radiating pattern
+    if (gameProgress < 0.25) {
+      return this.selectAggressive(availableTargets, gameInstance);
+    }
+
+    // Mid/Late game: Use heat map with exploration bonus
     if (!this.memory.heatMap) {
       this.memory.heatMap = this.createHeatMap(gameInstance);
     } else {
       this.updateHeatMap(gameInstance);
     }
 
-    // Find highest probability targets
-    let maxProb = -1;
-    const bestTargets = [];
+    // Apply exploration bonus to unexplored regions
+    const exploredRegions = this.getExploredRegions(gameInstance);
+    this.applyExplorationBonus(exploredRegions, gameInstance);
 
+    // Find top probability targets (top 20%)
+    const probabilities = [];
     for (const target of availableTargets) {
       const prob = this.memory.heatMap[target.row]?.[target.col] || 0;
-      if (prob > maxProb) {
-        maxProb = prob;
-        bestTargets.length = 0;
-        bestTargets.push(target);
-      } else if (prob === maxProb) {
-        bestTargets.push(target);
+      probabilities.push({ target, prob });
+    }
+
+    probabilities.sort((a, b) => b.prob - a.prob);
+    
+    // Take top 20% of targets
+    const topCount = Math.max(1, Math.floor(probabilities.length * 0.2));
+    const topTargets = probabilities.slice(0, topCount);
+
+    console.log(`[AI-HUNT] ${this.name}: Progress ${(gameProgress * 100).toFixed(1)}%, Top prob: ${topTargets[0]?.prob.toFixed(1)}, considering ${topTargets.length} targets`);
+
+    if (topTargets.length > 0) {
+      // 90% pick from top targets, 10% add randomness
+      if (Math.random() < 0.9) {
+        const selected = topTargets[Math.floor(Math.random() * topTargets.length)];
+        return selected.target;
+      } else {
+        // Occasionally pick from top 50% for unpredictability
+        const widerCount = Math.max(1, Math.floor(probabilities.length * 0.5));
+        const selected = probabilities[Math.floor(Math.random() * widerCount)];
+        console.log(`[AI-HUNT] ${this.name}: Random selection for unpredictability`);
+        return selected.target;
       }
     }
 
-    if (bestTargets.length > 0) {
-      return bestTargets[Math.floor(Math.random() * bestTargets.length)];
+    // Fallback
+    return this.selectMethodicalRandom(availableTargets, gameInstance);
+  }
+
+  getExploredRegions(gameInstance) {
+    const rows = gameInstance.eraConfig.rows;
+    const cols = gameInstance.eraConfig.cols;
+    const regionSize = 3; // 3x3 regions
+    const regions = [];
+
+    for (let r = 0; r < rows; r += regionSize) {
+      for (let c = 0; c < cols; c += regionSize) {
+        let shotCount = 0;
+        let cellCount = 0;
+
+        for (let dr = 0; dr < regionSize; dr++) {
+          for (let dc = 0; dc < regionSize; dc++) {
+            const row = r + dr;
+            const col = c + dc;
+            if (row < rows && col < cols) {
+              cellCount++;
+              if (!this.canShootAt(row, col)) {
+                shotCount++;
+              }
+            }
+          }
+        }
+
+        regions.push({
+          startRow: r,
+          startCol: c,
+          explored: shotCount / cellCount
+        });
+      }
     }
 
-    // Fallback to checkerboard if heat map fails
-    return this.selectMethodicalRandom(availableTargets, gameInstance);
+    return regions;
+  }
+
+  applyExplorationBonus(regions, gameInstance) {
+    for (const region of regions) {
+      // Unexplored regions get a 50% bonus
+      const bonus = (1 - region.explored) * 0.5;
+      
+      for (let dr = 0; dr < 3; dr++) {
+        for (let dc = 0; dc < 3; dc++) {
+          const row = region.startRow + dr;
+          const col = region.startCol + dc;
+          
+          if (this.memory.heatMap[row]?.[col] !== undefined) {
+            this.memory.heatMap[row][col] *= (1 + bonus);
+          }
+        }
+      }
+    }
   }
 
   createHeatMap(gameInstance) {
@@ -223,10 +300,10 @@ export class AiPlayer extends Player {
 
     // Get remaining ship sizes from opponent
     const opponent = gameInstance.players.find(p => p.id !== this.id);
-    if (!opponent) return heatMap;
+    if (!opponent || !opponent.fleet) return heatMap;
 
-    const remainingShips = opponent.ships.filter(s => !s.isSunk());
-    const shipSizes = remainingShips.map(s => s.length);
+    const remainingShips = opponent.fleet.ships.filter(s => !s.isSunk());
+    const shipSizes = remainingShips.map(s => s.size);
 
     // Calculate probability for each cell based on possible ship placements
     for (let row = 0; row < rows; row++) {
@@ -265,8 +342,25 @@ export class AiPlayer extends Player {
       const row = orientation === 'vertical' ? startRow + i : startRow;
       const col = orientation === 'horizontal' ? startCol + i : startCol;
       
-      if (!gameInstance.board?.isValidCoordinate(row, col) || !this.canShootAt(row, col)) {
+      // Check if coordinate is valid
+      if (!gameInstance.board?.isValidCoordinate(row, col)) {
         return false;
+      }
+      
+      // Check if we know there's NO ship here (missed shot)
+      // A hit or unknown cell could still have a ship
+      const key = `${row},${col}`;
+      
+      // Check if we've shot here and it was a miss
+      // canShootAt() returns false for cells in dontShootMap (misses + destroyed)
+      if (!this.canShootAt(row, col)) {
+        // We can't shoot here - check if it was a hit or miss
+        const wasHit = this.memory.hits.has(key);
+        if (!wasHit) {
+          // This was a miss - definitely no ship here
+          return false;
+        }
+        // If it was a hit (destroyed), ship COULD extend through here
       }
     }
     return true;

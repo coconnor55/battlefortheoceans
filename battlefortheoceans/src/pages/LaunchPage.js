@@ -1,11 +1,12 @@
-// src/pages/LaunchPage.js v0.3.6
+// src/pages/LaunchPage.js v0.3.7
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.7: Updated tagline to marketing-focused copy
 // v0.3.6: Get appVersion from GameContext instead of props
 
 import { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.3.6';
+const version = 'v0.3.7';
 
 const LaunchPage = () => {
   const { dispatch, events, appVersion } = useGame();
@@ -38,10 +39,13 @@ const LaunchPage = () => {
 
   return (
     <div className="container flex flex-column flex-center">
-      <div className="content-pane content-pane--narrow">
+      <div className="content-pane content-pane--medium">
         <div className="card-header">
           <h1 className="card-title">Battle for the Oceans</h1>
-          <p className="card-subtitle">Strategic Naval Combat</p>
+          <p className="card-subtitle hero-tagline">
+            Command history's greatest naval battles.<br />
+            One perfect shot at a time.
+          </p>
         </div>
         <div className="card-body flex flex-center">
           <button

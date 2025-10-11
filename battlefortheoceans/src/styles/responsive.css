@@ -66,6 +66,7 @@
   /* Content panes */
   .content-pane,
   .content-pane--narrow,
+  .content-pane--medium,
   .content-pane--wide {
     padding: var(--space-lg);
     max-width: 95%;
@@ -74,6 +75,7 @@
   /* Card system */
   .card,
   .card--narrow,
+  .card--medium,
   .card--wide {
     padding: var(--space-lg);
     max-width: 95%;

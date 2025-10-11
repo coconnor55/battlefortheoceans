@@ -1,4 +1,4 @@
-// src/pages/SelectOpponentPage.js v0.5.0
+// src/pages/SelectOpponentPage.js 
 // Copyright(c) 2025, Clint H. O'Connor
 // v0.5.0: Added avatar display for AI captains
 // v0.4.6: Added transition loading state to prevent visual lag
@@ -326,26 +326,28 @@ const SelectOpponentPage = () => {
                             className={`selectable-item opponent-item ai-opponent ${selectedOpponent?.name === opponent.name ? 'selectable-item--selected' : ''}`}
                             onClick={() => handleAIOpponentSelect(opponent)}
                           >
-                            {opponent.avatar && (
-                              <div className="opponent-avatar">
-                                <img
-                                  src={`/${opponent.avatar}`}
-                                  alt={opponent.name}
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
-                              </div>
-                            )}
-                            <div className="opponent-info">
-                              <div className="item-header">
-                                <div className="item-name">{opponent.name}</div>
-                                <div className={`badge ${getDifficultyBadgeClass(difficulty)}`}>
-                                  {getDifficultyLabel(difficulty)} - {difficulty}x
+                            <div className="opponent-content">
+                              {opponent.avatar && (
+                                <div className="opponent-avatar opponent-avatar--small">
+                                  <img
+                                    src={`/${opponent.avatar}`}
+                                    alt={opponent.name}
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />
                                 </div>
+                              )}
+                              <div className="opponent-info">
+                                <div className="item-header">
+                                  <div className="item-name">{opponent.name}</div>
+                                  <div className={`badge ${getDifficultyBadgeClass(difficulty)}`}>
+                                    {getDifficultyLabel(difficulty)} - {difficulty}x
+                                  </div>
+                                </div>
+                                <div className="item-description">{opponent.description}</div>
+                                <div className="opponent-type text-dim italics">AI Captain</div>
                               </div>
-                              <div className="item-description">{opponent.description}</div>
-                              <div className="opponent-type text-dim italics">AI Captain</div>
                             </div>
                           </div>
                         );
@@ -393,16 +395,20 @@ const SelectOpponentPage = () => {
                           className={`selectable-item opponent-item human-opponent ${selectedOpponent?.id === human.id ? 'selectable-item--selected' : ''}`}
                           onClick={() => handleHumanOpponentSelect(human)}
                         >
-                          <div className="item-header">
-                            <div className="item-name">
-                              {human.game_name || 'Player'}
+                          <div className="opponent-content">
+                            <div className="opponent-info">
+                              <div className="item-header">
+                                <div className="item-name">
+                                  {human.game_name || 'Player'}
+                                </div>
+                                <div className="badge badge--online">ONLINE</div>
+                              </div>
+                              <div className="item-description">
+                                Last seen: {new Date(human.last_seen).toLocaleTimeString()}
+                              </div>
+                              <div className="opponent-type text-dim italics">Human Player</div>
                             </div>
-                            <div className="badge badge--online">ONLINE</div>
                           </div>
-                          <div className="item-description">
-                            Last seen: {new Date(human.last_seen).toLocaleTimeString()}
-                          </div>
-                          <div className="opponent-type text-dim italics">Human Player</div>
                         </div>
                       ))
                     )}

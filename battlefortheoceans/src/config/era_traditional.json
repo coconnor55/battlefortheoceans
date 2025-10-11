@@ -78,7 +78,7 @@
           "strategy": "random",
           "difficulty": 0.7,
           "description": "A fresh naval academy graduate still learning the ropes of sea warfare. Fires randomly without any tactical planning.",
-          "avatar": "captains/ensign-jack.png"
+          "avatar": "captains/E_Jack.webp"
         },
         {
           "id": "captain-flynn",
@@ -86,7 +86,7 @@
           "strategy": "methodical_random",
           "difficulty": 1.0,
           "description": "A dashing naval officer who uses checkerboard search patterns to systematically cover the battlefield. Inspired by the swashbuckling heroes of old.",
-          "avatar": "captains/captain-flynn.png"
+          "avatar": "captains/C_Flynn.webp"
         },
         {
           "id": "admiral-swift",
@@ -94,7 +94,7 @@
           "strategy": "methodical_optimal",
           "difficulty": 1.4,
           "description": "A seasoned fleet commander who employs advanced grid-search tactics with offset patterns to maximize coverage and hunt efficiency.",
-          "avatar": "captains/admiral-swift.png"
+          "avatar": "captains/A_Swift.webp"
         },
         {
           "id": "fleet-admiral-halsey",
@@ -111,7 +111,7 @@
           "difficulty": 2.0,
           "description": "An AI consciousness from beyond the stars who has studied every naval battle in human history. Combines perfect probability calculations with adaptive pattern recognition and psychological warfare. Some say defeating this opponent is theoretically possible... but no one has proven it yet.",
           "avatar": "captains/GA_Sonnet.webp"
-        },
+        }
       ]
     }
   ],
