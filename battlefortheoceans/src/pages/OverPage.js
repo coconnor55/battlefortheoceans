@@ -1,8 +1,7 @@
-// src/pages/OverPage.js v0.4.5
+// src/pages/OverPage.js v0.4.6
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.6: Added Log Out button for quick testing and player handoff
 // v0.4.5: Use sessionStorage to persist game results across page refresh
-// v0.4.4: Handle page refresh gracefully - redirect to era if game data missing
-// v0.4.3: Use GameStatsService for total games, removed artificial delay
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
@@ -11,7 +10,7 @@ import PurchasePage from './PurchasePage';
 import LeaderboardService from '../services/LeaderboardService';
 import GameStatsService from '../services/GameStatsService';
 
-const version = 'v0.4.5';
+const version = 'v0.4.6';
 const SESSION_KEY = 'battleForOceans_gameResults';
 
 const OverPage = () => {
@@ -67,14 +66,6 @@ const OverPage = () => {
       }
     }
   }, [gameInstance, eraConfig, selectedOpponent, humanPlayer, userProfile, dispatch, events]);
-
-  // Redirect to login if no user profile
-  useEffect(() => {
-    if (!userProfile) {
-      console.log(version, 'No user profile detected - redirecting to login');
-      dispatch(events.LOGIN);
-    }
-  }, [userProfile, dispatch, events]);
   
   const [showPromotion, setShowPromotion] = useState(false);
   const [showPurchasePage, setShowPurchasePage] = useState(false);
@@ -231,6 +222,12 @@ const OverPage = () => {
   const handleChangeEra = () => {
     sessionStorage.removeItem(SESSION_KEY);
     dispatch(events.ERA);
+  };
+
+  const handleLogOut = () => {
+    console.log(version, 'User logging out - clearing session and returning to launch');
+    sessionStorage.removeItem(SESSION_KEY);
+    dispatch(events.LAUNCH);
   };
 
   const handleGuestSignup = () => {
@@ -485,6 +482,13 @@ const OverPage = () => {
             title="Select a different era"
           >
             Play Another Era
+          </button>
+          <button
+            className="btn btn--secondary btn--lg"
+            onClick={handleLogOut}
+            title="Log out and return to login screen"
+          >
+            Log Out
           </button>
         </div>
 

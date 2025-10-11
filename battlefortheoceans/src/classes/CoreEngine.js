@@ -16,7 +16,7 @@ import RightsService from '../services/RightsService.js';
 import EraService from '../services/EraService.js';
 import { supabase } from '../utils/supabaseClient.js';
 
-const version = "v0.5.3";
+const version = "v0.5.4";
 
 class CoreEngine {
   constructor() {
@@ -26,6 +26,7 @@ class CoreEngine {
     
     // State definitions
     this.events = {
+        LAUNCH: Symbol('LAUNCH'),
       LOGIN: Symbol('LOGIN'),
       SELECTERA: Symbol('SELECTERA'),
       SELECTOPPONENT: Symbol('SELECTOPPONENT'),
@@ -61,6 +62,7 @@ class CoreEngine {
       play: { on: { [this.events.OVER]: 'over' } },
       over: {
         on: {
+            [this.events.LAUNCH]: 'launch',
           [this.events.ERA]: 'era',
           [this.events.SELECTOPPONENT]: 'opponent',
           [this.events.PLACEMENT]: 'placement',
@@ -417,24 +419,24 @@ class CoreEngine {
     }
   }
 
-  transition(event) {
-    const nextState = this.states[this.currentState]?.on[event];
-    if (nextState) {
-      const oldState = this.currentState;
-      this.currentState = nextState;
-      this.lastEvent = event;
-      
-      if (nextState === 'login') {
-        this.clearGameState();
+    transition(event) {
+      const nextState = this.states[this.currentState]?.on[event];
+      if (nextState) {
+        const oldState = this.currentState;
+        this.currentState = nextState;
+        this.lastEvent = event;
+        
+        if (nextState === 'login' || nextState === 'launch') {
+          this.clearGameState();
+        }
+        
+        this.syncURL();
+        this.log(`State transition: ${oldState} → ${this.currentState}`);
+      } else {
+        throw new Error(`No transition defined for ${this.currentState} with event ${this.getEventName(event)}`);
       }
-      
-      this.syncURL();
-      this.log(`State transition: ${oldState} → ${this.currentState}`);
-    } else {
-      throw new Error(`No transition defined for ${this.currentState} with event ${this.getEventName(event)}`);
     }
-  }
-
+    
   clearGameState() {
     this.log('Clearing game state for clean login');
     this.eraConfig = null;
