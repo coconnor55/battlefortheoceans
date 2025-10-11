@@ -1,8 +1,7 @@
-// src/pages/SelectOpponentPage.js v0.4.6
+// src/pages/SelectOpponentPage.js v0.5.0
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.0: Added avatar display for AI captains
 // v0.4.6: Added transition loading state to prevent visual lag
-// v0.4.5: Added InfoButton and InfoPanel with opponent selection instructions
-// v0.4.4: Changed button text to "Play {Opponent Name}"
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
@@ -10,7 +9,7 @@ import { useGame } from '../context/GameContext';
 import InfoButton from '../components/InfoButton';
 import InfoPanel from '../components/InfoPanel';
 
-const version = 'v0.4.6';
+const version = 'v0.5.0';
 
 const SelectOpponentPage = () => {
   const {
@@ -40,13 +39,16 @@ const SelectOpponentPage = () => {
   const getDifficultyLabel = (difficulty) => {
     if (difficulty < 1.0) return 'Easy';
     if (difficulty === 1.0) return 'Medium';
-    return 'Hard';
+    if (difficulty <= 1.4) return 'Hard';
+    if (difficulty <= 1.7) return 'Expert';
+    return 'Master';
   };
 
   const getDifficultyBadgeClass = (difficulty) => {
     if (difficulty < 1.0) return 'badge--success';
     if (difficulty === 1.0) return 'badge--primary';
-    return 'badge--warning';
+    if (difficulty <= 1.4) return 'badge--warning';
+    return 'badge--danger';
   };
 
   const handleAllianceSelect = useCallback((allianceName) => {
@@ -112,10 +114,7 @@ const SelectOpponentPage = () => {
     console.log(version, 'Opponent:', selectedOpponent.name, selectedOpponent.type);
     console.log(version, 'Alliance:', selectedAlliance || 'none');
     
-    // Show loading state immediately
     setIsTransitioning(true);
-    
-    // Small delay to ensure loading UI renders before heavy sync work
     await new Promise(resolve => setTimeout(resolve, 50));
     
     dispatch(events.PLACEMENT, {
@@ -170,7 +169,6 @@ const SelectOpponentPage = () => {
     );
   }
 
-  // Show transitioning state
   if (isTransitioning) {
     return (
       <div className="container flex flex-column flex-center">
@@ -212,9 +210,11 @@ const SelectOpponentPage = () => {
             Battle against computer-controlled captains with different personalities and skill levels:
           </p>
           <ul>
-            <li><strong className="badge badge--success">Easy</strong> - Beginner AI, lower difficulty multiplier (0.7x)</li>
-            <li><strong className="badge badge--primary">Medium</strong> - Standard AI, normal difficulty (1.0x)</li>
-            <li><strong className="badge badge--warning">Hard</strong> - Advanced AI, higher difficulty (1.3x - 1.6x)</li>
+            <li><strong className="badge badge--success">Easy</strong> - Beginner AI (0.7x)</li>
+            <li><strong className="badge badge--primary">Medium</strong> - Standard AI (1.0x)</li>
+            <li><strong className="badge badge--warning">Hard</strong> - Advanced AI (1.4x)</li>
+            <li><strong className="badge badge--danger">Expert</strong> - Expert AI (1.7x)</li>
+            <li><strong className="badge badge--danger">Master</strong> - Master AI (2.0x)</li>
           </ul>
           <p className="text-secondary">
             <em>Difficulty multiplier affects scoring - defeating harder opponents earns more points!</em>
@@ -224,8 +224,10 @@ const SelectOpponentPage = () => {
           <p>Each AI captain uses different tactics:</p>
           <ul>
             <li><strong>Random:</strong> Unpredictable targeting</li>
-            <li><strong>Methodical:</strong> Systematic search patterns</li>
-            <li><strong>Aggressive:</strong> Probability-based smart targeting</li>
+            <li><strong>Methodical Random:</strong> Checkerboard search patterns</li>
+            <li><strong>Methodical Optimal:</strong> Advanced grid-search with offset patterns</li>
+            <li><strong>Aggressive:</strong> Center-out radiating with recursive hunts</li>
+            <li><strong>AI-Hunt:</strong> Probability heat maps with predictive algorithms</li>
           </ul>
 
           <h4>Human Opponents</h4>
@@ -324,14 +326,27 @@ const SelectOpponentPage = () => {
                             className={`selectable-item opponent-item ai-opponent ${selectedOpponent?.name === opponent.name ? 'selectable-item--selected' : ''}`}
                             onClick={() => handleAIOpponentSelect(opponent)}
                           >
-                            <div className="item-header">
-                              <div className="item-name">{opponent.name}</div>
-                              <div className={`badge ${getDifficultyBadgeClass(difficulty)}`}>
-                                {getDifficultyLabel(difficulty)} - {difficulty}x
+                            {opponent.avatar && (
+                              <div className="opponent-avatar">
+                                <img
+                                  src={`/${opponent.avatar}`}
+                                  alt={opponent.name}
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                  }}
+                                />
                               </div>
+                            )}
+                            <div className="opponent-info">
+                              <div className="item-header">
+                                <div className="item-name">{opponent.name}</div>
+                                <div className={`badge ${getDifficultyBadgeClass(difficulty)}`}>
+                                  {getDifficultyLabel(difficulty)} - {difficulty}x
+                                </div>
+                              </div>
+                              <div className="item-description">{opponent.description}</div>
+                              <div className="opponent-type text-dim italics">AI Captain</div>
                             </div>
-                            <div className="item-description">{opponent.description}</div>
-                            <div className="opponent-type text-dim italics">AI Captain</div>
                           </div>
                         );
                       })

@@ -1,5 +1,5 @@
 {
-  "version": "0.2.3",
+  "version": "0.2.4",
   "era": "midway",
   "name": "Midway Island",
   "era_description": "Battle of Midway, June 4-7, 1942. Fight for control of this strategic Pacific atoll where American forces turned the tide against the Japanese Navy in World War II.",
@@ -76,17 +76,17 @@
             "id": "commander-spruance",
             "name": "Cmdr. Spruance",
             "strategy": "methodical_optimal",
-            "difficulty": 1.3,
-            "description": "A methodical US Navy commander who uses systematic grid search patterns to locate and destroy enemy vessels with tactical precision.",
-            "avatar": "captains/commander-spruance.png"
+            "difficulty": 1.4,
+            "description": "A methodical US Navy commander who uses systematic grid search patterns with offset targeting to locate and destroy enemy vessels with tactical precision.",
+            "avatar": "captains/commander-spruance.webp"
           },
           {
             "id": "admiral-nimitz",
             "name": "Admiral Nimitz",
             "strategy": "aggressive",
-            "difficulty": 1.6,
-            "description": "The legendary Pacific Fleet commander who combines center-mass probability targeting with relentless pursuit to dominate naval warfare.",
-            "avatar": "captains/admiral-nimitz.png"
+            "difficulty": 1.7,
+            "description": "The legendary Pacific Fleet commander who combines center-mass probability targeting with relentless recursive hunt tactics to dominate naval warfare.",
+            "avatar": "captains/admiral-nimitz.webp"
           }
       ]
     },
@@ -104,21 +104,29 @@
       ],
       "ai_captains": [
           {
-            "id": "lt-yamamoto",
-            "name": "Lt. Yamamoto",
+            "id": "lt-commander-fuchida",
+            "name": "Lt. Cmdr. Fuchida",
             "strategy": "methodical_random",
             "difficulty": 1.0,
-            "description": "A young Imperial Navy officer who uses checkerboard search patterns. Disciplined but still developing advanced tactical skills.",
-            "avatar": "captains/lt-yamamoto.png"
+            "description": "Mitsuo Fuchida, the skilled aviator who led the Pearl Harbor attack. Uses disciplined checkerboard search patterns with systematic coverage.",
+            "avatar": "captains/LtC_Fuchida.webp"
+          },
+          {
+            "id": "admiral-yamamoto",
+            "name": "Admiral Yamamoto",
+            "strategy": "methodical_optimal",
+            "difficulty": 1.4,
+            "description": "Isoroku Yamamoto, architect of the Pearl Harbor strike and master strategist of the Combined Fleet. Employs advanced grid-search tactics with offset patterns to maximize fleet effectiveness.",
+            "avatar": "captains/A_Yamamoto.webp"
           },
           {
             "id": "admiral-nagumo",
             "name": "Admiral Nagumo",
             "strategy": "aggressive",
-            "difficulty": 1.6,
-            "description": "Commander of the Kido Butai carrier strike force. Uses center-mass probability targeting with aggressive hunt tactics to locate and destroy enemy vessels.",
-            "avatar": "captains/admiral-nagumo.png"
-          }
+            "difficulty": 1.7,
+            "description": "Commander of the Kido Butai carrier strike force. Uses center-mass probability targeting with aggressive recursive hunt tactics to locate and destroy enemy vessels.",
+            "avatar": "captains/admiral-nagumo.webp"
+          },
       ]
     }
   ],

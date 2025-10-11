@@ -97,21 +97,21 @@
           "avatar": "captains/admiral-swift.png"
         },
         {
-          "id": "grand-admiral-sonnet",
-          "name": "Grand Admiral Sonnet",
-          "strategy": "ai-hunt",
-          "difficulty": 1.9,
-          "description": "An AI consciousness from beyond the stars who has studied every naval battle in human history. Combines perfect probability calculations with adaptive pattern recognition and psychological warfare. Some say defeating this opponent is theoretically possible... but no one has proven it yet.",
-          "avatar": "captains/grand-admiral-sonnet.png"
-        },
-        {
           "id": "fleet-admiral-halsey",
           "name": "Fleet Admiral Halsey",
           "strategy": "aggressive",
           "difficulty": 1.7,
           "description": "The legendary 'Bull' Halsey reborn. Commands with fierce aggression, radiating outward from the center with relentless recursive hunt tactics. Never lets a wounded ship escape. A master of center-mass probability targeting.",
-          "avatar": "captains/fleet-admiral-halsey.png"
-        }
+          "avatar": "captains/FA_Halsey.webp"
+        },
+        {
+          "id": "grand-admiral-sonnet",
+          "name": "Grand Admiral Sonnet",
+          "strategy": "ai-hunt",
+          "difficulty": 2.0,
+          "description": "An AI consciousness from beyond the stars who has studied every naval battle in human history. Combines perfect probability calculations with adaptive pattern recognition and psychological warfare. Some say defeating this opponent is theoretically possible... but no one has proven it yet.",
+          "avatar": "captains/GA_Sonnet.webp"
+        },
       ]
     }
   ],
