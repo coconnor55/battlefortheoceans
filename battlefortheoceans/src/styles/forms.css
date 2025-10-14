@@ -34,7 +34,7 @@
   background: var(--bg-dark);
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   font-size: 1rem;
   transition: all var(--transition-speed);
 }
@@ -79,7 +79,7 @@
   background: var(--bg-dark);
   padding: var(--space-md);
   border: 2px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   margin-bottom: var(--space-lg);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
   min-height: 44px;

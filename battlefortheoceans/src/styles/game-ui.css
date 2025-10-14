@@ -1,4 +1,4 @@
-/* src/styles/game-ui.css v2.1.1 */
+/* src/styles/game-ui.css v2.2.3 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Game-specific UI components - uses shared-components.css for common patterns */
 
@@ -52,7 +52,7 @@
   overflow-y: auto;
   padding: var(--space-md);
   background: var(--bg-overlay);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   border: 1px solid var(--border-subtle);
 }
 
@@ -110,7 +110,7 @@
   text-align: center;
   padding: var(--space-lg);
   background: var(--bg-overlay);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   border: 1px solid var(--border-subtle);
 }
 
@@ -125,7 +125,7 @@
   margin: 0;
   padding: var(--space-sm);
   background: var(--bg-overlay);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   border: 1px solid var(--border-subtle);
 }
 
@@ -221,7 +221,7 @@
 
 .canvas-board {
   border: 1px solid var(--border-subtle);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   touch-action: none; /* Prevent default touch behaviors */
   transition: box-shadow var(--transition-fast);
 }
@@ -272,7 +272,7 @@
 
 .game-board-container canvas {
   border: 2px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   box-shadow: var(--shadow);
   background-color: transparent;
   max-width: 100%;
@@ -297,19 +297,328 @@
   justify-content: center;
   padding: var(--space-md);
   background: var(--bg-overlay);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   border: 1px solid var(--border-subtle);
 }
 
 .final-board-image {
   max-width: 100%;
   height: auto;
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   border: 2px solid var(--border-color);
 }
 
 /* ============================================
-   VIEW MODE BUTTONs
+   ACHIEVEMENTS SECTION
+   v2.2.3: Achievement display and notifications
+   ============================================ */
+
+.achievements-section {
+  margin: var(--space-lg) 0;
+  padding: var(--space-md);
+  background: rgba(0, 217, 255, 0.05);
+  border-radius: var(--border-radius-md);
+  border: 1px solid rgba(0, 217, 255, 0.2);
+}
+
+.achievements-title {
+  margin: 0 0 var(--space-md) 0;
+  text-align: center;
+  font-size: 1.25rem;
+  color: var(--primary);
+}
+
+/* Add this to game-ui.css v2.2.4 after .achievements-title */
+
+.achievements-toggle {
+  display: flex;
+  gap: 0;
+  justify-content: center;
+  margin-bottom: var(--space-md);
+  background: var(--bg-overlay);
+  border-radius: var(--border-radius-md);
+  padding: var(--space-xs);
+}
+
+.achievements-toggle .btn {
+  border-radius: 0;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.achievements-toggle .btn:first-child {
+  border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm);
+}
+
+.achievements-toggle .btn:last-child {
+  border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+  border-right: none;
+}
+
+.achievements-toggle .btn--primary {
+  background: var(--primary);
+  color: var(--bg-dark);
+}
+
+.achievements-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* Compact grid variant for AchievementsPage */
+.achievement-grid--compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-sm);
+}
+
+.achievement-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 100px;
+  min-height: 120px;
+  padding: var(--space-sm);
+  background: rgba(255, 255, 255, 0.05);
+  border: 5px solid;
+  border-radius: var(--border-radius-md);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  animation: achievementFadeIn 0.5s ease forwards;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+@keyframes achievementFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.achievement-card:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 8px 24px rgba(0, 217, 255, 0.4);
+}
+
+.achievement-card--bronze:hover {
+  box-shadow: 0 8px 24px rgba(205, 127, 50, 0.5);
+}
+
+.achievement-card--silver:hover {
+  box-shadow: 0 8px 24px rgba(192, 192, 192, 0.5);
+}
+
+.achievement-card--gold:hover {
+  box-shadow: 0 8px 24px rgba(255, 215, 0, 0.5);
+}
+
+.achievement-card--platinum:hover {
+  box-shadow: 0 8px 24px rgba(229, 228, 226, 0.5);
+}
+
+/* Tier-specific colors */
+.achievement-card--bronze {
+  border-color: #CD7F32;
+  background: rgba(205, 127, 50, 0.1);
+}
+
+.achievement-card--silver {
+  border-color: #C0C0C0;
+  background: rgba(192, 192, 192, 0.1);
+}
+
+.achievement-card--gold {
+  border-color: #FFD700;
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.achievement-card--platinum {
+  border-color: #E5E4E2;
+  background: rgba(229, 228, 226, 0.1);
+}
+
+.achievement-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  margin-bottom: var(--space-sm);
+  color: currentColor;
+}
+
+.achievement-card__icon svg {
+  width: 100%;
+  height: 100%;
+  max-width: 64px;
+  max-height: 64px;
+}
+
+.achievement-card--bronze .achievement-card__icon {
+  color: #CD7F32;
+}
+
+.achievement-card--silver .achievement-card__icon {
+  color: #C0C0C0;
+}
+
+.achievement-card--gold .achievement-card__icon {
+  color: #FFD700;
+}
+
+.achievement-card--platinum .achievement-card__icon {
+  color: #E5E4E2;
+}
+
+.achievement-card__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  text-align: center;
+}
+
+.achievement-card__name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-primary);
+  word-wrap: break-word;
+  hyphens: auto;
+}
+
+.achievement-card__points {
+  font-size: 0.625rem;
+}
+
+/* Badge tier colors */
+.badge--bronze {
+  background: rgba(205, 127, 50, 0.2);
+  color: #CD7F32;
+  border: 1px solid #CD7F32;
+}
+
+.badge--silver {
+  background: rgba(192, 192, 192, 0.2);
+  color: #C0C0C0;
+  border: 1px solid #C0C0C0;
+}
+
+.badge--gold {
+  background: rgba(255, 215, 0, 0.2);
+  color: #FFD700;
+  border: 1px solid #FFD700;
+}
+
+.badge--platinum {
+  background: rgba(229, 228, 226, 0.2);
+  color: #E5E4E2;
+  border: 1px solid #E5E4E2;
+}
+
+/* ============================================
+   CHALLENGES SECTION
+   v2.2.3: Styled like achievement cards
+   ============================================ */
+
+.challenges-section {
+  margin: var(--space-lg) 0;
+}
+
+.challenge-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  transition: all 0.2s ease;
+  margin-bottom: var(--space-md);
+}
+
+.challenge-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
+}
+
+.challenge-item:last-child {
+  margin-bottom: 0;
+}
+
+.challenge-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  margin-bottom: var(--space-md);
+}
+
+.challenge-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+}
+
+.challenge-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.challenge-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.challenge-description {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.challenge-progress {
+  width: 100%;
+}
+
+/* Progress bar for in-progress achievements */
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: var(--space-xs);
+}
+
+.progress-bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--success));
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: center;
+  display: block;
+}
+
+/* ============================================
+   VIEW MODE BUTTONS
    PlayingPage specific styling
    ============================================ */
 
@@ -320,7 +629,7 @@
   margin: var(--space-md) auto;
   width: 60%;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: var(--radius-md);
+  border-radius: var(--border-radius-md);
   border-top: 2px solid var(--primary);
   padding: 4px;
 }
@@ -337,7 +646,7 @@
   letter-spacing: 0.5px;
   cursor: pointer;
   transition: all 0.2s ease;
-  border-radius: var(--radius-sm);
+  border-radius: var(--border-radius-sm);
 }
 
 .view-mode-btn:hover {
@@ -377,7 +686,7 @@
 
 .console-combined {
   width: 100%;
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
   border: 1px solid var(--border-color);
@@ -440,7 +749,7 @@
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-sm);
   background: var(--bg-overlay);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   backdrop-filter: blur(3px);
 }
 
@@ -480,7 +789,7 @@
 
 .battle-stats {
   background: var(--bg-overlay);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   padding: var(--space-lg);
   margin: var(--space-lg) 0;
   border: 2px solid var(--border-subtle);
@@ -502,7 +811,7 @@
 
 .player-stats {
   background: var(--bg-medium);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   padding: var(--space-md);
   border: 2px solid var(--border-subtle);
   transition: all var(--transition-speed);
@@ -555,7 +864,7 @@
 
 .leaderboard-section {
   background: var(--bg-overlay);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   padding: var(--space-lg);
   margin: var(--space-xl) 0;
   border: 1px solid var(--border-subtle);
@@ -609,7 +918,7 @@
   text-align: center;
   padding: var(--space-md);
   background: var(--bg-medium);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   margin-top: var(--space-md);
   border: 1px solid var(--border-subtle);
 }
@@ -628,7 +937,7 @@
   text-align: center;
   padding: var(--space-md);
   background: rgba(0, 217, 255, 0.05);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   margin-top: var(--space-md);
   border: 1px solid var(--border-subtle);
 }
@@ -661,7 +970,7 @@
 .game-stats .score {
   padding: var(--space-sm) var(--space-md);
   background: var(--bg-overlay);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   box-shadow: var(--shadow-sm);
 }
 
@@ -743,6 +1052,10 @@
   .leaderboard-table .table {
     font-size: 0.8rem;
   }
+  
+  .achievement-grid--compact {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  }
 }
 
 @media (max-width: 480px) {
@@ -799,6 +1112,30 @@
   
   .leaderboard-table .rank-cell {
     width: 40px;
+  }
+  
+  .achievement-card {
+    width: 80px;
+    min-height: 100px;
+  }
+
+  .achievement-card__icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .achievement-card__name {
+    font-size: 0.675rem;
+  }
+  
+  .challenge-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .challenge-info {
+    text-align: center;
   }
 }
 

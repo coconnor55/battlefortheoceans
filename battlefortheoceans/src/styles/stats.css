@@ -1,0 +1,147 @@
+/* src/styles/stats.css v0.1.0 */
+/* Minimal stats-specific styling - uses shared classes where possible */
+
+/* Hero Section - Flexbox layout */
+.stats-hero {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: center;
+  padding: var(--space-xl);
+  background: linear-gradient(135deg, rgba(0, 217, 255, 0.1), rgba(0, 255, 136, 0.1));
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-xl);
+}
+
+.rank-badge {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #000;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.win-rate {
+  text-align: right;
+  margin-left: auto;
+}
+
+.win-rate__value {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: var(--success);
+}
+
+.win-rate__label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+/* Stats Grid - Uses CSS Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}
+
+.stat-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.stat-card--highlight {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1));
+  border-color: #FFD700;
+}
+
+.stat-card__icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--space-sm);
+}
+
+.stat-card__value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--text-primary);
+  margin: var(--space-xs) 0;
+}
+
+.stat-card__label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Section Title */
+.section-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: var(--text-primary);
+  margin: var(--space-xl) 0 var(--space-lg) 0;
+  padding-bottom: var(--space-sm);
+  border-bottom: 2px solid var(--border-color);
+}
+
+/* Border Utilities for Win/Loss */
+.border-success {
+  border-left: 4px solid var(--success) !important;
+}
+
+.border-error {
+  border-left: 4px solid var(--error) !important;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .stats-hero {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .win-rate {
+    margin-left: 0;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-md);
+  }
+
+  .stat-card__icon {
+    font-size: 2rem;
+  }
+
+  .stat-card__value {
+    font-size: 1.5rem;
+  }
+
+  .rank-badge {
+    width: 60px;
+    height: 60px;
+    font-size: 1.25rem;
+  }
+
+  .win-rate__value {
+    font-size: 2rem;
+  }
+}
+
+/* EOF */

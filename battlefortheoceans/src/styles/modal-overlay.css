@@ -16,21 +16,26 @@
   border: 1px solid var(--border-subtle);
   max-width: 600px;
   margin: 0 auto;
+  width: 80vw;
+
+  /* NEW - Make scrollable */
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 /* v1.0.4: Fixed width to prevent horizontal movement */
 .content-pane--wide {
-  width: 1400px;
-  max-width: 95vw;
+/*  width: 1400px;*/
+/*  max-width: 95vw;*/
+max-width: 1400px;
 }
 
 .content-pane--medium {
-  width: 800px;
-  max-width: 95vw;
+  max-width: 1024px;
 }
 
 .content-pane--narrow {
-  max-width: 400px;
+  max-width: 500px;
 }
 
 /* For full-page overlays */
@@ -129,6 +134,14 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+/* Card header with close button support */
+.card-header--with-close {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
 /* Body section */
 .card-body {
   color: var(--text-secondary);
@@ -162,7 +175,7 @@
 .panel {
   background: var(--bg-overlay);
   border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   padding: var(--space-lg);
   box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
@@ -189,8 +202,7 @@
 }
 
 .card--medium {
-    width: 800px;
-    max-width: 95vw;
+    max-width: 600px;
 }
 
 /* v1.0.4: Fixed width to prevent horizontal movement */

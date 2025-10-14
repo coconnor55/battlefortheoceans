@@ -8,7 +8,7 @@
 
 .btn {
   padding: var(--space-md) var(--space-lg);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   font-family: var(--font-heading);
   font-weight: 600;
   font-size: 1rem;
@@ -35,6 +35,23 @@
 /* Pulse glow animation for important actions */
 .btn--pulse {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Size modifiers */
+.btn--lg {
+  padding: var(--space-lg) var(--space-xl);
+  font-size: 1.125rem;
+}
+
+.btn--sm {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.875rem;
+}
+
+.btn--thin {
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.875rem;
+  font-weight: 500; /* Slightly lighter weight for thin buttons */
 }
 
 @keyframes pulse-glow {

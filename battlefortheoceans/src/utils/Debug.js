@@ -9,7 +9,7 @@ const control = {
   HOOK: false,
     PLACEMENT: false,
   SOUND: false,
-  AI: true,
+  AI: false,
   ATTACK: false,
   BOARD: false,
   CANVAS: false,
@@ -19,8 +19,10 @@ const control = {
   OPPONENT: false,
     OVERLAY: false,
   DEBUG: true,
-    TARGETING: true,
-    GAME: false
+    TARGETING: false,
+    GAME: false,
+    NAVBAR: true,
+    ACHIEVEMENT: true
 };
 
 // Store original console methods

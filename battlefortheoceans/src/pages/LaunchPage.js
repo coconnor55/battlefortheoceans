@@ -1,15 +1,17 @@
-// src/pages/LaunchPage.js v0.3.7
+// src/pages/LaunchPage.js v0.3.8
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.8: get APP_VERSION from App.js instead
 // v0.3.7: Updated tagline to marketing-focused copy
 // v0.3.6: Get appVersion from GameContext instead of props
 
 import { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
+import { APP_VERSION } from '../App.js';
 
-const version = 'v0.3.7';
+const version = 'v0.3.8';
 
 const LaunchPage = () => {
-  const { dispatch, events, appVersion } = useGame();
+  const { dispatch, events } = useGame();
   const [canProceed, setCanProceed] = useState(false);
 
   // Minimum 1-second display time for readability
@@ -39,9 +41,9 @@ const LaunchPage = () => {
 
   return (
     <div className="container flex flex-column flex-center">
-      <div className="content-pane content-pane--medium">
+      <div className="content-pane content-pane--small">
         <div className="card-header">
-          <h1 className="card-title">Battle for the Oceans</h1>
+          <h1 className="card-title text-center">Battle for the Oceans</h1>
           <p className="card-subtitle hero-tagline">
             Command history's greatest naval battles.<br />
             One perfect shot at a time.
@@ -57,8 +59,8 @@ const LaunchPage = () => {
           </button>
         </div>
         <div className="card-footer">
-          {appVersion && (
-            <p className="game-version">{appVersion}</p>
+          {APP_VERSION && (
+            <p className="game-version">{APP_VERSION}</p>
           )}
         </div>
       </div>

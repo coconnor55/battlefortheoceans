@@ -1,5 +1,8 @@
-// src/pages/OverPage.js v0.4.6
+// src/pages/OverPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.9: Removed leaderboard section (now in Stats page)
+// v0.4.8: Fixed mock achievements with ENABLE_MOCK_ACHIEVEMENTS flag
+// v0.4.7: Added achievement notifications between board and battle stats
 // v0.4.6: Added Log Out button for quick testing and player handoff
 // v0.4.5: Use sessionStorage to persist game results across page refresh
 
@@ -7,10 +10,11 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
-import LeaderboardService from '../services/LeaderboardService';
 import GameStatsService from '../services/GameStatsService';
+import AchievementService from '../services/AchievementService';
+import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.4.6';
+const version = 'v0.4.9';
 const SESSION_KEY = 'battleForOceans_gameResults';
 
 const OverPage = () => {
@@ -28,6 +32,10 @@ const OverPage = () => {
 
   // State for game results (from CoreEngine or sessionStorage)
   const [gameResults, setGameResults] = useState(null);
+  
+  // State for achievements
+  const [newAchievements, setNewAchievements] = useState([]);
+  const [loadingAchievements, setLoadingAchievements] = useState(false);
 
   // Redirect to login if no user profile
   useEffect(() => {
@@ -66,51 +74,101 @@ const OverPage = () => {
       }
     }
   }, [gameInstance, eraConfig, selectedOpponent, humanPlayer, userProfile, dispatch, events]);
+
+  // Check for new achievements when game results are available
+  useEffect(() => {
+    const checkForAchievements = async () => {
+      if (!gameResults || !userProfile || userProfile.id.startsWith('guest-')) {
+        return;
+      }
+
+      // TEMPORARY: Mock achievements for testing
+      const ENABLE_MOCK_ACHIEVEMENTS = false; // Set to false when done testing
+      
+      if (ENABLE_MOCK_ACHIEVEMENTS) {
+        console.log(version, 'Loading mock achievements for testing');
+        const mockAchievements = [
+          {
+            id: 'first-victory',
+            name: 'First Victory',
+            description: 'Win your first battle',
+            badge_icon: 'Trophy',
+            points: 10,
+            tier: 'bronze'
+          },
+          {
+            id: 'sharpshooter',
+            name: 'Sharpshooter',
+            description: 'Achieve 75% accuracy',
+            badge_icon: 'Target',
+            points: 25,
+            tier: 'silver'
+          },
+          {
+            id: 'perfect-game',
+            name: 'Perfect Game',
+            description: 'Win without missing',
+            badge_icon: 'Crown',
+            points: 100,
+            tier: 'gold'
+          },
+          {
+            id: 'fleet-admiral',
+            name: 'Fleet Admiral',
+            description: 'Win 100 battles',
+            badge_icon: 'Medal',
+            points: 500,
+            tier: 'platinum'
+          }
+        ];
+        setNewAchievements(mockAchievements);
+        return;
+      }
+
+      setLoadingAchievements(true);
+      try {
+        console.log(version, 'Checking for new achievements');
+        
+        // Get human player stats from game results
+        const humanPlayerStats = gameResults.gameStats.players?.find(p => p.name === gameResults.playerName);
+        
+        if (!humanPlayerStats) {
+          console.log(version, 'No human player stats found');
+          return;
+        }
+
+        // Prepare game results for achievement checking
+        const achievementCheckData = {
+          won: gameResults.gameStats.winner === gameResults.playerName,
+          accuracy: parseFloat(humanPlayerStats.accuracy) || 0,
+          turns: gameResults.gameStats.totalTurns || 0,
+          ships_sunk: humanPlayerStats.sunk || 0,
+          hits: humanPlayerStats.hits || 0,
+          misses: humanPlayerStats.misses || 0,
+          damage: humanPlayerStats.hitsDamage || 0,
+          score: humanPlayerStats.score || 0
+        };
+
+        console.log(version, 'Achievement check data:', achievementCheckData);
+
+        const unlocked = await AchievementService.checkAchievements(userProfile.id, achievementCheckData);
+        console.log(version, 'New achievements unlocked:', unlocked);
+        setNewAchievements(unlocked);
+      } catch (error) {
+        console.error(version, 'Error checking achievements:', error);
+      } finally {
+        setLoadingAchievements(false);
+      }
+    };
+
+    checkForAchievements();
+  }, [gameResults, userProfile]);
   
   const [showPromotion, setShowPromotion] = useState(false);
   const [showPurchasePage, setShowPurchasePage] = useState(false);
   const [purchaseEraId, setPurchaseEraId] = useState(null);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [totalGamesPlayed, setTotalGamesPlayed] = useState(0);
-  const [playerRank, setPlayerRank] = useState(null);
-  const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
-  const [leaderboardError, setLeaderboardError] = useState(null);
-  const [sortField, setSortField] = useState('total_score');
-  const [sortDirection, setSortDirection] = useState('desc');
 
-  const leaderboardService = new LeaderboardService();
-  const gameStatsService = new GameStatsService();
   const isGuest = userProfile?.id?.startsWith('guest-');
-
-  // Fetch leaderboard on mount
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      setLoadingLeaderboard(true);
-      setLeaderboardError(null);
-      
-      try {
-        const top10 = await leaderboardService.getLeaderboard(10);
-        console.log(version, 'Leaderboard data received:', top10);
-        setLeaderboard(top10 || []);
-        
-        const totalGames = await gameStatsService.getTotalGamesPlayed();
-        console.log(version, 'Total games played:', totalGames);
-        setTotalGamesPlayed(totalGames);
-        
-        if (userProfile?.id && !isGuest) {
-          const rank = await leaderboardService.getPlayerRanking(userProfile.id);
-          setPlayerRank(rank);
-        }
-      } catch (error) {
-        console.error(version, 'Error fetching leaderboard:', error);
-        setLeaderboardError(error.message || 'Failed to load leaderboard');
-      } finally {
-        setLoadingLeaderboard(false);
-      }
-    };
-
-    fetchLeaderboard();
-  }, [userProfile?.id, isGuest]);
 
   // Check if user needs to see Midway Island promotion
   useEffect(() => {
@@ -127,33 +185,21 @@ const OverPage = () => {
     checkPromotionEligibility();
   }, [gameResults, userProfile, hasEraAccess]);
 
-  // Sort leaderboard data
-  const sortedLeaderboard = [...leaderboard].sort((a, b) => {
-    let aVal = a[sortField];
-    let bVal = b[sortField];
-    
-    if (aVal == null) aVal = 0;
-    if (bVal == null) bVal = 0;
-    
-    if (sortDirection === 'asc') {
-      return aVal > bVal ? 1 : -1;
-    } else {
-      return aVal < bVal ? 1 : -1;
-    }
-  });
-
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
+  // Helper function to get Lucide icon component by name
+  const getLucideIcon = (iconName) => {
+    const Icon = LucideIcons[iconName];
+    return Icon || LucideIcons.Award; // Fallback to Award icon
   };
 
-  const getSortIndicator = (field) => {
-    if (sortField !== field) return '';
-    return sortDirection === 'asc' ? ' ▲' : ' ▼';
+  // Helper function to get tier badge class
+  const getTierBadgeClass = (tier) => {
+    switch (tier) {
+      case 'bronze': return 'badge--bronze';
+      case 'silver': return 'badge--silver';
+      case 'gold': return 'badge--gold';
+      case 'platinum': return 'badge--platinum';
+      default: return 'badge--primary';
+    }
   };
 
   const getDifficultyBadgeClass = (difficulty) => {
@@ -302,6 +348,46 @@ const OverPage = () => {
               </div>
             </div>
           )}
+
+          {/* Achievement Notifications */}
+          {!isGuest && newAchievements.length > 0 && (
+            <div className="achievements-section">
+              <h4 className="achievements-title">🎉 Achievements Unlocked!</h4>
+              <div className="achievements-grid">
+                {newAchievements.map((achievement, index) => {
+                  const Icon = getLucideIcon(achievement.badge_icon);
+                  return (
+                    <div
+                      key={achievement.id}
+                      className={`achievement-card achievement-card--${achievement.tier}`}
+                      style={{ animationDelay: `${index * 0.1}s` }}
+                    >
+                      <div className="achievement-card__icon">
+                        <Icon size={32} />
+                      </div>
+                      <div className="achievement-card__text">
+                        <div className="achievement-card__name">{achievement.name}</div>
+                        <div className="achievement-card__points">
+                          <span className={`badge ${getTierBadgeClass(achievement.tier)}`}>
+                            +{achievement.points}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {loadingAchievements && !isGuest && (
+            <div className="achievements-section">
+              <div className="loading loading--sm">
+                <div className="spinner spinner--sm"></div>
+                <p>Checking achievements...</p>
+              </div>
+            </div>
+          )}
           
           {gameStats.players && (
             <div className="battle-stats">
@@ -351,112 +437,6 @@ const OverPage = () => {
                 </div>
               )}
             </div>
-          )}
-        </div>
-
-        {/* Top 10 Leaderboard */}
-        <div className="leaderboard-section">
-          <h4>Top 10 Leaderboard</h4>
-          
-          {totalGamesPlayed > 0 && (
-            <p className="leaderboard-subtitle text-center">
-              Total Games Played: {totalGamesPlayed.toLocaleString()}
-            </p>
-          )}
-          
-          {loadingLeaderboard ? (
-            <div className="loading">
-              <div className="spinner"></div>
-              <p>Loading leaderboard...</p>
-            </div>
-          ) : leaderboardError ? (
-            <div className="error-message">
-              <p>Unable to load leaderboard: {leaderboardError}</p>
-            </div>
-          ) : leaderboard.length === 0 ? (
-            <div className="empty-state">
-              <p>No players on the leaderboard yet.</p>
-              <p className="text-secondary">Play more games to be the first!</p>
-            </div>
-          ) : (
-            <>
-              <div className="leaderboard-table">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Rank</th>
-                      <th
-                        className="sortable-header"
-                        onClick={() => handleSort('game_name')}
-                        title="Click to sort by player name"
-                      >
-                        Player{getSortIndicator('game_name')}
-                      </th>
-                      <th
-                        className="sortable-header"
-                        onClick={() => handleSort('total_score')}
-                        title="Click to sort by score"
-                      >
-                        Score{getSortIndicator('total_score')}
-                      </th>
-                      <th
-                        className="sortable-header"
-                        onClick={() => handleSort('best_accuracy')}
-                        title="Click to sort by accuracy"
-                      >
-                        Accuracy{getSortIndicator('best_accuracy')}
-                      </th>
-                      <th
-                        className="sortable-header"
-                        onClick={() => handleSort('total_wins')}
-                        title="Click to sort by wins"
-                      >
-                        Wins{getSortIndicator('total_wins')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedLeaderboard.map((entry, index) => {
-                      const isCurrentPlayer = !isGuest && entry.game_name === userProfile?.game_name;
-                      return (
-                        <tr key={index} className={isCurrentPlayer ? 'player-row' : ''}>
-                          <td className="rank-cell">#{index + 1}</td>
-                          <td className="player-cell">
-                            {entry.game_name}
-                            {isCurrentPlayer && <span className="badge badge--primary ml-sm">You</span>}
-                          </td>
-                          <td>{entry.total_score?.toLocaleString() || 0}</td>
-                          <td>{entry.best_accuracy ? `${entry.best_accuracy.toFixed(1)}%` : 'N/A'}</td>
-                          <td>{entry.total_wins || 0}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              
-              {!isGuest && playerRank && playerRank > 10 && (
-                <div className="player-rank-info">
-                  <p>
-                    <strong>Your Rank:</strong> #{playerRank}
-                  </p>
-                </div>
-              )}
-
-              {isGuest && (
-                <div className="guest-leaderboard-note">
-                  <p>
-                    <button
-                      className="link-button"
-                      onClick={handleGuestSignup}
-                    >
-                      Create an account
-                    </button>
-                    {' '}to track your ranking and compete for the top spot!
-                  </p>
-                </div>
-              )}
-            </>
           )}
         </div>
 

@@ -1,8 +1,12 @@
-// src/App.js v0.2.12
+// src/App.js v0.3.4
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.4: Fixed overlay scrolling - wrapped achievements/stats in modal-overlay
+// v0.3.3: Added StatsPage overlay integration
+// v0.3.2: Refactor to overlay pattern - achievements/stats as overlays, not game states
 
 import React, { useState, useEffect } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
+import NavBar from './components/NavBar';
 import LaunchPage from './pages/LaunchPage';
 import LoginPage from './pages/LoginPage';
 import SelectEraPage from './pages/SelectEraPage';
@@ -11,25 +15,19 @@ import PlacementPage from './pages/PlacementPage';
 import PlayingPage from './pages/PlayingPage';
 import OverPage from './pages/OverPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import AchievementsPage from './pages/AchievementsPage';
+import StatsPage from './pages/StatsPage';
 import './App.css';
 
-const version = 'v0.2.12';
+export const APP_VERSION = 'Dev1.2';
+
+const version = 'v0.3.4';
 
 const SceneRenderer = () => {
-  const { currentState, eraConfig, subscribeToUpdates, coreEngine } = useGame();
-  
-  // Force re-render trigger when game logic changes
+  const { currentState, eraConfig, subscribeToUpdates } = useGame();
+  const [overlayPage, setOverlayPage] = useState(null); // 'stats' | 'achievements' | null
   const [, setRenderTrigger] = useState(0);
 
-//  // Initialize from URL on mount
-//  useEffect(() => {
-//    console.log('[DEBUG]', version, 'Initializing from URL');
-//    if (coreEngine?.initializeFromURL) {
-//      coreEngine.initializeFromURL();
-//    }
-//  }, [coreEngine]);
-//
-  // Subscribe to game logic updates for state machine transitions
   useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {
       setRenderTrigger(prev => prev + 1);
@@ -42,7 +40,6 @@ const SceneRenderer = () => {
     console.log('[DEBUG]', version, 'Applying era theme');
     
     if (eraConfig?.theme) {
-      // Apply theme CSS variables from era config
       console.log('[DEBUG]', version, 'Loading theme from era config:', eraConfig.name);
       
       Object.entries(eraConfig.theme).forEach(([key, value]) => {
@@ -51,50 +48,33 @@ const SceneRenderer = () => {
         console.log('[DEBUG]', version, `Set ${cssVar} = ${value}`);
       });
       
-      // Apply background image if present in promotional section
       if (eraConfig.promotional?.background_image) {
         const cdnBase = process.env.REACT_APP_GAME_CDN || '';
-          const imageUrl = cdnBase
-            ? `${cdnBase}/assets/images/${eraConfig.promotional.background_image}`
-            : `/assets/images/${eraConfig.promotional.background_image}`;        
+        const imageUrl = cdnBase
+          ? `${cdnBase}/assets/images/${eraConfig.promotional.background_image}`
+          : `/assets/images/${eraConfig.promotional.background_image}`;
         console.log('[DEBUG]', version, 'Setting background image:', imageUrl);
         
-        // Apply background image with gradient overlay for readability
-//        const bgDark = eraConfig.theme?.bg_dark || 'rgba(43, 79, 95, 0.9)';
-//        const backgroundValue = `linear-gradient(to bottom, ${bgDark}cc, ${bgDark}dd), url('${imageUrl}')`;
-          const backgroundValue = `url('${imageUrl}')`;
-          
-        // Set body background image
+        const backgroundValue = `url('${imageUrl}')`;
         document.body.style.backgroundImage = backgroundValue;
         document.body.setAttribute('data-has-background-image', 'true');
-        
-        // Hide .App background by setting CSS variable
         document.body.style.setProperty('--app-background', 'none');
-        
-        // Hide the body::before gradient pattern overlay
         document.body.style.setProperty('--body-before-opacity', '0');
         
         console.log('[DEBUG]', version, 'Background image applied');
       } else {
-        // Reset to gradient-only background if no image
         console.log('[DEBUG]', version, 'No background image, using gradient');
-        
-        // Clear body background and show .App default background
         document.body.style.backgroundImage = '';
         document.body.removeAttribute('data-has-background-image');
         document.body.style.removeProperty('--app-background');
-        
-        // Restore the body::before pattern overlay
         document.body.style.setProperty('--body-before-opacity', '0.3');
       }
       
-      // Set data-era attribute for any era-specific CSS rules
       const eraKey = eraConfig.era || 'traditional';
       document.body.setAttribute('data-era', eraKey);
       console.log('[DEBUG]', version, 'Theme applied for:', eraKey);
       
     } else if (eraConfig?.name) {
-      // Fallback: Use hardcoded era mapping if theme object missing
       console.log('[DEBUG]', version, 'No theme object, using fallback mapping');
       
       const eraMap = {
@@ -104,7 +84,6 @@ const SceneRenderer = () => {
       const eraKey = eraMap[eraConfig.name] || 'traditional';
       document.body.setAttribute('data-era', eraKey);
       
-      // Clear body background and show .App default background
       document.body.style.backgroundImage = '';
       document.body.removeAttribute('data-has-background-image');
       document.body.style.removeProperty('--app-background');
@@ -113,11 +92,9 @@ const SceneRenderer = () => {
       console.log('[DEBUG]', version, 'Fallback theme switched to:', eraKey);
       
     } else {
-      // No era config, use default theme and .App background
       console.log('[DEBUG]', version, 'No era config, using default theme');
       document.body.setAttribute('data-era', 'traditional');
       
-      // Clear body background and show .App default background
       document.body.style.backgroundImage = '';
       document.body.removeAttribute('data-has-background-image');
       document.body.style.removeProperty('--app-background');
@@ -125,7 +102,6 @@ const SceneRenderer = () => {
     }
   }, [eraConfig]);
   
-  // Check if current URL is for password reset
   const isResetPasswordRoute = window.location.pathname === '/reset-password' ||
                                window.location.hash.includes('type=recovery');
   
@@ -135,38 +111,41 @@ const SceneRenderer = () => {
   }
   
   console.log('[DEBUG]', version, 'Rendering scene for state:', currentState);
-  
+    
+  const closeOverlay = () => setOverlayPage(null);
+
   return (
-    <div className="scene">
-      {(() => {
-          console.log('[DEBUG App.js] Rendering scene for currentState:', currentState);        switch (currentState) {
-          case 'launch':
-            return <LaunchPage />;
-          case 'login':
-            return <LoginPage />;
-          case 'era':
-            return <SelectEraPage />;
-          case 'opponent':
-            return <SelectOpponentPage />;
-          case 'placement':
-            return <PlacementPage />;
-          case 'play':
-            return <PlayingPage />;
-          case 'over':
-            return <OverPage />;
-          default:
-            return (
-              <div className="error-state">
-                <h2>Unknown State: {currentState}</h2>
-                <p>The application is in an unexpected state.</p>
-                <button onClick={() => window.location.reload()}>
-                  Reload Application
-                </button>
-              </div>
-            );
-        }
-      })()}
-    </div>
+    <>
+      <NavBar
+        onShowStats={() => setOverlayPage('stats')}
+        onShowAchievements={() => setOverlayPage('achievements')}
+        onCloseOverlay={closeOverlay}
+        hasActiveOverlay={overlayPage !== null}
+      />
+          
+      <div className="scene">
+        {currentState === 'launch' && <LaunchPage />}
+        {currentState === 'login' && <LoginPage />}
+        {currentState === 'era' && <SelectEraPage />}
+        {currentState === 'opponent' && <SelectOpponentPage />}
+        {currentState === 'placement' && <PlacementPage />}
+        {currentState === 'play' && <PlayingPage />}
+        {currentState === 'over' && <OverPage />}
+      </div>
+      
+      {/* Overlays wrapped in modal-overlay to prevent background scroll */}
+      {overlayPage === 'achievements' && (
+        <div className="modal-overlay">
+          <AchievementsPage onClose={closeOverlay} />
+        </div>
+      )}
+      
+      {overlayPage === 'stats' && (
+        <div className="modal-overlay">
+          <StatsPage onClose={closeOverlay} />
+        </div>
+      )}
+    </>
   );
 };
 
@@ -189,5 +168,4 @@ const WrappedApp = () => (
 );
 
 export default WrappedApp;
-
 // EOF

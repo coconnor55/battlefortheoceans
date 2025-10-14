@@ -21,8 +21,8 @@
   --font-mono: 'Roboto Mono', 'Courier New', monospace;
   
   /* Effects */
-  --border-radius: 8px;
   --border-radius-sm: 4px;
+  --border-radius-md: 8px;
   --border-radius-lg: 12px;
   --transition-speed: 0.3s;
   --transition-fast: 0.15s;
@@ -76,6 +76,17 @@ html {
   html {
     font-size: 12px;
   }
+}
+
+/* Navigation Bar Theme Variables (optional) */
+body[data-era="traditional"] {
+  --nav-bg: rgba(20, 40, 60, 0.95);
+  --primary-glow: rgba(0, 217, 255, 0.5);
+}
+
+body[data-era="midway"] {
+  --nav-bg: rgba(40, 20, 20, 0.95);
+  --primary-glow: rgba(255, 200, 0, 0.5);
 }
 
 /* ============================================

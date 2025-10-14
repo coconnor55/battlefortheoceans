@@ -1,5 +1,9 @@
 // src/classes/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.8: Remove ACHIEVEMENTS state
+// v0.5.7: Add ACHIEVEMENTS event and state for achievements page navigation
+// v0.5.6: Fix achievement service integration - proper debug logging
+// v0.5.5: Add achievement service integration
 // v0.5.3: Synchronous session restoration using sessionStorage for both guests and registered users
 // v0.5.2: Fix page refresh - restore Supabase session and user profile
 // v0.5.1: Fix refresh issue - initialize state from URL in constructor (synchronous)
@@ -14,9 +18,10 @@ import GameStatsService from '../services/GameStatsService.js';
 import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
 import EraService from '../services/EraService.js';
+import AchievementService from '../services/AchievementService.js';
 import { supabase } from '../utils/supabaseClient.js';
 
-const version = "v0.5.4";
+const version = "v0.5.8";
 
 class CoreEngine {
   constructor() {
@@ -26,7 +31,7 @@ class CoreEngine {
     
     // State definitions
     this.events = {
-        LAUNCH: Symbol('LAUNCH'),
+      LAUNCH: Symbol('LAUNCH'),
       LOGIN: Symbol('LOGIN'),
       SELECTERA: Symbol('SELECTERA'),
       SELECTOPPONENT: Symbol('SELECTOPPONENT'),
@@ -42,31 +47,35 @@ class CoreEngine {
       era: {
         on: {
           [this.events.SELECTOPPONENT]: 'opponent',
-          [this.events.LOGIN]: 'login'
+          [this.events.LOGIN]: 'login',
+          [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
       opponent: {
         on: {
           [this.events.PLACEMENT]: 'placement',
           [this.events.LOGIN]: 'login',
-          [this.events.SELECTERA]: 'era'
+          [this.events.SELECTERA]: 'era',
+          [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
       placement: {
         on: {
           [this.events.PLAY]: 'play',
           [this.events.SELECTOPPONENT]: 'opponent',
-          [this.events.LOGIN]: 'login'
+          [this.events.LOGIN]: 'login',
+          [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
       play: { on: { [this.events.OVER]: 'over' } },
       over: {
         on: {
-            [this.events.LAUNCH]: 'launch',
+          [this.events.LAUNCH]: 'launch',
           [this.events.ERA]: 'era',
           [this.events.SELECTOPPONENT]: 'opponent',
           [this.events.PLACEMENT]: 'placement',
-          [this.events.LOGIN]: 'login'
+          [this.events.LOGIN]: 'login',
+          [this.events.ACHIEVEMENTS]: 'achievements'
         }
       }
     };
@@ -108,6 +117,10 @@ class CoreEngine {
     this.leaderboardService = new LeaderboardService();
     this.rightsService = new RightsService();
     this.eraService = new EraService();
+    this.achievementService = AchievementService;
+    
+    // Achievement tracking
+    this.newAchievements = [];
     
     // Browser navigation handler
     if (typeof window !== 'undefined') {
@@ -115,25 +128,19 @@ class CoreEngine {
         this.handleBrowserNavigation(event);
       });
       
-      // Restore session SYNCHRONOUSLY before anything else (v0.5.3)
       this.restoreSessionSync();
-      
-      // Initialize state from URL synchronously (will set currentState)
       this.initializeFromURL();
       
-      // Fallback to launch if no valid state set
       if (!this.currentState) {
         this.currentState = 'launch';
       }
     } else {
-      // Server-side or test environment - default to launch
       this.currentState = 'launch';
     }
     
     this.log('CoreEngine initialized');
   }
 
-  // v0.5.3: Synchronous session restoration from sessionStorage
   restoreSessionSync() {
     if (typeof window === 'undefined') return;
     
@@ -147,7 +154,6 @@ class CoreEngine {
       const context = JSON.parse(stored);
       this.log('Restoring session context');
       
-      // Restore user profile
       if (context.user) {
         this.userProfile = {
           id: context.user.id,
@@ -160,7 +166,6 @@ class CoreEngine {
           total_damage: context.user.total_damage || 0
         };
         
-        // Restore human player
         this.humanPlayer = new HumanPlayer(context.user.id, context.user.game_name);
         if (context.user.email) {
           this.humanPlayer.email = context.user.email;
@@ -169,24 +174,20 @@ class CoreEngine {
         
         this.log(`User restored: ${context.user.game_name}`);
         
-        // For registered users, async refresh profile in background
         if (context.user.type === 'registered') {
           this.refreshProfileAsync(context.user.id);
         }
       }
       
-      // Restore era config (async, non-blocking)
       if (context.eraId) {
         this.restoreEraAsync(context.eraId);
       }
       
-      // Restore opponent selection
       if (context.selectedOpponent) {
         this.selectedOpponent = context.selectedOpponent;
         this.log(`Opponent restored: ${context.selectedOpponent.name}`);
       }
       
-      // Restore alliance selection
       if (context.selectedAlliance) {
         this.selectedAlliance = context.selectedAlliance;
         this.log(`Alliance restored: ${context.selectedAlliance}`);
@@ -198,7 +199,6 @@ class CoreEngine {
     }
   }
 
-  // v0.5.3: Background profile refresh for registered users (non-blocking)
   async refreshProfileAsync(userId) {
     try {
       const profile = await this.userProfileService.getUserProfile(userId);
@@ -216,7 +216,6 @@ class CoreEngine {
     }
   }
 
-  // v0.5.3: Background era restoration (non-blocking)
   async restoreEraAsync(eraId) {
     try {
       this.eraConfig = await this.eraService.getEraById(eraId);
@@ -229,13 +228,11 @@ class CoreEngine {
     }
   }
 
-  // v0.5.3: Store complete session context in sessionStorage
   storeSessionContext() {
     if (typeof window === 'undefined') return;
     
     try {
       const context = {
-        // User context
         user: this.userProfile ? {
           id: this.userProfile.id,
           game_name: this.userProfile.game_name,
@@ -249,7 +246,6 @@ class CoreEngine {
           total_damage: this.userProfile.total_damage || 0
         } : null,
         
-        // Game context (era, opponent, alliance)
         eraId: this.eraConfig?.id || null,
         selectedOpponent: this.selectedOpponent ? {
           id: this.selectedOpponent.id,
@@ -269,7 +265,6 @@ class CoreEngine {
     }
   }
 
-  // v0.5.3: Clear session context on logout
   clearSessionContext() {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('game_session');
@@ -277,13 +272,11 @@ class CoreEngine {
     }
   }
 
-  // v0.5.1: Synchronous - sets state from URL
   initializeFromURL(path = typeof window !== 'undefined' ? window.location.pathname : '/') {
     const targetState = this.routeToState[path] || 'launch';
     
     this.log(`Initializing from URL: ${path} → ${targetState}`);
     
-    // Special case: Direct entry to SelectEra (e.g., QR code)
     if (targetState === 'era') {
       this.currentState = 'era';
       if (typeof window !== 'undefined' && window.history) {
@@ -297,7 +290,6 @@ class CoreEngine {
       return;
     }
     
-    // All other states
     if (targetState !== 'launch' && targetState !== 'login') {
       this.log(`Direct URL to protected state ${targetState} - page will validate profile`);
     }
@@ -382,7 +374,6 @@ class CoreEngine {
         this.humanPlayer.gameName = profile.game_name;
       }
       
-      // Store session context after user login (v0.5.3)
       this.storeSessionContext();
       
     } else if (event === this.events.SELECTOPPONENT) {
@@ -395,7 +386,6 @@ class CoreEngine {
         this.log(`Alliance selected: ${eventData.selectedAlliance}`);
       }
       
-      // Store session context after era/alliance selection (v0.5.3)
       this.storeSessionContext();
       
     } else if (event === this.events.PLACEMENT) {
@@ -408,34 +398,32 @@ class CoreEngine {
         this.log(`Alliance selected from opponent page: ${eventData.selectedAlliance}`);
       }
       
-      // v0.5.1: Restore eraConfig when coming from 'over' state (Battle Again)
       if (this.currentState === 'over' && this.selectedEra) {
         this.eraConfig = await this.eraService.getEraById(this.selectedEra);
         this.log(`Restored eraConfig for Battle Again: ${this.eraConfig?.name}`);
       }
       
-      // Store session context after opponent selection (v0.5.3)
       this.storeSessionContext();
     }
   }
 
-    transition(event) {
-      const nextState = this.states[this.currentState]?.on[event];
-      if (nextState) {
-        const oldState = this.currentState;
-        this.currentState = nextState;
-        this.lastEvent = event;
-        
-        if (nextState === 'login' || nextState === 'launch') {
-          this.clearGameState();
-        }
-        
-        this.syncURL();
-        this.log(`State transition: ${oldState} → ${this.currentState}`);
-      } else {
-        throw new Error(`No transition defined for ${this.currentState} with event ${this.getEventName(event)}`);
+  transition(event) {
+    const nextState = this.states[this.currentState]?.on[event];
+    if (nextState) {
+      const oldState = this.currentState;
+      this.currentState = nextState;
+      this.lastEvent = event;
+      
+      if (nextState === 'login' || nextState === 'launch') {
+        this.clearGameState();
       }
+      
+      this.syncURL();
+      this.log(`State transition: ${oldState} → ${this.currentState}`);
+    } else {
+      throw new Error(`No transition defined for ${this.currentState} with event ${this.getEventName(event)}`);
     }
+  }
     
   clearGameState() {
     this.log('Clearing game state for clean login');
@@ -448,8 +436,8 @@ class CoreEngine {
     this.gameInstance = null;
     this.board = null;
     this.userProfile = null;
+    this.newAchievements = [];
     
-    // Clear stored session context (v0.5.3)
     this.clearSessionContext();
   }
 
@@ -508,10 +496,11 @@ class CoreEngine {
     const backwardAllowed = {
       'opponent': ['era'],
       'placement': ['opponent'],
-      'over': ['era']
+      'over': ['era'],
+      'achievements': ['era']
     };
     
-    if (to === 'login' && ['era', 'opponent', 'placement', 'over'].includes(from)) {
+    if (to === 'login' && ['era', 'opponent', 'placement', 'over', 'achievements'].includes(from)) {
       return true;
     }
     
@@ -553,7 +542,6 @@ class CoreEngine {
       throw new Error(`Cannot initialize placement - missing: ${missing.join(', ')}`);
     }
     
-    // Store selected era for Battle Again functionality
     this.selectedEra = this.eraConfig.id;
     
     this.gameInstance = new Game(this.eraConfig, this.selectedOpponent.gameMode || 'turnBased');
@@ -628,11 +616,11 @@ class CoreEngine {
                         this.userProfile?.id?.startsWith('ai-');
     
     if (!this.gameInstance || !this.userProfile || isGuestOrAI) {
-      this.log('Game over - guest/AI or no profile, skipping stats update');
+      this.log('Game over - guest/AI or no profile, skipping stats/achievements');
       return;
     }
     
-    this.log('Processing game over - updating stats');
+    this.log('Processing game over - updating stats and checking achievements');
     
     try {
       const gameResults = this.gameStatsService.calculateGameResults(
@@ -641,14 +629,29 @@ class CoreEngine {
         this.selectedOpponent
       );
       
-      if (gameResults) {
-        await this.updateGameStats(gameResults);
-        this.log('Stats update completed successfully');
-      } else {
+      if (!gameResults) {
         console.error(`${version} Failed to calculate game results`);
+        return;
       }
+      
+      await this.updateGameStats(gameResults);
+      this.log('Stats update completed successfully');
+      
+      const newAchievements = await this.achievementService.checkAchievements(
+        this.userProfile.id,
+        gameResults
+      );
+
+      if (newAchievements.length > 0) {
+        this.log(`New achievements unlocked: ${newAchievements.length}`);
+        this.newAchievements = newAchievements;
+        this.notifySubscribers();
+      } else {
+        this.log('No new achievements unlocked this game');
+      }
+      
     } catch (error) {
-      console.error(`${version} Error processing game completion stats:`, error);
+      console.error(`${version} Error processing game completion:`, error);
     }
   }
 
@@ -829,10 +832,7 @@ class CoreEngine {
     
     if (updatedProfile) {
       this.userProfile = updatedProfile;
-      
-      // Update stored session context with new stats (v0.5.3)
       this.storeSessionContext();
-      
       this.notifySubscribers();
       return true;
     }
@@ -905,6 +905,15 @@ class CoreEngine {
 
   getEventName(event) {
     return Object.keys(this.events).find(key => this.events[key] === event) || 'UNKNOWN';
+  }
+
+  get unlockedAchievements() {
+    return this.newAchievements || [];
+  }
+
+  clearUnlockedAchievements() {
+    this.newAchievements = [];
+    this.log('Cleared unlocked achievements');
   }
 
   log(message) {

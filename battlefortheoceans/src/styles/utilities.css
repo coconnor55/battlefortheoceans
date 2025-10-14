@@ -287,7 +287,7 @@
 
 .alert {
   padding: var(--space-md) var(--space-lg);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   margin-bottom: var(--space-md);
   display: flex;
   align-items: center;
@@ -329,7 +329,7 @@
 
 .message {
   padding: var(--space-md);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   margin: var(--space-md) 0;
   line-height: 1.5;
 }
@@ -426,7 +426,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   overflow: hidden;
 }
 

@@ -1,4 +1,4 @@
-/* src/styles/shared-components.css v1.0.1 */
+/* src/styles/shared-components.css v1.1.0 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Consolidated shared component patterns - eliminates duplication */
 
@@ -10,7 +10,7 @@
 .selectable-item {
   background: var(--bg-overlay);
   border: 2px solid var(--border-subtle);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   padding: var(--space-md);
   margin: var(--space-sm) 0;
   cursor: pointer;
@@ -101,6 +101,66 @@
 }
 
 /* ============================================
+   NAVIGATION BAR
+   ============================================ */
+
+.nav-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--nav-bg, rgba(20, 40, 60, 0.95));
+  backdrop-filter: blur(10px);
+  border-bottom: 2px solid var(--primary);
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.nav-bar__container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.5rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.nav-bar__logo {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-shadow: 0 0 10px var(--primary-glow, rgba(0, 217, 255, 0.5));
+  white-space: nowrap;
+}
+
+.nav-bar__links {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-bar__user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-bar__username {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Add top padding to content to account for fixed nav */
+.App main {
+  padding-top: 60px;
+}
+
+/* ============================================
    SCROLLABLE LISTS
    Used by: era lists, alliance lists, opponent lists
    ============================================ */
@@ -111,7 +171,7 @@
   margin: var(--space-md) 0;
   padding: var(--space-md);
   background: var(--bg-overlay);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   border: 1px solid var(--border-subtle);
 }
 
@@ -168,7 +228,7 @@
 .collapsible-section {
   margin-bottom: var(--space-lg);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   background: var(--bg-medium);
 }
 
@@ -221,6 +281,159 @@
   color: var(--text-dim);
 }
 
+/* ADD TO src/styles/shared-components.css */
+
+/* ============================================
+   ACHIEVEMENT NOTIFICATIONS
+   ============================================ */
+
+.achievement-notification {
+  position: fixed;
+  top: 80px; /* Below navbar */
+  right: 20px;
+  z-index: 999;
+  opacity: 0;
+  transform: translateX(400px);
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  pointer-events: none;
+}
+
+.achievement-notification--visible {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.achievement-notification__content {
+  background: var(--bg-dark, rgba(10, 22, 40, 0.98));
+  border: 2px solid var(--primary, #00D9FF);
+  border-radius: 12px;
+  padding: 1.5rem;
+  min-width: 320px;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6),
+              0 0 20px rgba(0, 217, 255, 0.3);
+  position: relative;
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6),
+                0 0 20px rgba(0, 217, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6),
+                0 0 30px rgba(0, 217, 255, 0.5);
+  }
+}
+
+.achievement-notification__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.achievement-notification__badge {
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary, #00D9FF);
+  text-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+}
+
+.achievement-notification__counter {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--text-muted, #A0AEC0);
+  background: rgba(0, 217, 255, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+}
+
+.achievement-notification__body {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.achievement-notification__icon {
+  font-size: 3rem;
+  line-height: 1;
+  flex-shrink: 0;
+  animation: icon-bounce 0.6s ease-out;
+}
+
+@keyframes icon-bounce {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.2) rotate(-10deg); }
+  75% { transform: scale(0.9) rotate(5deg); }
+}
+
+.achievement-notification__details {
+  flex: 1;
+}
+
+.achievement-notification__name {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary, #E0E0E0);
+  margin: 0 0 0.5rem 0;
+}
+
+.achievement-notification__description {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text-secondary, #B0B0B0);
+  margin: 0 0 0.75rem 0;
+  line-height: 1.4;
+}
+
+.achievement-notification__points {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.achievement-notification__points-value {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--success, #00FF88);
+}
+
+.achievement-notification__tier {
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.achievement-notification__close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #A0AEC0);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.achievement-notification__close:hover {
+  color: var(--text-primary, #E0E0E0);
+  transform: scale(1.2);
+}
+
+/* EOF */
+
 /* ============================================
    PURCHASE PAGE COMPONENTS (v1.0.1)
    Reusable purchase/marketing components
@@ -246,7 +459,7 @@
   max-width: 400px;
   height: 200px;
   object-fit: contain;
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   border: 1px solid var(--border-subtle);
 }
 
@@ -282,7 +495,7 @@
 .info-card {
   background: var(--bg-overlay);
   padding: var(--space-lg);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
   margin-bottom: var(--space-lg);
   border: 1px solid var(--border-subtle);
 }
@@ -318,7 +531,7 @@
   text-align: center;
   padding: var(--space-md);
   background: var(--bg-overlay);
-  border-radius: var(--border-radius);
+  border-radius: var(--border-radius-md);
 }
 
 .price-amount {
