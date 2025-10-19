@@ -2,9 +2,14 @@
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { createContext, useContext } from 'react';
-import CoreEngine from '../classes/CoreEngine';
+import CoreEngine from '../engines/CoreEngine';
 
-const version = "v0.3.3";
+const version = "v0.4.0";
+/**
+ * v0.4.0: Multi-fleet combat support
+ *         - Exposed selectedOpponents[] array
+ *         - Backward compatible selectedOpponent (first opponent)
+ */
 
 const GameState = createContext();
 
@@ -17,7 +22,7 @@ export const GameProvider = ({ children }) => {
   return (
     <GameState.Provider value={{
 
-        // State machine
+      // State machine
       get currentState() { return coreEngine.currentState; },
       get events() { return coreEngine.events; },
       
@@ -30,7 +35,11 @@ export const GameProvider = ({ children }) => {
       
       // Game state accessors
       get eraConfig() { return coreEngine.eraConfig; },
-      get selectedOpponent() { return coreEngine.selectedOpponent; },
+      
+      // v0.4.0: Multi-fleet support
+      get selectedOpponents() { return coreEngine.selectedOpponents; },
+      get selectedOpponent() { return coreEngine.selectedOpponents?.[0] || null; }, // Backward compatibility
+      
       get selectedGameMode() { return coreEngine.selectedGameMode; },
       get selectedAlliance() { return coreEngine.selectedAlliance; },
       get humanPlayer() { return coreEngine.humanPlayer; },
@@ -67,8 +76,6 @@ export const GameProvider = ({ children }) => {
       getFreeEras: () => coreEngine.getFreeEras(),
       clearEraCache: () => coreEngine.clearEraCache(),
       
-      // Direct service access
-      eraService: coreEngine.eraService
     }}>
       {children}
     </GameState.Provider>

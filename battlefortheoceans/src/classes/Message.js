@@ -3,7 +3,31 @@
 
 import MessageHelper from '../utils/MessageHelper.js';
 
-const version = "v0.1.1";
+const version = "v0.1.5";
+
+/**
+ * v0.1.5: Object-to-String Pre-processing
+ * - Added comprehensive pre-processing in post() to convert all object types to strings
+ * - Handles: players array, winner, attacker, target, opponent objects
+ * - Extracts turns/duration from gameStats object
+ * - Prevents [object Object] in message display
+ *
+ * v0.1.4: Players Array Formatting
+ * - Fixed players array formatting in post() method
+ * - Converts player objects to "Name1 vs Name2" string before variable substitution
+ *
+ * v0.1.3: Debug logging and game_start fix
+ * - Added debug logging to track variable substitution
+ * - Fixed generateGameStartMessage to properly format player names
+ * - Fixed logging to use [MESSAGE] prefix for debug filter
+ *
+ * v0.1.2: Progressive Fog of War Message Support
+ * - Updated post() to handle era-specific message types directly
+ * - Removed hardcoded switch statement that caused "Unknown message"
+ * - Now looks up any message type from era config messages
+ * - Supports: attack_hit_unknown, attack_hit_size_*, attack_hit_critical, ship_sunk, attack_miss
+ * - Falls back to legacy message types for backward compatibility
+ */
 
 class Message {
     // All messages in the game must go through the message class to facilitate logging.
@@ -22,7 +46,7 @@ class Message {
       UI: 'ui'                 // UI state messages (turn indicators)
     };
     
-    // Message types
+    // Legacy message types (for backward compatibility)
     this.types = {
       HIT: 'hit',
       MISS: 'miss',
@@ -129,40 +153,88 @@ class Message {
 
   /**
    * Post message to specific channel(s)
+   * v0.1.2: Now handles era-specific message types directly
    */
   post(messageType, data = {}, channels = [this.channels.CONSOLE, this.channels.LOG]) {
     const timestamp = Date.now();
     const turn = this.gameInstance?.currentTurn || 0;
     
+    console.log(`[MESSAGE] ${version} post() called - type: ${messageType}, data:`, data);
+    
     let messageText = '';
     
-    switch (messageType) {
-      case this.types.HIT:
-        messageText = this.generateHitMessage(data);
-        break;
-      case this.types.MISS:
-        messageText = this.generateMissMessage(data);
-        break;
-      case this.types.SUNK:
-        messageText = this.generateSunkMessage(data);
-        break;
-      case this.types.TURN:
-        messageText = this.generateTurnMessage(data);
-        break;
-      case this.types.GAME_START:
-        messageText = this.generateGameStartMessage(data);
-        break;
-      case this.types.GAME_END:
-        messageText = this.generateGameEndMessage(data);
-        break;
-      case this.types.ERROR:
-        messageText = data.message || 'An error occurred';
-        break;
-      case this.types.SYSTEM:
-        messageText = data.message || 'System notification';
-        break;
-      default:
-        messageText = data.message || 'Unknown message';
+    // Pre-process data to ensure proper formatting
+    const processedData = { ...data };
+    
+    // Special handling for players array (convert to string)
+    if (processedData.players && Array.isArray(processedData.players)) {
+      processedData.players = processedData.players.map(p => p?.name || 'Unknown').join(' vs ');
+    }
+    
+    // Special handling for winner object (convert to name string)
+    if (processedData.winner && typeof processedData.winner === 'object') {
+      processedData.winner = processedData.winner.name || 'Unknown';
+    }
+    
+    // Special handling for attacker/target objects (convert to name string)
+    if (processedData.attacker && typeof processedData.attacker === 'object') {
+      processedData.attacker = processedData.attacker.name || 'Unknown';
+    }
+    if (processedData.target && typeof processedData.target === 'object') {
+      processedData.target = processedData.target.name || 'Unknown';
+    }
+    
+    // Special handling for opponent object (convert to name string)
+    if (processedData.opponent && typeof processedData.opponent === 'object') {
+      processedData.opponent = processedData.opponent.name || 'Opponent';
+    }
+    
+    // Extract gameStats if present
+    if (processedData.gameStats) {
+      processedData.turns = processedData.gameStats.totalTurns || 0;
+      processedData.duration = processedData.gameStats.duration || 0;
+    }
+    
+    // First try to get message from era config (new progressive fog of war messages)
+    const eraMessage = this.getEraMessage(messageType, processedData);
+    
+    console.log(`[MESSAGE] ${version} getEraMessage('${messageType}') returned:`, eraMessage);
+    
+    if (eraMessage) {
+      // Era config has this message type - use it directly
+      messageText = eraMessage;
+    } else {
+      // Fall back to legacy hardcoded message generation
+      switch (messageType) {
+        case this.types.HIT:
+          messageText = this.generateHitMessage(data);
+          break;
+        case this.types.MISS:
+          messageText = this.generateMissMessage(data);
+          break;
+        case this.types.SUNK:
+          messageText = this.generateSunkMessage(data);
+          break;
+        case this.types.TURN:
+          messageText = this.generateTurnMessage(data);
+          break;
+        case this.types.GAME_START:
+          messageText = this.generateGameStartMessage(data);
+          break;
+        case this.types.GAME_END:
+          messageText = this.generateGameEndMessage(data);
+          break;
+        case this.types.ERROR:
+          messageText = data.message || 'An error occurred';
+          break;
+        case this.types.SYSTEM:
+          messageText = data.message || 'System notification';
+          break;
+        default:
+          // Unknown legacy type - log warning
+          console.warn(`[Message ${version}] Unknown message type: ${messageType}`);
+          messageText = data.message || `[${messageType}]`;
+      }
     }
 
     const messageObject = {
@@ -276,13 +348,23 @@ class Message {
    * Generate game start message
    */
   generateGameStartMessage({ eraName, players }) {
+    // Format players as "Name1 vs Name2"
+    let playerNames = 'Unknown players';
+    if (players && Array.isArray(players) && players.length > 0) {
+      playerNames = players.map(p => p?.name || 'Unknown').join(' vs ');
+    }
+    
     const variables = {
       era: eraName || this.eraConfig?.name || 'Battle',
-      players: players?.map(p => p.name).join(' vs ') || 'Unknown players'
+      players: playerNames
     };
     
-    return this.getEraMessage('game_start', variables) ||
-           `${variables.era} begins! ${variables.players}`;
+    console.log(`[MESSAGE] ${version} generateGameStartMessage variables:`, variables);
+    
+    const message = this.getEraMessage('game_start', variables);
+    console.log(`[MESSAGE] ${version} getEraMessage result:`, message);
+    
+    return message || `${variables.era} begins! ${variables.players}`;
   }
 
   /**
@@ -327,10 +409,9 @@ class Message {
    * Logging utility
    */
   log(message) {
-    console.log(`[Message ${version}] ${message}`);
+    console.log(`[MESSAGE] ${version} ${message}`);
   }
 }
 
 export default Message;
-// EOF 
-
+// EOF

@@ -1,13 +1,16 @@
 {
-  "version": "0.2.4",
+  "version": "0.3.3",
   "era": "midway",
   "name": "Midway Island",
   "era_description": "Battle of Midway, June 4-7, 1942. Fight for control of this strategic Pacific atoll where American forces turned the tide against the Japanese Navy in World War II.",
   "free": false,
-  "rows": 12,
-  "cols": 12,
+  "rows": 13,
+  "cols": 13,
   "boundary": [],
   "max_players": 2,
+  "era_assets": {
+    "ship_silhouettes_path": "midway"
+  },
   "promotional": {
     "background_image": "midway-background.jpg",
     "promotional_image": "midway-promotional.jpg",
@@ -17,7 +20,8 @@
     "features": [
       "Choose your alliance: US Navy or Imperial Navy",
       "Command legendary ships: USS Enterprise, Akagi, Yorktown",
-      "12x12 battlefield with authentic Pacific terrain"
+      "13x13 battlefield with authentic Pacific terrain",
+      "Expanded historical fleet with destroyers, cruisers, and PT boats"
     ]
   },
   "game_rules": {
@@ -66,28 +70,31 @@
         { "name": "USS Enterprise", "class": "Carrier", "size": 5, "terrain": ["deep"] },
         { "name": "USS Hornet", "class": "Carrier", "size": 5, "terrain": ["deep"] },
         { "name": "USS Yorktown", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "USS Minneapolis", "class": "Cruiser", "size": 4, "terrain": ["deep", "shallow"] },
         { "name": "USS Astoria", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
         { "name": "USS Pensacola", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
         { "name": "USS Nautilus", "class": "Submarine", "size": 3, "terrain": ["deep"] },
-        { "name": "USS Hammann", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
+        { "name": "USS Hammann", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] },
+        { "name": "USS Gwin", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] },
+        { "name": "PT-23", "class": "PT Boat", "size": 1, "terrain": ["shallow", "shoal"] }
       ],
       "ai_captains": [
-          {
-            "id": "commander-spruance",
-            "name": "Cmdr. Spruance",
-            "strategy": "methodical_optimal",
-            "difficulty": 1.4,
-            "description": "A methodical US Navy commander who uses systematic grid search patterns with offset targeting to locate and destroy enemy vessels with tactical precision.",
-            "avatar": "captains/C_Spruance.webp"
-          },
-          {
-            "id": "admiral-nimitz",
-            "name": "Admiral Nimitz",
-            "strategy": "aggressive",
-            "difficulty": 1.7,
-            "description": "The legendary Pacific Fleet commander who combines center-mass probability targeting with relentless recursive hunt tactics to dominate naval warfare.",
-            "avatar": "captains/FA_Nimitz.webp"
-          }
+        {
+          "id": "commander-spruance",
+          "name": "Cmdr. Spruance",
+          "strategy": "methodical_optimal",
+          "difficulty": 1.4,
+          "description": "A methodical US Navy commander who uses systematic grid search patterns with offset targeting to locate and destroy enemy vessels with tactical precision.",
+          "avatar": "captains/C_Spruance.webp"
+        },
+        {
+          "id": "admiral-nimitz",
+          "name": "Admiral Nimitz",
+          "strategy": "aggressive",
+          "difficulty": 1.7,
+          "description": "The legendary Pacific Fleet commander who combines center-mass probability targeting with relentless recursive hunt tactics to dominate naval warfare.",
+          "avatar": "captains/FA_Nimitz.webp"
+        }
       ]
     },
     {
@@ -99,50 +106,54 @@
         { "name": "Kaga", "class": "Carrier", "size": 5, "terrain": ["deep"] },
         { "name": "Hiryu", "class": "Carrier", "size": 5, "terrain": ["deep"] },
         { "name": "Soryu", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Tone", "class": "Cruiser", "size": 4, "terrain": ["deep", "shallow"] },
+        { "name": "Mogami", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
         { "name": "Mikuma", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
-        { "name": "I-168", "class": "Submarine", "size": 3, "terrain": ["deep"] }
+        { "name": "I-168", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+        { "name": "Arashi", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
       ],
       "ai_captains": [
-          {
-            "id": "lt-commander-fuchida",
-            "name": "Lt. Cmdr. Fuchida",
-            "strategy": "methodical_random",
-            "difficulty": 1.0,
-            "description": "Mitsuo Fuchida, the skilled aviator who led the Pearl Harbor attack. Uses disciplined checkerboard search patterns with systematic coverage.",
-            "avatar": "captains/LtC_Fuchida.webp"
-          },
-          {
-            "id": "admiral-nagumo",
-            "name": "Admiral Nagumo",
-            "strategy": "methodical_optimal",
-            "difficulty": 1.4,
-            "description": "Commander of the Kido Butai carrier strike force. Employs advanced grid-search tactics with offset patterns to maximize fleet effectiveness.",
-            "avatar": "captains/A_Nagumo.webp"
-          },
-          {
-            "id": "admiral-yamamoto",
-            "name": "Admiral Yamamoto",
-            "strategy": "aggressive",
-            "difficulty": 1.7,
-            "description": "Isoroku Yamamoto, architect of the Pearl Harbor strike and master strategist of the Combined Fleet. Uses center-mass probability targeting with aggressive recursive hunt tactics to locate and destroy enemy vessels.",
-            "avatar": "captains/A_Yamamoto.webp"
-          }
+        {
+          "id": "lt-commander-fuchida",
+          "name": "Lt. Cmdr. Fuchida",
+          "strategy": "methodical_random",
+          "difficulty": 1.0,
+          "description": "Mitsuo Fuchida, the skilled aviator who led the Pearl Harbor attack. Uses disciplined checkerboard search patterns with systematic coverage.",
+          "avatar": "captains/LtC_Fuchida.webp"
+        },
+        {
+          "id": "admiral-nagumo",
+          "name": "Admiral Nagumo",
+          "strategy": "methodical_optimal",
+          "difficulty": 1.4,
+          "description": "Commander of the Kido Butai carrier strike force. Employs advanced grid-search tactics with offset patterns to maximize fleet effectiveness.",
+          "avatar": "captains/A_Nagumo.webp"
+        },
+        {
+          "id": "admiral-yamamoto",
+          "name": "Admiral Yamamoto",
+          "strategy": "aggressive",
+          "difficulty": 1.7,
+          "description": "Isoroku Yamamoto, architect of the Pearl Harbor strike and master strategist of the Combined Fleet. Uses center-mass probability targeting with aggressive recursive hunt tactics to locate and destroy enemy vessels.",
+          "avatar": "captains/A_Yamamoto.webp"
+        }
       ]
     }
   ],
   "terrain": [
-    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "deep", "shallow", "land", "shallow", "deep", "deep", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "deep", "shallow", "shoal", "land", "shallow", "deep", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "shallow", "deep", "shallow", "shoal", "land", "shallow", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "shallow", "shallow", "deep", "shallow", "land", "shallow", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "shallow", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
-    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "shallow", "land", "shallow", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "land", "shallow", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "shallow", "deep", "shallow", "shoal", "land", "shallow", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "shallow", "shallow", "deep", "shallow", "land", "shallow", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "shallow", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
   ],
   "messages": {
     "transition": [
@@ -170,12 +181,16 @@
       "{opponent}: Impossible! How did you anticipate our movements?",
       "{opponent}: The tide of war has turned against us!"
     ],
-    "attack_hit": "You fired at {cell} - HIT!",
+    "attack_hit_unknown": "You fired at {cell} - HIT!",
+    "attack_hit_size_small": "HIT at {cell}! Contact reports small vessel!",
+    "attack_hit_size_medium": "HIT at {cell}! Medium warship engaged!",
+    "attack_hit_size_large": "HIT at {cell}! Large capital ship detected!",
+    "attack_hit_critical": "CRITICAL HIT at {cell}! {shipClass} is burning!",
     "attack_miss": "Shells splash harmlessly at {cell}.",
     "opponent_attack_hit": "{opponent} scores a hit at {cell}!",
     "opponent_attack_miss": "{opponent} fires at {cell} - miss.",
-    "ship_sunk": "You sank the enemy {ship} at {cell}!",
-    "opponent_attack_sunk": "{opponent} destroyed your {ship} at {cell}!",
+    "ship_sunk": "You sank the {shipName} at {cell}!",
+    "opponent_attack_sunk": "{opponent} destroyed your {shipName} at {cell}!",
     "player_turn": "Your turn - target enemy vessels!",
     "ai_turn": "{opponent} is coordinating their attack...",
     "victory": "Victory at Midway! Enemy fleet destroyed!",

@@ -3,7 +3,11 @@
 
 import Ship from './Ship.js';
 
-const version = "v0.1.6";
+const version = "v0.2.0";
+/**
+ * v0.2.0: Added fromShipArray() for multi-fleet combat (Pirates of the Gulf)
+ *         Allows creating fleet from specific ship array instead of entire alliance
+ */
 
 class Fleet {
     // Fleet is a battle group consisting of ships and owned by a player.  The fleet is defeated when the last ship has been sunk, eliminating the player from the game. A defeated fleet cannot capture a ship.
@@ -106,10 +110,46 @@ class Fleet {
   }
 
   /**
+   * Create fleet from specific ship array (for multi-fleet combat like Pirates)
+   * v0.2.0: New method for assigning specific ships to AI captains
+   * @param {string} owner - Player ID
+   * @param {Array} ships - Array of ship configs from pirate_fleets[].ships
+   * @param {string} allianceName - Alliance name for logging
+   * @returns {Fleet} - Fleet instance with specific ships
+   */
+  static fromShipArray(owner, ships, allianceName = 'Pirates') {
+    const fleet = new Fleet(owner);
+    
+    if (!Array.isArray(ships) || ships.length === 0) {
+      throw new Error(`Fleet.fromShipArray() requires non-empty ships array`);
+    }
+    
+    console.log(`Creating fleet for ${owner} with ${ships.length} specific ships (${allianceName})`);
+    fleet.addShips(ships);
+    
+    return fleet;
+  }
+
+  /**
    * Get ship count
    */
   get count() {
     return this.ships.length;
+  }
+
+  /**
+   * Get fleet statistics
+   */
+  getStats() {
+    return {
+      owner: this.owner,
+      totalShips: this.ships.length,
+      shipsAfloat: this.ships.filter(s => !s.isSunk()).length,
+      shipsSunk: this.ships.filter(s => s.isSunk()).length,
+      isDefeated: this.isDefeated(),
+      isPlaced: this.isPlaced(),
+      averageHealth: this.getHealth()
+    };
   }
 }
 

@@ -6,22 +6,19 @@ import Fleet from './Fleet.js';
 import Alliance from './Alliance.js';
 import Message from './Message.js';
 
-const version = "v0.9.0";
+const version = "v0.7.6";
+const version = "v0.8.0";
 /**
- * v0.9.0: Phase 4 Refactor - COMPLETE CLEANUP
- * - Removed shipOwnership Map (players own their ships via shipPlacements)
- * - Removed playerFleets Map (players own their fleet via setFleet)
- * - Removed getShipCells() method (use player.getShipCells() instead)
- * - Removed Board.rebuildCellHealthCache() call (cache removed from Board)
- * - Simplified registerShipPlacement() - no more dual-write, just player.shipPlacements
- * - Game now delegates all ship/placement data to Player objects
- * - Ship health computed on-demand from player.fleet, not cached
- *
- * v0.8.4: Phase 4 Refactor - VISUALIZER REMOVED (not used by any renderer)
- * - Removed Visualizer.js import and instance
- * - Updated recordDontShoot() calls (renamed from recordMiss)
- * - Fixed turn progression: 'destroyed' continues turn if turn_on_hit enabled
- * - dontShoot now includes both misses AND destroyed cells
+ * v0.8.0: Added addPlayerWithFleet() for multi-fleet combat
+ * - Allows assigning specific ships to AI captains (Pirates of the Gulf)
+ * - Keeps addPlayer() unchanged for Traditional/Midway compatibility
+ * v0.7.6: Fixed board snapshot timing
+ * - Snapshot now taken AFTER fire animations clear (2s delay)
+ * - Prevents fire emoji from appearing in final board image
+ * - Sequence: endGame() → wait 2s → capture → wait 4s → notify
+ * v0.7.5: Pass orientation to player.placeShip() for rendering
+ * v0.7.4: Fixed fallback message type
+ * v0.7.3: Progressive Fog of War Integration
  */
 
 // Environment-aware CDN path
@@ -64,8 +61,8 @@ class Game {
       shotAnimation: 500,
       resultAnimation: 300,
       soundDelay: 200,
-      speedFactor: 1.0,
-      gameOverDelay: 6000
+      fireAnimationClearDelay: 3000, // NEW: Wait for fire to clear
+      gameOverDelay: 2000 // REDUCED: After snapshot, shorter delay
     };
     
     this.gameLog = [];
@@ -222,29 +219,17 @@ class Game {
     }
   }
 
-  /**
-   * v0.9.0: Phase 4 - Players own their fleets, simplified
-   * v0.8.0: Give player fleet reference via setFleet()
-   * Players are persistent entities that survive individual games
-   *
-   * @param {Player} player - Existing Player object (HumanPlayer or AiPlayer)
-   * @param {string} allianceName - Alliance name to join
-   * @returns {Player} - The player object (for chaining)
-   */
   addPlayer(player, allianceName) {
     if (this.players.length >= (this.eraConfig.max_players || 2)) {
       throw new Error(`Maximum ${this.eraConfig.max_players || 2} players allowed`);
     }
 
-    // Reset player for new game (clears stats, placements, dontShoot)
     player.reset();
 
-    // Give player the board reference if it already exists
     if (this.board) {
       player.setBoard(this.board);
     }
 
-    // Alliance assignment
     if (!allianceName) {
       throw new Error(`Alliance name required for player ${player.name}`);
     }
@@ -257,13 +242,11 @@ class Game {
     alliance.addPlayer(player);
     this.playerAlliances.set(player.id, alliance.id);
     
-    // Create fleet for this game and give to player
     const fleet = Fleet.fromEraConfig(player.id, this.eraConfig, allianceName);
     player.setFleet(fleet);
     
     this.players.push(player);
     
-    // Track human player ID
     if (player.type === 'human') {
       this.humanPlayerId = player.id;
     }
@@ -272,6 +255,52 @@ class Game {
     
     return player;
   }
+    
+    /**
+     * Add player with specific fleet (for multi-fleet combat like Pirates)
+     * v0.8.0: New method for assigning specific ships to AI captains
+     * @param {Player} player - Player instance
+     * @param {string} allianceName - Alliance name
+     * @param {Array} ships - Array of ship configs
+     * @returns {Player} - The added player
+     */
+    addPlayerWithFleet(player, allianceName, ships) {
+      if (this.players.length >= (this.eraConfig.max_players || 2)) {
+        throw new Error(`Maximum ${this.eraConfig.max_players || 2} players allowed`);
+      }
+
+      player.reset();
+
+      if (this.board) {
+        player.setBoard(this.board);
+      }
+
+      if (!allianceName) {
+        throw new Error(`Alliance name required for player ${player.name}`);
+      }
+      
+      const alliance = Array.from(this.alliances.values()).find(a => a.name === allianceName);
+      if (!alliance) {
+        throw new Error(`Alliance not found: ${allianceName}`);
+      }
+      
+      alliance.addPlayer(player);
+      this.playerAlliances.set(player.id, alliance.id);
+      
+      // KEY DIFFERENCE: Create fleet from specific ships array instead of alliance config
+      const fleet = Fleet.fromShipArray(player.id, ships, allianceName);
+      player.setFleet(fleet);
+      
+      this.players.push(player);
+      
+      if (player.type === 'human') {
+        this.humanPlayerId = player.id;
+      }
+      
+      this.battleLog(`${player.name}${player.type === 'ai' ? ' (ai)' : ''} joins ${allianceName} with ${ships.length} ships`);
+      
+      return player;
+    }
 
   initializeAlliances() {
     if (!this.eraConfig.alliances) {
@@ -285,16 +314,7 @@ class Game {
     });
   }
 
-  /**
-   * v0.8.0: Renamed from canAttack() with inverted logic for clarity
-   * Check if two players are in the same alliance (including same player)
-   *
-   * @param {string} player1Id - First player ID
-   * @param {string} player2Id - Second player ID
-   * @returns {boolean} - True if same player or same alliance
-   */
   isSameAlliance(player1Id, player2Id) {
-    // Same player = same "alliance"
     if (player1Id === player2Id) return true;
     
     const alliance1 = this.playerAlliances.get(player1Id);
@@ -303,40 +323,36 @@ class Game {
     return alliance1 === alliance2;
   }
 
-  calculateDamage(firingPlayer, targetPlayer, baseDamage = 0.5) {
+  calculateDamage(firingPlayer, targetPlayer, targetShip, baseDamage = 1.0) {
     let finalDamage = baseDamage;
 
-    // Apply attack boost if firing player has one
     const attackBoost = this.boosts?.[firingPlayer.id]?.attack || 0;
     if (attackBoost > 0) {
       finalDamage *= (1 + attackBoost);
     }
 
-    // Apply defense boost if target player has one
     const defenseBoost = this.boosts?.[targetPlayer.id]?.defense || 0;
     if (defenseBoost > 0) {
       finalDamage *= (1 - defenseBoost);
     }
 
-    return Math.max(0, finalDamage);
+    if (targetShip?.defense) {
+      finalDamage *= targetShip.defense;
+      console.log(`[DAMAGE] Ship ${targetShip.name} (${targetShip.class}) defense: ${targetShip.defense}x`);
+    }
+
+    const result = Math.max(0, finalDamage);
+    
+    if (attackBoost > 0 || defenseBoost > 0 || targetShip?.defense !== 1.0) {
+      console.log(`[DAMAGE] ${baseDamage.toFixed(2)} base -> ${finalDamage.toFixed(3)} final (attack: ${(1 + attackBoost).toFixed(2)}x, defense: ${(1 - defenseBoost).toFixed(2)}x, ship: ${targetShip?.defense?.toFixed(2) || 1.0}x)`);
+    }
+
+    return result;
   }
 
-  /**
-   * v0.9.0: Phase 4 - Uses player.shipPlacements exclusively (no Board.cellContents)
-   * v0.8.4: Phase 4 Refactor - Updated to use recordDontShoot()
-   * v0.8.3: 4-STATE ATTACK RESULTS
-   * Returns: 'hit', 'destroyed', 'all_destroyed', 'miss'
-   *
-   * @param {number} row - Row coordinate
-   * @param {number} col - Column coordinate
-   * @param {Player} firingPlayer - Player making the attack
-   * @param {number} damage - Base damage amount (default 1.0)
-   * @returns {Object} - {result: string, ships: [...], damage: number}
-   */
   receiveAttack(row, col, firingPlayer, damage = 1.0) {
     console.log(`[TARGETING] Called by ${firingPlayer.name} (${firingPlayer.type}) at ${row},${col}`);
 
-    // 1. VALIDATE COORDINATES
     if (!this.board?.isValidCoordinate(row, col)) {
       const result = { result: 'invalid', ships: [] };
       this.lastAttackResult = result;
@@ -345,38 +361,31 @@ class Game {
 
     const cellName = `${String.fromCharCode(65 + col)}${row + 1}`;
     
-    // 2. FIND ALL ENEMY SHIPS AT THIS LOCATION (using player.shipPlacements)
     const liveTargets = [];
     const deadTargets = [];
     
     for (const targetPlayer of this.players) {
-      // Skip if same alliance (includes self)
       if (this.isSameAlliance(firingPlayer.id, targetPlayer.id)) {
         continue;
       }
       
-      // Check if this enemy has a ship at this location
       const placement = targetPlayer.getShipAt(row, col);
       if (!placement) {
-        continue; // No ship here for this enemy
+        continue;
       }
       
-      // Get the actual ship from the player's fleet
       const ship = targetPlayer.getShip(placement.shipId);
       if (!ship) {
-        continue; // Ship not found (shouldn't happen)
+        continue;
       }
       
-      // Check if this cell is alive or dead
       if (ship.health[placement.cellIndex] > 0) {
-        // LIVE target
         liveTargets.push({
           player: targetPlayer,
           ship: ship,
           cellIndex: placement.cellIndex
         });
       } else {
-        // DEAD target (already destroyed)
         deadTargets.push({
           player: targetPlayer,
           ship: ship,
@@ -385,19 +394,17 @@ class Game {
       }
     }
     
-    // 3. DETERMINE INITIAL STATE
     const totalTargets = liveTargets.length + deadTargets.length;
     
-    // 3a. MISS - No ships at this cell
     if (totalTargets === 0) {
       console.log(`[TARGETING] MISS - no ships at ${cellName}`);
       this.playSound('splash');
       firingPlayer.misses++;
       firingPlayer.recordDontShoot(row, col);
       
-      this.message.post(this.message.types.MISS, {
+      this.message.post('attack_miss', {
         attacker: firingPlayer,
-        position: cellName
+        cell: cellName
       }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
       
       this.battleLog(`t${this.currentTurn}-Miss at ${cellName} by ${firingPlayer.name}`, 'miss');
@@ -407,54 +414,50 @@ class Game {
       return result;
     }
     
-    // 3b. ALL_DESTROYED - Only dead ships at this cell (wasted shot)
     if (liveTargets.length === 0 && deadTargets.length > 0) {
       console.log(`[TARGETING] ALL_DESTROYED - wasted shot on dead cells at ${cellName}`);
       
-      // No stats update, no sounds, no visual change
       const result = { result: 'all_destroyed', ships: [] };
       this.lastAttackResult = result;
       return result;
     }
     
-    // 3c. HIT - At least one live ship at this cell
     console.log(`[TARGETING] HIT - ${liveTargets.length} live ships at ${cellName}`);
     this.playSound('incomingWhistle');
     this.playSound('explosionBang', 500);
     
     const hitResults = [];
     
-    // 4. PROCESS HITS ON LIVE TARGETS
     for (const target of liveTargets) {
       const { player: targetPlayer, ship, cellIndex } = target;
       
-      // Calculate and apply damage
-      const finalDamage = this.calculateDamage(firingPlayer, targetPlayer, damage);
+      const finalDamage = this.calculateDamage(firingPlayer, targetPlayer, ship, damage);
       const shipHealth = ship.receiveHit(cellIndex, finalDamage);
       
       const shipNowSunk = ship.isSunk();
+      const revealLevel = ship.getRevealLevel();
       
       hitResults.push({
         ship: ship,
         player: targetPlayer,
         damage: finalDamage,
         shipHealth: shipHealth,
-        shipSunk: shipNowSunk
+        shipSunk: shipNowSunk,
+        revealLevel: revealLevel
       });
       
-      // Individual ship sunk message
       if (shipNowSunk) {
         this.playSound('sinkingShip');
-        this.message.post(this.message.types.SUNK, {
+        this.message.post('ship_sunk', {
           attacker: firingPlayer,
           target: targetPlayer,
           shipName: ship.name,
-          position: cellName
+          shipClass: ship.class,
+          cell: cellName
         }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
         
         firingPlayer.sunk++;
         
-        // Score with difficulty multiplier (only once per ship)
         const multiplier = (firingPlayer.type === 'human' && targetPlayer.type === 'ai')
           ? (targetPlayer.difficulty || 1.0)
           : 1.0;
@@ -464,23 +467,37 @@ class Game {
         
         this.battleLog(`t${this.currentTurn}-SUNK: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`, 'sunk');
       } else {
-        // Hit but not sunk
-        this.message.post(this.message.types.HIT, {
+        let messageType;
+        const messageContext = {
           attacker: firingPlayer,
           target: targetPlayer,
-          shipName: ship.name,
-          position: cellName
-        }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
+          cell: cellName,
+          opponent: targetPlayer.name
+        };
         
-        this.battleLog(`t${this.currentTurn}-HIT: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`, 'hit');
+        if (revealLevel === 'critical') {
+          messageType = 'attack_hit_critical';
+          messageContext.shipClass = ship.class;
+          messageContext.shipName = ship.name;
+        } else if (revealLevel === 'size-hint') {
+          const sizeCategory = ship.getSizeCategory();
+          messageType = `attack_hit_size_${sizeCategory}`;
+          messageContext.sizeCategory = sizeCategory;
+        } else {
+          // revealLevel === 'hit' or 'hidden' - show unknown message
+          messageType = 'attack_hit_unknown';
+        }
+        
+        this.message.post(messageType, messageContext,
+          [this.message.channels.CONSOLE, this.message.channels.LOG]);
+        
+        this.battleLog(`t${this.currentTurn}-HIT: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name} [${revealLevel}]`, 'hit');
       }
     }
     
-    // 5. UPDATE FIRING PLAYER STATS (both 'hit' and 'destroyed' award points)
     firingPlayer.hits++;
     firingPlayer.hitsDamage += hitResults.reduce((sum, h) => sum + h.damage, 0);
     
-    // Score for hitting (once per cell, regardless of stacked ships)
     const multiplier = (firingPlayer.type === 'human' && hitResults[0]?.player?.type === 'ai')
       ? (hitResults[0].player.difficulty || 1.0)
       : 1.0;
@@ -488,8 +505,6 @@ class Game {
     
     console.log(`[Game ${this.id}] ${firingPlayer.name} hit at ${cellName}: 1 * ${multiplier} = ${Math.round(1 * multiplier)} points`);
     
-    // 6. CHECK IF CELL NOW FULLY DESTROYED (transition from 'hit' to 'destroyed')
-    // After applying damage, check if ALL ships at cell are now dead
     let stillAliveAtCell = false;
     for (const target of liveTargets) {
       if (target.ship.health[target.cellIndex] > 0) {
@@ -499,18 +514,13 @@ class Game {
     }
     
     const cellNowFullyDestroyed = !stillAliveAtCell;
-    
-    // 7. DETERMINE FINAL RESULT
-    // 'hit' = live cells remain, 'destroyed' = just killed last live cell
     const resultType = cellNowFullyDestroyed ? 'destroyed' : 'hit';
     
-    // 8. MARK DESTROYED CELLS IN DONTSHOOT
     if (resultType === 'destroyed') {
       firingPlayer.recordDontShoot(row, col);
       console.log(`[TARGETING] Marked ${cellName} as dontShoot (destroyed)`);
     }
     
-    // 9. RETURN RESULT
     const result = {
       result: resultType,
       ships: hitResults,
@@ -523,20 +533,14 @@ class Game {
     return result;
   }
   
-  /**
-   * v0.9.0: Phase 4 - Simplified, writes only to player.shipPlacements
-   * No more dual-write to Board.cellContents
-   */
   registerShipPlacement(ship, shipCells, orientation, playerId) {
     console.log(`[GAME] Attempting to place ${ship.name} for player ${playerId}`);
     
-    // Validate board bounds and terrain
     if (!this.board.canPlaceShip(shipCells, ship.terrain)) {
       console.warn(`[GAME] Ship placement failed board validation (bounds/terrain)`);
       return false;
     }
     
-    // Check for overlap with player's OWN ships (using player.shipPlacements)
     const player = this.getPlayer(playerId);
     if (!player) {
       console.warn(`[GAME] Player ${playerId} not found`);
@@ -550,12 +554,12 @@ class Game {
       }
     }
     
-    console.log(`[GAME] Placement validated, registering ${ship.name}`);
+    console.log(`[GAME] Placement validated, registering ${ship.name} (${orientation})`);
     
-    // Write to player's shipPlacements map
+    // v0.7.5: Pass orientation to player.placeShip()
     for (let i = 0; i < shipCells.length; i++) {
       const cell = shipCells[i];
-      player.placeShip(cell.row, cell.col, ship.id, i);
+      player.placeShip(cell.row, cell.col, ship.id, i, orientation);
     }
     
     return true;
@@ -570,7 +574,6 @@ class Game {
 
     console.log(`[BOARD] setBoard called - Players count: ${this.players.length}`);
 
-    // Give all existing players the board reference
     this.players.forEach(player => {
       console.log(`[BOARD] Setting board for player: ${player.name}, had board: ${!!player.board}`);
       player.setBoard(board);
@@ -587,14 +590,12 @@ class Game {
       this.board = new Board(this.eraConfig.rows, this.eraConfig.cols, this.eraConfig.terrain);
     }
 
-    // Safety check - ensure all players have board reference
     this.players.forEach(player => {
       if (!player.board) {
         player.setBoard(this.board);
       }
     });
 
-    // Place AI ships
     for (const player of this.players) {
       if (!player.fleet) {
         throw new Error(`Player ${player.name} has no fleet`);
@@ -676,7 +677,6 @@ class Game {
       return result;
     }
     
-    // Both 'hit' and 'destroyed' continue turn if turn_on_hit enabled
     const wasHit = (result.result === 'hit' || result.result === 'destroyed');
     this.handleTurnProgression(wasHit);
     
@@ -764,7 +764,6 @@ class Game {
           return;
         }
         
-        // Both 'hit' and 'destroyed' continue turn if turn_on_hit enabled
         const wasHit = (this.lastAttackResult?.result === 'hit' ||
                        this.lastAttackResult?.result === 'destroyed');
         
@@ -784,53 +783,64 @@ class Game {
   isValidAttack(row, col, firingPlayer) {
     if (!this.board) return false;
     
-    // Only check if coordinate is valid on the board
-    // Player manages their own dontShoot tracking via canShootAt()
     return this.board.isValidCoordinate(row, col);
   }
   
-  endGame() {
-    this.state = 'finished';
-    this.endTime = new Date();
-    
-    if (this.battleBoardRef?.current?.captureBoard) {
-      console.log(`[Game ${this.id}] Capturing final board state`);
-      this.finalBoardImage = this.battleBoardRef.current.captureBoard();
-      if (this.finalBoardImage) {
-        console.log(`[Game ${this.id}] Board captured successfully (${this.finalBoardImage.length} bytes)`);
-      }
-    }
-      
-    const humanPlayer = this.players.find(p => p.id === this.humanPlayerId);
-    const humanWon = this.winner && humanPlayer && this.winner.id === humanPlayer.id;
-    
-    if (humanWon) {
-      console.log(`[Game ${this.id}] Human victory - playing fanfare in 1 second`);
-      this.playSound('victoryFanfare', 1000);
-    } else {
-      console.log(`[Game ${this.id}] Human defeat - playing funeral march in 1 second`);
-      this.playSound('funeralMarch', 1000);
-    }
-    
-    this.message.post(this.message.types.GAME_END, {
-      winner: this.winner,
-      gameStats: this.getGameStats()
-    }, [this.message.channels.CONSOLE, this.message.channels.UI, this.message.channels.LOG]);
-    
-    if (this.winner) {
-      this.battleLog(`Game ended: ${this.winner.name} wins!`, 'victory');
-    } else {
-      this.battleLog('Game ended: Draw', 'draw');
-    }
+    // Update the endGame() method in Game.js
+    // Replace lines 583-624 with this version
 
-    this.cleanupTemporaryAlliances();
-    
-    console.log(`[Game ${this.id}] Delaying transition to OverPage by ${this.animationSettings.gameOverDelay}ms`);
-    setTimeout(() => {
-      console.log(`[Game ${this.id}] Notifying game end to CoreEngine`);
-      this.notifyGameEnd();
-    }, this.animationSettings.gameOverDelay);
-  }
+    endGame() {
+      this.state = 'finished';
+      this.endTime = new Date();
+      
+      const humanPlayer = this.players.find(p => p.id === this.humanPlayerId);
+      const humanWon = this.winner && humanPlayer && this.winner.id === humanPlayer.id;
+      
+      // Play victory/defeat sound immediately
+      if (humanWon) {
+        console.log(`[Game ${this.id}] Human victory - playing fanfare in 1 second`);
+        this.playSound('victoryFanfare', 1000);
+      } else {
+        console.log(`[Game ${this.id}] Human defeat - playing funeral march in 1 second`);
+        this.playSound('funeralMarch', 1000);
+      }
+      
+      this.message.post(this.message.types.GAME_END, {
+        winner: this.winner,
+        gameStats: this.getGameStats()
+      }, [this.message.channels.CONSOLE, this.message.channels.UI, this.message.channels.LOG]);
+      
+      if (this.winner) {
+        this.battleLog(`Game ended: ${this.winner.name} wins!`, 'victory');
+      } else {
+        this.battleLog('Game ended: Draw', 'draw');
+      }
+
+      this.cleanupTemporaryAlliances();
+      
+      // NEW TIMING: Wait for fire to clear, THEN capture winner's board, THEN notify
+      console.log(`[Game ${this.id}] Waiting ${this.animationSettings.fireAnimationClearDelay}ms for fire animations to clear`);
+      
+      setTimeout(() => {
+        // Capture winner's board AFTER fire has cleared
+        if (this.battleBoardRef?.current?.captureWinnerBoard) {
+          const winnerId = this.winner?.id || humanPlayer?.id;
+          console.log(`[Game ${this.id}] Capturing winner's board (fire cleared), winnerId:`, winnerId);
+          this.finalBoardImage = this.battleBoardRef.current.captureWinnerBoard(winnerId);
+          if (this.finalBoardImage) {
+            console.log(`[Game ${this.id}] Winner's board captured successfully (${this.finalBoardImage.length} bytes)`);
+          }
+        }
+        
+        // Now wait before transitioning to OverPage
+        console.log(`[Game ${this.id}] Delaying transition to OverPage by ${this.animationSettings.gameOverDelay}ms`);
+        setTimeout(() => {
+          console.log(`[Game ${this.id}] Notifying game end to CoreEngine`);
+          this.notifyGameEnd();
+        }, this.animationSettings.gameOverDelay);
+        
+      }, this.animationSettings.fireAnimationClearDelay);
+    }
 
   cleanupTemporaryAlliances() {
     const temporaryAlliances = Array.from(this.alliances.values()).filter(alliance => !alliance.owner);

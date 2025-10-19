@@ -1,4 +1,4 @@
-// src/pages/PurchasePage.js v0.4.0
+// src/pages/PurchasePage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +7,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { useGame } from '../context/GameContext';
 import StripeService from '../services/StripeService';
 
-const version = 'v0.4.0';
+const version = 'v0.4.1';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -108,7 +108,7 @@ const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
 };
 
 const PurchasePage = ({ eraId, onComplete, onCancel }) => {
-  const { userProfile, grantEraAccess, redeemVoucher, eraService, dispatch, events } = useGame();
+  const { userProfile, grantEraAccess, redeemVoucher, getEraById, dispatch, events } = useGame();
   const [purchaseMethod, setPurchaseMethod] = useState('stripe');
   const [voucherCode, setVoucherCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -137,12 +137,8 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     try {
       console.log('[PAYMENT]', version, 'Fetching era info');
       
-      if (!eraService) {
-        throw new Error('EraService not available');
-      }
-      
-      const eraConfig = await eraService.getEraById(eraId);
-      
+        const eraConfig = await getEraById(eraId);  // Use proxied method
+        
       if (!eraConfig) {
         throw new Error(`Era not found: ${eraId}`);
       }

@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.2",
   "era": "traditional",
   "name": "Traditional Battleship",
   "era_description": "Classic naval warfare on the high seas. Command your fleet in the timeless battle of strategy and luck that has captivated players since the 1930s.",
@@ -8,6 +8,9 @@
   "cols": 10,
   "boundary": [],
   "max_players": 2,
+  "era_assets": {
+    "ship_silhouettes_path": "traditional"
+  },
   "promotional": {
     "background_image": "battle-background.jpg",
     "promotional_image": null
@@ -65,11 +68,11 @@
       "name": "Opponent",
       "avatar": "opponent-icon.png",
       "ships": [
-        { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"], "health_per_cell": 1.0 },
-        { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"], "health_per_cell": 1.5 },
-        { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"], "health_per_cell": 1.0 },
-        { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"], "health_per_cell": 2.0 },
-        { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"], "health_per_cell": 1.0 }
+        { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
+        { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+        { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
       ],
       "ai_captains": [
         {
@@ -161,8 +164,8 @@
     "attack_miss": "You fired at {cell} - miss.",
     "opponent_attack_hit": "{opponent} fired at {cell} - HIT!",
     "opponent_attack_miss": "{opponent} fired at {cell} - miss.",
-    "ship_sunk": "You sank the enemy {shipClass} at {cell}!",
-    "opponent_attack_sunk": "{opponent} sank your {shipClass} at {cell}!",
+    "ship_sunk": "You sank the {shipName} at {cell}!",
+    "opponent_attack_sunk": "{opponent} sank your {shipName} at {cell}!",
     "player_turn": "Your turn - click to fire!",
     "ai_turn": "{opponent} is taking their turn...",
     "victory": "Victory! You sank the enemy fleet!",

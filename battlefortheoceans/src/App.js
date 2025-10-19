@@ -19,7 +19,7 @@ import AchievementsPage from './pages/AchievementsPage';
 import StatsPage from './pages/StatsPage';
 import './App.css';
 
-export const APP_VERSION = 'v1.2';
+export const APP_VERSION = 'dev1.3';
 
 const version = 'v0.3.4';
 

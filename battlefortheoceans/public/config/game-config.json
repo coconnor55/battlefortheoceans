@@ -1,0 +1,48 @@
+{
+  "version": "1.0.0",
+  "game_name": "Battleship",
+  "system_messages": {
+    "turn": "Turn {turn}: {player}'s turn",
+    "game_start": "{era} begins! {players}",
+    "game_end": "Game Over! {winner} wins after {turns} turns!",
+    "error": "An error occurred: {message}",
+    "system": "System: {message}",
+    "initializing": "Initializing game...",
+    "preparing": "Preparing game...",
+    "game_starting": "Game starting..."
+  },
+  "defense_modifiers": {
+    "Carrier": 1.0,
+    "Battleship": 0.67,
+    "Cruiser": 1.0,
+    "Submarine": 0.5,
+    "Destroyer": 1.0,
+    "PT-Boat": 1.5
+  },
+  "size_categories": {
+    "small": [1, 2],
+    "medium": [3],
+    "large": [4, 5]
+  },
+  "reveal_thresholds": {
+    "size_hint_hits": 2,
+    "critical_health_percent": 0.5
+  },
+  "ship_silhouettes": {
+    "path_template": "/assets/ships/{era}/{class}/{index}.svg",
+    "comment": "Ship cells indexed 0 to n-1, where 0=bow, n-1=stern",
+    "fallback": "/assets/ships/default/{index}.svg"
+  },
+  "animations": {
+    "shot_animation": 500,
+    "result_animation": 300,
+    "sound_delay": 200,
+    "speed_factor": 1.0,
+    "game_over_delay": 6000
+  },
+  "debug": {
+    "reveal_ships_key": "z",
+    "show_ai_thinking": false,
+    "log_combat_rolls": false
+  }
+}

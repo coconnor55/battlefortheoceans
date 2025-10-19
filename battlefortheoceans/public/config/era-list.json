@@ -1,0 +1,41 @@
+[
+  {
+    "id": "traditional",
+    "name": "Traditional Battleship",
+    "era_description": "Classic naval warfare on the high seas. Command your fleet in the timeless battle of strategy and luck that has captivated players since the 1930s.",
+    "free": true,
+    "rows": 10,
+    "cols": 10,
+    "max_players": 2,
+    "order": 1
+  },
+  {
+    "id": "midway",
+    "name": "Midway Island",
+    "era_description": "Battle of Midway, June 4-7, 1942. Fight for control of this strategic Pacific atoll where American forces turned the tide against the Japanese Navy in World War II.",
+    "free": false,
+    "rows": 13,
+    "cols": 13,
+    "max_players": 2,
+    "order": 2,
+    "promotional": {
+      "tagline": "Try Midway Island!",
+      "stripe_price_id": "price_1SAnf9FKFdXJ01egovJFaN47"
+    }
+  }
+  // Uncomment when ready to launch Pirates of the Gulf:
+  // {
+  //   "id": "pirates",
+  //   "name": "Pirates of the Gulf",
+//  "era_description": "Caribbean Sea, 1822-1825. The US Navy's West Indies Squadron hunts the last generation of Caribbean pirates in the warm waters of the Gulf of Mexico. Choose your fleet size and face legendary pirates like Cofresí, Lafitte, and Diabolito in this irregular battlefield.",
+  //   "free": false,
+  //   "rows": 20,
+  //   "cols": 30,
+  //   "max_players": 5,
+  //   "order": 3,
+  //   "promotional": {
+  //     "tagline": "Hunt the Last Pirates!",
+  //     "stripe_price_id": "price_PLACEHOLDER"
+  //   }
+  // }
+]

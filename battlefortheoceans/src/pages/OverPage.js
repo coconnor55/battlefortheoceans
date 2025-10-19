@@ -27,6 +27,7 @@ const OverPage = () => {
     selectedOpponent,
     userProfile,
     hasEraAccess,
+      getPromotableEras,
     appVersion
   } = useGame();
 
@@ -165,25 +166,59 @@ const OverPage = () => {
   }, [gameResults, userProfile]);
   
   const [showPromotion, setShowPromotion] = useState(false);
+    const [promotionalEra, setPromotionalEra] = useState(null);  // ← ADD THIS
   const [showPurchasePage, setShowPurchasePage] = useState(false);
   const [purchaseEraId, setPurchaseEraId] = useState(null);
 
   const isGuest = userProfile?.id?.startsWith('guest-');
 
   // Check if user needs to see Midway Island promotion
-  useEffect(() => {
-    const checkPromotionEligibility = async () => {
-      if (!gameResults || gameResults.eraName !== 'Traditional Battleship' || !userProfile?.id) {
-        setShowPromotion(false);
-        return;
-      }
+    // Find a promotional era the user doesn't own
+    useEffect(() => {
+      const findPromotionalEra = async () => {
+        if (!userProfile?.id) {
+          setShowPromotion(false);
+          return;
+        }
 
-      const hasAccess = await hasEraAccess(userProfile.id, 'midway_island');
-      setShowPromotion(!hasAccess);
-    };
+        try {
+          // Get all promotable eras (non-free eras with promotional content)
+          const promotableEras = await getPromotableEras();
+          
+          if (promotableEras.length === 0) {
+            setShowPromotion(false);
+            return;
+          }
 
-    checkPromotionEligibility();
-  }, [gameResults, userProfile, hasEraAccess]);
+          // Filter to eras user doesn't have access to
+          const lockedEras = [];
+          for (const era of promotableEras) {
+            const hasAccess = await hasEraAccess(userProfile.id, era.id);
+            if (!hasAccess) {
+              lockedEras.push(era);
+            }
+          }
+
+          if (lockedEras.length === 0) {
+            setShowPromotion(false);
+            return;
+          }
+
+          // Pick a random locked era to promote
+          const randomEra = lockedEras[Math.floor(Math.random() * lockedEras.length)];
+          
+          console.log(version, 'Promoting era:', randomEra.name);
+          setPromotionalEra(randomEra);
+          setShowPromotion(true);
+
+        } catch (error) {
+          console.error(version, 'Error finding promotional era:', error);
+          setShowPromotion(false);
+        }
+      };
+
+      findPromotionalEra();
+    }, [userProfile, hasEraAccess, getPromotableEras]);
 
   // Helper function to get Lucide icon component by name
   const getLucideIcon = (iconName) => {
@@ -440,14 +475,14 @@ const OverPage = () => {
           )}
         </div>
 
-        {showPromotion && (
-          <PromotionalBox
-            eraConfig={eraConfig}
-            userProfile={userProfile}
-            onPurchase={handlePurchase}
-          />
-        )}
-
+         {showPromotion && promotionalEra && (
+           <PromotionalBox
+             eraConfig={promotionalEra}  // ← Changed from eraConfig
+             userProfile={userProfile}
+             onPurchase={handlePurchase}
+           />
+         )}
+                                 
         <div className="over-actions">
           <button
             className="btn btn--primary btn--lg"

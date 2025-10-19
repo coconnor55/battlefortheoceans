@@ -1,17 +1,18 @@
-// src/pages/PlayingPage.js v0.3.10
+// src/pages/PlayingPage.js v0.3.12
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.12: Removed inline styles for fleet sidebar layout - now uses CSS classes
+// v0.3.11: Added fleet status sidebars (Home/Enemy) showing ship status
 // v0.3.10: Added InfoButton and InfoPanel with battle instructions
-// v0.3.9: Add beforeunload warning to prevent accidental refresh during active game
-// v0.3.8: Reordered view mode buttons (Fleet/Blended/Attack) and updated styling
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
+import FleetStatusSidebar from '../components/FleetStatusSidebar';
 import InfoButton from '../components/InfoButton';
 import InfoPanel from '../components/InfoPanel';
 
-const version = 'v0.3.10';
+const version = 'v0.3.12';
 
 const PlayingPage = () => {
   const {
@@ -48,8 +49,8 @@ const PlayingPage = () => {
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       e.preventDefault();
-      e.returnValue = ''; // Required for Chrome
-      return ''; // Required for other browsers
+      e.returnValue = '';
+      return '';
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -74,6 +75,9 @@ const PlayingPage = () => {
   const autoPlayTimerRef = useRef(null);
   
   const canUseAutoPlay = ['admin', 'developer', 'tester'].includes(userProfile?.role);
+  
+  // Get opponent player for fleet sidebar
+  const opponentPlayer = gameInstance?.players?.find(p => p.id !== humanPlayer?.id);
   
   useEffect(() => {
     if (gameInstance && canvasBoardRef.current) {
@@ -221,11 +225,18 @@ const PlayingPage = () => {
           <h4>Board Symbols</h4>
           <ul>
             <li><strong>Blue ship outlines:</strong> Your fleet positions</li>
-          <li><strong>Blue dots:</strong> Enemy's missed shots (Fleet view)</li>
+            <li><strong>Blue dots:</strong> Enemy's missed shots (Fleet view)</li>
             <li><strong>Gray dots:</strong> Your missed shots (Combined/Attack views)</li>
             <li><strong>Red slash:</strong> Your hits on enemy ships</li>
             <li><strong>Blue slash:</strong> Enemy hits on your ships</li>
             <li><strong>Crater icons:</strong> Ship damaged/sunk</li>
+          </ul>
+
+          <h4>Fleet Status Sidebars</h4>
+          <ul>
+            <li><strong>Left sidebar (Home):</strong> Your fleet status</li>
+            <li><strong>Right sidebar (Enemy):</strong> Opponent fleet status</li>
+            <li><strong>💀 Skull:</strong> Ship is sunk (crossed out)</li>
           </ul>
 
           <h4>How to Attack</h4>
@@ -259,16 +270,28 @@ const PlayingPage = () => {
             <h2 className="card-title">{eraConfig?.name}</h2>
           </div>
           
-          <div className="game-board-container">
-            <CanvasBoard
-              ref={canvasBoardRef}
-              mode="battle"
-              viewMode={viewMode}
-              eraConfig={eraConfig}
-              gameBoard={gameBoard}
-              gameInstance={gameInstance}
-              gameState={gameState}
-              onShotFired={handleShotFired}
+          <div className="battle-board-layout">
+            <FleetStatusSidebar
+              fleet={humanPlayer?.fleet}
+              title="Home"
+            />
+            
+            <div className="game-board-container">
+              <CanvasBoard
+                ref={canvasBoardRef}
+                mode="battle"
+                viewMode={viewMode}
+                eraConfig={eraConfig}
+                gameBoard={gameBoard}
+                gameInstance={gameInstance}
+                gameState={gameState}
+                onShotFired={handleShotFired}
+              />
+            </div>
+            
+            <FleetStatusSidebar
+              fleet={opponentPlayer?.fleet}
+              title="Enemy"
             />
           </div>
           

@@ -1,22 +1,79 @@
 // src/classes/Ship.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.1.9"
+const version = "v0.2.1";
+/**
+ * v0.2.1: Progressive Fog of War System
+ * - Added 'hitCount' tracking for reveal stages
+ * - Added getRevealLevel() method (hidden/hit/size-hint/critical/sunk)
+ * - Added getSizeCategory() method (small/medium/large)
+ * - Added getMaxHealth() method for health percentage calculations
+ * - receiveHit() now increments hitCount
+ *
+ * v0.2.0: Defense Modifier System
+ * - Added 'shipClass' parameter to constructor (required)
+ * - Added 'class' property for ship classification
+ * - Added 'defense' property (damage reduction multiplier)
+ * - getDefenseModifier() calculates defense based on ship class:
+ *   - Submarine: 0.67 (33% damage reduction - hard to hit due to depth)
+ *   - Battleship: 0.83 (17% damage reduction - heavy armor)
+ *   - All others: 1.0 (standard - no defense bonus)
+ * - Defense works with attack/defense boosts (multiplicative)
+ */
 
 class Ship {
     // Ship is a battle unit that has a name, size (1-5 cells), and allowed terrain (could be cannon on land too).  Each cell has health, initially 1.0, and can go negative if receiving a high power (>1.0) shot or a partial shot (e.g. 0.1) followed by a full (1.0) shot.  The ship is sunk when its total health drops to 0. Allowed ships are defined in the era-config file for a game. [FUTURE] A Ship can be captured (random chance) when its health falls to zero.  In this instance, a ship is reset with a random health between 50% and 75% and fires 50% power shots.  This, of course, messes up player maps because the ship disappears after being sunk and then reappears as a new ship.
     
-  constructor(name, size, terrain) {
-      // Use crypto.randomUUID() for guaranteed uniqueness
-      this.id = `ship-${crypto.randomUUID()}`;
+  constructor(name, size, terrain, shipClass) {
+    // Validate required shipClass parameter
+    if (!shipClass) {
+      throw new Error(`Ship ${name} missing required 'shipClass' parameter`);
+    }
+    
+    // Use crypto.randomUUID() for guaranteed uniqueness
+    this.id = `ship-${crypto.randomUUID()}`;
     this.name = name;
     this.size = size;
     this.terrain = terrain; // allowed terrain types array
+    this.class = shipClass; // Ship classification for defense calculations
+    
+    // Defense modifier (damage reduction)
+    this.defense = this.getDefenseModifier();
     
     // Ship state
     this.isPlaced = false;
     this.health = Array(size).fill(1.0); // Array of floats, 1.0 = undamaged, can go negative for overkill
     this.sunkAt = null; // timestamp when ship was sunk (initially null)
+    
+    // Fog of War tracking
+    this.hitCount = 0; // Number of times this ship has been hit (for progressive reveal)
+  }
+
+  /**
+   * Calculate defense modifier based on ship class
+   * Defense multiplier is applied to incoming damage
+   * Lower = tougher (takes less damage)
+   *
+   * @returns {number} - Defense multiplier (0.67 to 1.0)
+   */
+  getDefenseModifier() {
+    switch (this.class.toLowerCase()) {
+      case 'submarine':
+        // Hard to hit due to depth uncertainty (33% damage reduction)
+        return 0.67;
+      
+      case 'battleship':
+        // Heavy armor plating (17% damage reduction)
+        return 0.83;
+      
+      case 'carrier':
+      case 'cruiser':
+      case 'destroyer':
+      case 'pt boat':
+      default:
+        // Standard defense (no bonus)
+        return 1.0;
+    }
   }
 
   /**
@@ -44,7 +101,8 @@ class Ship {
     // FIXED: Only apply damage if cell health > 0 (prevent multiple hits on same cell)
     if (this.health[index] > 0) {
       this.health[index] -= damage; // Allow negative health for overkill damage
-      console.log(`Ship ${this.name} hit at index ${index} (health: ${this.health[index].toFixed(2)})`);
+      this.hitCount++; // Increment for fog of war reveal
+      console.log(`Ship ${this.name} hit at index ${index} (health: ${this.health[index].toFixed(2)}, hitCount: ${this.hitCount})`);
     } else {
       console.log(`Ship ${this.name} hit at index ${index} - already destroyed (no additional damage)`);
     }
@@ -69,6 +127,63 @@ class Ship {
   }
 
   /**
+   * Get maximum possible health for this ship
+   * Used for calculating health percentage for fog of war reveals
+   * @returns {number} - Maximum health (size * 1.0)
+   */
+  getMaxHealth() {
+    return this.size * 1.0;
+  }
+
+  /**
+   * Get current health percentage (0.0 to 1.0)
+   * Used for determining critical damage threshold
+   * @returns {number} - Health percentage (0.0 = dead, 1.0 = perfect)
+   */
+  getHealthPercent() {
+    return this.getHealth();
+  }
+
+  /**
+   * Get size category for fog of war hints
+   * @returns {string} - 'small' (2 cells), 'medium' (3 cells), 'large' (4-5 cells)
+   */
+  getSizeCategory() {
+    if (this.size <= 2) return 'small';
+    if (this.size === 3) return 'medium';
+    return 'large'; // 4-5 cells
+  }
+
+  /**
+   * Get fog of war reveal level based on damage taken
+   * Progressive reveal stages:
+   * - 'hidden': No hits yet (not revealed to attacker)
+   * - 'hit': 1 hit (attacker knows "something" is here)
+   * - 'size-hint': 2+ hits (attacker knows size category)
+   * - 'critical': <50% health (attacker knows ship class)
+   * - 'sunk': Ship destroyed (full reveal)
+   *
+   * @returns {string} - Reveal level
+   */
+  getRevealLevel() {
+    // Sunk ships are fully revealed
+    if (this.isSunk()) return 'sunk';
+    
+    // Critical damage (<50% HP) reveals ship class
+    const healthPercent = this.getHealthPercent();
+    if (healthPercent < 0.5) return 'critical';
+    
+    // Second hit reveals size hint
+    if (this.hitCount >= 2) return 'size-hint';
+    
+    // First hit reveals "something" is here
+    if (this.hitCount >= 1) return 'hit';
+    
+    // No hits yet - hidden
+    return 'hidden';
+  }
+
+  /**
    * Check if this ship is completely sunk
    * @returns {boolean} - True if health <= 0 OR sunkAt !== null
    */
@@ -83,13 +198,18 @@ class Ship {
     this.isPlaced = false;
     this.health = Array(this.size).fill(1.0);
     this.sunkAt = null;
+    this.hitCount = 0; // Reset fog of war tracking
   }
 
   /**
    * Create ship from config object
+   * UPDATED: Now requires 'class' property in config
    */
   static fromConfig(config) {
-    return new Ship(config.name, config.size, config.terrain);
+    if (!config.class) {
+      throw new Error(`Ship config missing required 'class' property: ${JSON.stringify(config)}`);
+    }
+    return new Ship(config.name, config.size, config.terrain, config.class);
   }
 }
 

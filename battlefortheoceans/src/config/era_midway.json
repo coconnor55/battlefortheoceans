@@ -1,0 +1,192 @@
+{
+  "version": "0.2.5",
+  "era": "midway",
+  "name": "Midway Island",
+  "era_description": "Battle of Midway, June 4-7, 1942. Fight for control of this strategic Pacific atoll where American forces turned the tide against the Japanese Navy in World War II.",
+  "free": false,
+  "rows": 12,
+  "cols": 12,
+  "boundary": [],
+  "max_players": 2,
+  "promotional": {
+    "background_image": "midway-background.jpg",
+    "promotional_image": "midway-promotional.jpg",
+    "stripe_price_id": "price_1SAnf9FKFdXJ01egovJFaN47",
+    "tagline": "Try Midway Island!",
+    "marketing_description": "Take command of the US Navy or Imperial Navy and fight the historic Battle of Midway, June 4-7, 1942. Experience carrier warfare with authentic ship rosters and strategic Pacific theater combat.",
+    "features": [
+      "Choose your alliance: US Navy or Imperial Navy",
+      "Command legendary ships: USS Enterprise, Akagi, Yorktown",
+      "12x12 battlefield with authentic Pacific terrain"
+    ]
+  },
+  "game_rules": {
+    "change_alliance": false,
+    "ship_capture": false,
+    "capture_chance": 0.0,
+    "turn_required": true,
+    "choose_alliance": true,
+    "turn_on_hit": true,
+    "turn_on_miss": false,
+    "placement_restriction": 12
+  },
+  "theme": {
+    "primary": "#F5C26B",
+    "primary_glow": "rgba(245, 194, 107, 0.7)",
+    "primary_dim": "rgba(245, 194, 107, 0.4)",
+    "primary_dark": "#D4A054",
+    "bg_dark": "#1E3A47",
+    "bg_medium": "#2D5566",
+    "bg_light": "#4A7886",
+    "bg_overlay": "rgba(30, 58, 71, 0.92)",
+    "accent": "#FFD87A",
+    "accent_secondary": "#8FB8C8",
+    "warning": "#D84315",
+    "success": "#7CB342",
+    "error": "#C62828",
+    "text_primary": "#FFF4E0",
+    "text_secondary": "#E8C589",
+    "text_dim": "#B8986F",
+    "text_disabled": "#6A5840",
+    "border_color": "#F5C26B",
+    "border_subtle": "rgba(245, 194, 107, 0.35)",
+    "border_strong": "#F5C26B",
+    "shadow": "0 4px 20px rgba(245, 194, 107, 0.6)",
+    "shadow_sm": "0 2px 10px rgba(245, 194, 107, 0.35)",
+    "shadow_lg": "0 8px 40px rgba(245, 194, 107, 0.6)",
+    "btn_border_primary": "#F5C26B",
+    "btn_border_primary_hover": "#FFD87A"
+  },
+  "alliances": [
+    {
+      "name": "US Navy",
+      "description": "Task Force 16 & 17 - Defend the strategic Midway atoll with carrier-based aviation and superior intelligence. Fight with disciplined tactics and technological advantage.",
+      "avatar": "us-navy-icon.png",
+      "ships": [
+        { "name": "USS Enterprise", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "USS Hornet", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "USS Yorktown", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "USS Astoria", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "USS Pensacola", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "USS Nautilus", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+        { "name": "USS Hammann", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
+      ],
+      "ai_captains": [
+          {
+            "id": "commander-spruance",
+            "name": "Cmdr. Spruance",
+            "strategy": "methodical_optimal",
+            "difficulty": 1.4,
+            "description": "A methodical US Navy commander who uses systematic grid search patterns with offset targeting to locate and destroy enemy vessels with tactical precision.",
+            "avatar": "captains/C_Spruance.webp"
+          },
+          {
+            "id": "admiral-nimitz",
+            "name": "Admiral Nimitz",
+            "strategy": "aggressive",
+            "difficulty": 1.7,
+            "description": "The legendary Pacific Fleet commander who combines center-mass probability targeting with relentless recursive hunt tactics to dominate naval warfare.",
+            "avatar": "captains/FA_Nimitz.webp"
+          }
+      ]
+    },
+    {
+      "name": "Imperial Navy",
+      "description": "Kido Butai & Midway Invasion Force - Strike swift and decisive to capture Midway and lure the American fleet into a trap. Honor demands victory!",
+      "avatar": "japanese-navy-icon.png",
+      "ships": [
+        { "name": "Akagi", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Kaga", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Hiryu", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Soryu", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Mikuma", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "I-168", "class": "Submarine", "size": 3, "terrain": ["deep"] }
+      ],
+      "ai_captains": [
+          {
+            "id": "lt-commander-fuchida",
+            "name": "Lt. Cmdr. Fuchida",
+            "strategy": "methodical_random",
+            "difficulty": 1.0,
+            "description": "Mitsuo Fuchida, the skilled aviator who led the Pearl Harbor attack. Uses disciplined checkerboard search patterns with systematic coverage.",
+            "avatar": "captains/LtC_Fuchida.webp"
+          },
+          {
+            "id": "admiral-nagumo",
+            "name": "Admiral Nagumo",
+            "strategy": "methodical_optimal",
+            "difficulty": 1.4,
+            "description": "Commander of the Kido Butai carrier strike force. Employs advanced grid-search tactics with offset patterns to maximize fleet effectiveness.",
+            "avatar": "captains/A_Nagumo.webp"
+          },
+          {
+            "id": "admiral-yamamoto",
+            "name": "Admiral Yamamoto",
+            "strategy": "aggressive",
+            "difficulty": 1.7,
+            "description": "Isoroku Yamamoto, architect of the Pearl Harbor strike and master strategist of the Combined Fleet. Uses center-mass probability targeting with aggressive recursive hunt tactics to locate and destroy enemy vessels.",
+            "avatar": "captains/A_Yamamoto.webp"
+          }
+      ]
+    }
+  ],
+  "terrain": [
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "shallow", "land", "shallow", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "shallow", "shoal", "land", "shallow", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "shallow", "deep", "shallow", "shoal", "land", "shallow", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "shallow", "shallow", "deep", "shallow", "land", "shallow", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "shallow", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
+  ],
+  "messages": {
+    "transition": [
+      "Fleet positioned for Midway assault - engage!",
+      "All stations report ready - commence battle!",
+      "The fate of the Pacific rests in your hands!"
+    ],
+    "player_win": [
+      "Victory at Midway! Enemy fleet destroyed!",
+      "The atoll is secure! Pacific turning point achieved!",
+      "Outstanding naval command! The enemy retreats!"
+    ],
+    "player_lose": [
+      "Your fleet is sunk! Midway falls to the enemy!",
+      "All ships lost! The Pacific campaign is in jeopardy!",
+      "Defeat! The strategic initiative is lost!"
+    ],
+    "opponent_win": [
+      "{opponent}: My fleet controls these waters!",
+      "{opponent}: Midway belongs to the Imperial Navy!",
+      "{opponent}: Your forces are no match for our strategy!"
+    ],
+    "opponent_lose": [
+      "{opponent}: My fleet is destroyed! The battle is yours!",
+      "{opponent}: Impossible! How did you anticipate our movements?",
+      "{opponent}: The tide of war has turned against us!"
+    ],
+    "attack_hit_unknown": "You fired at {cell} - HIT!",
+    "attack_hit_size_small": "HIT at {cell}! Contact reports small vessel!",
+    "attack_hit_size_medium": "HIT at {cell}! Medium warship engaged!",
+    "attack_hit_size_large": "HIT at {cell}! Large capital ship detected!",
+    "attack_hit_critical": "CRITICAL HIT at {cell}! Enemy {shipClass} burning!",
+    "attack_miss": "Shells splash harmlessly at {cell}.",
+    "opponent_attack_hit": "{opponent} scores a hit at {cell}!",
+    "opponent_attack_miss": "{opponent} fires at {cell} - miss.",
+    "ship_sunk": "You sank the enemy {shipClass} at {cell}!",
+    "opponent_attack_sunk": "{opponent} destroyed your {shipClass} at {cell}!",
+    "player_turn": "Your turn - target enemy vessels!",
+    "ai_turn": "{opponent} is coordinating their attack...",
+    "victory": "Victory at Midway! Enemy fleet destroyed!",
+    "defeat": "Defeat! Your fleet has been sunk.",
+    "rapid_fire": "Rapid Fire! Launch continuous salvos!",
+    "game_start": "Midway Island battle begins! {players}",
+    "game_end": "Battle of Midway complete! {winner} controls the Pacific after {turns} turns!",
+    "turn_start": "Turn {turn}: {player} commands the fleet"
+  }
+}

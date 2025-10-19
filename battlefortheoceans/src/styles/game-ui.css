@@ -264,8 +264,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: var(--space-md) 0;
-  padding: var(--space-md);
+  margin: var(--space-sm) 0;
+  padding: var(--space-sm);
   overflow: auto;
   min-height: 320px;
 }
@@ -626,23 +626,23 @@
   display: flex;
   justify-content: center;
   gap: 0;
-  margin: var(--space-md) auto;
-  width: 60%;
-  background: rgba(0, 0, 0, 0.3);
+  margin: var(--space-md) auto var(--space-md);
+  width: 50%;
+  background: rgba(0, 0, 0, 0.8);
   border-radius: var(--border-radius-md);
-  border-top: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
   padding: 4px;
 }
 
 .view-mode-btn {
   flex: 1;
-  padding: var(--space-sm) var(--space-lg);
+  padding: var(--space-xs) var(--space-sm);
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.6);
   font-family: var(--font-heading);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 0.725rem;
+  font-weight: 800;
   letter-spacing: 0.5px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -662,6 +662,100 @@
 .view-mode-btn--active:hover {
   background: var(--primary);
   color: var(--text-dark);
+}
+
+/* ============================================
+   FLEET STATUS SIDEBAR
+   v2.2.4: Compact fleet status display
+   ============================================ */
+
+.battle-board-layout {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+  align-items: flex-start;
+  margin-bottom: var(--space-md);
+}
+
+.fleet-status-sidebar {
+  min-width: 120px;
+  background: var(--bg-overlay);
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--border-radius-md);
+  padding: var(--space-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.fleet-status-header {
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  text-align: center;
+  padding: var(--space-xs) 0;
+  margin-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.fleet-status-ships {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.fleet-status-ship {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  background: var(--bg-medium);
+  border-radius: var(--border-radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.fleet-status-ship:hover {
+  background: var(--bg-light);
+}
+
+.fleet-status-ship--sunk {
+  opacity: 0.6;
+}
+
+.fleet-status-emoji {
+  font-size: 1rem;
+  line-height: 1;
+  min-width: 1.25rem;
+  text-align: center;
+}
+
+.fleet-status-text {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.fleet-status-text--strikethrough {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .fleet-status-sidebar {
+    min-width: 100px;
+  }
+  
+  .fleet-status-header {
+    font-size: 0.65rem;
+  }
+  
+  .fleet-status-text {
+    font-size: 0.7rem;
+  }
 }
 
 /* ============================================

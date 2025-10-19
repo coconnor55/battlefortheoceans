@@ -1,4 +1,4 @@
-// src/classes/CoreEngine.js
+// src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
 // v0.5.8: Remove ACHIEVEMENTS state
 // v0.5.7: Add ACHIEVEMENTS event and state for achievements page navigation
@@ -9,15 +9,15 @@
 // v0.5.1: Fix refresh issue - initialize state from URL in constructor (synchronous)
 // v0.5.0: OPTION 1 REFACTOR - Players are persistent entities across games
 
-import Game from './Game.js';
-import Board from './Board.js';
-import HumanPlayer from './HumanPlayer.js';
-import AiPlayer from './AiPlayer.js';
+import Game from '../classes/Game.js';
+import Board from '../classes/Board.js';
+import HumanPlayer from '../classes/HumanPlayer.js';
+import AiPlayer from '../classes/AiPlayer.js';
 import UserProfileService from '../services/UserProfileService.js';
 import GameStatsService from '../services/GameStatsService.js';
 import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
-import EraService from '../services/EraService.js';
+import configLoader from '../utils/ConfigLoader.js';
 import AchievementService from '../services/AchievementService.js';
 import { supabase } from '../utils/supabaseClient.js';
 
@@ -96,6 +96,7 @@ class CoreEngine {
     );
     
     // Game state data
+      this.gameConfig = null;
     this.eraConfig = null;
     this.selectedOpponent = null;
     this.selectedGameMode = null;
@@ -116,11 +117,13 @@ class CoreEngine {
     this.gameStatsService = new GameStatsService();
     this.leaderboardService = new LeaderboardService();
     this.rightsService = new RightsService();
-    this.eraService = new EraService();
     this.achievementService = AchievementService;
     
     // Achievement tracking
     this.newAchievements = [];
+      
+      // initialize
+      this.initializeGameConfig();
     
     // Browser navigation handler
     if (typeof window !== 'undefined') {
@@ -140,7 +143,7 @@ class CoreEngine {
     
     this.log('CoreEngine initialized');
   }
-
+    
   restoreSessionSync() {
     if (typeof window === 'undefined') return;
     
@@ -199,6 +202,15 @@ class CoreEngine {
     }
   }
 
+    async initializeGameConfig() {
+      try {
+        this.gameConfig = await configLoader.loadGameConfig();
+        this.log(`Game config loaded: v${this.gameConfig.version}`);
+      } catch (error) {
+        console.error(`${version} Failed to load game config:`, error);
+      }
+    }
+
   async refreshProfileAsync(userId) {
     try {
       const profile = await this.userProfileService.getUserProfile(userId);
@@ -218,8 +230,8 @@ class CoreEngine {
 
   async restoreEraAsync(eraId) {
     try {
-      this.eraConfig = await this.eraService.getEraById(eraId);
-      if (this.eraConfig) {
+        this.eraConfig = await configLoader.loadEraConfig(eraId);
+        if (this.eraConfig) {
         this.log(`Era restored: ${this.eraConfig.name}`);
         this.notifySubscribers();
       }
@@ -399,7 +411,7 @@ class CoreEngine {
       }
       
       if (this.currentState === 'over' && this.selectedEra) {
-        this.eraConfig = await this.eraService.getEraById(this.selectedEra);
+          this.eraConfig = await configLoader.loadEraConfig(this.selectedEra);
         this.log(`Restored eraConfig for Battle Again: ${this.eraConfig?.name}`);
       }
       
@@ -741,19 +753,13 @@ class CoreEngine {
     };
   }
 
-  generateCurrentMessage() {
-    if (!this.gameInstance) return 'Initializing game...';
+    generateCurrentMessage() {
+      if (!this.gameInstance) return 'Initializing game...';
+      
+      // Message.js handles game state messages via getCurrentTurnMessage()
+      return this.gameInstance?.message?.getCurrentTurnMessage() || 'Initializing game...';
+    }
     
-    const gameState = {
-      state: this.gameInstance.state,
-      winner: this.gameInstance.winner,
-      currentPlayer: this.gameInstance.getCurrentPlayer(),
-      gameRules: this.gameInstance.gameRules
-    };
-    
-    return this.eraService.getGameStateMessage(this.eraConfig, gameState);
-  }
-
   getPlayerStats() {
     if (!this.gameInstance) return {
       player: { hits: 0, shots: 0, accuracy: 0 },
@@ -848,20 +854,20 @@ class CoreEngine {
     return await this.leaderboardService.getRecentChampions(limit);
   }
 
-  async hasEraAccess(userId, eraId) {
-    const era = await this.eraService.getEraById(eraId);
-    
-    if (era?.free === true) {
-      return true;
+    async hasEraAccess(userId, eraId) {
+      const era = await configLoader.loadEraConfig(eraId);
+      
+      if (era?.free === true) {
+        return true;
+      }
+      
+      if (userId.startsWith('guest-')) {
+        return false;
+      }
+      
+      return await this.rightsService.hasEraAccess(userId, eraId);
     }
     
-    if (userId.startsWith('guest-')) {
-      return false;
-    }
-    
-    return await this.rightsService.hasEraAccess(userId, eraId);
-  }
-
   async grantEraAccess(userId, eraId, paymentData = {}) {
     return await this.rightsService.grantEraAccess(userId, eraId, paymentData);
   }
@@ -874,26 +880,28 @@ class CoreEngine {
     return await this.rightsService.getUserRights(userId);
   }
 
-  async getAllEras() {
-    return await this.eraService.getAllEras();
-  }
+    async getAllEras() {
+      return await configLoader.listEras();
+    }
 
-  async getEraById(eraId) {
-    return await this.eraService.getEraById(eraId);
-  }
+    async getEraById(eraId) {
+      return await configLoader.loadEraConfig(eraId);
+    }
 
-  async getPromotableEras() {
-    return await this.eraService.getPromotableEras();
-  }
+    async getPromotableEras() {
+      const allEras = await configLoader.listEras();
+      return allEras.filter(era => !era.free && era.promotional);
+    }
 
-  async getFreeEras() {
-    return await this.eraService.getFreeEras();
-  }
+    async getFreeEras() {
+      const allEras = await configLoader.listEras();
+      return allEras.filter(era => era.free);
+    }
 
-  clearEraCache() {
-    this.eraService.clearCache();
-  }
-
+    clearEraCache() {
+      configLoader.clearCache();
+    }
+    
   getPlayerGameName(playerId) {
     if (playerId === this.humanPlayer?.id && this.userProfile?.game_name) {
       return this.userProfile.game_name;

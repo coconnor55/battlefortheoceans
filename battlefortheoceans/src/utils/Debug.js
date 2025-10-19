@@ -1,31 +1,34 @@
 // src/utils/debug.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.3: Fixed infinite recursion - removed init log, use originalLog directly
 // Simple console.log filter by category
 
-const version = "v0.1.2";
+const version = "v0.1.3";
 
 // Control which categories are logged
 const control = {
   HOOK: false,
-    PLACEMENT: false,
+  PLACEMENT: true,
   SOUND: false,
   AI: false,
   ATTACK: false,
   BOARD: false,
-  CANVAS: false,
+  CANVAS: true,
   NETWORK: false,
   STATS: false,
   PAYMENT: false,
   OPPONENT: false,
-    OVERLAY: false,
-  DEBUG: true,
-    TARGETING: false,
-    GAME: false,
-    NAVBAR: true,
-    ACHIEVEMENT: true
+  OVERLAY: false,
+  TARGETING: false,
+  GAME: false,
+  NAVBAR: false,
+  ACHIEVEMENT: false,
+  MESSAGE: true,
+  FIRE: false,
+  DEBUG: true
 };
 
-// Store original console methods
+// Store original console methods FIRST
 const originalLog = console.log;
 const originalError = console.error;
 const originalWarn = console.warn;
@@ -34,9 +37,9 @@ const originalWarn = console.warn;
 console.log = (...args) => {
   const firstArg = args[0];
   
-  // Check if first argument starts with a category tag like [PLACEMENT]
+  // Check if first argument starts with a category tag like [PLACEMENT] or [FIRE-INIT]
   if (typeof firstArg === 'string') {
-    const categoryMatch = firstArg.match(/^\[(\w+)\]/);
+    const categoryMatch = firstArg.match(/^\[([A-Z]+)/);
     
     if (categoryMatch) {
       const category = categoryMatch[1];
@@ -44,7 +47,7 @@ console.log = (...args) => {
       // Only log if this category is enabled
       if (control[category] === true) {
         const timestamp = new Date().toLocaleTimeString();
-        originalLog(`[${timestamp}] [${category}]`, ...args.slice(0, 1).map(arg => arg.replace(/^\[\w+\]\s*/, '')), ...args.slice(1));
+        originalLog(`[${timestamp}]`, ...args);
       }
       return; // Category found, don't fall through
     }
@@ -95,6 +98,8 @@ export const restoreConsole = () => {
   console.warn = originalWarn;
 };
 
-console.log('[DEBUG] Debug system initialized', version);
+// Use originalLog directly to avoid recursion on init
+// REMOVED: This line was causing recursion when called repeatedly
+// originalLog('[DEBUG] Debug system initialized', version);
 
 // EOF

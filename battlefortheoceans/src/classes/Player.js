@@ -1,7 +1,20 @@
 // src/classes/Player.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.9.0";
+const version = "v0.9.3";
+// v0.9.3: Fixed autoPlaceShips to use all four orientations (0/90/180/270)
+//         - Was only using 0° and 90°
+//         - Now randomly selects from all four directions
+// v0.9.2: Changed orientation from string to numeric degrees (0/90/180/270)
+//         - 0° = Horizontal L→R (stern left, bow right) - default
+//         - 90° = Vertical pointing UP (stern bottom, bow top)
+//         - 180° = Horizontal R→L (stern right, bow left)
+//         - 270° = Vertical pointing DOWN (stern top, bow bottom)
+//         Updated placeShip() to accept degrees (default 0)
+//         Updated autoPlaceShips() to use 0 or 90 randomly
+// v0.9.1: Store ship orientation in shipPlacements for rendering
+//         Added orientation parameter to placeShip()
+//         Updated autoPlaceShips() to pass orientation
 // v0.9.0: Phase 4 Refactor - Renamed missedShots → dontShoot for semantic clarity
 //         dontShoot now includes both water misses AND destroyed ship cells
 //         Prevents player from clicking invalid targets (miss or destroyed)
@@ -47,10 +60,11 @@ class Player {
     this.hitsDamage = 0.0; // cumulative damage dealt
     this.score = 0; // calculated game score
     
-    // SHIP PLACEMENT (v0.6.0 - Phase 1 Refactor)
+    // SHIP PLACEMENT (v0.6.0 - Phase 1 Refactor, v0.9.2 orientation as degrees)
     // Map of where MY ships are located
     // Key: "row,col" string
-    // Value: {shipId: string, cellIndex: number}
+    // Value: {shipId: string, cellIndex: number, orientation: number}
+    // orientation: 0=L→R, 90=UP, 180=R→L, 270=DOWN (degrees)
     // Ship health is stored in the Ship object itself (in fleet)
     this.shipPlacements = new Map();
     
@@ -101,6 +115,9 @@ class Player {
 
   /**
    * Automatically place all ships in the fleet
+   * v0.9.3: Now randomly selects from all four orientations (0/90/180/270)
+   * v0.9.2: Now uses numeric degrees (0 or 90) for orientation
+   * v0.9.1: Now passes orientation to placeShip()
    * v0.7.0: Phase 2 - Now writes to this.shipPlacements (dual-write with Board)
    * @param {Game} game - Game instance (temporary, removed in Phase 4)
    * @param {Fleet} fleet - Fleet to place
@@ -112,6 +129,8 @@ class Player {
     }
 
     console.log(`[PLACEMENT] Auto-placing ships for ${this.name}`);
+
+    const validOrientations = [0, 90, 180, 270];
 
     for (const ship of fleet.ships) {
       if (ship.isPlaced) {
@@ -129,13 +148,30 @@ class Player {
           throw new Error(`[PLACEMENT] No valid cells available for ${ship.name}`);
         }
         
-        const horizontal = Math.random() > 0.5;
-
-        // Generate cell positions for ship
+        // Randomly choose from all four orientations
+        const orientation = validOrientations[Math.floor(Math.random() * validOrientations.length)];
+        
+        // Generate cell positions for ship based on orientation
         const cells = [];
         for (let i = 0; i < ship.size; i++) {
-          const cellRow = horizontal ? startCell.row : startCell.row + i;
-          const cellCol = horizontal ? startCell.col + i : startCell.col;
+          let cellRow = startCell.row;
+          let cellCol = startCell.col;
+          
+          switch (orientation) {
+            case 0:   // L→R: stern at (row, col), bow extends right
+              cellCol = startCell.col + i;
+              break;
+            case 90:  // UP: stern at (row, col), bow extends up
+              cellRow = startCell.row - i;
+              break;
+            case 180: // R→L: stern at (row, col), bow extends left
+              cellCol = startCell.col - i;
+              break;
+            case 270: // DOWN: stern at (row, col), bow extends down
+              cellRow = startCell.row + i;
+              break;
+          }
+          
           cells.push({ row: cellRow, col: cellCol });
         }
 
@@ -144,20 +180,20 @@ class Player {
         const registered = game.registerShipPlacement(
           ship,
           cells,
-          horizontal ? 'horizontal' : 'vertical',
+          orientation,
           this.id
         );
         
         if (registered) {
-          // NEW: Also write to player's own shipPlacements map
+          // v0.9.3: Pass numeric degrees to placeShip()
           for (let i = 0; i < cells.length; i++) {
             const cell = cells[i];
-            this.placeShip(cell.row, cell.col, ship.id, i);
+            this.placeShip(cell.row, cell.col, ship.id, i, orientation);
           }
           
           ship.place();
           placed = true;
-          console.log(`[PLACEMENT] Placed ${ship.name} for ${this.name} (attempt ${attempts + 1})`);
+          console.log(`[PLACEMENT] Placed ${ship.name} for ${this.name} (${orientation}°, attempt ${attempts + 1})`);
           game.notifyUIUpdate();
         }
         
@@ -175,17 +211,26 @@ class Player {
 
   /**
    * Place a ship cell at coordinates
+   * v0.9.2: Changed orientation to numeric degrees (0/90/180/270)
+   * v0.9.1: Added orientation parameter for ship rendering
    * v0.6.0: Phase 1 - Player-owned ship placement
    * @param {number} row - Row coordinate
    * @param {number} col - Column coordinate
    * @param {string} shipId - Ship identifier
    * @param {number} cellIndex - Index of this cell in ship's cells array
+   * @param {number} orientation - Degrees: 0=L→R, 90=UP, 180=R→L, 270=DOWN
    * @returns {boolean} - True if placed successfully, false if invalid
    */
-  placeShip(row, col, shipId, cellIndex) {
+  placeShip(row, col, shipId, cellIndex, orientation = 0) {
     // Validate coordinates using Board
     if (!this.board || !this.board.isValidCoordinate(row, col)) {
       console.warn(`[PLACEMENT] Player ${this.name}: Invalid coordinates (${row},${col})`);
+      return false;
+    }
+
+    // Validate orientation is valid degree value
+    if (![0, 90, 180, 270].includes(orientation)) {
+      console.warn(`[PLACEMENT] Player ${this.name}: Invalid orientation ${orientation}° (must be 0/90/180/270)`);
       return false;
     }
 
@@ -199,7 +244,7 @@ class Player {
       return false;
     }
 
-    this.shipPlacements.set(key, { shipId, cellIndex });
+    this.shipPlacements.set(key, { shipId, cellIndex, orientation });
     return true;
   }
 
@@ -214,7 +259,9 @@ class Player {
 
   /**
    * Get ship placement data at coordinates
-   * v0.6.0: Phase 1 - Returns {shipId, cellIndex} or undefined
+   * v0.9.2: Now returns {shipId, cellIndex, orientation} where orientation is degrees
+   * v0.9.1: Now returns {shipId, cellIndex, orientation}
+   * v0.6.0: Phase 1 - Returns placement data or undefined
    */
   getShipAt(row, col) {
     return this.shipPlacements.get(`${row},${col}`);
@@ -238,7 +285,9 @@ class Player {
 
   /**
    * Get all ship placements
-   * v0.6.0: Phase 1 - Returns array of {row, col, shipId, cellIndex}
+   * v0.9.2: Orientation now numeric degrees (0/90/180/270)
+   * v0.9.1: Now includes orientation in returned data
+   * v0.6.0: Phase 1 - Returns array of {row, col, shipId, cellIndex, orientation}
    * Useful for debugging, UI rendering, or serialization
    */
   getAllPlacements() {
@@ -249,7 +298,8 @@ class Player {
         row,
         col,
         shipId: data.shipId,
-        cellIndex: data.cellIndex
+        cellIndex: data.cellIndex,
+        orientation: data.orientation
       });
     }
     return placements;

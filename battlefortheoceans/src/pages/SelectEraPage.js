@@ -1,5 +1,6 @@
-// src/pages/SelectEraPage.js v0.4.2
+// src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.3: removed EraService
 // v0.4.2: Added InfoButton and InfoPanel with era selection instructions
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -8,7 +9,7 @@ import PurchasePage from './PurchasePage';
 import InfoButton from '../components/InfoButton';
 import InfoPanel from '../components/InfoPanel';
 
-const version = 'v0.4.2';
+const version = 'v0.4.3';
 
 const SelectEraPage = () => {
   const {
@@ -16,13 +17,14 @@ const SelectEraPage = () => {
     events,
     userProfile,
     getUserRights,
-    eraService
+      getAllEras,
+      getEraById
   } = useGame();
   
   // Auto-create guest user if no profile exists
   useEffect(() => {
     if (!userProfile) {
-      console.log(version, 'No user profile detected - creating guest session');
+      console.log('[SELECTERA] ${version} No user profile detected - creating guest session');
       const guestId = `guest-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
       dispatch(events.SELECTERA, {
         userData: { id: guestId }
@@ -46,7 +48,7 @@ const SelectEraPage = () => {
 
   // Handle era selection - check if user has access
   const handleEraSelect = useCallback((era) => {
-    console.log(version, 'Era selected (UI state):', era.name);
+    console.log('[SELECTERA] ${version} Era selected (UI state):', era.name);
     
     // Check if era is accessible
     const hasAccess = userRights.get(era.id) || era.free;
@@ -55,7 +57,7 @@ const SelectEraPage = () => {
       setSelectedEra(era);
     } else {
       // Era is locked - show purchase page
-      console.log(version, 'Era locked, opening purchase page:', era.id);
+      console.log('[SELECTERA] ${version} Era locked, opening purchase page:', era.id);
       setPurchaseEraId(era.id);
       setShowPurchasePage(true);
     }
@@ -63,7 +65,7 @@ const SelectEraPage = () => {
 
   // Handle purchase completion
   const handlePurchaseComplete = useCallback(async (eraId) => {
-    console.log(version, 'Purchase completed for era:', eraId);
+    console.log('[SELECTERA] ${version} Purchase completed for era:', eraId);
     setShowPurchasePage(false);
     setPurchaseEraId(null);
     
@@ -79,36 +81,46 @@ const SelectEraPage = () => {
 
   // Handle purchase cancellation
   const handlePurchaseCancel = useCallback(() => {
-    console.log(version, 'Purchase cancelled');
+    console.log('[SELECTERA] ${version} Purchase cancelled');
     setShowPurchasePage(false);
     setPurchaseEraId(null);
   }, []);
 
   // Transition to opponent selection - NO alliance selection here anymore
-  const handlePlayEra = useCallback(() => {
-    if (!selectedEra) {
-      console.error(version, 'No era selected');
-      return;
-    }
+    // Line 90 - Update handlePlayEra
+    const handlePlayEra = useCallback(async () => {
+      if (!selectedEra) {
+        console.error('[SELECTERA] ${version} No era selected');
+        return;
+      }
 
-    console.log(version, 'Transitioning to opponent selection with era:', selectedEra.name);
+      console.log('[SELECTERA] ${version} Loading full era config for:', selectedEra.name);
+      
+      try {
+        // Load the FULL era configuration
+        const fullEraConfig = await getEraById(selectedEra.id);
+        
+        console.log('[SELECTERA] ${version} Transitioning to opponent selection with era:', fullEraConfig.name);
+        
+        // Dispatch with full config
+        dispatch(events.SELECTOPPONENT, {
+          eraConfig: fullEraConfig
+        });
+      } catch (error) {
+        console.error('[SELECTERA] ${version} Failed to load era config:', error);
+        setError('Failed to load era configuration');
+      }
+    }, [selectedEra, dispatch, events, getEraById]);
     
-    // Commit era selection to game logic
-    // Alliance selection will happen in SelectOpponentPage if needed
-    dispatch(events.SELECTOPPONENT, {
-      eraConfig: selectedEra
-    });
-  }, [selectedEra, dispatch, events]);
-
   // Fetch user rights using GameContext singleton
   const fetchUserRights = useCallback(async () => {
     if (!userProfile?.id) {
-      console.log(version, 'No user profile, skipping rights fetch');
+      console.log('[SELECTERA] ${version} No user profile, skipping rights fetch');
       return;
     }
 
     try {
-      console.log(version, 'Fetching user rights for:', userProfile.id);
+      console.log('[SELECTERA] ${version} Fetching user rights for:', userProfile.id);
       const rights = await getUserRights(userProfile.id);
       
       // Create a map of era access
@@ -120,32 +132,28 @@ const SelectEraPage = () => {
       });
       
       setUserRights(rightsMap);
-      console.log(version, 'User rights loaded:', rightsMap);
+      console.log('[SELECTERA] ${version} User rights loaded:', rightsMap);
     } catch (error) {
-      console.error(version, 'Error fetching user rights:', error);
+      console.error('[SELECTERA] ${version} Error fetching user rights:', error);
     }
   }, [userProfile?.id, getUserRights]);
 
-  // Fetch eras using EraService
+  // Fetch eras
   useEffect(() => {
     const fetchEras = async () => {
       setLoading(true);
       setError(null);
       
       try {
-        console.log(version, 'Fetching eras using EraService');
+        console.log('[SELECTERA] ${version} Fetching eras');
         
-        if (!eraService) {
-          throw new Error('EraService not available from GameContext');
-        }
-        
-        const eraList = await eraService.getAllEras();
-        
-        console.log(version, 'Eras loaded via EraService:', eraList.length);
+          const eraList = await getAllEras();  // Use the proxied method from GameContext
+          
+        console.log('[SELECTERA] ${version} Eras loaded:', eraList.length);
         setEras(eraList);
         
       } catch (fetchError) {
-        console.error(version, 'Error fetching eras:', fetchError);
+        console.error('[SELECTERA] ${version} Error fetching eras:', fetchError);
         setError(fetchError.message || 'Failed to load eras');
       } finally {
         setLoading(false);
@@ -153,7 +161,7 @@ const SelectEraPage = () => {
     };
     
     fetchEras();
-  }, [eraService]);
+  }, []);
 
   // Fetch user rights when user profile changes
   useEffect(() => {
