@@ -1,15 +1,25 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.2: REFACTOR - Replaced InfoPanel with GameGuide component
+//         - Removed ~60 lines of instruction content
+//         - GameGuide auto-shows on first visit to era selection
+//         - Instructions now centralized in GameGuide.js
+//         - Reduced from ~370 lines to ~310 lines
+// v0.5.1: Added 'tester' role to development era visibility check
+//         - Development eras now visible to both admins AND testers
+//         - Regular users still cannot see dev eras
+// v0.5.0: Added status filtering - development eras visible only to admins
 // v0.4.3: removed EraService
 // v0.4.2: Added InfoButton and InfoPanel with era selection instructions
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useGame } from '../context/GameContext';
+import { supabase } from '../utils/supabaseClient';
 import PurchasePage from './PurchasePage';
 import InfoButton from '../components/InfoButton';
-import InfoPanel from '../components/InfoPanel';
+import GameGuide from '../components/GameGuide';
 
-const version = 'v0.4.3';
+const version = 'v0.5.2';
 
 const SelectEraPage = () => {
   const {
@@ -17,14 +27,14 @@ const SelectEraPage = () => {
     events,
     userProfile,
     getUserRights,
-      getAllEras,
-      getEraById
+    getAllEras,
+    getEraById
   } = useGame();
   
   // Auto-create guest user if no profile exists
   useEffect(() => {
     if (!userProfile) {
-      console.log('[SELECTERA] ${version} No user profile detected - creating guest session');
+      console.log(`[SELECTERA] ${version} No user profile detected - creating guest session`);
       const guestId = `guest-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
       dispatch(events.SELECTERA, {
         userData: { id: guestId }
@@ -45,10 +55,60 @@ const SelectEraPage = () => {
   const [userRights, setUserRights] = useState(new Map());
   const [showPurchasePage, setShowPurchasePage] = useState(false);
   const [purchaseEraId, setPurchaseEraId] = useState(null);
+  
+  // User role for status filtering
+  const [userRole, setUserRole] = useState('user');
+
+  // Fetch user role
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!userProfile?.id || userProfile.id.startsWith('guest-')) {
+        setUserRole('user');
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', userProfile.id)
+          .single();
+        
+        if (error) throw error;
+        
+        setUserRole(data?.role || 'user');
+        console.log(`[SELECTERA] ${version} User role:`, data?.role || 'user');
+      } catch (error) {
+        console.error(`[SELECTERA] ${version} Error fetching user role:`, error);
+        setUserRole('user');
+      }
+    };
+    
+    fetchUserRole();
+  }, [userProfile?.id]);
+
+  // Filter eras by status and user role (admin OR tester)
+  const availableEras = useMemo(() => {
+    if (!eras || eras.length === 0) return [];
+    
+    return eras.filter(era => {
+      // Always show active eras (or eras without status field)
+      if (!era.status || era.status === 'active') return true;
+      
+      // Show development eras to admins AND testers
+      if (era.status === 'development' && ['admin', 'tester'].includes(userRole)) {
+        console.log(`[SELECTERA] ${version} Development era visible to ${userRole}:`, era.name);
+        return true;
+      }
+      
+      // Hide everything else (beta, disabled, etc.)
+      return false;
+    });
+  }, [eras, userRole]);
 
   // Handle era selection - check if user has access
   const handleEraSelect = useCallback((era) => {
-    console.log('[SELECTERA] ${version} Era selected (UI state):', era.name);
+    console.log(`[SELECTERA] ${version} Era selected (UI state):`, era.name);
     
     // Check if era is accessible
     const hasAccess = userRights.get(era.id) || era.free;
@@ -57,7 +117,7 @@ const SelectEraPage = () => {
       setSelectedEra(era);
     } else {
       // Era is locked - show purchase page
-      console.log('[SELECTERA] ${version} Era locked, opening purchase page:', era.id);
+      console.log(`[SELECTERA] ${version} Era locked, opening purchase page:`, era.id);
       setPurchaseEraId(era.id);
       setShowPurchasePage(true);
     }
@@ -65,7 +125,7 @@ const SelectEraPage = () => {
 
   // Handle purchase completion
   const handlePurchaseComplete = useCallback(async (eraId) => {
-    console.log('[SELECTERA] ${version} Purchase completed for era:', eraId);
+    console.log(`[SELECTERA] ${version} Purchase completed for era:`, eraId);
     setShowPurchasePage(false);
     setPurchaseEraId(null);
     
@@ -81,46 +141,45 @@ const SelectEraPage = () => {
 
   // Handle purchase cancellation
   const handlePurchaseCancel = useCallback(() => {
-    console.log('[SELECTERA] ${version} Purchase cancelled');
+    console.log(`[SELECTERA] ${version} Purchase cancelled`);
     setShowPurchasePage(false);
     setPurchaseEraId(null);
   }, []);
 
-  // Transition to opponent selection - NO alliance selection here anymore
-    // Line 90 - Update handlePlayEra
-    const handlePlayEra = useCallback(async () => {
-      if (!selectedEra) {
-        console.error('[SELECTERA] ${version} No era selected');
-        return;
-      }
+  // Transition to opponent selection
+  const handlePlayEra = useCallback(async () => {
+    if (!selectedEra) {
+      console.error(`[SELECTERA] ${version} No era selected`);
+      return;
+    }
 
-      console.log('[SELECTERA] ${version} Loading full era config for:', selectedEra.name);
+    console.log(`[SELECTERA] ${version} Loading full era config for:`, selectedEra.name);
+    
+    try {
+      // Load the FULL era configuration
+      const fullEraConfig = await getEraById(selectedEra.id);
       
-      try {
-        // Load the FULL era configuration
-        const fullEraConfig = await getEraById(selectedEra.id);
-        
-        console.log('[SELECTERA] ${version} Transitioning to opponent selection with era:', fullEraConfig.name);
-        
-        // Dispatch with full config
-        dispatch(events.SELECTOPPONENT, {
-          eraConfig: fullEraConfig
-        });
-      } catch (error) {
-        console.error('[SELECTERA] ${version} Failed to load era config:', error);
-        setError('Failed to load era configuration');
-      }
-    }, [selectedEra, dispatch, events, getEraById]);
+      console.log(`[SELECTERA] ${version} Transitioning to opponent selection with era:`, fullEraConfig.name);
+      
+      // Dispatch with full config
+      dispatch(events.SELECTOPPONENT, {
+        eraConfig: fullEraConfig
+      });
+    } catch (error) {
+      console.error(`[SELECTERA] ${version} Failed to load era config:`, error);
+      setError('Failed to load era configuration');
+    }
+  }, [selectedEra, dispatch, events, getEraById]);
     
   // Fetch user rights using GameContext singleton
   const fetchUserRights = useCallback(async () => {
     if (!userProfile?.id) {
-      console.log('[SELECTERA] ${version} No user profile, skipping rights fetch');
+      console.log(`[SELECTERA] ${version} No user profile, skipping rights fetch`);
       return;
     }
 
     try {
-      console.log('[SELECTERA] ${version} Fetching user rights for:', userProfile.id);
+      console.log(`[SELECTERA] ${version} Fetching user rights for:`, userProfile.id);
       const rights = await getUserRights(userProfile.id);
       
       // Create a map of era access
@@ -132,9 +191,9 @@ const SelectEraPage = () => {
       });
       
       setUserRights(rightsMap);
-      console.log('[SELECTERA] ${version} User rights loaded:', rightsMap);
+      console.log(`[SELECTERA] ${version} User rights loaded:`, rightsMap);
     } catch (error) {
-      console.error('[SELECTERA] ${version} Error fetching user rights:', error);
+      console.error(`[SELECTERA] ${version} Error fetching user rights:`, error);
     }
   }, [userProfile?.id, getUserRights]);
 
@@ -145,15 +204,15 @@ const SelectEraPage = () => {
       setError(null);
       
       try {
-        console.log('[SELECTERA] ${version} Fetching eras');
+        console.log(`[SELECTERA] ${version} Fetching eras`);
         
-          const eraList = await getAllEras();  // Use the proxied method from GameContext
-          
-        console.log('[SELECTERA] ${version} Eras loaded:', eraList.length);
+        const eraList = await getAllEras();
+        
+        console.log(`[SELECTERA] ${version} Eras loaded:`, eraList.length);
         setEras(eraList);
         
       } catch (fetchError) {
-        console.error('[SELECTERA] ${version} Error fetching eras:', fetchError);
+        console.error(`[SELECTERA] ${version} Error fetching eras:`, fetchError);
         setError(fetchError.message || 'Failed to load eras');
       } finally {
         setLoading(false);
@@ -161,7 +220,7 @@ const SelectEraPage = () => {
     };
     
     fetchEras();
-  }, []);
+  }, [getAllEras]);
 
   // Fetch user rights when user profile changes
   useEffect(() => {
@@ -170,6 +229,11 @@ const SelectEraPage = () => {
 
   // Determine badge type for era
   const getEraBadge = useCallback((era) => {
+    // Show DEV badge for development eras (admins/testers only)
+    if (era.status === 'development') {
+      return 'dev';
+    }
+    
     if (era.free) return 'free';
     
     const hasAccess = userRights.get(era.id);
@@ -218,7 +282,7 @@ const SelectEraPage = () => {
   }
 
   // No eras found
-  if (!loading && eras.length === 0) {
+  if (!loading && availableEras.length === 0) {
     return (
       <div className="container flex flex-column flex-center">
         <div className="content-pane content-pane--narrow">
@@ -246,51 +310,12 @@ const SelectEraPage = () => {
       <div className="page-with-info">
         <InfoButton onClick={() => setShowInfo(true)} />
         
-        <InfoPanel
-          isOpen={showInfo}
+        {/* v0.5.2: GameGuide replaces InfoPanel with static content */}
+        <GameGuide
+          section="era"
+          manualOpen={showInfo}
           onClose={() => setShowInfo(false)}
-          title="Era Selection"
-        >
-          <h4>What is an Era?</h4>
-          <p>
-            Each era represents a different naval combat scenario with unique characteristics:
-          </p>
-          <ul>
-            <li><strong>Grid Size:</strong> Larger grids = more strategic positioning</li>
-            <li><strong>Ship Types:</strong> Different eras have different fleets</li>
-            <li><strong>Terrain:</strong> Water depth, islands, and obstacles vary by era</li>
-            <li><strong>Game Rules:</strong> Some eras have special mechanics</li>
-          </ul>
-
-          <h4>Era Badges</h4>
-          <ul>
-            <li><strong className="badge badge--success">FREE</strong> - Play immediately, no purchase required</li>
-            <li><strong className="badge badge--success">✓</strong> - You own this era</li>
-            <li><strong className="badge badge--primary">BUY</strong> - Premium era, purchase to unlock</li>
-          </ul>
-
-          <h4>How to Select</h4>
-          <ol>
-            <li>Browse the available eras</li>
-            <li>Click on an era to select it (highlights in blue)</li>
-            <li>Review the grid size and player count</li>
-            <li>Click <strong>"Play [Era Name]"</strong> to continue</li>
-          </ol>
-
-          <h4>Premium Eras</h4>
-          <p>
-            Clicking a locked era (marked <strong className="badge badge--primary">BUY</strong>) will show purchase options:
-          </p>
-          <ul>
-            <li><strong>One-time purchase:</strong> Unlock forever with credit card</li>
-            <li><strong>Voucher code:</strong> Redeem a promotional code</li>
-          </ul>
-
-          <h4>Guest Players</h4>
-          <p>
-            If you're playing as a guest, only free eras are available. Create an account to access premium content!
-          </p>
-        </InfoPanel>
+        />
 
         <div className="content-pane content-pane--wide">
           <div className="card-header">
@@ -300,9 +325,9 @@ const SelectEraPage = () => {
 
           {/* Era list using new shared classes */}
           <div className="era-list scrollable-list">
-            {eras.map((era) => {
+            {availableEras.map((era) => {
               const badgeType = getEraBadge(era);
-              const isAccessible = badgeType === 'free' || badgeType === 'owned';
+              const isAccessible = badgeType === 'free' || badgeType === 'owned' || badgeType === 'dev';
               
               return (
                 <div
@@ -315,6 +340,7 @@ const SelectEraPage = () => {
                     {badgeType === 'free' && <span className="badge badge--success">FREE</span>}
                     {badgeType === 'owned' && <span className="badge badge--success">✓</span>}
                     {badgeType === 'buy' && <span className="badge badge--primary">BUY</span>}
+                    {badgeType === 'dev' && <span className="badge badge--warning">DEV</span>}
                   </div>
                   <div className="item-description">{era.era_description}</div>
                   <div className="item-details">

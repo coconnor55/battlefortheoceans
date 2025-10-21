@@ -3,6 +3,8 @@
 
 import React from 'react';
 
+const version = "v0.1.0"
+
 const InfoButton = ({ onClick }) => {
   return (
     <button

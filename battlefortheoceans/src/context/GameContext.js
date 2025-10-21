@@ -1,15 +1,20 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.2: Fixed missing handleStarShellFired after revert
+//         - Revert attempted to go back to v0.4.1 but used OLD v0.4.1
+//         - This version correctly includes handleStarShellFired from v0.6.2 CoreEngine
+//         - Lesson: Always increment version on every change
+// v0.4.1: Exposed handleStarShellFired from CoreEngine
+//         - Star shell logic now lives in CoreEngine (game logic layer)
+//         - Context provides wrapper for UI access via useGameState hook
+// v0.4.0: Multi-fleet combat support
+//         - Exposed selectedOpponents[] array
+//         - Backward compatible selectedOpponent (first opponent)
 
 import React, { createContext, useContext } from 'react';
 import CoreEngine from '../engines/CoreEngine';
 
-const version = "v0.4.0";
-/**
- * v0.4.0: Multi-fleet combat support
- *         - Exposed selectedOpponents[] array
- *         - Backward compatible selectedOpponent (first opponent)
- */
+const version = "v0.4.2";
 
 const GameState = createContext();
 
@@ -54,6 +59,9 @@ export const GameProvider = ({ children }) => {
       // Game actions
       registerShipPlacement: (ship, shipCells, orientation, playerId) =>
         coreEngine.registerShipPlacement(ship, shipCells, orientation, playerId),
+      
+      // v0.4.1: Resource actions
+      handleStarShellFired: (row, col) => coreEngine.handleStarShellFired(row, col),
       
       // User profile functions
       getUserProfile: (userId) => coreEngine.getUserProfile(userId),

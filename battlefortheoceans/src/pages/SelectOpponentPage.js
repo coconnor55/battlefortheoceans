@@ -1,15 +1,16 @@
-// src/pages/SelectOpponentPage.js 
+// src/pages/SelectOpponentPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.1: Replaced InfoPanel with GameGuide component - removed ~65 lines of hardcoded instructions
+// v0.6.0: Multi-fleet combat support (Pirates of the Gulf)
 // v0.5.0: Added avatar display for AI captains
-// v0.4.6: Added transition loading state to prevent visual lag
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
 import InfoButton from '../components/InfoButton';
-import InfoPanel from '../components/InfoPanel';
+import GameGuide from '../components/GameGuide';
 
-const version = 'v0.5.0';
+const version = 'v0.6.1';
 
 const SelectOpponentPage = () => {
   const {
@@ -28,6 +29,10 @@ const SelectOpponentPage = () => {
   
   const [selectedAlliance, setSelectedAlliance] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
+  
+  // v0.6.0: Multi-fleet selection state
+  const [selectedPirateFleets, setSelectedPirateFleets] = useState([]);
+  
   const [onlineHumans, setOnlineHumans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -35,6 +40,10 @@ const SelectOpponentPage = () => {
   
   const [aiExpanded, setAiExpanded] = useState(true);
   const [humanExpanded, setHumanExpanded] = useState(false);
+
+  // v0.6.0: Check if this is multi-fleet combat era
+  const isMultiFleet = eraConfig?.game_rules?.multi_fleet_combat;
+  const pirateFleets = eraConfig?.alliances?.find(a => a.name === 'Pirates')?.pirate_fleets || [];
 
   const getDifficultyLabel = (difficulty) => {
     if (difficulty < 1.0) return 'Easy';
@@ -50,6 +59,36 @@ const SelectOpponentPage = () => {
     if (difficulty <= 1.4) return 'badge--warning';
     return 'badge--danger';
   };
+
+  // v0.6.0: Calculate combined difficulty for multi-fleet
+  const getCombinedDifficulty = useCallback(() => {
+    if (selectedPirateFleets.length === 0) return 0;
+    
+    const multiplier = eraConfig.game_rules.fleet_difficulty_multipliers[selectedPirateFleets.length] || 1.0;
+    const baseDifficulty = selectedPirateFleets.reduce((sum, fleet) => sum + fleet.ai_captain.difficulty, 0);
+    
+    return (baseDifficulty * multiplier).toFixed(1);
+  }, [selectedPirateFleets, eraConfig]);
+
+  // v0.6.0: Toggle pirate fleet selection
+  const handleFleetToggle = useCallback((fleet) => {
+    setSelectedPirateFleets(prev => {
+      const isSelected = prev.some(f => f.fleet_id === fleet.fleet_id);
+      
+      if (isSelected) {
+        // Deselect
+        return prev.filter(f => f.fleet_id !== fleet.fleet_id);
+      } else {
+        // Select (check max limit)
+        const maxFleets = eraConfig.game_rules.fleet_selection_max || 4;
+        if (prev.length >= maxFleets) {
+          console.log(version, 'Max fleet limit reached:', maxFleets);
+          return prev;
+        }
+        return [...prev, fleet];
+      }
+    });
+  }, [eraConfig]);
 
   const handleAllianceSelect = useCallback((allianceName) => {
     console.log(version, 'Alliance selected:', allianceName);
@@ -97,32 +136,69 @@ const SelectOpponentPage = () => {
   }, [eraConfig, selectedAlliance]);
 
   const handleBeginBattle = useCallback(async () => {
-    if (!selectedOpponent) {
-      console.error(version, 'No opponent selected');
-      return;
+    // v0.6.0: Multi-fleet handling
+    if (isMultiFleet) {
+      // Pirates - check that at least one fleet is selected
+      if (selectedPirateFleets.length === 0) {
+        console.error(version, 'No pirate fleets selected');
+        return;
+      }
+
+      const minFleets = eraConfig.game_rules.fleet_selection_min || 1;
+      if (selectedPirateFleets.length < minFleets) {
+        console.error(version, `At least ${minFleets} fleet(s) required`);
+        return;
+      }
+
+      console.log(version, 'Proceeding to placement with multi-fleet:');
+      console.log(version, 'Era:', eraConfig.name);
+      console.log(version, 'Selected fleets:', selectedPirateFleets.length);
+      
+      // Build opponents array with captain + ships
+      const opponents = selectedPirateFleets.map(fleet => ({
+        ...fleet.ai_captain,
+        ships: fleet.ships,
+        fleet_id: fleet.fleet_id
+      }));
+      
+      setIsTransitioning(true);
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      dispatch(events.PLACEMENT, {
+        eraConfig: eraConfig,
+        selectedOpponents: opponents,  // Array
+        selectedAlliance: 'US Navy'
+      });
+      
+    } else {
+      // Traditional/Midway - single opponent
+      if (!selectedOpponent) {
+        console.error(version, 'No opponent selected');
+        return;
+      }
+
+      const requiresAlliance = eraConfig?.game_rules?.choose_alliance;
+
+      if (requiresAlliance && !selectedAlliance) {
+        console.error(version, 'Alliance selection required but not selected');
+        return;
+      }
+
+      console.log(version, 'Proceeding to placement with:');
+      console.log(version, 'Era:', eraConfig.name);
+      console.log(version, 'Opponent:', selectedOpponent.name, selectedOpponent.type);
+      console.log(version, 'Alliance:', selectedAlliance || 'none');
+      
+      setIsTransitioning(true);
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      dispatch(events.PLACEMENT, {
+        eraConfig: eraConfig,
+        selectedOpponent: selectedOpponent,  // Single (backward compatible)
+        selectedAlliance: selectedAlliance
+      });
     }
-
-    const requiresAlliance = eraConfig?.game_rules?.choose_alliance;
-
-    if (requiresAlliance && !selectedAlliance) {
-      console.error(version, 'Alliance selection required but not selected');
-      return;
-    }
-
-    console.log(version, 'Proceeding to placement with:');
-    console.log(version, 'Era:', eraConfig.name);
-    console.log(version, 'Opponent:', selectedOpponent.name, selectedOpponent.type);
-    console.log(version, 'Alliance:', selectedAlliance || 'none');
-    
-    setIsTransitioning(true);
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    dispatch(events.PLACEMENT, {
-      eraConfig: eraConfig,
-      selectedOpponent: selectedOpponent,
-      selectedAlliance: selectedAlliance
-    });
-  }, [selectedOpponent, selectedAlliance, eraConfig, dispatch, events]);
+  }, [isMultiFleet, selectedPirateFleets, selectedOpponent, selectedAlliance, eraConfig, dispatch, events]);
 
   const fetchOnlineHumans = useCallback(async () => {
     setLoading(true);
@@ -184,73 +260,35 @@ const SelectOpponentPage = () => {
   }
 
   const requiresAlliance = eraConfig.game_rules?.choose_alliance;
-  const canProceed = selectedOpponent && (!requiresAlliance || selectedAlliance);
+  
+  // v0.6.0: Determine if user can proceed
+  const canProceed = isMultiFleet
+    ? selectedPirateFleets.length >= (eraConfig.game_rules.fleet_selection_min || 1)
+    : selectedOpponent && (!requiresAlliance || selectedAlliance);
+  
   const availableAICaptains = getAvailableAICaptains();
   
-  const buttonText = selectedOpponent ? `Play ${selectedOpponent.name}` : 'Select Opponent';
+  // v0.6.0: Dynamic button text
+  const getButtonText = () => {
+    if (isMultiFleet) {
+      if (selectedPirateFleets.length === 0) return 'Select Pirate Fleet(s)';
+      const fleetNames = selectedPirateFleets.map(f => f.ai_captain.name).join(' & ');
+      return `Play vs ${fleetNames}`;
+    } else {
+      return selectedOpponent ? `Play ${selectedOpponent.name}` : 'Select Opponent';
+    }
+  };
 
   return (
     <div className="container flex flex-column flex-center">
       <div className="page-with-info">
         <InfoButton onClick={() => setShowInfo(true)} />
         
-        <InfoPanel
-          isOpen={showInfo}
+        <GameGuide
+          section="opponent"
+          manualOpen={showInfo}
           onClose={() => setShowInfo(false)}
-          title="Opponent Selection"
-        >
-          <h4>Alliance Selection</h4>
-          <p>
-            Some eras require you to <strong>choose an alliance first</strong> (e.g., US Navy vs Imperial Navy).
-            Each alliance has different ships and characteristics.
-          </p>
-
-          <h4>AI Opponents</h4>
-          <p>
-            Battle against computer-controlled captains with different personalities and skill levels:
-          </p>
-          <ul>
-            <li><strong className="badge badge--success">Easy</strong> - Beginner AI (0.7x)</li>
-            <li><strong className="badge badge--primary">Medium</strong> - Standard AI (1.0x)</li>
-            <li><strong className="badge badge--warning">Hard</strong> - Advanced AI (1.4x)</li>
-            <li><strong className="badge badge--danger">Expert</strong> - Expert AI (1.7x)</li>
-            <li><strong className="badge badge--danger">Master</strong> - Master AI (2.0x)</li>
-          </ul>
-          <p className="text-secondary">
-            <em>Difficulty multiplier affects scoring - defeating harder opponents earns more points!</em>
-          </p>
-
-          <h4>AI Strategies</h4>
-          <p>Each AI captain uses different tactics:</p>
-          <ul>
-            <li><strong>Random:</strong> Unpredictable targeting</li>
-            <li><strong>Methodical Random:</strong> Checkerboard search patterns</li>
-            <li><strong>Methodical Optimal:</strong> Advanced grid-search with offset patterns</li>
-            <li><strong>Aggressive:</strong> Center-out radiating with recursive hunts</li>
-            <li><strong>AI-Hunt:</strong> Probability heat maps with predictive algorithms</li>
-          </ul>
-
-          <h4>Human Opponents</h4>
-          <p>
-            Challenge other players currently online. Human vs Human battles feature:
-          </p>
-          <ul>
-            <li>Real-time matchmaking</li>
-            <li>Turn-based gameplay</li>
-            <li>Head-to-head competition</li>
-          </ul>
-          <p className="text-secondary">
-            <em>Note: Human vs Human multiplayer is coming soon!</em>
-          </p>
-
-          <h4>How to Select</h4>
-          <ol>
-            <li>Choose your alliance (if required)</li>
-            <li>Expand <strong>"AI Opponents"</strong> or <strong>"Human Opponents"</strong></li>
-            <li>Click on an opponent (highlights in blue)</li>
-            <li>Click <strong>"Play [Opponent Name]"</strong> to begin</li>
-          </ol>
-        </InfoPanel>
+        />
 
         <div className="content-pane content-pane--wide">
           <div className="card-header">
@@ -260,6 +298,7 @@ const SelectOpponentPage = () => {
           </div>
 
           <div className="card-body">
+            {/* Alliance Selection (Midway) */}
             {requiresAlliance && !selectedAlliance && (
               <div className="alliance-selection">
                 <div className="game-info">
@@ -297,7 +336,75 @@ const SelectOpponentPage = () => {
               </div>
             )}
 
-            {(!requiresAlliance || selectedAlliance) && (
+            {/* v0.6.0: Multi-Fleet Selection (Pirates) */}
+            {isMultiFleet && (!requiresAlliance || selectedAlliance) && (
+              <div className="pirate-fleet-selection">
+                <div className="game-info">
+                  <h3>Select Pirate Fleets to Face</h3>
+                  <p>Choose 1-4 pirate captains (Each fleet has 5 ships)</p>
+                  {selectedPirateFleets.length > 0 && (
+                    <p className="text-secondary">
+                      Combined Difficulty: <strong className="badge badge--danger">{getCombinedDifficulty()}x</strong>
+                    </p>
+                  )}
+                </div>
+
+                <div className="opponent-list">
+                  {pirateFleets.map((fleet) => {
+                    const isSelected = selectedPirateFleets.some(f => f.fleet_id === fleet.fleet_id);
+                    const difficulty = fleet.ai_captain.difficulty || 1.0;
+                    
+                    return (
+                      <div
+                        key={fleet.fleet_id}
+                        className={`selectable-item opponent-item pirate-fleet-item ${isSelected ? 'selectable-item--selected' : ''}`}
+                        onClick={() => handleFleetToggle(fleet)}
+                      >
+                        <div className="opponent-content">
+                          <div className="fleet-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}} // Handled by parent onClick
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          
+                          {fleet.ai_captain.avatar && (
+                            <div className="opponent-avatar opponent-avatar--small">
+                              <img
+                                src={`/${fleet.ai_captain.avatar}`}
+                                alt={fleet.ai_captain.name}
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          )}
+                          
+                          <div className="opponent-info">
+                            <div className="item-header">
+                              <div className="item-name">{fleet.ai_captain.name}</div>
+                              <div className={`badge ${getDifficultyBadgeClass(difficulty)}`}>
+                                {getDifficultyLabel(difficulty)} - {difficulty}x
+                              </div>
+                            </div>
+                            <div className="item-description">{fleet.ai_captain.description}</div>
+                            <div className="fleet-details">
+                              <span className="fleet-name">{fleet.fleet_name}</span>
+                              <span className="ship-count">{fleet.ships.length} ships</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Standard AI Opponents (Traditional/Midway) */}
+            {!isMultiFleet && (!requiresAlliance || selectedAlliance) && (
               <div className="collapsible-section">
                 <div
                   className="collapsible-section__header"
@@ -358,7 +465,8 @@ const SelectOpponentPage = () => {
               </div>
             )}
 
-            {(!requiresAlliance || selectedAlliance) && (
+            {/* Human Opponents (Future) */}
+            {!isMultiFleet && (!requiresAlliance || selectedAlliance) && (
               <div className="collapsible-section">
                 <div
                   className="collapsible-section__header"
@@ -420,9 +528,12 @@ const SelectOpponentPage = () => {
 
           {/* Action Section */}
           <div className="action-section">
-            {!selectedOpponent ? (
+            {!canProceed ? (
               <p className="text-dim text-center">
-                Select an opponent above to continue
+                {isMultiFleet
+                  ? 'Select at least one pirate fleet to continue'
+                  : 'Select an opponent above to continue'
+                }
               </p>
             ) : (
               <div className="card-footer">
@@ -431,7 +542,7 @@ const SelectOpponentPage = () => {
                   disabled={!canProceed}
                   onClick={handleBeginBattle}
                 >
-                  Play {selectedOpponent.name}
+                  {getButtonText()}
                 </button>
               </div>
             )}

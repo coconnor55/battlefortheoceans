@@ -1,18 +1,34 @@
-// src/pages/PlayingPage.js v0.3.12
+// src/pages/PlayingPage.js v0.5.2
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.3.12: Removed inline styles for fleet sidebar layout - now uses CSS classes
-// v0.3.11: Added fleet status sidebars (Home/Enemy) showing ship status
-// v0.3.10: Added InfoButton and InfoPanel with battle instructions
+// v0.5.2: REFACTOR - Replaced InfoPanel with GameGuide component
+//         - Removed ~100 lines of instruction content
+//         - GameGuide auto-shows on first visit to battle section
+//         - Instructions now centralized in GameGuide.js
+//         - Reduced from ~290 lines to ~190 lines
+// v0.5.1: REFACTOR - Extracted autoplay logic to useAutoPlay hook
+//         - Removed autoplay state and timer management (~50 lines)
+//         - Now uses useAutoPlay hook for testing utility
+//         - Testing/debug code properly isolated from gameplay
+//         - Reduced from ~340 lines to ~290 lines
+// v0.5.0: REFACTOR - Extracted video logic to useVideoTriggers hook
+//         - Removed video state (showVideo, currentVideo)
+//         - Removed video callback setup code
+//         - Now uses useVideoTriggers hook for all video management
+//         - Reduced from ~380 lines to ~340 lines
+//         - Video system now reusable across components
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
+import useVideoTriggers from '../hooks/useVideoTriggers';
+import useAutoPlay from '../hooks/useAutoPlay';
 import CanvasBoard from '../components/CanvasBoard';
 import FleetStatusSidebar from '../components/FleetStatusSidebar';
 import InfoButton from '../components/InfoButton';
-import InfoPanel from '../components/InfoPanel';
+import GameGuide from '../components/GameGuide';
+import VideoPopup from '../components/VideoPopup';
 
-const version = 'v0.3.12';
+const version = 'v0.5.2';
 
 const PlayingPage = () => {
   const {
@@ -39,8 +55,13 @@ const PlayingPage = () => {
     winner,
     gameBoard,
     gameMode,
-    handleAttack
+    handleAttack,
+    starShellsRemaining,
+    handleStarShellFired
   } = useGameState();
+  
+  // Video system (v0.5.0)
+  const { showVideo, currentVideo, handleVideoComplete } = useVideoTriggers(gameInstance, eraConfig);
   
   const [viewMode, setViewMode] = useState('blended');
   const [showInfo, setShowInfo] = useState(false);
@@ -71,14 +92,34 @@ const PlayingPage = () => {
   
   const [, setRenderTrigger] = useState(0);
   
-  const [autoPlayEnabled, setAutoPlayEnabled] = useState(false);
-  const autoPlayTimerRef = useRef(null);
+  // Get opponent player(s) for fleet sidebar
+  const opponentPlayers = gameInstance?.players?.filter(p => p.id !== humanPlayer?.id) || [];
   
-  const canUseAutoPlay = ['admin', 'developer', 'tester'].includes(userProfile?.role);
+  // Build opponent fleet data for multi-fleet display
+  const opponentFleetData = opponentPlayers.map(player => {
+    // Try to get captain name from player name or selectedOpponent
+    let captainName = player.name;
+    
+    // For Pirates era, extract captain name from AI player
+    if (eraConfig?.era === 'pirates' && selectedOpponent) {
+      // selectedOpponent might be an array of opponents
+      const opponentsList = Array.isArray(selectedOpponent) ? selectedOpponent : [selectedOpponent];
+      const matchingOpponent = opponentsList.find(opp =>
+        opp.ai_captain?.name === player.name || opp.ai_captain?.id === player.id
+      );
+      
+      if (matchingOpponent?.ai_captain?.name) {
+        captainName = matchingOpponent.ai_captain.name;
+      }
+    }
+    
+    return {
+      player,
+      captainName
+    };
+  });
   
-  // Get opponent player for fleet sidebar
-  const opponentPlayer = gameInstance?.players?.find(p => p.id !== humanPlayer?.id);
-  
+  // Set battle board ref (video callbacks handled by useVideoTriggers)
   useEffect(() => {
     if (gameInstance && canvasBoardRef.current) {
       gameInstance.setBattleBoardRef(canvasBoardRef);
@@ -87,80 +128,26 @@ const PlayingPage = () => {
   }, [gameInstance]);
 
   const handleShotFired = useCallback((row, col) => {
-    if (!isPlayerTurn || !isGameActive) {
-      console.log(version, 'Shot blocked - not player turn or game inactive');
-      return false;
-    }
-    
     console.log(version, 'Player shot fired at', { row, col });
     const result = handleAttack(row, col);
-    
     return { result, row, col };
-  }, [isPlayerTurn, isGameActive, handleAttack]);
+  }, [handleAttack]);
   
-  const fireRandomShot = useCallback(() => {
-    if (!gameInstance || !isPlayerTurn || !isGameActive) {
-      return;
-    }
-
-    const humanPlayerFromGame = gameInstance.players.find(p => p.type === 'human');
-    if (!humanPlayerFromGame) {
-      console.log(version, 'AutoPlay: No human player found in game instance');
-      return;
-    }
-
-    const validTargets = [];
-    for (let row = 0; row < eraConfig.rows; row++) {
-      for (let col = 0; col < eraConfig.cols; col++) {
-        if (gameInstance.isValidAttack(row, col, humanPlayerFromGame)) {
-          validTargets.push({ row, col });
-        }
-      }
-    }
-
-    if (validTargets.length === 0) {
-      console.log(version, 'AutoPlay: No valid targets remaining');
-      setAutoPlayEnabled(false);
-      return;
-    }
-
-    const randomIndex = Math.floor(Math.random() * validTargets.length);
-    const target = validTargets[randomIndex];
-    
-    console.log(version, 'AutoPlay firing at', target, `(${validTargets.length} targets remaining)`);
-    handleShotFired(target.row, target.col);
-  }, [gameInstance, isPlayerTurn, isGameActive, eraConfig, handleShotFired]);
-
-  useEffect(() => {
-    if (autoPlayTimerRef.current) {
-      clearTimeout(autoPlayTimerRef.current);
-      autoPlayTimerRef.current = null;
-    }
-
-    if (autoPlayEnabled && isGameActive && isPlayerTurn) {
-      autoPlayTimerRef.current = setTimeout(() => {
-        fireRandomShot();
-      }, 200);
-    }
-
-    return () => {
-      if (autoPlayTimerRef.current) {
-        clearTimeout(autoPlayTimerRef.current);
-        autoPlayTimerRef.current = null;
-      }
-    };
-  }, [autoPlayEnabled, isGameActive, isPlayerTurn, fireRandomShot, battleMessage]);
-
-  useEffect(() => {
-    if (!isGameActive) {
-      setAutoPlayEnabled(false);
-    }
-  }, [isGameActive]);
-
-  const handleAutoPlayToggle = () => {
-    setAutoPlayEnabled(prev => !prev);
-    console.log(version, 'AutoPlay toggled:', !autoPlayEnabled);
-  };
+  const onStarShellFired = useCallback((row, col) => {
+    console.log(version, 'Star shell fired at', { row, col });
+    handleStarShellFired(row, col);
+  }, [handleStarShellFired]);
+  
+  // v0.5.1: AutoPlay testing utility extracted to hook
+  const { autoPlayEnabled, canUseAutoPlay, handleAutoPlayToggle } = useAutoPlay({
+    gameInstance,
+    eraConfig,
+    isPlayerTurn,
+    isGameActive,
+    handleShotFired,
+    userProfile,
+    battleMessage
+  });
 
   useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {
@@ -205,65 +192,13 @@ const PlayingPage = () => {
       <div className="page-with-info">
         <InfoButton onClick={() => setShowInfo(true)} />
         
-        <InfoPanel
-          isOpen={showInfo}
+        {/* v0.5.2: GameGuide replaces InfoPanel with static content */}
+        <GameGuide
+          section="battle"
+          manualOpen={showInfo}
           onClose={() => setShowInfo(false)}
-          title="Battle Instructions"
-        >
-          <h4>Understanding the Board</h4>
-          <p>
-            The battle board shows a combined view of your fleet and attack results. Use the view mode buttons to change what you see.
-          </p>
-
-          <h4>View Modes</h4>
-          <ul>
-            <li><strong>Fleet View:</strong> Shows only your ships and where enemy has attacked you</li>
-            <li><strong>Blended View:</strong> Shows both your ships and your attack results (default)</li>
-            <li><strong>Attack View:</strong> Shows only your attacks on the enemy (hides your ships)</li>
-          </ul>
-
-          <h4>Board Symbols</h4>
-          <ul>
-            <li><strong>Blue ship outlines:</strong> Your fleet positions</li>
-            <li><strong>Blue dots:</strong> Enemy's missed shots (Fleet view)</li>
-            <li><strong>Gray dots:</strong> Your missed shots (Combined/Attack views)</li>
-            <li><strong>Red slash:</strong> Your hits on enemy ships</li>
-            <li><strong>Blue slash:</strong> Enemy hits on your ships</li>
-            <li><strong>Crater icons:</strong> Ship damaged/sunk</li>
-          </ul>
-
-          <h4>Fleet Status Sidebars</h4>
-          <ul>
-            <li><strong>Left sidebar (Home):</strong> Your fleet status</li>
-            <li><strong>Right sidebar (Enemy):</strong> Opponent fleet status</li>
-            <li><strong>💀 Skull:</strong> Ship is sunk (crossed out)</li>
-          </ul>
-
-          <h4>How to Attack</h4>
-          <ul>
-            <li>Wait for your turn (check the message console)</li>
-            <li>Click any unattacked cell on the grid</li>
-            <li>Watch for hit/miss feedback and particle effects</li>
-            <li>Repeat until all enemy ships are sunk!</li>
-          </ul>
-
-          <h4>Strategy Tips</h4>
-          <ul>
-            <li>After a hit, target adjacent cells to find the rest of the ship</li>
-            <li>Ships are oriented horizontally or vertically (not diagonal)</li>
-            <li>Terrain affects gameplay - check ship restrictions</li>
-            <li>Track enemy attack patterns to predict their strategy</li>
-          </ul>
-
-          <h4>Game Stats</h4>
-          <p>
-            Below the board, you'll see:
-          </p>
-          <ul>
-            <li><strong>Your Hits:</strong> Number of successful attacks you've made</li>
-            <li><strong>Enemy Hits:</strong> Number of times enemy has hit your ships</li>
-          </ul>
-        </InfoPanel>
+          eraName={eraConfig?.name}
+        />
 
         <div className="content-pane content-pane--wide">
           <div className="card-header text-center">
@@ -274,9 +209,17 @@ const PlayingPage = () => {
             <FleetStatusSidebar
               fleet={humanPlayer?.fleet}
               title="Home"
+              starShellsRemaining={starShellsRemaining}
             />
             
             <div className="game-board-container">
+              {showVideo && currentVideo && (
+                <VideoPopup
+                  videoSrc={currentVideo}
+                  onComplete={handleVideoComplete}
+                />
+              )}
+              
               <CanvasBoard
                 ref={canvasBoardRef}
                 mode="battle"
@@ -286,11 +229,14 @@ const PlayingPage = () => {
                 gameInstance={gameInstance}
                 gameState={gameState}
                 onShotFired={handleShotFired}
+                onStarShellFired={onStarShellFired}
+                humanPlayer={humanPlayer}
+                starShellsRemaining={starShellsRemaining}
               />
             </div>
             
             <FleetStatusSidebar
-              fleet={opponentPlayer?.fleet}
+              fleets={opponentFleetData}
               title="Enemy"
             />
           </div>

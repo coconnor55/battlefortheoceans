@@ -1,5 +1,5 @@
 {
-  "version": "0.3.3",
+  "version": "0.3.4",
   "era": "midway",
   "name": "Midway Island",
   "era_description": "Battle of Midway, June 4-7, 1942. Fight for control of this strategic Pacific atoll where American forces turned the tide against the Japanese Navy in World War II.",
@@ -8,6 +8,10 @@
   "cols": 13,
   "boundary": [],
   "max_players": 2,
+  "resources": {
+    "star_shells": 3,
+    "star_shell_pattern": "3x3"
+  },
   "era_assets": {
     "ship_silhouettes_path": "midway"
   },
@@ -21,7 +25,8 @@
       "Choose your alliance: US Navy or Imperial Navy",
       "Command legendary ships: USS Enterprise, Akagi, Yorktown",
       "13x13 battlefield with authentic Pacific terrain",
-      "Expanded historical fleet with destroyers, cruisers, and PT boats"
+      "Expanded historical fleet with destroyers, cruisers, and PT boats",
+      "3 Star Shells for surgical reconnaissance"
     ]
   },
   "game_rules": {

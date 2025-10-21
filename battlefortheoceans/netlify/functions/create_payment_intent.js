@@ -16,8 +16,16 @@ exports.handler = async (event, context) => {
   try {
     const { priceId, userId, eraId } = JSON.parse(event.body);
 
-    // Validate required fields
+      // ADD THIS LOGGING:
+      console.log('Received payment intent request:');
+      console.log('  priceId:', priceId);
+      console.log('  userId:', userId);
+      console.log('  eraId:', eraId);
+
+      // Validate required fields
     if (!priceId || !userId || !eraId) {
+        console.error('Validation failed - missing fields');
+
       return {
         statusCode: 400,
         body: JSON.stringify({

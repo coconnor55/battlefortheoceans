@@ -1,16 +1,21 @@
 // src/hooks/useGameState.js
 // Copyright(c) 2025, Clint H. O'Connor
-
-import { useState, useEffect, useCallback } from 'react';
-import { useGame } from '../context/GameContext';
-
-const version = "v0.3.0";
+// v0.3.1: Exposed resources from CoreEngine and handleStarShellFired wrapper
+//         - Added resources (starShells, scatterShot) from uiState
+//         - Added starShellsRemaining convenience getter
+//         - Added handleStarShellFired() wrapper for CoreEngine method
+//         - PlayingPage can now read resources instead of maintaining local state
 // v0.3.0: Phase 4 Refactor - Updated for missedShots → dontShoot rename
 //         Reflects that dontShoot includes both water misses AND destroyed ship cells
 //         Updated log messages and comments for clarity
 // v0.2.5: Phase 3 Refactor - Fixed handleAttack() to use correct isValidAttack signature
 //         Removed getPlayerView() which referenced deprecated playerFleets/shipOwnership
 //         Integration with player-owned fleet, shipPlacements, and miss tracking
+
+import { useState, useEffect, useCallback } from 'react';
+import { useGame } from '../context/GameContext';
+
+const version = "v0.3.1";
 
 const useGameState = () => {
   const {
@@ -21,7 +26,8 @@ const useGameState = () => {
     gameInstance,
     board,
     getUIState,
-    getPlacementProgress
+    getPlacementProgress,
+    handleStarShellFired: coreHandleStarShellFired
   } = useGame();
   
   // Message state from Game's Message system
@@ -110,6 +116,17 @@ const useGameState = () => {
       return false;
     }
   }, [gameInstance]);
+  
+  // v0.3.1: Handle star shell firing - wrapper for CoreEngine method
+  const handleStarShellFired = useCallback((row, col) => {
+    if (!coreHandleStarShellFired) {
+      console.log('[HOOK] No star shell handler available');
+      return false;
+    }
+    
+    console.log('[HOOK] Firing star shell through CoreEngine:', { row, col });
+    return coreHandleStarShellFired(row, col);
+  }, [coreHandleStarShellFired]);
     
   // Reset game
   const resetGame = useCallback(() => {
@@ -150,6 +167,9 @@ const useGameState = () => {
   const gamePhase = uiState.gamePhase;
   const winner = uiState.winner;
   const playerStats = uiState.playerStats;
+  
+  // v0.3.1: Resources from CoreEngine
+  const resources = uiState.resources || { starShells: 0, scatterShot: 0 };
 
   // Determine appropriate battle message
   const battleMessage = messages.console || 'Awaiting battle action...';
@@ -166,7 +186,8 @@ const useGameState = () => {
     currentPlayerType: currentPlayer?.type,
     hasMessages: !!gameInstance?.message,
     battleMessage: battleMessage.substring(0, 50) + '...',
-    uiMessage: uiMessage.substring(0, 50) + '...'
+    uiMessage: uiMessage.substring(0, 50) + '...',
+    resources: resources
   });
 
   return {
@@ -199,9 +220,15 @@ const useGameState = () => {
     // Single board instance (used by both placement and battle)
     gameBoard: board,
     
+    // v0.3.1: Resources from CoreEngine
+    resources,
+    starShellsRemaining: resources.starShells,
+    scatterShotRemaining: resources.scatterShot,
+    
     // Actions
     fireShot: handleAttack, // Alias for compatibility
     handleAttack,
+    handleStarShellFired,   // v0.3.1: Star shell handler
     resetGame,
     
     // Data accessors - computed properties

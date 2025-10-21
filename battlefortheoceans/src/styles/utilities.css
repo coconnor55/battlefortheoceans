@@ -1,5 +1,6 @@
-/* src/styles/utilities.css */
+/* src/styles/utilities.css v1.0.2 */
 /* Copyright(c) 2025, Clint H. O'Connor */
+/* v1.0.2: Fixed InfoButton - changed to position: fixed to prevent mobile layout issues */
 /* Utility classes and small components - consolidated */
 
 /* ============================================
@@ -208,16 +209,17 @@
   }
 }
 
-/* Info Button - Positioned relative to parent container */
+/* Info Button - Fixed to viewport (top-right corner) */
+/* v1.0.2: Changed from absolute to fixed positioning to prevent mobile layout issues */
 .page-with-info {
   position: relative;
   width: 100%;
 }
 
 .info-button {
-  position: absolute;
-  top: var(--space-md);
-  right: var(--space-md);
+  position: fixed; /* Changed from absolute to fixed */
+  top: 80px; /* Below navbar (60px + spacing) */
+  right: var(--space-lg);
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -249,7 +251,7 @@
 /* Mobile responsive */
 @media (max-width: 768px) {
   .info-button {
-    top: var(--space-md);
+    top: 70px; /* Slightly lower on mobile */
     right: var(--space-md);
     width: 36px;
     height: 36px;

@@ -1,10 +1,14 @@
-// scripts/list-versions.js
+// scripts/list-versions.js v0.1.9
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.9: Fixed CSS header pattern matching
+//         - Added cssHeaderMatch for standard CSS format: /* filepath vX.Y.Z */
+//         - Kept legacy cssParenMatch for old format with parentheses
+//         - CSS files should now be detected properly
 
 const fs = require('fs');
 const path = require('path');
 
-const version = "v0.1.8";
+const version = "v0.1.9";
 
 function scanDirectory(dirPath, basePath = '') {
   const items = fs.readdirSync(dirPath, { withFileTypes: true });
@@ -40,11 +44,11 @@ function analyzeFile(filePath, relativePath) {
     let hasEOF = false;
     let versionSource = 'missing';
     
-    // Check for version in different formats - increased from 10 to 20 lines
-    for (let i = 0; i < Math.min(20, lines.length); i++) {
+    // Check for version in different formats - search first 50 lines
+    for (let i = 0; i < Math.min(50, lines.length); i++) {
       const line = lines[i].trim();
       
-      // Look for const version = "vx.y.z" format (preferred)
+      // Look for const version = "vx.y.z" format (preferred for JS)
       const constMatch = line.match(/const\s+version\s*=\s*["']([^"']+)["']/);
       if (constMatch) {
         version = constMatch[1];
@@ -52,7 +56,15 @@ function analyzeFile(filePath, relativePath) {
         break;
       }
       
-      // Look for old comment format as fallback
+      // Look for CSS header format: /* filepath vX.Y.Z */
+      const cssHeaderMatch = line.match(/\/\*\s*[\w\/\.\-]+\s+(v\d+\.\d+\.\d+[^\s*]*)/);
+      if (cssHeaderMatch) {
+        version = cssHeaderMatch[1];
+        versionSource = 'css-header';
+        break;
+      }
+      
+      // Look for old comment format with parentheses
       const commentMatch = line.match(/\/\/.*\(([v]\d+\.\d+\.\d+[^)]*)\)/);
       if (commentMatch) {
         version = commentMatch[1];
@@ -60,11 +72,11 @@ function analyzeFile(filePath, relativePath) {
         break;
       }
       
-      // CSS version format /* ... (vx.y.z) */
-      const cssMatch = line.match(/\/\*.*\(([v]\d+\.\d+\.\d+[^)]*)\)/);
-      if (cssMatch) {
-        version = cssMatch[1];
-        versionSource = 'css-comment';
+      // CSS version with parentheses (legacy format)
+      const cssParenMatch = line.match(/\/\*.*\(([v]\d+\.\d+\.\d+[^)]*)\)/);
+      if (cssParenMatch) {
+        version = cssParenMatch[1];
+        versionSource = 'css-paren';
         break;
       }
     }

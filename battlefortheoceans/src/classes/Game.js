@@ -6,9 +6,21 @@ import Fleet from './Fleet.js';
 import Alliance from './Alliance.js';
 import Message from './Message.js';
 
-const version = "v0.7.6";
-const version = "v0.8.0";
+const version = "v0.8.3";
 /**
+ * v0.8.3: Added onGameOver callback for synchronous victory/defeat video triggers
+ * - Follows same pattern as onShipSunk (v0.8.1)
+ * - Calls callback immediately when game ends, before delays
+ * - Passes event type ('victory' or 'defeat') and game details
+ * - Eliminates need for useEffect monitoring in React
+ * v0.8.2: Skip ship sunk video if it's the winning/losing shot
+ * - Checks if game will end before triggering onShipSunk callback
+ * - Prevents conflict between sunkopponent and victory videos
+ * - Only victory/defeat video plays when game ends
+ * v0.8.1: Added onShipSunk callback for synchronous video triggers
+ * - Game calls callback immediately when ship sinks in receiveAttack()
+ * - Passes event type ('player' or 'opponent') and ship details
+ * - Eliminates need for polling/monitoring in React
  * v0.8.0: Added addPlayerWithFleet() for multi-fleet combat
  * - Allows assigning specific ships to AI captains (Pirates of the Gulf)
  * - Keeps addPlayer() unchanged for Traditional/Midway compatibility
@@ -61,8 +73,8 @@ class Game {
       shotAnimation: 500,
       resultAnimation: 300,
       soundDelay: 200,
-      fireAnimationClearDelay: 3000, // NEW: Wait for fire to clear
-      gameOverDelay: 2000 // REDUCED: After snapshot, shorter delay
+      fireAnimationClearDelay: 3000, // Wait for fire to clear
+      gameOverDelay: 2000 // After snapshot, shorter delay
     };
     
     this.gameLog = [];
@@ -72,6 +84,8 @@ class Game {
     this.maxTurnTime = 30000;
     this.uiUpdateCallback = null;
     this.gameEndCallback = null;
+    this.onShipSunk = null; // v0.8.1: Callback for ship sunk events
+    this.onGameOver = null; // v0.8.3: Callback for game over events
     this.battleBoardRef = null;
     this.humanPlayerId = null;
     this.lastAttackResult = null;
@@ -191,6 +205,14 @@ class Game {
 
   setGameEndCallback(callback) {
     this.gameEndCallback = callback;
+  }
+
+  setOnShipSunk(callback) {
+    this.onShipSunk = callback;
+  }
+
+  setOnGameOver(callback) {
+    this.onGameOver = callback;
   }
 
   setBattleBoardRef(ref) {
@@ -466,6 +488,37 @@ class Game {
         console.log(`[Game ${this.id}] ${firingPlayer.name} sunk ${targetPlayer.name}'s ${ship.name}: 10 * ${multiplier} = ${Math.round(10 * multiplier)} points`);
         
         this.battleLog(`t${this.currentTurn}-SUNK: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`, 'sunk');
+        
+        // v0.8.2: Only trigger ship sunk callback if game won't end
+        // Check if target player is now defeated (might end game)
+        const targetWillBeDefeated = targetPlayer.fleet.ships.every(s => s.isSunk());
+        
+        // Check if this would end the game (all opponents defeated)
+        let gameWillEnd = false;
+        if (targetWillBeDefeated) {
+          const activeAlliances = Array.from(this.alliances.values()).filter(alliance => {
+            if (alliance.players.length === 0) return false;
+            return alliance.players.some(player => {
+              // Simulate what checkGameEnd() will see
+              if (player.id === targetPlayer.id) return false; // This player is defeated
+              return !player.isDefeated();
+            });
+          });
+          gameWillEnd = activeAlliances.length <= 1;
+        }
+        
+        // Only trigger video if game won't end (let victory/defeat video play instead)
+        if (this.onShipSunk && !gameWillEnd) {
+          const eventType = targetPlayer.id === this.humanPlayerId ? 'player' : 'opponent';
+          this.onShipSunk(eventType, {
+            ship: ship,
+            attacker: firingPlayer,
+            target: targetPlayer,
+            cell: cellName
+          });
+        } else if (gameWillEnd) {
+          console.log(`[Game ${this.id}] Skipping ship sunk video - game will end (victory/defeat will play instead)`);
+        }
       } else {
         let messageType;
         const messageContext = {
@@ -556,7 +609,7 @@ class Game {
     
     console.log(`[GAME] Placement validated, registering ${ship.name} (${orientation})`);
     
-    // v0.7.5: Pass orientation to player.placeShip()
+    // Pass orientation to player.placeShip()
     for (let i = 0; i < shipCells.length; i++) {
       const cell = shipCells[i];
       player.placeShip(cell.row, cell.col, ship.id, i, orientation);
@@ -786,61 +839,69 @@ class Game {
     return this.board.isValidCoordinate(row, col);
   }
   
-    // Update the endGame() method in Game.js
-    // Replace lines 583-624 with this version
-
-    endGame() {
-      this.state = 'finished';
-      this.endTime = new Date();
-      
-      const humanPlayer = this.players.find(p => p.id === this.humanPlayerId);
-      const humanWon = this.winner && humanPlayer && this.winner.id === humanPlayer.id;
-      
-      // Play victory/defeat sound immediately
-      if (humanWon) {
-        console.log(`[Game ${this.id}] Human victory - playing fanfare in 1 second`);
-        this.playSound('victoryFanfare', 1000);
-      } else {
-        console.log(`[Game ${this.id}] Human defeat - playing funeral march in 1 second`);
-        this.playSound('funeralMarch', 1000);
-      }
-      
-      this.message.post(this.message.types.GAME_END, {
+  endGame() {
+    this.state = 'finished';
+    this.endTime = new Date();
+    
+    const humanPlayer = this.players.find(p => p.id === this.humanPlayerId);
+    const humanWon = this.winner && humanPlayer && this.winner.id === humanPlayer.id;
+    
+    // v0.8.3: Call onGameOver callback IMMEDIATELY (synchronous)
+    // This allows video to start while animations play
+    if (this.onGameOver) {
+      const eventType = humanWon ? 'victory' : 'defeat';
+      this.onGameOver(eventType, {
         winner: this.winner,
+        humanPlayer: humanPlayer,
         gameStats: this.getGameStats()
-      }, [this.message.channels.CONSOLE, this.message.channels.UI, this.message.channels.LOG]);
-      
-      if (this.winner) {
-        this.battleLog(`Game ended: ${this.winner.name} wins!`, 'victory');
-      } else {
-        this.battleLog('Game ended: Draw', 'draw');
-      }
-
-      this.cleanupTemporaryAlliances();
-      
-      // NEW TIMING: Wait for fire to clear, THEN capture winner's board, THEN notify
-      console.log(`[Game ${this.id}] Waiting ${this.animationSettings.fireAnimationClearDelay}ms for fire animations to clear`);
-      
-      setTimeout(() => {
-        // Capture winner's board AFTER fire has cleared
-        if (this.battleBoardRef?.current?.captureWinnerBoard) {
-          const winnerId = this.winner?.id || humanPlayer?.id;
-          console.log(`[Game ${this.id}] Capturing winner's board (fire cleared), winnerId:`, winnerId);
-          this.finalBoardImage = this.battleBoardRef.current.captureWinnerBoard(winnerId);
-          if (this.finalBoardImage) {
-            console.log(`[Game ${this.id}] Winner's board captured successfully (${this.finalBoardImage.length} bytes)`);
-          }
-        }
-        
-        // Now wait before transitioning to OverPage
-        console.log(`[Game ${this.id}] Delaying transition to OverPage by ${this.animationSettings.gameOverDelay}ms`);
-        setTimeout(() => {
-          console.log(`[Game ${this.id}] Notifying game end to CoreEngine`);
-          this.notifyGameEnd();
-        }, this.animationSettings.gameOverDelay);
-        
-      }, this.animationSettings.fireAnimationClearDelay);
+      });
     }
+    
+    // Play victory/defeat sound
+    if (humanWon) {
+      console.log(`[Game ${this.id}] Human victory - playing fanfare in 1 second`);
+      this.playSound('victoryFanfare', 1000);
+    } else {
+      console.log(`[Game ${this.id}] Human defeat - playing funeral march in 1 second`);
+      this.playSound('funeralMarch', 1000);
+    }
+    
+    this.message.post(this.message.types.GAME_END, {
+      winner: this.winner,
+      gameStats: this.getGameStats()
+    }, [this.message.channels.CONSOLE, this.message.channels.UI, this.message.channels.LOG]);
+    
+    if (this.winner) {
+      this.battleLog(`Game ended: ${this.winner.name} wins!`, 'victory');
+    } else {
+      this.battleLog('Game ended: Draw', 'draw');
+    }
+
+    this.cleanupTemporaryAlliances();
+    
+    // Wait for fire to clear, THEN capture winner's board, THEN notify
+    console.log(`[Game ${this.id}] Waiting ${this.animationSettings.fireAnimationClearDelay}ms for fire animations to clear`);
+    
+    setTimeout(() => {
+      // Capture winner's board AFTER fire has cleared
+      if (this.battleBoardRef?.current?.captureWinnerBoard) {
+        const winnerId = this.winner?.id || humanPlayer?.id;
+        console.log(`[Game ${this.id}] Capturing winner's board (fire cleared), winnerId:`, winnerId);
+        this.finalBoardImage = this.battleBoardRef.current.captureWinnerBoard(winnerId);
+        if (this.finalBoardImage) {
+          console.log(`[Game ${this.id}] Winner's board captured successfully (${this.finalBoardImage.length} bytes)`);
+        }
+      }
+      
+      // Now wait before transitioning to OverPage
+      console.log(`[Game ${this.id}] Delaying transition to OverPage by ${this.animationSettings.gameOverDelay}ms`);
+      setTimeout(() => {
+        console.log(`[Game ${this.id}] Notifying game end to CoreEngine`);
+        this.notifyGameEnd();
+      }, this.animationSettings.gameOverDelay);
+      
+    }, this.animationSettings.fireAnimationClearDelay);
+  }
 
   cleanupTemporaryAlliances() {
     const temporaryAlliances = Array.from(this.alliances.values()).filter(alliance => !alliance.owner);

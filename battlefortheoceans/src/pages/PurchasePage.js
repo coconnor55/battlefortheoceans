@@ -1,5 +1,11 @@
 // src/pages/PurchasePage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.2: Added payment bypass for admin/tester roles
+//         - Admin and tester users can grant access without going through Stripe
+//         - Button shows "Grant Access (Dev/Test)" instead of payment amount
+//         - Direct call to grantEraAccess() bypasses Stripe entirely
+//         - Console logs show bypass usage for audit trail
+// v0.4.1: Previous version
 
 import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
@@ -7,7 +13,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { useGame } from '../context/GameContext';
 import StripeService from '../services/StripeService';
 
-const version = 'v0.4.1';
+const version = 'v0.4.2';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -37,7 +43,7 @@ const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
         body: JSON.stringify({
           priceId: eraInfo.promotional.stripe_price_id,
           userId: userProfile.id,
-          eraId: eraInfo.id
+          eraId: eraInfo.era
         }),
       });
 
@@ -123,10 +129,14 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
   
   // Check if user is guest
   const isGuest = userProfile?.id?.startsWith('guest-');
+  
+  // v0.4.2: Check if user is admin or tester (can bypass payment)
+  const canBypassPayment = ['admin', 'tester'].includes(userProfile?.role);
 
   useEffect(() => {
     console.log('[PAYMENT]', version, 'PurchasePage mounted for era:', eraId);
     console.log('[PAYMENT]', version, 'User is guest:', isGuest);
+    console.log('[PAYMENT]', version, 'User can bypass payment:', canBypassPayment);
     fetchEraInfo();
   }, [eraId]);
 
@@ -137,7 +147,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     try {
       console.log('[PAYMENT]', version, 'Fetching era info');
       
-        const eraConfig = await getEraById(eraId);  // Use proxied method
+      const eraConfig = await getEraById(eraId);
         
       if (!eraConfig) {
         throw new Error(`Era not found: ${eraId}`);
@@ -164,6 +174,35 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
       setError(err.message || 'Failed to load era information');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // v0.4.2: Direct access grant for admin/tester (bypasses Stripe)
+  const handleDirectAccessGrant = async () => {
+    setIsProcessing(true);
+    setError('');
+
+    try {
+      console.log('[PAYMENT]', version, `Admin/Tester bypass - granting access directly to ${eraId}`);
+      
+      const granted = await grantEraAccess(userProfile.id, eraId, {
+        bypass_reason: `${userProfile.role}_testing`,
+        bypass_timestamp: new Date().toISOString()
+      });
+
+      if (granted) {
+        setSuccess(`Dev/Test access granted for ${eraInfo.name}!`);
+        setTimeout(() => {
+          onComplete && onComplete(eraId);
+        }, 1500);
+      } else {
+        throw new Error('Failed to grant access');
+      }
+    } catch (err) {
+      console.error('[PAYMENT]', version, 'Direct access grant failed:', err);
+      setError('Failed to grant access. Please contact support.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -337,8 +376,28 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           </ul>
         </div>
 
+        {/* v0.4.2: Admin/Tester Direct Access */}
+        {canBypassPayment && (
+          <div className="info-card info-card--center mb-lg">
+            <h3>Dev/Test Access</h3>
+            <p>
+              As a {userProfile.role}, you can grant yourself access to this era for testing without payment.
+            </p>
+            <button
+              onClick={handleDirectAccessGrant}
+              disabled={isProcessing}
+              className="btn btn--warning btn--lg btn--block"
+            >
+              {isProcessing ? 'Granting Access...' : 'Grant Access (Dev/Test)'}
+            </button>
+            <p className="form-help mt-md">
+              This bypass is logged for audit purposes
+            </p>
+          </div>
+        )}
+
         {/* Guest User Message */}
-        {isGuest && (
+        {isGuest && !canBypassPayment && (
           <div className="info-card info-card--center">
             <h3>Create an Account to Purchase</h3>
             <p>
@@ -356,8 +415,8 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           </div>
         )}
 
-        {/* Payment Method Tabs */}
-        {!isGuest && (
+        {/* Payment Method Tabs - Only show if not bypassing */}
+        {!isGuest && !canBypassPayment && (
           <div className="tab-buttons mb-lg">
             <button
               className={purchaseMethod === 'stripe' ? 'btn btn--primary btn--sm' : 'btn btn--secondary btn--sm'}
@@ -374,8 +433,8 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           </div>
         )}
 
-        {/* Stripe Payment */}
-        {!isGuest && purchaseMethod === 'stripe' && (
+        {/* Stripe Payment - Only show if not bypassing */}
+        {!isGuest && !canBypassPayment && purchaseMethod === 'stripe' && (
           <div>
             <div className="price-box mb-lg">
               <div className="price-amount">
@@ -404,8 +463,8 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           </div>
         )}
 
-        {/* Voucher Redemption */}
-        {!isGuest && purchaseMethod === 'voucher' && (
+        {/* Voucher Redemption - Only show if not bypassing */}
+        {!isGuest && !canBypassPayment && purchaseMethod === 'voucher' && (
           <div>
             <p className="item-description mb-md">
               Have a voucher code? Enter it below to unlock this era for free!

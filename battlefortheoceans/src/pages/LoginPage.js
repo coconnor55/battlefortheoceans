@@ -129,7 +129,7 @@ const LoginPage = () => {
           <div className="loading">
             <div className="spinner spinner--lg"></div>
             <h2>Welcome!</h2>
-            <p>Checking your profile...</p>
+            <p>Retrieving your profile...</p>
           </div>
         </div>
       )}

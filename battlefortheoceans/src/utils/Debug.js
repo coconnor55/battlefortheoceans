@@ -25,6 +25,7 @@ const control = {
   ACHIEVEMENT: false,
   MESSAGE: true,
   FIRE: false,
+    VIDEO: false,
   DEBUG: true
 };
 

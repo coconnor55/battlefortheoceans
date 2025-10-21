@@ -1,13 +1,17 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.5.8: Remove ACHIEVEMENTS state
-// v0.5.7: Add ACHIEVEMENTS event and state for achievements page navigation
-// v0.5.6: Fix achievement service integration - proper debug logging
-// v0.5.5: Add achievement service integration
-// v0.5.3: Synchronous session restoration using sessionStorage for both guests and registered users
-// v0.5.2: Fix page refresh - restore Supabase session and user profile
-// v0.5.1: Fix refresh issue - initialize state from URL in constructor (synchronous)
-// v0.5.0: OPTION 1 REFACTOR - Players are persistent entities across games
+// v0.6.3: added a direct getter for game stats
+// v0.6.2: Added handleStarShellFired() method - game logic for star shell consumption
+//         - Validates star shells remaining
+//         - Decrements resource count
+//         - Advances turn (star shell consumes turn)
+//         - Returns success/failure result
+// v0.6.1: Generic multi-opponent resource boost system
+//         - Added calculateResourceWithBoost() method
+//         - Initialize this.resources in initializeForPlacement()
+//         - Reads boost values from era config (star_shells_boost, scatter_shot_boost)
+//         - Formula: base + (boost × (opponentCount - 1))
+// v0.6.0: Multi-fleet combat support (Pirates of the Gulf)
 
 import Game from '../classes/Game.js';
 import Board from '../classes/Board.js';
@@ -21,12 +25,12 @@ import configLoader from '../utils/ConfigLoader.js';
 import AchievementService from '../services/AchievementService.js';
 import { supabase } from '../utils/supabaseClient.js';
 
-const version = "v0.5.8";
+const version = "v0.6.2";
 
 class CoreEngine {
   constructor() {
     // State machine properties
-    this.currentState = null; // Will be set by initializeFromURL()
+    this.currentState = null;
     this.lastEvent = null;
     
     // State definitions
@@ -96,17 +100,20 @@ class CoreEngine {
     );
     
     // Game state data
-      this.gameConfig = null;
+    this.gameConfig = null;
     this.eraConfig = null;
-    this.selectedOpponent = null;
+    this.selectedOpponents = [];
     this.selectedGameMode = null;
     this.selectedAlliance = null;
     this.humanPlayer = null;
-    this.aiPlayer = null;
+    this.aiPlayers = [];
     this.gameInstance = null;
     this.board = null;
     this.userProfile = null;
     this.loginEventData = null;
+    
+    // v0.6.1: Game resources (star shells, scatter shot, etc.)
+    this.resources = null;
     
     // Observer pattern for UI updates
     this.updateCounter = 0;
@@ -122,8 +129,8 @@ class CoreEngine {
     // Achievement tracking
     this.newAchievements = [];
       
-      // initialize
-      this.initializeGameConfig();
+    // initialize
+    this.initializeGameConfig();
     
     // Browser navigation handler
     if (typeof window !== 'undefined') {
@@ -142,6 +149,63 @@ class CoreEngine {
     }
     
     this.log('CoreEngine initialized');
+  }
+  
+  /**
+   * v0.6.1: Calculate resource count with multi-opponent boost
+   * @param {number} baseAmount - Base resource from era config
+   * @param {number} boostPerOpponent - Boost per additional opponent
+   * @param {number} opponentCount - Number of opponents
+   * @returns {number} Final resource count
+   */
+  calculateResourceWithBoost(baseAmount, boostPerOpponent, opponentCount) {
+    if (!baseAmount || opponentCount <= 1 || !boostPerOpponent) {
+      return baseAmount || 0;
+    }
+    
+    const boost = boostPerOpponent * (opponentCount - 1);
+    const total = baseAmount + boost;
+    
+    this.log(`Resource boost: base=${baseAmount}, boost/opp=${boostPerOpponent}, opps=${opponentCount}, total=${total}`);
+    
+    return total;
+  }
+  
+  /**
+   * v0.6.2: Handle star shell firing (consumes turn)
+   * @param {number} row - Target row
+   * @param {number} col - Target column
+   * @returns {boolean} Success/failure
+   */
+  handleStarShellFired(row, col) {
+    if (!this.gameInstance || this.gameInstance.state !== 'playing') {
+      this.log('Star shell blocked - game not active');
+      return false;
+    }
+    
+    const currentPlayer = this.gameInstance.getCurrentPlayer();
+    if (currentPlayer?.type !== 'human') {
+      this.log('Star shell blocked - not human turn');
+      return false;
+    }
+    
+    if (!this.resources || this.resources.starShells <= 0) {
+      this.log('Star shell blocked - none remaining');
+      return false;
+    }
+    
+    this.log(`Star shell fired at (${row}, ${col})`);
+    
+    // Decrement star shell count
+    this.resources.starShells = Math.max(0, this.resources.starShells - 1);
+    
+    // Advance turn (star shell consumes turn)
+    this.gameInstance.handleTurnProgression();
+    
+    // Notify subscribers of state change
+    this.notifySubscribers();
+    
+    return true;
   }
     
   restoreSessionSync() {
@@ -186,9 +250,12 @@ class CoreEngine {
         this.restoreEraAsync(context.eraId);
       }
       
-      if (context.selectedOpponent) {
-        this.selectedOpponent = context.selectedOpponent;
-        this.log(`Opponent restored: ${context.selectedOpponent.name}`);
+      if (context.selectedOpponents && Array.isArray(context.selectedOpponents)) {
+        this.selectedOpponents = context.selectedOpponents;
+        this.log(`Opponents restored: ${context.selectedOpponents.length} captains`);
+      } else if (context.selectedOpponent) {
+        this.selectedOpponents = [context.selectedOpponent];
+        this.log(`Opponent restored (legacy): ${context.selectedOpponent.name}`);
       }
       
       if (context.selectedAlliance) {
@@ -202,14 +269,14 @@ class CoreEngine {
     }
   }
 
-    async initializeGameConfig() {
-      try {
-        this.gameConfig = await configLoader.loadGameConfig();
-        this.log(`Game config loaded: v${this.gameConfig.version}`);
-      } catch (error) {
-        console.error(`${version} Failed to load game config:`, error);
-      }
+  async initializeGameConfig() {
+    try {
+      this.gameConfig = await configLoader.loadGameConfig();
+      this.log(`Game config loaded: v${this.gameConfig.version}`);
+    } catch (error) {
+      console.error(`${version} Failed to load game config:`, error);
     }
+  }
 
   async refreshProfileAsync(userId) {
     try {
@@ -230,8 +297,8 @@ class CoreEngine {
 
   async restoreEraAsync(eraId) {
     try {
-        this.eraConfig = await configLoader.loadEraConfig(eraId);
-        if (this.eraConfig) {
+      this.eraConfig = await configLoader.loadEraConfig(eraId);
+      if (this.eraConfig) {
         this.log(`Era restored: ${this.eraConfig.name}`);
         this.notifySubscribers();
       }
@@ -259,12 +326,14 @@ class CoreEngine {
         } : null,
         
         eraId: this.eraConfig?.id || null,
-        selectedOpponent: this.selectedOpponent ? {
-          id: this.selectedOpponent.id,
-          name: this.selectedOpponent.name,
-          strategy: this.selectedOpponent.strategy,
-          difficulty: this.selectedOpponent.difficulty
-        } : null,
+        
+        selectedOpponents: this.selectedOpponents.map(opp => ({
+          id: opp.id,
+          name: opp.name,
+          strategy: opp.strategy,
+          difficulty: opp.difficulty
+        })),
+        
         selectedAlliance: this.selectedAlliance || null,
         
         timestamp: Date.now()
@@ -401,17 +470,24 @@ class CoreEngine {
       this.storeSessionContext();
       
     } else if (event === this.events.PLACEMENT) {
-      if (eventData?.selectedOpponent) {
-        this.selectedOpponent = eventData.selectedOpponent;
-        this.log(`Opponent selected: ${eventData.selectedOpponent.name} (difficulty: ${eventData.selectedOpponent.difficulty || 1.0})`);
+      if (eventData?.selectedOpponents && Array.isArray(eventData.selectedOpponents)) {
+        this.selectedOpponents = eventData.selectedOpponents;
+        this.log(`Opponents selected: ${eventData.selectedOpponents.length} captains`);
+        eventData.selectedOpponents.forEach(opp => {
+          this.log(`  - ${opp.name} (${opp.difficulty || 1.0}x difficulty)`);
+        });
+      } else if (eventData?.selectedOpponent) {
+        this.selectedOpponents = [eventData.selectedOpponent];
+        this.log(`Opponent selected (legacy): ${eventData.selectedOpponent.name} (${eventData.selectedOpponent.difficulty || 1.0}x)`);
       }
+      
       if (eventData?.selectedAlliance && !this.selectedAlliance) {
         this.selectedAlliance = eventData.selectedAlliance;
         this.log(`Alliance selected from opponent page: ${eventData.selectedAlliance}`);
       }
       
       if (this.currentState === 'over' && this.selectedEra) {
-          this.eraConfig = await configLoader.loadEraConfig(this.selectedEra);
+        this.eraConfig = await configLoader.loadEraConfig(this.selectedEra);
         this.log(`Restored eraConfig for Battle Again: ${this.eraConfig?.name}`);
       }
       
@@ -440,15 +516,16 @@ class CoreEngine {
   clearGameState() {
     this.log('Clearing game state for clean login');
     this.eraConfig = null;
-    this.selectedOpponent = null;
+    this.selectedOpponents = [];
     this.selectedGameMode = null;
     this.selectedAlliance = null;
     this.humanPlayer = null;
-    this.aiPlayer = null;
+    this.aiPlayers = [];
     this.gameInstance = null;
     this.board = null;
     this.userProfile = null;
     this.newAchievements = [];
+    this.resources = null; // v0.6.1: Clear resources
     
     this.clearSessionContext();
   }
@@ -545,18 +622,19 @@ class CoreEngine {
     
     this.gameInstance = null;
     this.board = null;
+    this.aiPlayers = [];
     
-    if (!this.eraConfig || !this.humanPlayer || !this.selectedOpponent) {
+    if (!this.eraConfig || !this.humanPlayer || this.selectedOpponents.length === 0) {
       const missing = [];
       if (!this.eraConfig) missing.push('eraConfig');
       if (!this.humanPlayer) missing.push('humanPlayer');
-      if (!this.selectedOpponent) missing.push('selectedOpponent');
+      if (this.selectedOpponents.length === 0) missing.push('selectedOpponents');
       throw new Error(`Cannot initialize placement - missing: ${missing.join(', ')}`);
     }
     
     this.selectedEra = this.eraConfig.id;
     
-    this.gameInstance = new Game(this.eraConfig, this.selectedOpponent.gameMode || 'turnBased');
+    this.gameInstance = new Game(this.eraConfig, this.selectedOpponents[0].gameMode || 'turnBased');
     
     this.gameInstance.setUIUpdateCallback(() => this.notifySubscribers());
     
@@ -571,6 +649,7 @@ class CoreEngine {
     
     this.board = new Board(this.eraConfig.rows, this.eraConfig.cols, this.eraConfig.terrain);
 
+    // Determine alliances
     let playerAlliance, opponentAlliance;
     if (this.eraConfig.game_rules?.choose_alliance && this.selectedAlliance) {
       playerAlliance = this.selectedAlliance;
@@ -584,34 +663,58 @@ class CoreEngine {
       throw new Error('Cannot determine opponent alliance');
     }
     
+    // Add human player
     const humanPlayerAdded = this.gameInstance.addPlayer(this.humanPlayer, playerAlliance);
     
-    const aiCaptain = this.selectedOpponent;
-    const aiId = `ai-${aiCaptain.id}`;
+    // Add multiple AI opponents
+    this.log(`Adding ${this.selectedOpponents.length} AI opponent(s) to ${opponentAlliance}`);
     
-    if (this.aiPlayer && this.aiPlayer.id === aiId) {
-      this.aiPlayer.strategy = aiCaptain.strategy || 'random';
-      this.aiPlayer.difficulty = aiCaptain.difficulty || 1.0;
-      this.log(`Reusing AI player ${aiCaptain.name}, updated properties (${this.aiPlayer.strategy}, ${this.aiPlayer.difficulty})`);
-    } else {
-      this.aiPlayer = new AiPlayer(
+    for (let i = 0; i < this.selectedOpponents.length; i++) {
+      const aiCaptain = this.selectedOpponents[i];
+      const aiId = `ai-${aiCaptain.id}-${i}`;
+      
+      const aiPlayer = new AiPlayer(
         aiId,
         aiCaptain.name,
         aiCaptain.strategy || 'random',
         aiCaptain.difficulty || 1.0
       );
-      this.log(`Created new AI player ${aiCaptain.name} (${this.aiPlayer.strategy}, ${this.aiPlayer.difficulty})`);
+      
+      if (aiCaptain.ships && Array.isArray(aiCaptain.ships)) {
+        this.gameInstance.addPlayerWithFleet(aiPlayer, opponentAlliance, aiCaptain.ships);
+        this.log(`Added AI ${aiCaptain.name} with ${aiCaptain.ships.length} specific ships (fleet_id: ${aiCaptain.fleet_id || 'unknown'})`);
+      } else {
+        this.gameInstance.addPlayer(aiPlayer, opponentAlliance);
+        this.log(`Added AI ${aiCaptain.name} with alliance fleet`);
+      }
+      
+      this.aiPlayers.push(aiPlayer);
     }
     
-    const aiPlayerAdded = this.gameInstance.addPlayer(this.aiPlayer, opponentAlliance);
-    
-    if (!humanPlayerAdded || !aiPlayerAdded) {
+    if (!humanPlayerAdded || this.aiPlayers.length === 0) {
       throw new Error('Failed to add players to game');
     }
 
     this.gameInstance.setBoard(this.board);
+    
+    // v0.6.1: Calculate resources with multi-opponent boost
+    const opponentCount = this.selectedOpponents.length;
+    this.resources = {
+      starShells: this.calculateResourceWithBoost(
+        this.eraConfig.resources?.star_shells,
+        this.eraConfig.resources?.star_shells_boost,
+        opponentCount
+      ),
+      scatterShot: this.calculateResourceWithBoost(
+        this.eraConfig.resources?.scatter_shot,
+        this.eraConfig.resources?.scatter_shot_boost,
+        opponentCount
+      )
+    };
+    
+    this.log(`Resources initialized: ${JSON.stringify(this.resources)}`);
 
-    this.log(`Game initialized with ${this.gameInstance.players.length} players`);
+    this.log(`Game initialized with ${this.gameInstance.players.length} players (1 human + ${this.aiPlayers.length} AI)`);
   }
 
   async startGame() {
@@ -638,7 +741,7 @@ class CoreEngine {
       const gameResults = this.gameStatsService.calculateGameResults(
         this.gameInstance,
         this.eraConfig,
-        this.selectedOpponent
+        this.selectedOpponents[0]
       );
       
       if (!gameResults) {
@@ -749,15 +852,19 @@ class CoreEngine {
       winner: this.gameInstance?.winner,
       currentMessage: this.generateCurrentMessage(),
       playerStats: this.getPlayerStats(),
-      gameStats: this.gameInstance?.getGameStats() || null
+//  v0.6.3 DELETED    gameStats: this.gameInstance?.getGameStats() || null,
+      resources: this.resources // v0.6.1: Expose resources to UI
     };
   }
 
-    generateCurrentMessage() {
-      if (!this.gameInstance) return 'Initializing game...';
-      
-      // Message.js handles game state messages via getCurrentTurnMessage()
-      return this.gameInstance?.message?.getCurrentTurnMessage() || 'Initializing game...';
+  generateCurrentMessage() {
+    if (!this.gameInstance) return 'Initializing game...';
+    
+    return this.gameInstance?.message?.getCurrentTurnMessage() || 'Initializing game...';
+  }
+
+    getGameStates() {
+        return this.gameInstance?.getGameStats() || null;
     }
     
   getPlayerStats() {
@@ -767,7 +874,20 @@ class CoreEngine {
     };
     
     const humanPlayerInGame = this.gameInstance.players.find(p => p.type === 'human');
-    const opponentPlayer = this.gameInstance.players.find(p => p.type !== 'human');
+    
+    const aiPlayers = this.gameInstance.players.filter(p => p.type === 'ai');
+    
+    const opponentAggregateStats = aiPlayers.reduce((acc, ai) => ({
+      hits: acc.hits + (ai.hits || 0),
+      shots: acc.shots + (ai.shots || 0),
+      misses: acc.misses + (ai.misses || 0),
+      sunk: acc.sunk + (ai.sunk || 0),
+      score: acc.score + (ai.score || 0)
+    }), { hits: 0, shots: 0, misses: 0, sunk: 0, score: 0 });
+    
+    opponentAggregateStats.accuracy = opponentAggregateStats.shots > 0
+      ? ((opponentAggregateStats.hits / opponentAggregateStats.shots) * 100).toFixed(1)
+      : 0;
     
     return {
       player: {
@@ -778,14 +898,7 @@ class CoreEngine {
         accuracy: humanPlayerInGame?.accuracy || 0,
         score: humanPlayerInGame?.score || 0
       },
-      opponent: {
-        hits: opponentPlayer?.hits || 0,
-        shots: opponentPlayer?.shots || 0,
-        misses: opponentPlayer?.misses || 0,
-        sunk: opponentPlayer?.sunk || 0,
-        accuracy: opponentPlayer?.accuracy || 0,
-        score: opponentPlayer?.score || 0
-      }
+      opponent: opponentAggregateStats
     };
   }
 
@@ -854,19 +967,19 @@ class CoreEngine {
     return await this.leaderboardService.getRecentChampions(limit);
   }
 
-    async hasEraAccess(userId, eraId) {
-      const era = await configLoader.loadEraConfig(eraId);
-      
-      if (era?.free === true) {
-        return true;
-      }
-      
-      if (userId.startsWith('guest-')) {
-        return false;
-      }
-      
-      return await this.rightsService.hasEraAccess(userId, eraId);
+  async hasEraAccess(userId, eraId) {
+    const era = await configLoader.loadEraConfig(eraId);
+    
+    if (era?.free === true) {
+      return true;
     }
+    
+    if (userId.startsWith('guest-')) {
+      return false;
+    }
+    
+    return await this.rightsService.hasEraAccess(userId, eraId);
+  }
     
   async grantEraAccess(userId, eraId, paymentData = {}) {
     return await this.rightsService.grantEraAccess(userId, eraId, paymentData);
@@ -880,27 +993,27 @@ class CoreEngine {
     return await this.rightsService.getUserRights(userId);
   }
 
-    async getAllEras() {
-      return await configLoader.listEras();
-    }
+  async getAllEras() {
+    return await configLoader.listEras();
+  }
 
-    async getEraById(eraId) {
-      return await configLoader.loadEraConfig(eraId);
-    }
+  async getEraById(eraId) {
+    return await configLoader.loadEraConfig(eraId);
+  }
 
-    async getPromotableEras() {
-      const allEras = await configLoader.listEras();
-      return allEras.filter(era => !era.free && era.promotional);
-    }
+  async getPromotableEras() {
+    const allEras = await configLoader.listEras();
+    return allEras.filter(era => !era.free && era.promotional);
+  }
 
-    async getFreeEras() {
-      const allEras = await configLoader.listEras();
-      return allEras.filter(era => era.free);
-    }
+  async getFreeEras() {
+    const allEras = await configLoader.listEras();
+    return allEras.filter(era => era.free);
+  }
 
-    clearEraCache() {
-      configLoader.clearCache();
-    }
+  clearEraCache() {
+    configLoader.clearCache();
+  }
     
   getPlayerGameName(playerId) {
     if (playerId === this.humanPlayer?.id && this.userProfile?.game_name) {

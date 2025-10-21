@@ -1,33 +1,25 @@
-// src/components/CanvasBoard.js v0.3.13
+// src/components/CanvasBoard.js v0.4.8
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.3.14: Fixed orientation to match canvas CW rotation (0°=right, 90°=down, 180°=left, 270°=up)
-// v0.3.13: Fixed vertical placement orientation (was reversed)
-//          - Down drag now correctly = 90°, Up drag = 270°
-// v0.3.12: Commented out blue bounding boxes (using SVG ship outlines instead)
-// v0.3.11: Fixed manual placement to send all 4 orientations (0/90/180/270)
-//          - Was only sending 0° or 90°
-//          - Now detects drag direction and maps to correct degree
-// v0.3.10: Preload ship SVGs in placement mode to fix z-order issues
-// v0.3.9: Added ship outline rendering in placement mode
-// v0.3.8: ORIENTATION FIX - Send numeric degrees (0/90) instead of strings
-//         - Changed 'horizontal'/'vertical' to 0/90 for manual placement
-//         - Matches Player.js v0.9.2 orientation validation
-// v0.3.7: OPTIMIZED RENDER LOOP - Removed static data from 30fps loop
-//         - Pass eraId, gameBoard to renderer constructors (not through loop)
-//         - Only pass humanPlayerId instead of whole player object
-//         - cellSize/labelSize as constants, not dependencies
-// v0.3.6: UXENGINE INTEGRATION - Uses UXEngine for 30fps rendering loop
+// v0.4.8: FIXED stale currentShip closure in InputHandler validation
+//         - Bug: InputHandler captured isValidShipPlacement at creation with USS Macedonian
+//         - When placing later ships (USS Alligator), validation still checked against Macedonian
+//         - Fix: Store isValidShipPlacement in ref, InputHandler reads from ref dynamically
+//         - Pattern: Same as mode/gameState - read from ref, not captured closure
+// v0.4.7: Fixed ship placement validation - removed call to deleted Board.getShipDataAt()
 
 import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useGame } from '../context/GameContext';
 import TerrainRenderer from '../renderers/TerrainRenderer';
 import AnimationManager from '../renderers/AnimationManager';
 import HitOverlayRenderer from '../renderers/HitOverlayRenderer';
 import UXEngine from '../engines/UXEngine';
+import InputHandler from '../handlers/InputHandler';
+import ActionMenu from './ActionMenu';
 
-const version = 'v0.3.14';
+const version = 'v0.4.8';
 
-// Constants - never change during game
+// Constants
 const CELL_SIZE = 30;
 const LABEL_SIZE = 20;
 
@@ -39,9 +31,11 @@ const CanvasBoard = forwardRef(({
   viewMode = 'blended',
   gameState = null,
   onShotFired = null,
+  onStarShellFired = null,
   currentShip = null,
   onShipPlaced = null,
-  humanPlayer = null
+  humanPlayer = null,
+  starShellsRemaining = 0
 }, ref) => {
   const canvasRef = useRef(null);
   const { subscribeToUpdates, userProfile } = useGame();
@@ -51,10 +45,14 @@ const CanvasBoard = forwardRef(({
 
   const [previewCells, setPreviewCells] = useState([]);
   const [isValidPlacement, setIsValidPlacement] = useState(false);
-  const [isPlacing, setIsPlacing] = useState(false);
-  const [startCell, setStartCell] = useState(null);
+  
+  // Star shell state
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [actionMenuPos, setActionMenuPos] = useState({ x: 0, y: 0 });
+  const [actionMenuCell, setActionMenuCell] = useState(null);
+  const [starShellIllumination, setStarShellIllumination] = useState(null);
 
-  // Lazy initialization - only create once with era and board
+  // Lazy initialization
   const terrainRendererRef = useRef(null);
   if (!terrainRendererRef.current && eraConfig && gameBoard) {
     terrainRendererRef.current = new TerrainRenderer();
@@ -78,11 +76,11 @@ const CanvasBoard = forwardRef(({
     uxEngineRef.current = new UXEngine();
     console.log('[CANVAS]', version, 'UXEngine created');
   }
+  
+  const inputHandlerRef = useRef(null);
     
-  const lastProcessedCell = useRef(null);
   const isAdmin = userProfile?.role === 'admin';
 
-  // OPTIMIZED: Only store data that changes frequently
   const propsRef = useRef({
     mode,
     viewMode,
@@ -90,13 +88,21 @@ const CanvasBoard = forwardRef(({
     gameInstance,
     previewCells,
     isValidPlacement,
-    humanPlayerId: humanPlayer?.id
+    humanPlayerId: humanPlayer?.id,
+    starShellIllumination
   });
 
-  // Preload all ship SVGs when entering placement mode
+  // Store ALL dynamic props that InputHandler needs
+  const inputPropsRef = useRef({
+    mode,
+    gameState,
+    currentShip,
+    starShellsRemaining
+  });
+
+  // Preload ship SVGs
   useEffect(() => {
     if (mode === 'placement' && humanPlayer?.fleet?.ships && hitOverlayRendererRef.current) {
-      // Preload blue SVGs for all ship classes
       const shipClasses = new Set();
       humanPlayer.fleet.ships.forEach(ship => {
         shipClasses.add(ship.class);
@@ -117,11 +123,79 @@ const CanvasBoard = forwardRef(({
       gameInstance,
       previewCells,
       isValidPlacement,
-      humanPlayerId: humanPlayer?.id
+      humanPlayerId: humanPlayer?.id,
+      starShellIllumination
     };
-  }, [mode, viewMode, gameState, gameInstance, previewCells, isValidPlacement, humanPlayer?.id]);
+  }, [mode, viewMode, gameState, gameInstance, previewCells, isValidPlacement, humanPlayer?.id, starShellIllumination]);
 
-  // Render function called by UXEngine at 30fps
+  // Update inputPropsRef with ALL dynamic values
+  useEffect(() => {
+    inputPropsRef.current = {
+      mode,
+      gameState,
+      currentShip,
+      starShellsRemaining
+    };
+  }, [mode, gameState, currentShip, starShellsRemaining]);
+
+  // Star shell illumination effect
+  const triggerStarShell = useCallback((centerRow, centerCol) => {
+    if (starShellsRemaining <= 0) return;
+    
+    console.log('[CANVAS]', version, 'Star shell at', centerRow, centerCol);
+    
+    const illuminatedCells = [];
+    
+    // Get pattern from era config (defaults to 5x5 for backward compatibility)
+    const pattern = eraConfig?.resources?.star_shell_pattern || '5x5';
+    
+    // Center cell: 100% opacity
+    illuminatedCells.push({ row: centerRow, col: centerCol, opacity: 1.0 });
+    
+    // Adjacent 8 cells (distance 1): 50% opacity
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue; // Skip center
+        const r = centerRow + dr;
+        const c = centerCol + dc;
+        if (r >= 0 && r < eraConfig.rows && c >= 0 && c < eraConfig.cols) {
+          illuminatedCells.push({ row: r, col: c, opacity: 0.5 });
+        }
+      }
+    }
+    
+    // Outer ring only for 5x5 pattern
+    if (pattern === '5x5') {
+      // All cells at distance 2 (full 5x5 square outer ring): 25% opacity
+      for (let dr = -2; dr <= 2; dr++) {
+        for (let dc = -2; dc <= 2; dc++) {
+          // Skip inner 3x3 already covered
+          if (Math.abs(dr) <= 1 && Math.abs(dc) <= 1) continue;
+          
+          const r = centerRow + dr;
+          const c = centerCol + dc;
+          if (r >= 0 && r < eraConfig.rows && c >= 0 && c < eraConfig.cols) {
+            illuminatedCells.push({ row: r, col: c, opacity: 0.25 });
+          }
+        }
+      }
+    }
+    
+    setStarShellIllumination({
+      cells: illuminatedCells,
+      startTime: Date.now()
+    });
+    
+    // Clear after 2 seconds
+    setTimeout(() => {
+      setStarShellIllumination(null);
+    }, 2000);
+    
+    onStarShellFired?.(centerRow, centerCol);
+    
+  }, [starShellsRemaining, eraConfig, onStarShellFired]);
+
+  // Render function
   const renderFrame = useCallback(() => {
     const props = propsRef.current;
     const ctx = canvasRef.current?.getContext('2d');
@@ -137,25 +211,11 @@ const CanvasBoard = forwardRef(({
     const offsetX = 20;
     const offsetY = 20;
 
-    // Draw terrain (uses stored eraConfig and gameBoard)
+    // Draw terrain
     terrainRendererRef.current.drawTerrainLayer(ctx, CELL_SIZE, LABEL_SIZE, offsetX, offsetY);
 
-    // Draw mode-specific content
     if (props.mode === 'battle') {
-      // Draw ship bounding boxes (COMMENTED OUT - using SVG outlines instead)
-      // if (props.gameState?.userId) {
-      //   if (props.viewMode === 'fleet' || props.viewMode === 'blended') {
-      //     drawShipBoundingBoxes(ctx, offsetX, offsetY, props.gameState.userId, '#0066CC');
-      //   }
-      //
-      //   // DEBUG: Draw opponent ships
-      //   const opponentPlayer = props.gameInstance?.players?.find(p => p.id !== props.gameState.userId);
-      //   if (opponentPlayer && window.DEBUG_SHOW_OPPONENT_SHIPS) {
-      //     drawShipBoundingBoxes(ctx, offsetX, offsetY, opponentPlayer.id, '#FF6600');
-      //   }
-      // }
-
-      // Draw hit overlays (uses stored eraId and gameBoard)
+      // Draw hit overlays
       hitOverlayRendererRef.current.drawHitOverlay(
         ctx,
         props.gameInstance,
@@ -166,15 +226,75 @@ const CanvasBoard = forwardRef(({
         offsetY,
         props.viewMode
       );
+      
+      // Draw star shell illumination
+      if (props.starShellIllumination) {
+        const elapsed = Date.now() - props.starShellIllumination.startTime;
+        const progress = Math.min(elapsed / 2000, 1.0); // 2 second duration
+        const fadeOpacity = 1.0 - progress; // Fade out over time
+        
+        props.starShellIllumination.cells.forEach(({ row, col, opacity }) => {
+          // Find enemy ships at this cell
+          const opponentPlayers = props.gameInstance.players.filter(p => p.id !== props.humanPlayerId);
+          
+          opponentPlayers.forEach(opponent => {
+            const shipPlacement = opponent.getShipAt(row, col);
+            if (shipPlacement) {
+              const ship = opponent.getShip(shipPlacement.shipId);
+              
+              // Collect all cells for this ship
+              const shipCells = [];
+              for (let r = 0; r < eraConfig.rows; r++) {
+                for (let c = 0; c < eraConfig.cols; c++) {
+                  const placement = opponent.getShipAt(r, c);
+                  if (placement && placement.shipId === ship.id) {
+                    shipCells.push({ row: r, col: c });
+                  }
+                }
+              }
+              
+              // Draw ship outline with calculated opacity
+              const finalOpacity = opacity * fadeOpacity;
+              hitOverlayRendererRef.current.drawShipOutline(
+                ctx,
+                ship,
+                shipCells,
+                CELL_SIZE,
+                LABEL_SIZE,
+                offsetX,
+                offsetY,
+                opponent,
+                finalOpacity,
+                'red' // Enemy ships shown in red during illumination
+              );
+            }
+          });
+          
+          // Draw illumination glow effect
+          const x = offsetX + col * CELL_SIZE + LABEL_SIZE + CELL_SIZE / 2;
+          const y = offsetY + row * CELL_SIZE + LABEL_SIZE + CELL_SIZE / 2;
+          const glowOpacity = opacity * fadeOpacity * 0.3;
+          
+          const gradient = ctx.createRadialGradient(x, y, 0, x, y, CELL_SIZE * 1.5);
+          gradient.addColorStop(0, `rgba(255, 255, 200, ${glowOpacity})`);
+          gradient.addColorStop(1, 'rgba(255, 255, 200, 0)');
+          
+          ctx.fillStyle = gradient;
+          ctx.fillRect(
+            offsetX + col * CELL_SIZE + LABEL_SIZE - CELL_SIZE,
+            offsetY + row * CELL_SIZE + LABEL_SIZE - CELL_SIZE,
+            CELL_SIZE * 3,
+            CELL_SIZE * 3
+          );
+        });
+      }
     } else {
-      // Placement mode
+      // Placement mode - draw placed ships
       if (props.humanPlayerId) {
         const player = props.gameInstance.players.find(p => p.id === props.humanPlayerId);
         if (player && player.fleet && player.fleet.ships) {
-          // Draw ship outlines for placed ships
           player.fleet.ships.forEach(ship => {
             if (ship.isPlaced) {
-              // Collect all cells for this ship
               const shipCells = [];
               for (let row = 0; row < eraConfig.rows; row++) {
                 for (let col = 0; col < eraConfig.cols; col++) {
@@ -185,7 +305,6 @@ const CanvasBoard = forwardRef(({
                 }
               }
               
-              // Draw ship outline (blue, full opacity)
               if (shipCells.length > 0) {
                 hitOverlayRendererRef.current.drawShipOutline(
                   ctx,
@@ -196,7 +315,7 @@ const CanvasBoard = forwardRef(({
                   offsetX,
                   offsetY,
                   player,
-                  1.0, // Full opacity in placement
+                  1.0,
                   'blue'
                 );
               }
@@ -244,7 +363,7 @@ const CanvasBoard = forwardRef(({
     };
   }, [renderFrame]);
 
-  // Keyboard debug feature for admin
+  // Keyboard debug
   useEffect(() => {
     if (!isAdmin) return;
 
@@ -268,19 +387,6 @@ const CanvasBoard = forwardRef(({
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [isAdmin]);
-
-  const getCanvasCoordinates = useCallback((clientX, clientY) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
-    
-    return { x, y };
-  }, []);
   
   useEffect(() => {
     if (eraConfig && terrainRendererRef.current) {
@@ -289,119 +395,59 @@ const CanvasBoard = forwardRef(({
   }, [eraConfig]);
 
   useEffect(() => {
-    if (mode === 'placement') {
-      setPreviewCells([]);
-      setIsValidPlacement(false);
-      setStartCell(null);
-      setIsPlacing(false);
-      lastProcessedCell.current = null;
-    }
-  }, [currentShip, mode]);
-
-  // Remove React-triggered redraws - UXEngine handles all rendering
-  useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {
-      // Do nothing - UXEngine draws continuously
+      // UXEngine handles rendering
     });
     return unsubscribe;
   }, [subscribeToUpdates]);
 
+  // v0.4.8: Store validation callback in ref for dynamic access by InputHandler
+  const validationCallbackRef = useRef(null);
+  
   const isValidShipPlacement = useCallback((cells) => {
-    if (!cells || cells.length === 0 || !currentShip) return false;
+    // v0.4.8: Read currentShip from inputPropsRef (always fresh)
+    const ship = inputPropsRef.current.currentShip;
+    
+    if (!cells || cells.length === 0 || !ship) return false;
     
     for (const cell of cells) {
+      // Check bounds
       if (cell.row < 0 || cell.row >= eraConfig.rows ||
           cell.col < 0 || cell.col >= eraConfig.cols) {
         return false;
       }
       
+      // Check if coordinate is valid (not excluded)
       if (!gameBoard.isValidCoordinate(cell.row, cell.col)) {
         return false;
       }
       
+      // Check terrain compatibility
       const terrain = gameBoard.terrain[cell.row][cell.col];
-      if (!currentShip.terrain.includes(terrain)) {
+      if (!ship.terrain.includes(terrain)) {
+        console.log('[CANVAS]', version, `Terrain check failed: ship ${ship.name} allows ${ship.terrain}, cell is ${terrain}`);
         return false;
       }
       
-      try {
-        const shipDataArray = gameBoard.getShipDataAt(cell.row, cell.col);
-        if (shipDataArray && shipDataArray.length > 0) {
-          return false;
-        }
-      } catch (error) {
-        console.warn(version, 'Error checking ship overlap at', cell.row, cell.col);
+      // v0.4.7: Check ship overlap using player.shipPlacements (Board.getShipDataAt removed in Phase 4)
+      if (humanPlayer && humanPlayer.hasShipAt(cell.row, cell.col)) {
+        return false;
       }
     }
     
     return true;
-  }, [currentShip, eraConfig, gameBoard]);
-
-  const getShipBoundingBoxes = useCallback((playerId) => {
-    if (!gameInstance || !gameBoard) return [];
-    
-    const player = gameInstance.players?.find(p => p.id === playerId);
-    if (!player) return [];
-    
-    const shipCells = new Map();
-    
-    for (const [key, placement] of player.shipPlacements.entries()) {
-      const [row, col] = key.split(',').map(Number);
-      
-      if (row < 0 || row >= eraConfig.rows || col < 0 || col >= eraConfig.cols) {
-        continue;
-      }
-      
-      const shipId = placement.shipId;
-      if (!shipCells.has(shipId)) {
-        shipCells.set(shipId, []);
-      }
-      shipCells.get(shipId).push({ row, col });
-    }
-    
-    const boundingBoxes = [];
-    for (const [, cells] of shipCells) {
-      if (cells.length === 0) continue;
-      
-      const minRow = Math.min(...cells.map(c => c.row));
-      const maxRow = Math.max(...cells.map(c => c.row));
-      const minCol = Math.min(...cells.map(c => c.col));
-      const maxCol = Math.max(...cells.map(c => c.col));
-      
-      boundingBoxes.push({
-        minRow,
-        maxRow,
-        minCol,
-        maxCol
-      });
-    }
-    
-    return boundingBoxes;
-  }, [gameInstance, gameBoard, eraConfig]);
-    
-  const drawShipBoundingBoxes = useCallback((ctx, offsetX, offsetY, playerId, color = '#0011CC') => {
-    const boxes = getShipBoundingBoxes(playerId);
-    
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([]);
-    
-    boxes.forEach(box => {
-      const x = offsetX + box.minCol * CELL_SIZE + LABEL_SIZE;
-      const y = offsetY + box.minRow * CELL_SIZE + LABEL_SIZE;
-      const width = (box.maxCol - box.minCol + 1) * CELL_SIZE;
-      const height = (box.maxRow - box.minRow + 1) * CELL_SIZE;
-      
-      ctx.strokeRect(x, y, width, height);
-    });
-  }, [getShipBoundingBoxes]);
+  }, [eraConfig, gameBoard, humanPlayer]); // v0.4.8: currentShip NOT in deps - read from inputPropsRef!
+  
+  // Update validationCallbackRef whenever callback recreates
+  useEffect(() => {
+    validationCallbackRef.current = isValidShipPlacement;
+  }, [isValidShipPlacement]);
 
   const createExplosion = useCallback((row, col, isOpponentHit = false) => {
     animationManagerRef.current.createExplosion(row, col, isOpponentHit, CELL_SIZE, LABEL_SIZE);
     
     const animateExplosion = () => {
       const stillAlive = animationManagerRef.current.updateParticles();
-      
       if (stillAlive) {
         requestAnimationFrame(animateExplosion);
       }
@@ -488,326 +534,141 @@ const CanvasBoard = forwardRef(({
     requestAnimationFrame(animate);
   }, [createExplosion]);
 
-    // Add this to the useImperativeHandle in CanvasBoard.js
-    // Replace the existing useImperativeHandle (around line 364)
-
-    useImperativeHandle(ref, () => ({
-      recordOpponentShot: (row, col, result) => {
-        if (result === 'firing') {
-          showOpponentAnimation(row, col, 'firing');
-        } else {
-          showOpponentAnimation(row, col, result);
-          
-          if (result === 'hit' || result === 'sunk') {
-            createExplosion(row, col, true);
-          }
-        }
-      },
-      
-      captureBoard: () => {
-        if (!canvasRef.current) return null;
-        try {
-          return canvasRef.current.toDataURL('image/png');
-        } catch (error) {
-          console.error('[CANVAS]', version, 'Failed to capture board:', error);
-          return null;
-        }
-      },
-      
-      // NEW: Capture winner's board with appropriate view
-      captureWinnerBoard: (winnerId) => {
-        if (!canvasRef.current || !gameState?.userId) return null;
+  useImperativeHandle(ref, () => ({
+    recordOpponentShot: (row, col, result) => {
+      if (result === 'firing') {
+        showOpponentAnimation(row, col, 'firing');
+      } else {
+        showOpponentAnimation(row, col, result);
         
-        try {
-          // Determine which view to capture based on who won
-          const humanPlayerId = gameState.userId;
-          const isPlayerWinner = winnerId === humanPlayerId;
-          
-          // If player won: show attack view (enemy ships revealed)
-          // If AI won: show fleet view (player's destroyed fleet)
-          const captureViewMode = isPlayerWinner ? 'attack' : 'fleet';
-          
-          console.log('[CANVAS]', version, `Capturing ${captureViewMode} view for winner:`, winnerId);
-          
-          // Temporarily update propsRef to render the correct view
-          const originalViewMode = propsRef.current.viewMode;
-          propsRef.current.viewMode = captureViewMode;
-          
-          // Force a render with the new view mode
-          renderFrame();
-          
-          // Capture the canvas
-          const imageData = canvasRef.current.toDataURL('image/png');
-          
-          // Restore original view mode
-          propsRef.current.viewMode = originalViewMode;
-          
-          return imageData;
-        } catch (error) {
-          console.error('[CANVAS]', version, 'Failed to capture winner board:', error);
-          return null;
+        if (result === 'hit' || result === 'sunk') {
+          createExplosion(row, col, true);
         }
       }
-    }), [showOpponentAnimation, createExplosion, gameState, renderFrame]);
+    },
     
-  const handleMouseDown = useCallback((e) => {
-    if (mode !== 'placement' || !currentShip || isPlacing) return;
-
-    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-    const col = Math.floor((x - 20 - LABEL_SIZE) / CELL_SIZE);
-    const row = Math.floor((y - 20 - LABEL_SIZE) / CELL_SIZE);
-
-    if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
-      setStartCell({ row, col });
-      setIsPlacing(true);
-      lastProcessedCell.current = { row, col };
-      
-      const defaultCells = [];
-      for (let i = 0; i < currentShip.size; i++) {
-        defaultCells.push({ row, col: col + i });
+    captureBoard: () => {
+      if (!canvasRef.current) return null;
+      try {
+        return canvasRef.current.toDataURL('image/png');
+      } catch (error) {
+        console.error('[CANVAS]', version, 'Failed to capture board:', error);
+        return null;
       }
+    },
+    
+    captureWinnerBoard: (winnerId) => {
+      if (!canvasRef.current || !gameState?.userId) return null;
       
-      setPreviewCells(defaultCells);
-      setIsValidPlacement(isValidShipPlacement(defaultCells));
+      try {
+        const humanPlayerId = gameState.userId;
+        const isPlayerWinner = winnerId === humanPlayerId;
+        const captureViewMode = isPlayerWinner ? 'attack' : 'fleet';
+        
+        console.log('[CANVAS]', version, `Capturing ${captureViewMode} view for winner:`, winnerId);
+        
+        const originalViewMode = propsRef.current.viewMode;
+        propsRef.current.viewMode = captureViewMode;
+        
+        renderFrame();
+        
+        const imageData = canvasRef.current.toDataURL('image/png');
+        
+        propsRef.current.viewMode = originalViewMode;
+        
+        return imageData;
+      } catch (error) {
+        console.error('[CANVAS]', version, 'Failed to capture winner board:', error);
+        return null;
+      }
     }
-  }, [mode, currentShip, isPlacing, eraConfig, isValidShipPlacement, getCanvasCoordinates]);
-
-  const handleCanvasClick = useCallback((e) => {
-    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-    const col = Math.floor((x - 20 - LABEL_SIZE) / CELL_SIZE);
-    const row = Math.floor((y - 20 - LABEL_SIZE) / CELL_SIZE);
-
-    if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
-      if (mode === 'battle' && onShotFired && gameState?.isPlayerTurn) {
+  }), [showOpponentAnimation, createExplosion, gameState, renderFrame]);
+  
+  const handleActionMenuChoice = useCallback((action) => {
+    setShowActionMenu(false);
+    
+    if (!actionMenuCell) return;
+    
+    const { row, col } = actionMenuCell;
+    
+    if (action === 'shot') {
+      // Regular shot
+      if (onShotFired && gameState?.isPlayerTurn) {
         const shotResult = onShotFired(row, col);
         if (shotResult) {
           showShotAnimation(shotResult, row, col);
         }
       }
-    }
-  }, [mode, gameState, onShotFired, eraConfig, showShotAnimation, getCanvasCoordinates]);
-
-  const handleMouseMove = useCallback((e) => {
-    if (mode !== 'placement' || !currentShip || !isPlacing || !startCell) return;
-
-    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-    const col = Math.floor((x - 20 - LABEL_SIZE) / CELL_SIZE);
-    const row = Math.floor((y - 20 - LABEL_SIZE) / CELL_SIZE);
-
-    if (row < 0 || row >= eraConfig.rows || col < 0 || col >= eraConfig.cols) return;
-    
-    const cellChanged = !lastProcessedCell.current ||
-                       lastProcessedCell.current.row !== row ||
-                       lastProcessedCell.current.col !== col;
-    
-    if (!cellChanged) return;
-    
-    lastProcessedCell.current = { row, col };
-
-    const deltaCol = col - startCell.col;
-    
-    let cells = [];
-    let direction = 'right';
-    
-    if (Math.abs(row - startCell.row) > Math.abs(deltaCol)) {
-      direction = (row - startCell.row) >= 0 ? 'down' : 'up';
-    } else {
-      direction = deltaCol >= 0 ? 'right' : 'left';
+    } else if (action === 'star') {
+      // Star shell
+      triggerStarShell(row, col);
     }
     
-    for (let i = 0; i < currentShip.size; i++) {
-      let cellRow = startCell.row;
-      let cellCol = startCell.col;
-      
-      switch (direction) {
-        case 'right': cellCol = startCell.col + i; break;
-        case 'left': cellCol = startCell.col - i; break;
-        case 'down': cellRow = startCell.row + i; break;
-        case 'up': cellRow = startCell.row - i; break;
-        default: break;
-      }
-      
-      cells.push({ row: cellRow, col: cellCol });
-    }
+    setActionMenuCell(null);
+  }, [actionMenuCell, onShotFired, gameState, showShotAnimation, triggerStarShell]);
+
+  // Initialize InputHandler - ONLY ONCE
+  useEffect(() => {
+    if (!canvasRef.current || !eraConfig || !gameBoard) return;
     
-    const isValid = isValidShipPlacement(cells);
-    
-    setPreviewCells(cells);
-    setIsValidPlacement(isValid);
-  }, [mode, currentShip, isPlacing, startCell, eraConfig, isValidShipPlacement, getCanvasCoordinates]);
-
-  const handleMouseUp = useCallback((e) => {
-    if (mode !== 'placement' || !currentShip || !isPlacing) {
-      setPreviewCells([]);
-      setIsValidPlacement(false);
-      setStartCell(null);
-      setIsPlacing(false);
-      lastProcessedCell.current = null;
-      return;
-    }
-
-    if (isValidPlacement && previewCells.length > 0) {
-      // Determine orientation from preview cells
-      const firstCell = previewCells[0];
-      const lastCell = previewCells[previewCells.length - 1];
-      
-      const deltaCol = lastCell.col - firstCell.col;
-      const deltaRow = lastCell.row - firstCell.row;
-      
-      let orientation = 0; // default
-      
-      // Determine which direction the ship extends (computer graphics: CW rotation)
-      // 0° = right, 90° = down, 180° = left, 270° = up
-      if (Math.abs(deltaCol) > Math.abs(deltaRow)) {
-        // Horizontal
-        orientation = deltaCol > 0 ? 0 : 180; // Right drag = 0°, Left drag = 180°
-      } else {
-        // Vertical
-        orientation = deltaRow > 0 ? 90 : 270; // Down drag = 90°, Up drag = 270°
-      }
-      
-      onShipPlaced?.(currentShip, previewCells, orientation);
-    }
-
-    setPreviewCells([]);
-    setIsValidPlacement(false);
-    setStartCell(null);
-    setIsPlacing(false);
-    lastProcessedCell.current = null;
-  }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced]);
-
-  const handleTouchStart = useCallback((e) => {
-    e.preventDefault();
-    if (mode !== 'placement' || !currentShip || isPlacing) return;
-
-    const touch = e.touches[0];
-    const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
-    const col = Math.floor((x - 20 - LABEL_SIZE) / CELL_SIZE);
-    const row = Math.floor((y - 20 - LABEL_SIZE) / CELL_SIZE);
-
-    if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
-      setStartCell({ row, col });
-      setIsPlacing(true);
-      lastProcessedCell.current = { row, col };
-      
-      const defaultCells = [];
-      for (let i = 0; i < currentShip.size; i++) {
-        defaultCells.push({ row, col: col + i });
-      }
-      
-      setPreviewCells(defaultCells);
-      setIsValidPlacement(isValidShipPlacement(defaultCells));
-    }
-  }, [mode, currentShip, isPlacing, eraConfig, isValidShipPlacement, getCanvasCoordinates]);
-
-  const handleTouchMove = useCallback((e) => {
-    e.preventDefault();
-    if (mode !== 'placement' || !currentShip || !isPlacing || !startCell) return;
-
-    const touch = e.touches[0];
-    const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
-    const col = Math.floor((x - 20 - LABEL_SIZE) / CELL_SIZE);
-    const row = Math.floor((y - 20 - LABEL_SIZE) / CELL_SIZE);
-
-    if (row < 0 || row >= eraConfig.rows || col < 0 || col < eraConfig.cols) return;
-    
-    const cellChanged = !lastProcessedCell.current ||
-                       lastProcessedCell.current.row !== row ||
-                       lastProcessedCell.current.col !== col;
-    
-    if (!cellChanged) return;
-    
-    lastProcessedCell.current = { row, col };
-
-    const deltaCol = col - startCell.col;
-    
-    let cells = [];
-    let direction = 'right';
-    
-    if (Math.abs(row - startCell.row) > Math.abs(deltaCol)) {
-      direction = (row - startCell.row) >= 0 ? 'down' : 'up';
-    } else {
-      direction = deltaCol >= 0 ? 'right' : 'left';
-    }
-    
-    for (let i = 0; i < currentShip.size; i++) {
-      let cellRow = startCell.row;
-      let cellCol = startCell.col;
-      
-      switch (direction) {
-        case 'right': cellCol = startCell.col + i; break;
-        case 'left': cellCol = startCell.col - i; break;
-        case 'down': cellRow = startCell.row + i; break;
-        case 'up': cellRow = startCell.row - i; break;
-        default: break;
-      }
-      
-      cells.push({ row: cellRow, col: cellCol });
-    }
-    
-    const isValid = isValidShipPlacement(cells);
-    
-    setPreviewCells(cells);
-    setIsValidPlacement(isValid);
-  }, [mode, currentShip, isPlacing, startCell, eraConfig, isValidShipPlacement, getCanvasCoordinates]);
-
-  const handleTouchEnd = useCallback((e) => {
-    e.preventDefault();
-    
-    if (mode === 'battle') {
-      const touch = e.changedTouches[0];
-      const { x, y } = getCanvasCoordinates(touch.clientX, touch.clientY);
-      const col = Math.floor((x - 20 - LABEL_SIZE) / CELL_SIZE);
-      const row = Math.floor((y - 20 - LABEL_SIZE) / CELL_SIZE);
-
-      if (row >= 0 && row < eraConfig.rows && col >= 0 && col < eraConfig.cols) {
-        if (onShotFired && gameState?.isPlayerTurn) {
-          const shotResult = onShotFired(row, col);
-          if (shotResult) {
-            showShotAnimation(shotResult, row, col);
+    if (!inputHandlerRef.current) {
+      inputHandlerRef.current = new InputHandler({
+        canvasRef,
+        // Read ALL dynamic values from inputPropsRef
+        getMode: () => inputPropsRef.current.mode,
+        getEraConfig: () => eraConfig,
+        getGameBoard: () => gameBoard,
+        getGameState: () => inputPropsRef.current.gameState,
+        getCurrentShip: () => inputPropsRef.current.currentShip,
+        getStarShellsRemaining: () => inputPropsRef.current.starShellsRemaining,
+        cellSize: CELL_SIZE,
+        labelSize: LABEL_SIZE,
+        // Callbacks
+        onShotFired: (row, col) => {
+          // v0.4.6: Read fresh gameState from inputPropsRef to avoid stale closure
+          const currentGameState = inputPropsRef.current.gameState;
+          if (onShotFired && currentGameState?.isPlayerTurn) {
+            const shotResult = onShotFired(row, col);
+            if (shotResult) {
+              showShotAnimation(shotResult, row, col);
+            }
           }
-        }
-      }
-      return;
+        },
+        onActionMenuRequested: ({ row, col, clientX, clientY }) => {
+          setActionMenuCell({ row, col });
+          setActionMenuPos({ x: clientX, y: clientY });
+          setShowActionMenu(true);
+        },
+        onShipPlaced: (ship, cells, orientation) => {
+          onShipPlaced?.(ship, cells, orientation);
+        },
+        onPlacementPreview: (cells, isValid) => {
+          setPreviewCells(cells);
+          setIsValidPlacement(isValid);
+        },
+        // v0.4.8: InputHandler reads validation callback from ref (always fresh)
+        onValidatePlacement: (cells) => validationCallbackRef.current?.(cells) || false
+      });
+      console.log('[CANVAS]', version, 'InputHandler created');
     }
     
-    if (!currentShip || !isPlacing) {
+    inputHandlerRef.current.attach();
+    
+    return () => {
+      inputHandlerRef.current?.detach();
+    };
+  }, [eraConfig, gameBoard, onShotFired, onShipPlaced, showShotAnimation]);
+  // mode, gameState, currentShip, starShellsRemaining NOT in dependencies - read from inputPropsRef!
+  // isValidShipPlacement NOT in dependencies - read from validationCallbackRef!
+
+  // Reset input handler on mode/ship change
+  useEffect(() => {
+    if (mode === 'placement' && inputHandlerRef.current) {
+      inputHandlerRef.current.reset();
       setPreviewCells([]);
       setIsValidPlacement(false);
-      setStartCell(null);
-      setIsPlacing(false);
-      lastProcessedCell.current = null;
-      return;
     }
-
-    if (isValidPlacement && previewCells.length > 0) {
-      // Determine orientation from preview cells
-      const firstCell = previewCells[0];
-      const lastCell = previewCells[previewCells.length - 1];
-      
-      const deltaCol = lastCell.col - firstCell.col;
-      const deltaRow = lastCell.row - firstCell.row;
-      
-      let orientation = 0; // default
-      
-      // Determine which direction the ship extends
-      if (Math.abs(deltaCol) > Math.abs(deltaRow)) {
-        // Horizontal
-        orientation = deltaCol > 0 ? 0 : 180; // Right drag = 0°, Left drag = 180°
-      } else {
-        // Vertical (clockwise: 90°=down, 270°=up)
-        orientation = deltaRow > 0 ? 90 : 270; // Down drag = 90°, Up drag = 270°
-      }
-      
-      onShipPlaced?.(currentShip, previewCells, orientation);
-    }
-
-    setPreviewCells([]);
-    setIsValidPlacement(false);
-    setStartCell(null);
-    setIsPlacing(false);
-    lastProcessedCell.current = null;
-  }, [mode, currentShip, isPlacing, isValidPlacement, previewCells, onShipPlaced, eraConfig, onShotFired, gameState, showShotAnimation, getCanvasCoordinates]);
+  }, [currentShip, mode]);
 
   const getCanvasClasses = () => {
     const classes = ['canvas-board'];
@@ -838,17 +699,23 @@ const CanvasBoard = forwardRef(({
   }
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={getCanvasClasses()}
-      onClick={handleCanvasClick}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className={getCanvasClasses()}
+      />
+      
+      {showActionMenu && ReactDOM.createPortal(
+        <ActionMenu
+          x={actionMenuPos.x}
+          y={actionMenuPos.y}
+          onAction={handleActionMenuChoice}
+          onClose={() => setShowActionMenu(false)}
+          starShellsRemaining={starShellsRemaining}
+        />,
+        document.body
+      )}
+    </>
   );
 });
 

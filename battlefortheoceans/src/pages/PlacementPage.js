@@ -1,19 +1,18 @@
-// src/pages/PlacementPage.js v0.4.11
+// src/pages/PlacementPage.js 
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.12: Replaced InfoPanel with GameGuide component - removed ~60 lines of hardcoded instructions
 // v0.4.11: Positioned InfoButton relative to content pane, kept component reusable
 // v0.4.10: Added InfoButton and InfoPanel with placement instructions
 // v0.4.9: Add beforeunload warning to prevent accidental refresh during placement
-// v0.4.8: Phase 4 Refactor - Simplified autoplace clearing (no more shipOwnership)
-// v0.4.7: Fixed autoplace by clearing shipOwnership map before re-placement
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 import InfoButton from '../components/InfoButton';
-import InfoPanel from '../components/InfoPanel';
+import GameGuide from '../components/GameGuide';
 
-const version = 'v0.4.11';
+const version = 'v0.4.12';
 
 const PlacementPage = () => {
   const {
@@ -258,56 +257,11 @@ const PlacementPage = () => {
       <div className="page-with-info">
         <InfoButton onClick={() => setShowInfo(true)} />
         
-        <InfoPanel
-          isOpen={showInfo}
+        <GameGuide
+          section="placement"
+          manualOpen={showInfo}
           onClose={() => setShowInfo(false)}
-          title="Ship Placement"
-        >
-          <h4>Ship Information</h4>
-          <p>
-            Below the board, you'll see your available ships with:
-          </p>
-          <ul>
-            <li><strong>Ship name</strong> and type</li>
-            <li><strong>Size</strong> in grid squares</li>
-            <li><strong>Terrain allowed</strong> (deep, shallow, shoal)</li>
-          </ul>
-
-          <h4>How to Place Ships</h4>
-          <p>
-            Position your fleet strategically before battle.
-          </p>
-          
-          <p><strong>Manual Placement:</strong></p>
-          <ul>
-            <li>Choose a starting location</li>
-            <li>Tap or click to place the stern</li>
-            <li>Drag in the direction of the bow</li>
-            <li>Release to place the ship</li>
-            <li>A green outline indicates valid placement, red will not be placed</li>
-          </ul>
-
-          <p><strong>Quick Placement:</strong></p>
-          <ul>
-            <li>Click <strong>"Autoplace Ships"</strong> to randomly place all remaining ships</li>
-            <li>Computer will automatically position ships according to terrain rules</li>
-            <li>Autoplacement may result in a weaker position</li>
-          </ul>
-
-          <h4>Placement Rules</h4>
-          <ul>
-            <li>Ships cannot overlap</li>
-            <li>Ships must fit within the grid</li>
-            <li>Each ship type has terrain restrictions</li>
-            <li>All ships must be placed before battle starts</li>
-          </ul>
-
-          <h4>Ready to Battle?</h4>
-          <p>
-            Once all ships are placed, the <strong>"Start Battle"</strong> button will activate.
-            Review your placement strategy before clicking to begin!
-          </p>
-        </InfoPanel>
+        />
 
         <div className="content-pane content-pane--wide">
           
