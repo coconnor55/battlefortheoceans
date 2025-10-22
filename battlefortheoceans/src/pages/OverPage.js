@@ -1,5 +1,22 @@
-// src/pages/OverPage.js v0.5.0
+// src/pages/OverPage.js v0.5.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.5: Fixed VideoPopup props to match component interface
+//         - Changed videoData={videoData} to videoSrc={videoData.url}
+//         - Changed onClose={handleVideoClose} to onComplete={handleVideoClose}
+//         - Matches PlayingPage.js pattern (which works correctly)
+// v0.5.4: Fixed missing closing div for over-content section
+//         - Added missing </div> before showPromotion conditional (line 467)
+// v0.5.3: Use ConfigLoader singleton instead of manual fetch
+//         - Replaced fetch('/config/game-config.json') with configLoader.loadGameConfig()
+//         - Consistent with rest of app, proper caching and error handling
+// v0.5.2: Fixed game-config.json fetch path and JSX structure
+//         - Changed fetch from /game-config.json to /config/game-config.json
+//         - Fixed missing closing </div> tag for over-page container
+// v0.5.1: Added achievement video before modal
+//         - Plays /assets/videos/new-achievement.mp4 when achievements unlocked
+//         - Uses existing VideoPopup component and styling
+//         - Video plays first, then achievement modal shows
+//         - Config stored in game-config.json
 // v0.5.0: New achievement popup modal - more prominent celebration
 //         - Moved achievements from inline cards to modal overlay
 //         - Shows immediately after game over (before stats)
@@ -11,11 +28,13 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
+import VideoPopup from '../components/VideoPopup';
 import GameStatsService from '../services/GameStatsService';
 import AchievementService from '../services/AchievementService';
+import configLoader from '../utils/ConfigLoader';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.5.0';
+const version = 'v0.5.5';
 const SESSION_KEY = 'battleForOceans_gameResults';
 
 const OverPage = () => {
@@ -35,10 +54,29 @@ const OverPage = () => {
   // State for game results (from CoreEngine or sessionStorage)
   const [gameResults, setGameResults] = useState(null);
   
+  // State for game config (fetched from public/)
+  const [gameConfig, setGameConfig] = useState(null);
+  
   // State for achievements
   const [newAchievements, setNewAchievements] = useState([]);
   const [loadingAchievements, setLoadingAchievements] = useState(false);
   const [showAchievementModal, setShowAchievementModal] = useState(false);
+
+  // State for achievement video
+  const [videoData, setVideoData] = useState(null);
+  const [showVideo, setShowVideo] = useState(false);
+
+  // Load game config on mount using ConfigLoader singleton
+  useEffect(() => {
+    configLoader.loadGameConfig()
+      .then(config => {
+        console.log(version, 'Loaded game config:', config.version);
+        setGameConfig(config);
+      })
+      .catch(err => {
+        console.error(version, 'Failed to load game config:', err);
+      });
+  }, []);
 
   // Redirect to login if no user profile
   useEffect(() => {
@@ -108,8 +146,24 @@ const OverPage = () => {
             tier: 'silver'
           }
         ];
-        setNewAchievements(mockAchievements);
-        setShowAchievementModal(true);
+        
+        if (mockAchievements.length > 0) {
+          setNewAchievements(mockAchievements);
+          
+          // Check if achievement video exists
+          const videoPath = gameConfig?.videos?.new_achievement;
+          if (videoPath) {
+            console.log(version, 'Playing achievement video before modal:', videoPath);
+            // Show video first
+            setVideoData({ type: 'new_achievement', url: videoPath });
+            setShowVideo(true);
+            // Don't show modal yet - will show after video closes
+          } else {
+            console.log(version, 'No achievement video configured - showing modal immediately');
+            // No video - show modal immediately
+            setShowAchievementModal(true);
+          }
+        }
         return;
       }
 
@@ -144,7 +198,20 @@ const OverPage = () => {
         
         if (unlocked.length > 0) {
           setNewAchievements(unlocked);
-          setShowAchievementModal(true);
+          
+          // Check if achievement video exists
+          const videoPath = gameConfig?.videos?.new_achievement;
+          if (videoPath) {
+            console.log(version, 'Playing achievement video before modal:', videoPath);
+            // Show video first
+            setVideoData({ type: 'new_achievement', url: videoPath });
+            setShowVideo(true);
+            // Don't show modal yet - will show after video closes
+          } else {
+            console.log(version, 'No achievement video configured - showing modal immediately');
+            // No video - show modal immediately
+            setShowAchievementModal(true);
+          }
         }
       } catch (error) {
         console.error(version, 'Error checking achievements:', error);
@@ -154,105 +221,95 @@ const OverPage = () => {
     };
 
     checkForAchievements();
-  }, [gameResults, userProfile]);
-  
+  }, [gameResults, userProfile, gameConfig]);
+
+  // State for promotional era
   const [showPromotion, setShowPromotion] = useState(false);
   const [promotionalEra, setPromotionalEra] = useState(null);
+
+  // State for purchase page
   const [showPurchasePage, setShowPurchasePage] = useState(false);
   const [purchaseEraId, setPurchaseEraId] = useState(null);
 
-  const isGuest = userProfile?.id?.startsWith('guest-');
-
-  // Check if user needs to see Midway Island promotion
+  // Check if user should see promotional content
   useEffect(() => {
-    const findPromotionalEra = async () => {
-      if (!userProfile?.id) {
-        setShowPromotion(false);
-        return;
-      }
+    if (!userProfile || !eraConfig) return;
 
-      try {
-        const promotableEras = await getPromotableEras();
-        
-        if (promotableEras.length === 0) {
-          setShowPromotion(false);
-          return;
-        }
+    const promotableEras = getPromotableEras();
+    if (promotableEras.length > 0) {
+      // Show promo for first era user doesn't have access to
+      setPromotionalEra(promotableEras[0]);
+      setShowPromotion(true);
+    }
+  }, [userProfile, eraConfig, getPromotableEras]);
 
-        const lockedEras = [];
-        for (const era of promotableEras) {
-          const hasAccess = await hasEraAccess(userProfile.id, era.id);
-          if (!hasAccess) {
-            lockedEras.push(era);
-          }
-        }
-
-        if (lockedEras.length === 0) {
-          setShowPromotion(false);
-          return;
-        }
-
-        const randomEra = lockedEras[Math.floor(Math.random() * lockedEras.length)];
-        
-        console.log(version, 'Promoting era:', randomEra.name);
-        setPromotionalEra(randomEra);
-        setShowPromotion(true);
-
-      } catch (error) {
-        console.error(version, 'Error finding promotional era:', error);
-        setShowPromotion(false);
-      }
-    };
-
-    findPromotionalEra();
-  }, [userProfile, hasEraAccess, getPromotableEras]);
-
-  // Helper function to get Lucide icon component by name
-  const getLucideIcon = (iconName) => {
-    const Icon = LucideIcons[iconName];
-    return Icon || LucideIcons.Award;
+  const handlePlayAgain = () => {
+    console.log(version, 'User clicked Play Again - returning to opponent selection');
+    dispatch(events.SELECTOPPONENT);
   };
 
-  // Helper function to get tier badge class
+  const handleChangeEra = () => {
+    console.log(version, 'User clicked Change Era - returning to era selection');
+    dispatch(events.SELECTERA);
+  };
+
+  const handleLogOut = () => {
+    console.log(version, 'User clicked Log Out - clearing session and returning to launch');
+    sessionStorage.removeItem(SESSION_KEY);
+    dispatch(events.LAUNCH);
+  };
+
+  const handlePurchase = (eraId) => {
+    console.log(version, 'User initiated purchase for era:', eraId);
+    setPurchaseEraId(eraId);
+    setShowPurchasePage(true);
+  };
+
+  const handlePurchaseComplete = () => {
+    console.log(version, 'Purchase complete - closing purchase page');
+    setShowPurchasePage(false);
+    setShowPromotion(false);
+  };
+
+  const handlePurchaseCancel = () => {
+    console.log(version, 'Purchase cancelled - closing purchase page');
+    setShowPurchasePage(false);
+  };
+
+  const handleVideoClose = () => {
+    console.log(version, 'Achievement video closed - showing modal');
+    setShowVideo(false);
+    // After video closes, show the achievement modal
+    if (newAchievements.length > 0) {
+      setShowAchievementModal(true);
+    }
+  };
+
+  const handleAchievementModalClose = () => {
+    console.log(version, 'Achievement modal closed');
+    setShowAchievementModal(false);
+  };
+
+  // Helper to get Lucide icon component by name
+  const getLucideIcon = (iconName) => {
+    return LucideIcons[iconName] || LucideIcons.Award;
+  };
+
+  // Helper to get tier badge class
   const getTierBadgeClass = (tier) => {
     switch (tier) {
       case 'bronze': return 'badge--bronze';
       case 'silver': return 'badge--silver';
       case 'gold': return 'badge--gold';
       case 'platinum': return 'badge--platinum';
-      case 'diamond': return 'badge--diamond';
-      default: return 'badge--primary';
+      default: return 'badge--bronze';
     }
   };
 
-  const getDifficultyBadgeClass = (difficulty) => {
-    if (difficulty < 1.0) return 'badge--success';
-    if (difficulty === 1.0) return 'badge--primary';
-    return 'badge--warning';
-  };
-
-  const getDifficultyLabel = (difficulty) => {
-    if (difficulty < 1.0) return 'Easy';
-    if (difficulty === 1.0) return 'Medium';
-    return 'Hard';
-  };
-
-  const formatGameLog = (includeImage = false) => {
-    if (!gameResults) return '';
+  const copyGameLog = () => {
+    if (!gameResults?.gameLog) return;
     
-    const opponentDifficulty = gameResults.opponentDifficulty || 1.0;
-    const opponentLine = opponentDifficulty !== 1.0
-      ? `Opponent: ${gameResults.opponentName} (${opponentDifficulty}x)\n`
-      : `Opponent: ${gameResults.opponentName}\n`;
-    
-    const header = `Battle for the Oceans - Game Log\n` +
-                   `Version: ${appVersion || 'Unknown'}\n` +
-                   `Era: ${gameResults.eraName}\n` +
-                   opponentLine +
-                   `Date: ${new Date().toLocaleString()}\n` +
-                   `Winner: ${gameResults.gameStats.winner || 'Draw'}\n\n`;
-    
-    const entries = gameResults.gameLog
+    const logText = gameResults.gameLog
       .filter(entry => entry.message?.includes('[BATTLE]'))
       .map(entry => {
         const elapsed = entry.elapsed || '0.0';
@@ -261,119 +318,72 @@ const OverPage = () => {
       })
       .join('\n');
     
-    return header + entries;
-  };
-
-  const copyGameLog = () => {
-    const logText = formatGameLog(true);
-    navigator.clipboard.writeText(logText).then(() => {
-      alert('Game log copied to clipboard!');
-    }).catch(err => {
-      console.error('Failed to copy log:', err);
-      alert('Failed to copy log. Check console for details.');
-    });
+    navigator.clipboard.writeText(logText)
+      .then(() => console.log(version, 'Game log copied to clipboard'))
+      .catch(err => console.error(version, 'Failed to copy log:', err));
   };
 
   const emailGameLog = () => {
-    const logText = formatGameLog();
-    const subject = encodeURIComponent(`Battle for the Oceans - ${gameResults?.eraName || 'Game'} Results`);
-    const body = encodeURIComponent(logText);
+    if (!gameResults?.gameLog) return;
     
-    const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
-    window.open(mailtoLink);
-  };
+    const logText = gameResults.gameLog
+      .filter(entry => entry.message?.includes('[BATTLE]'))
+      .map(entry => {
+        const elapsed = entry.elapsed || '0.0';
+        const msg = entry.message.replace('[BATTLE] ', '');
+        return `[+${elapsed}s] ${msg}`;
+      })
+      .join('\n');
     
-  const handlePlayAgain = () => {
-    sessionStorage.removeItem(SESSION_KEY);
-    dispatch(events.SELECTOPPONENT);
-  };
-
-  const handleChangeEra = () => {
-    sessionStorage.removeItem(SESSION_KEY);
-    dispatch(events.ERA);
-  };
-
-  const handleLogOut = () => {
-    console.log(version, 'User logging out - clearing session and returning to launch');
-    sessionStorage.removeItem(SESSION_KEY);
-    dispatch(events.LAUNCH);
-  };
-
-  const handleGuestSignup = () => {
-    console.log(version, 'Guest requesting signup - setting URL parameter');
+    const subject = `Battle for the Oceans - ${gameResults.eraName} Results`;
+    const body = `Battle Results:\n\n${logText}`;
     
-    const currentUrl = new URL(window.location);
-    currentUrl.searchParams.set('signup', 'true');
-    window.history.replaceState({}, '', currentUrl);
-    
-    dispatch(events.LOGIN);
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
-  const handlePurchase = (eraId) => {
-    console.log(version, 'Initiating purchase flow for era:', eraId);
-    setPurchaseEraId(eraId);
-    setShowPurchasePage(true);
-  };
-
-  const handlePurchaseComplete = (eraId) => {
-    console.log(version, 'Purchase completed for era:', eraId);
-    setShowPurchasePage(false);
-    setPurchaseEraId(null);
-    setShowPromotion(false);
-    alert(`${eraId} has been unlocked! You can now access it from the Era Selection page.`);
-  };
-
-  const handlePurchaseCancel = () => {
-    console.log(version, 'Purchase cancelled');
-    setShowPurchasePage(false);
-    setPurchaseEraId(null);
-  };
-  
-  const handleAchievementModalClose = () => {
-    console.log(version, 'Achievement modal dismissed');
-    setShowAchievementModal(false);
-  };
-
-  // Don't render until we have results and userProfile
-  if (!userProfile || !gameResults) {
-    return null;
+  if (!gameResults) {
+    return (
+      <div className="over-page">
+        <div className="content-pane">
+          <div className="loading loading--lg">
+            <div className="spinner spinner--lg"></div>
+            <p>Loading game results...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  const { gameStats, gameLog, finalBoardImage, eraName, playerName, opponentName, opponentDifficulty } = gameResults;
-  const showDifficultyBadge = opponentDifficulty !== 1.0;
+  const { gameStats, gameLog } = gameResults;
+  const isWinner = gameStats.winner === gameResults.playerName;
+  const isGuest = userProfile?.id?.startsWith('guest-');
 
   return (
-    <div className="container flex flex-column flex-center">
+    <div className="over-page">
       <div className="content-pane content-pane--wide">
-        <div className="card-header">
-          <h2 className="card-title">Battle Complete</h2>
-          <p className="card-subtitle">{eraName || 'Naval Combat'}</p>
-          <p className="battle-summary">
-            {playerName || 'Player'} vs {opponentName || 'Unknown Opponent'}
-            {showDifficultyBadge && (
-              <span className={`badge ${getDifficultyBadgeClass(opponentDifficulty)} ml-sm`}>
-                {getDifficultyLabel(opponentDifficulty)} - {opponentDifficulty}x
-              </span>
-            )}
+        <div className="over-header">
+          <h1 className={`over-title ${isWinner ? 'over-title--victory' : 'over-title--defeat'}`}>
+            {isWinner ? '🎉 Victory!' : '💥 Defeat'}
+          </h1>
+          <p className="over-subtitle">
+            {isWinner
+              ? `You destroyed ${gameResults.opponentName}'s entire fleet!`
+              : `${gameResults.opponentName} destroyed your entire fleet!`
+            }
+          </p>
+          <p className="over-era">
+            Era: {gameResults.eraName}
           </p>
         </div>
 
-        <div className="battle-results">
-          <div className="result-header">
-            <h3 className={`result-title ${gameStats.winner ? 'winner' : 'draw'}`}>
-              {gameStats.winner ? `${gameStats.winner} Wins!` : 'Battle Draw!'}
-            </h3>
-          </div>
-
-          {finalBoardImage && (
-            <div className="final-board-section">
-              <div className="final-board-container">
-                <img
-                  src={finalBoardImage}
-                  alt="Final battle board state"
-                  className="final-board-image"
-                />
-              </div>
+        <div className="over-content">
+          {/* Guest user notice */}
+          {isGuest && (
+            <div className="guest-notice guest-notice--warning">
+              <p>
+                <strong>Guest Mode:</strong> Your statistics are not saved.
+                Create an account to track your progress and compete on leaderboards!
+              </p>
             </div>
           )}
 
@@ -514,7 +524,15 @@ const OverPage = () => {
           </div>
         </div>
 
-        {/* Achievement Modal - Shows immediately after game over */}
+        {/* Achievement Video - Shows before modal */}
+        {showVideo && videoData && (
+          <VideoPopup
+            videoSrc={videoData.url}
+            onComplete={handleVideoClose}
+          />
+        )}
+
+        {/* Achievement Modal - Shows after video */}
         {showAchievementModal && newAchievements.length > 0 && !isGuest && (
           <div className="modal-overlay">
             <div className="modal-content modal-content--achievement">

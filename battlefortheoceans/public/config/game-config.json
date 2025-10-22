@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "game_name": "Battleship",
   "system_messages": {
     "turn": "Turn {turn}: {player}'s turn",
@@ -39,6 +39,9 @@
     "sound_delay": 200,
     "speed_factor": 1.0,
     "game_over_delay": 6000
+  },
+  "videos": {
+    "new_achievement": "/assets/videos/new-achievement.mp4"
   },
   "debug": {
     "reveal_ships_key": "z",
