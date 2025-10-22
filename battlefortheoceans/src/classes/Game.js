@@ -6,9 +6,15 @@ import Fleet from './Fleet.js';
 import Alliance from './Alliance.js';
 import Message from './Message.js';
 import CombatResolver from './CombatResolver.js';
+import SoundManager from '../utils/SoundManager.js';
 
-const version = "v0.8.4";
+const version = "v0.8.5";
 /**
+ * v0.8.5: Refactored to use SoundManager utility class
+ * - Extracted ~40 lines of sound logic to SoundManager.js
+ * - initializeSounds(), playSound(), toggleSound() now in SoundManager
+ * - Game.js delegates sound methods to soundManager
+ * - Reduced Game.js from 726 lines to ~686 lines
  * v0.8.4: Refactored to use CombatResolver utility class
  * - Extracted ~300 lines of combat logic to CombatResolver.js
  * - receiveAttack(), calculateDamage(), processAttack(), registerShipPlacement(), isValidAttack()
@@ -38,9 +44,6 @@ const version = "v0.8.4";
  * v0.7.4: Fixed fallback message type
  * v0.7.3: Progressive Fog of War Integration
  */
-
-// Environment-aware CDN path
-const SOUND_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
 
 class Game {
   constructor(eraConfig, gameMode = 'turnBased') {
@@ -102,53 +105,18 @@ class Game {
     // Combat resolver (v0.8.4)
     this.combatResolver = new CombatResolver(this);
     
-    // Sound system
-    this.soundEnabled = true;
-    this.soundEffects = {};
-    this.soundLoadErrors = [];
-    this.initializeSounds();
+    // Sound manager (v0.8.5)
+    this.soundManager = new SoundManager();
     
     console.log(`[Game ${this.id}] Game created: ${this.id}, Mode: ${gameMode}`);
   }
 
-  initializeSounds() {
-    const soundFiles = {
-      cannonBlast: 'cannon-blast.mp3',
-      incomingWhistle: 'incoming-whistle.mp3',
-      explosionBang: 'explosion-bang.mp3',
-      splash: 'splash.mp3',
-      sinkingShip: 'sinking-ship.mp3',
-      victoryFanfare: 'victory-fanfare.mp3',
-      funeralMarch: 'funeral-march.mp3'
-    };
-
-    Object.entries(soundFiles).forEach(([key, filename]) => {
-      try {
-        const fullPath = `${SOUND_BASE_URL}/sounds/${filename}`;
-        const audio = new Audio(fullPath);
-        audio.preload = 'auto';
-        audio.load();
-        this.soundEffects[key] = audio;
-      } catch (error) {
-        this.soundLoadErrors.push(key);
-      }
-    });
-  }
-
   playSound(soundType, delay = 0) {
-    if (!this.soundEnabled) return;
-    
-    setTimeout(() => {
-      const audio = this.soundEffects[soundType];
-      if (audio && audio.readyState >= 2) {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      }
-    }, delay);
+    this.soundManager.playSound(soundType, delay);
   }
 
   toggleSound(enabled) {
-    this.soundEnabled = enabled;
+    this.soundManager.toggleSound(enabled);
   }
 
   queueAction(action) {
