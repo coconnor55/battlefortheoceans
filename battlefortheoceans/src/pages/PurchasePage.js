@@ -1,5 +1,10 @@
 // src/pages/PurchasePage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.3: Show both Pay and Dev/Test buttons for admin/tester
+//         - Removed !canBypassPayment condition from payment form visibility
+//         - Admin/tester can now test Stripe payment flow
+//         - Dev/Test button shown at top for quick bypass
+//         - Pay button shown below for Stripe testing
 // v0.4.2: Added payment bypass for admin/tester roles
 //         - Admin and tester users can grant access without going through Stripe
 //         - Button shows "Grant Access (Dev/Test)" instead of payment amount
@@ -13,7 +18,7 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { useGame } from '../context/GameContext';
 import StripeService from '../services/StripeService';
 
-const version = 'v0.4.2';
+const version = 'v0.4.3';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -245,28 +250,28 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
       setError('Guest users cannot redeem vouchers. Please create an account to continue.');
       return;
     }
-
-    if (!voucherCode.trim()) {
-      setError('Please enter a voucher code');
-      return;
-    }
-
+    
     setIsProcessing(true);
     setError('');
+    setSuccess('');
 
     try {
-      console.log('[PAYMENT]', version, 'Redeeming voucher');
+      console.log('[PAYMENT]', version, 'Redeeming voucher:', voucherCode);
       
-      await redeemVoucher(userProfile.id, voucherCode.trim());
+      const result = await redeemVoucher(userProfile.id, voucherCode);
       
-      setSuccess(`Voucher redeemed successfully! ${eraInfo.name} is now unlocked.`);
-      setTimeout(() => {
-        onComplete && onComplete(eraId);
-      }, 2000);
+      if (result.success) {
+        console.log('[PAYMENT]', version, 'Voucher redeemed successfully');
+        setSuccess(`Successfully unlocked ${eraInfo.name}!`);
+        setTimeout(() => {
+          onComplete && onComplete(eraId);
+        }, 2000);
+      } else {
+        throw new Error(result.error || 'Invalid voucher code');
+      }
     } catch (err) {
       console.error('[PAYMENT]', version, 'Voucher redemption failed:', err);
-      
-      if (err.message.includes('Invalid voucher')) {
+      if (err.message.includes('not found')) {
         setError('Invalid voucher code. Please check and try again.');
       } else if (err.message.includes('already used')) {
         setError('This voucher code has already been used.');
@@ -376,7 +381,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           </ul>
         </div>
 
-        {/* v0.4.2: Admin/Tester Direct Access */}
+        {/* v0.4.3: Admin/Tester Direct Access - ALWAYS SHOW for admin/tester */}
         {canBypassPayment && (
           <div className="info-card info-card--center mb-lg">
             <h3>Dev/Test Access</h3>
@@ -391,13 +396,13 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
               {isProcessing ? 'Granting Access...' : 'Grant Access (Dev/Test)'}
             </button>
             <p className="form-help mt-md">
-              This bypass is logged for audit purposes
+              This bypass is logged for audit purposes. Use Pay button below to test Stripe.
             </p>
           </div>
         )}
 
         {/* Guest User Message */}
-        {isGuest && !canBypassPayment && (
+        {isGuest && (
           <div className="info-card info-card--center">
             <h3>Create an Account to Purchase</h3>
             <p>
@@ -415,8 +420,8 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           </div>
         )}
 
-        {/* Payment Method Tabs - Only show if not bypassing */}
-        {!isGuest && !canBypassPayment && (
+        {/* v0.4.3: Payment Method Tabs - Show for all non-guest users (including admin/tester) */}
+        {!isGuest && (
           <div className="tab-buttons mb-lg">
             <button
               className={purchaseMethod === 'stripe' ? 'btn btn--primary btn--sm' : 'btn btn--secondary btn--sm'}
@@ -433,8 +438,8 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           </div>
         )}
 
-        {/* Stripe Payment - Only show if not bypassing */}
-        {!isGuest && !canBypassPayment && purchaseMethod === 'stripe' && (
+        {/* v0.4.3: Stripe Payment - Show for all non-guest users (including admin/tester) */}
+        {!isGuest && purchaseMethod === 'stripe' && (
           <div>
             <div className="price-box mb-lg">
               <div className="price-amount">
@@ -463,8 +468,8 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           </div>
         )}
 
-        {/* Voucher Redemption - Only show if not bypassing */}
-        {!isGuest && !canBypassPayment && purchaseMethod === 'voucher' && (
+        {/* v0.4.3: Voucher Redemption - Show for all non-guest users (including admin/tester) */}
+        {!isGuest && purchaseMethod === 'voucher' && (
           <div>
             <p className="item-description mb-md">
               Have a voucher code? Enter it below to unlock this era for free!

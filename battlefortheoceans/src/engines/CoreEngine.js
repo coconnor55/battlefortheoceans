@@ -1,5 +1,12 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.8: Removed service wrapper methods
+//         - Deleted 11 simple pass-through methods (~35 lines)
+//         - getUserProfile, getLeaderboard, getRecentChampions, etc.
+//         - Components should call services directly
+//         - Kept service instances (safer incremental change)
+//         - Kept methods with business logic: createUserProfile, updateGameStats, hasEraAccess
+//         - Reduced CoreEngine from 876 lines to ~841 lines
 // v0.6.7: Refactored game initialization to use GameLifecycleManager
 //         - Created this.lifecycleManager in constructor
 //         - Delegated initializeForPlacement() to lifecycleManager
@@ -51,7 +58,7 @@ import NavigationManager from '../utils/NavigationManager.js';
 import GameLifecycleManager from '../classes/GameLifecycleManager.js';
 import { supabase } from '../utils/supabaseClient.js';
 
-const version = "v0.6.7";
+const version = "v0.6.8";
 
 class CoreEngine {
   constructor() {
@@ -756,10 +763,6 @@ class CoreEngine {
     });
   }
 
-  async getUserProfile(userId) {
-    return await this.userProfileService.getUserProfile(userId);
-  }
-
   async createUserProfile(userId, gameName) {
     const profile = await this.userProfileService.createUserProfile(userId, gameName);
     if (profile) {
@@ -787,14 +790,6 @@ class CoreEngine {
     return false;
   }
 
-  async getLeaderboard(limit = 10) {
-    return await this.leaderboardService.getLeaderboard(limit);
-  }
-
-  async getRecentChampions(limit = 5) {
-    return await this.leaderboardService.getRecentChampions(limit);
-  }
-
   async hasEraAccess(userId, eraId) {
     const era = await configLoader.loadEraConfig(eraId);
     
@@ -808,41 +803,6 @@ class CoreEngine {
     
     return await this.rightsService.hasEraAccess(userId, eraId);
   }
-    
-  async grantEraAccess(userId, eraId, paymentData = {}) {
-    return await this.rightsService.grantEraAccess(userId, eraId, paymentData);
-  }
-
-  async redeemVoucher(userId, voucherCode) {
-    return await this.rightsService.redeemVoucher(userId, voucherCode);
-  }
-
-  async getUserRights(userId) {
-    return await this.rightsService.getUserRights(userId);
-  }
-
-  async getAllEras() {
-    return await configLoader.listEras();
-  }
-
-  async getEraById(eraId) {
-    return await configLoader.loadEraConfig(eraId);
-  }
-
-  async getPromotableEras() {
-    const allEras = await configLoader.listEras();
-    return allEras.filter(era => !era.free && era.promotional);
-  }
-
-  async getFreeEras() {
-    const allEras = await configLoader.listEras();
-    return allEras.filter(era => era.free);
-  }
-
-  clearEraCache() {
-    configLoader.clearCache();
-  }
-    
   getPlayerGameName(playerId) {
     if (playerId === this.humanPlayer?.id && this.userProfile?.game_name) {
       return this.userProfile.game_name;

@@ -1,5 +1,9 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.4: Updated to call services directly instead of CoreEngine wrappers
+//         - Import UserProfileService, LeaderboardService, RightsService, configLoader
+//         - Call services directly for methods removed from CoreEngine v0.6.8
+//         - Keep calls to CoreEngine for methods with business logic
 // v0.4.3: Exposed logout() from CoreEngine
 //         - User can logout from anywhere via GameContext
 //         - NavBar uses this to provide logout dropdown menu
@@ -16,13 +20,22 @@
 
 import React, { createContext, useContext } from 'react';
 import CoreEngine from '../engines/CoreEngine';
+import UserProfileService from '../services/UserProfileService';
+import LeaderboardService from '../services/LeaderboardService';
+import RightsService from '../services/RightsService';
+import configLoader from '../utils/ConfigLoader';
 
-const version = "v0.4.3";
+const version = "v0.4.4";
 
 const GameState = createContext();
 
 // CoreEngine singleton - single source of truth for all game state
 const coreEngine = new CoreEngine();
+
+// Service instances for direct calls
+const userProfileService = new UserProfileService();
+const leaderboardService = new LeaderboardService();
+const rightsService = new RightsService();
 
 export const GameProvider = ({ children }) => {
   console.log(`[GameContext ${version}] Provider initialized with CoreEngine`);
@@ -67,28 +80,37 @@ export const GameProvider = ({ children }) => {
       handleStarShellFired: (row, col) => coreEngine.handleStarShellFired(row, col),
       
       // User profile functions
-      getUserProfile: (userId) => coreEngine.getUserProfile(userId),
-      createUserProfile: (userId, gameName) => coreEngine.createUserProfile(userId, gameName),
-      updateGameStats: (gameResults) => coreEngine.updateGameStats(gameResults),
-      getLeaderboard: (limit) => coreEngine.getLeaderboard(limit),
-      getRecentChampions: (limit) => coreEngine.getRecentChampions(limit),
-      getPlayerGameName: (playerId) => coreEngine.getPlayerGameName(playerId),
+      // v0.4.4: Call services directly (not through CoreEngine)
+      getUserProfile: (userId) => userProfileService.getUserProfile(userId),
+      createUserProfile: (userId, gameName) => coreEngine.createUserProfile(userId, gameName), // Keep - has business logic
+      updateGameStats: (gameResults) => coreEngine.updateGameStats(gameResults), // Keep - has business logic
+      getLeaderboard: (limit) => leaderboardService.getLeaderboard(limit),
+      getRecentChampions: (limit) => leaderboardService.getRecentChampions(limit),
+      getPlayerGameName: (playerId) => coreEngine.getPlayerGameName(playerId), // Keep - still in CoreEngine
       
       // v0.4.3: Logout function
       logout: () => coreEngine.logout(),
       
       // Rights functions
-      hasEraAccess: (userId, eraId) => coreEngine.hasEraAccess(userId, eraId),
-      grantEraAccess: (userId, eraId, paymentData) => coreEngine.grantEraAccess(userId, eraId, paymentData),
-      redeemVoucher: (userId, voucherCode) => coreEngine.redeemVoucher(userId, voucherCode),
-      getUserRights: (userId) => coreEngine.getUserRights(userId),
+      // v0.4.4: Call services directly (not through CoreEngine)
+      hasEraAccess: (userId, eraId) => coreEngine.hasEraAccess(userId, eraId), // Keep - has business logic
+      grantEraAccess: (userId, eraId, paymentData) => rightsService.grantEraAccess(userId, eraId, paymentData),
+      redeemVoucher: (userId, voucherCode) => rightsService.redeemVoucher(userId, voucherCode),
+      getUserRights: (userId) => rightsService.getUserRights(userId),
       
       // Era functions
-      getAllEras: () => coreEngine.getAllEras(),
-      getEraById: (eraId) => coreEngine.getEraById(eraId),
-      getPromotableEras: () => coreEngine.getPromotableEras(),
-      getFreeEras: () => coreEngine.getFreeEras(),
-      clearEraCache: () => coreEngine.clearEraCache(),
+      // v0.4.4: Call configLoader directly (not through CoreEngine)
+      getAllEras: () => configLoader.listEras(),
+      getEraById: (eraId) => configLoader.loadEraConfig(eraId),
+      getPromotableEras: async () => {
+        const eras = await configLoader.listEras();
+        return eras.filter(era => !era.free && era.promotional);
+      },
+      getFreeEras: async () => {
+        const eras = await configLoader.listEras();
+        return eras.filter(era => era.free);
+      },
+      clearEraCache: () => configLoader.clearCache(),
       
     }}>
       {children}
