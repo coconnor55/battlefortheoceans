@@ -1,17 +1,26 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.9: Added user menu dropdown with logout functionality
+//         - Click username to show dropdown menu
+//         - Menu shows username header + Logout button
+//         - Logout calls CoreEngine.logout() → returns to LaunchPage
+//         - Close on backdrop click or after logout
+//         - Uses action menu styling from game-ui.css
 // v0.2.8: Enabled Stats button
 // v0.2.7: Show Return to Game for all states when overlay is active
 // v0.2.6: Only show Return to Game button when overlay is active
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
+import { LogOut } from 'lucide-react';
 
-const version = 'v0.2.8';
+const version = 'v0.2.9';
 
 const NavBar = ({ onShowStats, onShowAchievements, onCloseOverlay, hasActiveOverlay }) => {
-  const { currentState, userProfile, subscribeToUpdates } = useGame();
+  const { currentState, userProfile, subscribeToUpdates, logout } = useGame();
   const [, forceUpdate] = useState(0);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef(null);
   
   // Force re-render when game state changes
   useEffect(() => {
@@ -20,6 +29,20 @@ const NavBar = ({ onShowStats, onShowAchievements, onCloseOverlay, hasActiveOver
     });
     return unsubscribe;
   }, [subscribeToUpdates]);
+  
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+    
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showUserMenu]);
   
   if (currentState === 'launch' || currentState === 'login') {
     return null;
@@ -52,6 +75,21 @@ const NavBar = ({ onShowStats, onShowAchievements, onCloseOverlay, hasActiveOver
       default:
         console.warn('[NAVBAR]', version, 'Unknown destination:', destination);
     }
+  };
+  
+  const handleLogout = () => {
+    console.log('[NAVBAR]', version, 'User clicked logout');
+    setShowUserMenu(false);
+    
+    if (logout) {
+      logout();
+    } else {
+      console.error('[NAVBAR]', version, 'No logout function available from GameContext');
+    }
+  };
+  
+  const toggleUserMenu = () => {
+    setShowUserMenu(prev => !prev);
   };
   
   // Show "Return to Game" whenever there's an active overlay (any state except launch/login)
@@ -103,8 +141,57 @@ const NavBar = ({ onShowStats, onShowAchievements, onCloseOverlay, hasActiveOver
         </div>
         
         {userProfile && (
-          <div className="nav-bar__user">
-            <span className="nav-bar__username">{userProfile.game_name || 'Guest'}</span>
+          <div className="nav-bar__user" ref={menuRef}>
+            <span
+              className="nav-bar__username"
+              onClick={toggleUserMenu}
+              style={{ cursor: 'pointer' }}
+              title="Click for user menu"
+            >
+              {userProfile.game_name || 'Guest'}
+            </span>
+            
+            {showUserMenu && (
+              <>
+                <div
+                  className="action-menu-backdrop"
+                  onClick={() => setShowUserMenu(false)}
+                  style={{ background: 'transparent' }}
+                />
+                <div
+                  className="action-menu"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: '0',
+                    marginTop: '0.5rem'
+                  }}
+                >
+                  <div className="action-menu__items">
+                    <div
+                      className="action-menu__item action-menu__item--header"
+                      style={{
+                        cursor: 'default',
+                        background: 'var(--bg-medium)',
+                        borderColor: 'var(--border-subtle)',
+                        fontSize: '0.85rem',
+                        padding: 'var(--space-xs) var(--space-md)'
+                      }}
+                    >
+                      <span>{userProfile.game_name || 'Guest'}</span>
+                    </div>
+                    
+                    <div
+                      className="action-menu__item"
+                      onClick={handleLogout}
+                    >
+                      <LogOut size={20} className="action-menu__emoji" />
+                      <span className="action-menu__label">Logout</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

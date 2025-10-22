@@ -1,13 +1,17 @@
 // src/pages/AchievementsPage.js
 // Copyright(c) 2025, Clint H. O'Connor
-// Dedicated achievements page showing Top 5, Challenges, and All Earned
+// v0.1.1: Added badge click handler with InfoPanel details
+//         - Click any achievement card to see full details
+//         - InfoPanel shows description, tooltip, requirements, progress
+//         - Reuses existing InfoPanel component and styles
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import AchievementService from '../services/AchievementService';
+import InfoPanel from '../components/InfoPanel';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.1.0';
+const version = 'v0.1.1';
 
 const AchievementsPage = ({ onClose }) => {
   const { userProfile, dispatch, events } = useGame();
@@ -21,6 +25,10 @@ const AchievementsPage = ({ onClose }) => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // InfoPanel state
+  const [showInfo, setShowInfo] = useState(false);
+  const [selectedAchievement, setSelectedAchievement] = useState(null);
 
   const isGuest = userProfile?.id?.startsWith('guest-');
 
@@ -69,13 +77,19 @@ const AchievementsPage = ({ onClose }) => {
       case 'silver': return 'badge--silver';
       case 'gold': return 'badge--gold';
       case 'platinum': return 'badge--platinum';
+      case 'diamond': return 'badge--diamond';
       default: return 'badge--primary';
     }
+  };
+  
+  // Helper function to get tier display name
+  const getTierDisplayName = (tier) => {
+    return tier.charAt(0).toUpperCase() + tier.slice(1);
   };
 
   // Get top 5 achievements (highest tier, then highest points, then most recent)
   const getTop5 = () => {
-    const tierOrder = { platinum: 4, gold: 3, silver: 2, bronze: 1 };
+    const tierOrder = { diamond: 5, platinum: 4, gold: 3, silver: 2, bronze: 1 };
     
     return [...achievements.unlocked]
       .sort((a, b) => {
@@ -104,6 +118,19 @@ const AchievementsPage = ({ onClose }) => {
   const getAllEarned = () => {
     return [...achievements.unlocked]
       .sort((a, b) => new Date(b.unlocked_at) - new Date(a.unlocked_at));
+  };
+  
+  // Handle achievement card click
+  const handleAchievementClick = (achievement) => {
+    console.log(version, 'Achievement clicked:', achievement.name);
+    setSelectedAchievement(achievement);
+    setShowInfo(true);
+  };
+  
+  // Handle info panel close
+  const handleInfoClose = () => {
+    setShowInfo(false);
+    setSelectedAchievement(null);
   };
 
   const handleGuestSignup = () => {
@@ -204,19 +231,88 @@ const AchievementsPage = ({ onClose }) => {
           )}
         </div>
 
+        {/* InfoPanel for achievement details */}
+        <InfoPanel
+          isOpen={showInfo}
+          onClose={handleInfoClose}
+          title={selectedAchievement?.name || 'Achievement Details'}
+        >
+          {selectedAchievement && (
+            <>
+              <div className="achievement-detail">
+                <div className="achievement-detail__icon">
+                  {React.createElement(getLucideIcon(selectedAchievement.badge_icon), { size: 64 })}
+                </div>
+                
+                <div className="achievement-detail__tier">
+                  <span className={`badge ${getTierBadgeClass(selectedAchievement.tier)}`}>
+                    {getTierDisplayName(selectedAchievement.tier)} - {selectedAchievement.points} Points
+                  </span>
+                </div>
+                
+                <h4 className="mt-md">Description</h4>
+                <p>{selectedAchievement.description}</p>
+                
+                {selectedAchievement.tooltip && (
+                  <>
+                    <h4 className="mt-md">How to Earn</h4>
+                    <p>{selectedAchievement.tooltip}</p>
+                  </>
+                )}
+                
+                {selectedAchievement.requirement_type && (
+                  <>
+                    <h4 className="mt-md">Requirement</h4>
+                    <p>
+                      <strong>Type:</strong> {selectedAchievement.requirement_type.replace(/_/g, ' ')}<br />
+                      <strong>Target:</strong> {selectedAchievement.requirement_value}
+                    </p>
+                  </>
+                )}
+                
+                {selectedAchievement.current !== undefined && (
+                  <>
+                    <h4 className="mt-md">Your Progress</h4>
+                    <div className="progress-bar mb-sm">
+                      <div
+                        className="progress-bar__fill"
+                        style={{ width: `${selectedAchievement.percentage || 0}%` }}
+                      ></div>
+                    </div>
+                    <p>
+                      {selectedAchievement.current} / {selectedAchievement.target} ({selectedAchievement.percentage || 0}%)
+                    </p>
+                  </>
+                )}
+                
+                {selectedAchievement.unlocked_at && (
+                  <>
+                    <h4 className="mt-md">Unlocked</h4>
+                    <p>{new Date(selectedAchievement.unlocked_at).toLocaleDateString()}</p>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </InfoPanel>
+
         {/* Top 5 Achievements */}
         {top5.length > 0 && (
           <>
             <div className="achievements-section">
               <h3 className="achievements-title">🏆 Top 5 Achievements</h3>
-              <p className="text-secondary text-center mb-md">Your most prestigious accomplishments</p>
+              <p className="text-secondary text-center mb-md">Your most prestigious accomplishments (click for details)</p>
               <div className="achievement-grid achievement-grid--compact">
                 {top5.map((achievement) => {
                   const Icon = getLucideIcon(achievement.badge_icon);
                   return (
                     <div
                       key={achievement.id}
-                      className={`achievement-card achievement-card--${achievement.tier}`}
+                      className={`achievement-card achievement-card--${achievement.tier} achievement-card--clickable`}
+                      onClick={() => handleAchievementClick(achievement)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyPress={(e) => e.key === 'Enter' && handleAchievementClick(achievement)}
                     >
                       <div className="achievement-card__icon">
                         <Icon size={48} />
@@ -243,12 +339,19 @@ const AchievementsPage = ({ onClose }) => {
           <>
             <div className="challenges-section">
               <h3 className="achievements-title">🎯 Challenges - Get These Next!</h3>
-              <p className="text-secondary text-center mb-md">You're making progress toward these achievements</p>
+              <p className="text-secondary text-center mb-md">You're making progress toward these achievements (click for details)</p>
               
               {challenges.map((achievement) => {
                 const Icon = getLucideIcon(achievement.badge_icon);
                 return (
-                  <div key={achievement.id} className="challenge-item">
+                  <div
+                    key={achievement.id}
+                    className="challenge-item challenge-item--clickable"
+                    onClick={() => handleAchievementClick(achievement)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAchievementClick(achievement)}
+                  >
                     <div className="challenge-header">
                       <div className="challenge-icon">
                         <Icon size={32} />
@@ -265,8 +368,8 @@ const AchievementsPage = ({ onClose }) => {
                     </div>
                     <div className="challenge-progress">
                       <div className="progress-bar">
-                        <div 
-                          className="progress-bar__fill" 
+                        <div
+                          className="progress-bar__fill"
                           style={{ width: `${achievement.percentage}%` }}
                         ></div>
                       </div>
@@ -286,14 +389,18 @@ const AchievementsPage = ({ onClose }) => {
         {allEarned.length > 0 && (
           <div className="achievements-section">
             <h3 className="achievements-title">📜 All Earned Achievements</h3>
-            <p className="text-secondary text-center mb-md">Sorted by most recent first</p>
+            <p className="text-secondary text-center mb-md">Sorted by most recent first (click for details)</p>
             <div className="achievement-grid achievement-grid--compact">
               {allEarned.map((achievement) => {
                 const Icon = getLucideIcon(achievement.badge_icon);
                 return (
                   <div
                     key={achievement.id}
-                    className={`achievement-card achievement-card--${achievement.tier}`}
+                    className={`achievement-card achievement-card--${achievement.tier} achievement-card--clickable`}
+                    onClick={() => handleAchievementClick(achievement)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAchievementClick(achievement)}
                   >
                     <div className="achievement-card__icon">
                       <Icon size={48} />

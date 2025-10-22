@@ -1,5 +1,21 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.6: Refactored to use NavigationManager utility class
+//         - Removed URL route mappings (stateToRoute, routeToRoute)
+//         - Removed initializeFromURL(), syncURL(), handleBrowserNavigation(), isValidBackwardTransition()
+//         - Removed browser popstate event listener setup
+//         - Added setCurrentState(), getCurrentState(), isGameActive() helper methods
+//         - NavigationManager handles all URL/browser navigation
+//         - Reduced CoreEngine by ~200 lines
+// v0.6.5: Added logout() method for user logout flow
+//         - Clears all game state and session
+//         - Transitions to 'launch' state
+//         - Accessible from anywhere via GameContext
+// v0.6.4: Refactored to use SessionManager utility class
+//         - Removed restoreSessionSync(), storeSessionContext(), clearSessionContext()
+//         - Now uses SessionManager.restore(), SessionManager.save(), SessionManager.clear()
+//         - Reduced CoreEngine by ~150 lines
+//         - Kept refreshProfileAsync() and restoreEraAsync() (service calls)
 // v0.6.3: added a direct getter for game stats
 // v0.6.2: Added handleStarShellFired() method - game logic for star shell consumption
 //         - Validates star shells remaining
@@ -23,9 +39,11 @@ import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
 import configLoader from '../utils/ConfigLoader.js';
 import AchievementService from '../services/AchievementService.js';
+import SessionManager from '../utils/SessionManager.js';
+import NavigationManager from '../utils/NavigationManager.js';
 import { supabase } from '../utils/supabaseClient.js';
 
-const version = "v0.6.2";
+const version = "v0.6.6";
 
 class CoreEngine {
   constructor() {
@@ -84,21 +102,6 @@ class CoreEngine {
       }
     };
     
-    // URL route mapping
-    this.stateToRoute = {
-      'launch': '/',
-      'login': '/login',
-      'era': '/select-era',
-      'opponent': '/select-opponent',
-      'placement': '/placement',
-      'play': '/battle',
-      'over': '/results'
-    };
-    
-    this.routeToState = Object.fromEntries(
-      Object.entries(this.stateToRoute).map(([state, route]) => [route, state])
-    );
-    
     // Game state data
     this.gameConfig = null;
     this.eraConfig = null;
@@ -112,7 +115,7 @@ class CoreEngine {
     this.userProfile = null;
     this.loginEventData = null;
     
-    // v0.6.1: Game resources (star shells, scatter shot, etc.)
+    // Game resources (star shells, scatter shot, etc.)
     this.resources = null;
     
     // Observer pattern for UI updates
@@ -126,20 +129,19 @@ class CoreEngine {
     this.rightsService = new RightsService();
     this.achievementService = AchievementService;
     
+    // Navigation manager
+    this.navigationManager = new NavigationManager(this);
+    
     // Achievement tracking
     this.newAchievements = [];
       
     // initialize
     this.initializeGameConfig();
     
-    // Browser navigation handler
+    // Initialize from session and URL
     if (typeof window !== 'undefined') {
-      window.addEventListener('popstate', (event) => {
-        this.handleBrowserNavigation(event);
-      });
-      
-      this.restoreSessionSync();
-      this.initializeFromURL();
+      this.restoreSession();
+      this.navigationManager.initializeFromURL();
       
       if (!this.currentState) {
         this.currentState = 'launch';
@@ -152,7 +154,148 @@ class CoreEngine {
   }
   
   /**
-   * v0.6.1: Calculate resource count with multi-opponent boost
+   * Helper methods for NavigationManager
+   */
+  
+  /**
+   * Set current state directly (used by NavigationManager)
+   * @param {string} state - New state
+   */
+  setCurrentState(state) {
+    this.currentState = state;
+  }
+  
+  /**
+   * Get current state (used by NavigationManager)
+   * @returns {string} Current state
+   */
+  getCurrentState() {
+    return this.currentState;
+  }
+  
+  /**
+   * Check if game is currently active (used by NavigationManager)
+   * @returns {boolean} True if game is in playing state
+   */
+  isGameActive() {
+    return this.gameInstance?.state === 'playing';
+  }
+  
+  /**
+   * v0.6.5: Logout user and return to launch page
+   * Clears all game state and session data
+   */
+  logout() {
+    this.log('User logging out');
+    
+    // Clear all game state
+    this.clearGameState();
+    
+    // Transition to launch state
+    this.currentState = 'launch';
+    this.lastEvent = null;
+    
+    // Sync URL
+    this.navigationManager.syncURL(this.currentState);
+    
+    // Notify subscribers (triggers UI update to LaunchPage)
+    this.notifySubscribers();
+    
+    this.log('Logout complete - returned to launch');
+  }
+  
+  /**
+   * Restore session using SessionManager
+   */
+  restoreSession() {
+    const sessionData = SessionManager.restore();
+    
+    if (!sessionData) {
+      this.log('No stored session found');
+      return;
+    }
+    
+    this.log('Restoring session context');
+    
+    // Restore user profile
+    if (sessionData.user) {
+      this.userProfile = {
+        id: sessionData.user.id,
+        game_name: sessionData.user.game_name,
+        total_games: sessionData.user.total_games || 0,
+        total_wins: sessionData.user.total_wins || 0,
+        total_score: sessionData.user.total_score || 0,
+        best_accuracy: sessionData.user.best_accuracy || 0,
+        total_ships_sunk: sessionData.user.total_ships_sunk || 0,
+        total_damage: sessionData.user.total_damage || 0
+      };
+      
+      this.humanPlayer = new HumanPlayer(sessionData.user.id, sessionData.user.game_name);
+      if (sessionData.user.email) {
+        this.humanPlayer.email = sessionData.user.email;
+      }
+      this.humanPlayer.gameName = sessionData.user.game_name;
+      
+      this.log(`User restored: ${sessionData.user.game_name}`);
+      
+      // Refresh registered user profile from database
+      if (sessionData.user.type === 'registered') {
+        this.refreshProfileAsync(sessionData.user.id);
+      }
+    }
+    
+    // Restore era
+    if (sessionData.eraId) {
+      this.restoreEraAsync(sessionData.eraId);
+    }
+    
+    // Restore opponents
+    if (sessionData.selectedOpponents && Array.isArray(sessionData.selectedOpponents)) {
+      this.selectedOpponents = sessionData.selectedOpponents;
+      this.log(`Opponents restored: ${sessionData.selectedOpponents.length} captains`);
+    }
+    
+    // Restore alliance
+    if (sessionData.selectedAlliance) {
+      this.selectedAlliance = sessionData.selectedAlliance;
+      this.log(`Alliance restored: ${sessionData.selectedAlliance}`);
+    }
+  }
+  
+  /**
+   * Save session using SessionManager
+   */
+  saveSession() {
+    const context = {
+      user: this.userProfile ? {
+        id: this.userProfile.id,
+        game_name: this.userProfile.game_name,
+        email: this.humanPlayer?.email || null,
+        total_games: this.userProfile.total_games || 0,
+        total_wins: this.userProfile.total_wins || 0,
+        total_score: this.userProfile.total_score || 0,
+        best_accuracy: this.userProfile.best_accuracy || 0,
+        total_ships_sunk: this.userProfile.total_ships_sunk || 0,
+        total_damage: this.userProfile.total_damage || 0
+      } : null,
+      
+      eraId: this.eraConfig?.id || null,
+      
+      selectedOpponents: this.selectedOpponents.map(opp => ({
+        id: opp.id,
+        name: opp.name,
+        strategy: opp.strategy,
+        difficulty: opp.difficulty
+      })),
+      
+      selectedAlliance: this.selectedAlliance || null
+    };
+    
+    SessionManager.save(context);
+  }
+  
+  /**
+   * Calculate resource count with multi-opponent boost
    * @param {number} baseAmount - Base resource from era config
    * @param {number} boostPerOpponent - Boost per additional opponent
    * @param {number} opponentCount - Number of opponents
@@ -172,7 +315,7 @@ class CoreEngine {
   }
   
   /**
-   * v0.6.2: Handle star shell firing (consumes turn)
+   * Handle star shell firing (consumes turn)
    * @param {number} row - Target row
    * @param {number} col - Target column
    * @returns {boolean} Success/failure
@@ -206,67 +349,6 @@ class CoreEngine {
     this.notifySubscribers();
     
     return true;
-  }
-    
-  restoreSessionSync() {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      const stored = sessionStorage.getItem('game_session');
-      if (!stored) {
-        this.log('No stored session found');
-        return;
-      }
-      
-      const context = JSON.parse(stored);
-      this.log('Restoring session context');
-      
-      if (context.user) {
-        this.userProfile = {
-          id: context.user.id,
-          game_name: context.user.game_name,
-          total_games: context.user.total_games || 0,
-          total_wins: context.user.total_wins || 0,
-          total_score: context.user.total_score || 0,
-          best_accuracy: context.user.best_accuracy || 0,
-          total_ships_sunk: context.user.total_ships_sunk || 0,
-          total_damage: context.user.total_damage || 0
-        };
-        
-        this.humanPlayer = new HumanPlayer(context.user.id, context.user.game_name);
-        if (context.user.email) {
-          this.humanPlayer.email = context.user.email;
-        }
-        this.humanPlayer.gameName = context.user.game_name;
-        
-        this.log(`User restored: ${context.user.game_name}`);
-        
-        if (context.user.type === 'registered') {
-          this.refreshProfileAsync(context.user.id);
-        }
-      }
-      
-      if (context.eraId) {
-        this.restoreEraAsync(context.eraId);
-      }
-      
-      if (context.selectedOpponents && Array.isArray(context.selectedOpponents)) {
-        this.selectedOpponents = context.selectedOpponents;
-        this.log(`Opponents restored: ${context.selectedOpponents.length} captains`);
-      } else if (context.selectedOpponent) {
-        this.selectedOpponents = [context.selectedOpponent];
-        this.log(`Opponent restored (legacy): ${context.selectedOpponent.name}`);
-      }
-      
-      if (context.selectedAlliance) {
-        this.selectedAlliance = context.selectedAlliance;
-        this.log(`Alliance restored: ${context.selectedAlliance}`);
-      }
-      
-    } catch (error) {
-      console.error(`${version} Error restoring session:`, error);
-      sessionStorage.removeItem('game_session');
-    }
   }
 
   async initializeGameConfig() {
@@ -305,85 +387,6 @@ class CoreEngine {
     } catch (error) {
       console.error(`${version} Error restoring era:`, error);
     }
-  }
-
-  storeSessionContext() {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      const context = {
-        user: this.userProfile ? {
-          id: this.userProfile.id,
-          game_name: this.userProfile.game_name,
-          type: this.userProfile.id.startsWith('guest-') ? 'guest' : 'registered',
-          email: this.humanPlayer?.email || null,
-          total_games: this.userProfile.total_games || 0,
-          total_wins: this.userProfile.total_wins || 0,
-          total_score: this.userProfile.total_score || 0,
-          best_accuracy: this.userProfile.best_accuracy || 0,
-          total_ships_sunk: this.userProfile.total_ships_sunk || 0,
-          total_damage: this.userProfile.total_damage || 0
-        } : null,
-        
-        eraId: this.eraConfig?.id || null,
-        
-        selectedOpponents: this.selectedOpponents.map(opp => ({
-          id: opp.id,
-          name: opp.name,
-          strategy: opp.strategy,
-          difficulty: opp.difficulty
-        })),
-        
-        selectedAlliance: this.selectedAlliance || null,
-        
-        timestamp: Date.now()
-      };
-      
-      sessionStorage.setItem('game_session', JSON.stringify(context));
-      this.log('Session context stored');
-    } catch (error) {
-      console.error(`${version} Error storing session context:`, error);
-    }
-  }
-
-  clearSessionContext() {
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('game_session');
-      this.log('Session context cleared');
-    }
-  }
-
-  initializeFromURL(path = typeof window !== 'undefined' ? window.location.pathname : '/') {
-    const targetState = this.routeToState[path] || 'launch';
-    
-    this.log(`Initializing from URL: ${path} → ${targetState}`);
-    
-    if (targetState === 'era') {
-      this.currentState = 'era';
-      if (typeof window !== 'undefined' && window.history) {
-        window.history.replaceState(
-          { state: 'era', timestamp: Date.now() },
-          '',
-          '/select-era'
-        );
-      }
-      this.notifySubscribers();
-      return;
-    }
-    
-    if (targetState !== 'launch' && targetState !== 'login') {
-      this.log(`Direct URL to protected state ${targetState} - page will validate profile`);
-    }
-    
-    this.currentState = targetState;
-    if (typeof window !== 'undefined' && window.history) {
-      window.history.replaceState(
-        { state: targetState, timestamp: Date.now() },
-        '',
-        this.stateToRoute[targetState] || '/'
-      );
-    }
-    this.notifySubscribers();
   }
 
   async dispatch(event, eventData = null) {
@@ -455,7 +458,7 @@ class CoreEngine {
         this.humanPlayer.gameName = profile.game_name;
       }
       
-      this.storeSessionContext();
+      this.saveSession();
       
     } else if (event === this.events.SELECTOPPONENT) {
       if (eventData.eraConfig) {
@@ -467,7 +470,7 @@ class CoreEngine {
         this.log(`Alliance selected: ${eventData.selectedAlliance}`);
       }
       
-      this.storeSessionContext();
+      this.saveSession();
       
     } else if (event === this.events.PLACEMENT) {
       if (eventData?.selectedOpponents && Array.isArray(eventData.selectedOpponents)) {
@@ -491,7 +494,7 @@ class CoreEngine {
         this.log(`Restored eraConfig for Battle Again: ${this.eraConfig?.name}`);
       }
       
-      this.storeSessionContext();
+      this.saveSession();
     }
   }
 
@@ -506,7 +509,7 @@ class CoreEngine {
         this.clearGameState();
       }
       
-      this.syncURL();
+      this.navigationManager.syncURL(this.currentState);
       this.log(`State transition: ${oldState} → ${this.currentState}`);
     } else {
       throw new Error(`No transition defined for ${this.currentState} with event ${this.getEventName(event)}`);
@@ -514,7 +517,7 @@ class CoreEngine {
   }
     
   clearGameState() {
-    this.log('Clearing game state for clean login');
+    this.log('Clearing game state');
     this.eraConfig = null;
     this.selectedOpponents = [];
     this.selectedGameMode = null;
@@ -525,75 +528,9 @@ class CoreEngine {
     this.board = null;
     this.userProfile = null;
     this.newAchievements = [];
-    this.resources = null; // v0.6.1: Clear resources
+    this.resources = null;
     
-    this.clearSessionContext();
-  }
-
-  syncURL() {
-    const route = this.stateToRoute[this.currentState];
-    if (route && typeof window !== 'undefined' && window.history) {
-      const currentUrl = new URL(window.location);
-      const newUrl = new URL(route, window.location.origin);
-      
-      currentUrl.searchParams.forEach((value, key) => {
-        newUrl.searchParams.set(key, value);
-      });
-      
-      window.history.pushState(
-        { state: this.currentState, timestamp: Date.now() },
-        '',
-        newUrl.pathname + newUrl.search
-      );
-      this.log(`URL synced: ${newUrl.pathname + newUrl.search}`);
-    }
-  }
-
-  handleBrowserNavigation(event) {
-    const targetState = event.state?.state;
-    
-    if (!targetState) {
-      this.log('Browser navigation with no state - ignoring');
-      return;
-    }
-    
-    this.log(`Browser back/forward to: ${targetState}`);
-    
-    if (this.currentState === 'play' && this.gameInstance?.state === 'playing') {
-      this.log('Cannot navigate away from active game');
-      window.history.pushState(
-        { state: this.currentState, timestamp: Date.now() },
-        '',
-        this.stateToRoute[this.currentState]
-      );
-      return;
-    }
-    
-    if (this.isValidBackwardTransition(this.currentState, targetState)) {
-      this.currentState = targetState;
-      this.handleStateTransition(targetState).catch(error => {
-        console.error(`${version} State transition failed:`, error);
-      });
-      this.notifySubscribers();
-    } else {
-      this.log(`Invalid backward navigation from ${this.currentState} to ${targetState}`);
-      this.syncURL();
-    }
-  }
-
-  isValidBackwardTransition(from, to) {
-    const backwardAllowed = {
-      'opponent': ['era'],
-      'placement': ['opponent'],
-      'over': ['era'],
-      'achievements': ['era']
-    };
-    
-    if (to === 'login' && ['era', 'opponent', 'placement', 'over', 'achievements'].includes(from)) {
-      return true;
-    }
-    
-    return backwardAllowed[from]?.includes(to) || false;
+    SessionManager.clear();
   }
 
   async handleStateTransition(newState) {
@@ -697,7 +634,7 @@ class CoreEngine {
 
     this.gameInstance.setBoard(this.board);
     
-    // v0.6.1: Calculate resources with multi-opponent boost
+    // Calculate resources with multi-opponent boost
     const opponentCount = this.selectedOpponents.length;
     this.resources = {
       starShells: this.calculateResourceWithBoost(
@@ -852,8 +789,7 @@ class CoreEngine {
       winner: this.gameInstance?.winner,
       currentMessage: this.generateCurrentMessage(),
       playerStats: this.getPlayerStats(),
-//  v0.6.3 DELETED    gameStats: this.gameInstance?.getGameStats() || null,
-      resources: this.resources // v0.6.1: Expose resources to UI
+      resources: this.resources
     };
   }
 
@@ -863,9 +799,9 @@ class CoreEngine {
     return this.gameInstance?.message?.getCurrentTurnMessage() || 'Initializing game...';
   }
 
-    getGameStates() {
-        return this.gameInstance?.getGameStats() || null;
-    }
+  getGameStates() {
+    return this.gameInstance?.getGameStats() || null;
+  }
     
   getPlayerStats() {
     if (!this.gameInstance) return {
@@ -951,7 +887,7 @@ class CoreEngine {
     
     if (updatedProfile) {
       this.userProfile = updatedProfile;
-      this.storeSessionContext();
+      this.saveSession();
       this.notifySubscribers();
       return true;
     }

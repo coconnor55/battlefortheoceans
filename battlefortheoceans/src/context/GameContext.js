@@ -1,5 +1,8 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.3: Exposed logout() from CoreEngine
+//         - User can logout from anywhere via GameContext
+//         - NavBar uses this to provide logout dropdown menu
 // v0.4.2: Fixed missing handleStarShellFired after revert
 //         - Revert attempted to go back to v0.4.1 but used OLD v0.4.1
 //         - This version correctly includes handleStarShellFired from v0.6.2 CoreEngine
@@ -14,7 +17,7 @@
 import React, { createContext, useContext } from 'react';
 import CoreEngine from '../engines/CoreEngine';
 
-const version = "v0.4.2";
+const version = "v0.4.3";
 
 const GameState = createContext();
 
@@ -70,6 +73,9 @@ export const GameProvider = ({ children }) => {
       getLeaderboard: (limit) => coreEngine.getLeaderboard(limit),
       getRecentChampions: (limit) => coreEngine.getRecentChampions(limit),
       getPlayerGameName: (playerId) => coreEngine.getPlayerGameName(playerId),
+      
+      // v0.4.3: Logout function
+      logout: () => coreEngine.logout(),
       
       // Rights functions
       hasEraAccess: (userId, eraId) => coreEngine.hasEraAccess(userId, eraId),

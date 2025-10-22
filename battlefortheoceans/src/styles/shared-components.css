@@ -1,5 +1,6 @@
-/* src/styles/shared-components.css v1.1.0 */
+/* src/styles/shared-components.css v1.1.1 */
 /* Copyright(c) 2025, Clint H. O'Connor */
+/* v1.1.1: Use tier color custom properties for consistent badge styling in notifications */
 /* Consolidated shared component patterns - eliminates duplication */
 
 /* ============================================
@@ -281,10 +282,9 @@
   color: var(--text-dim);
 }
 
-/* ADD TO src/styles/shared-components.css */
-
 /* ============================================
    ACHIEVEMENT NOTIFICATIONS
+   v1.1.1: Use tier color custom properties
    ============================================ */
 
 .achievement-notification {
@@ -413,6 +413,23 @@
   letter-spacing: 0.1em;
 }
 
+/* Tier-specific colors using custom properties */
+.achievement-notification__tier--bronze {
+  color: var(--tier-bronze);
+}
+
+.achievement-notification__tier--silver {
+  color: var(--tier-silver);
+}
+
+.achievement-notification__tier--gold {
+  color: var(--tier-gold);
+}
+
+.achievement-notification__tier--platinum {
+  color: var(--tier-platinum);
+}
+
 .achievement-notification__close {
   position: absolute;
   top: 0.5rem;
@@ -431,8 +448,6 @@
   color: var(--text-primary, #E0E0E0);
   transform: scale(1.2);
 }
-
-/* EOF */
 
 /* ============================================
    PURCHASE PAGE COMPONENTS (v1.0.1)

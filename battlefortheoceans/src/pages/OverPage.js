@@ -1,10 +1,11 @@
-// src/pages/OverPage.js
+// src/pages/OverPage.js v0.5.0
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.0: New achievement popup modal - more prominent celebration
+//         - Moved achievements from inline cards to modal overlay
+//         - Shows immediately after game over (before stats)
+//         - User must acknowledge to dismiss
+//         - Reuses existing modal-overlay CSS
 // v0.4.9: Removed leaderboard section (now in Stats page)
-// v0.4.8: Fixed mock achievements with ENABLE_MOCK_ACHIEVEMENTS flag
-// v0.4.7: Added achievement notifications between board and battle stats
-// v0.4.6: Added Log Out button for quick testing and player handoff
-// v0.4.5: Use sessionStorage to persist game results across page refresh
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
@@ -14,7 +15,7 @@ import GameStatsService from '../services/GameStatsService';
 import AchievementService from '../services/AchievementService';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.4.9';
+const version = 'v0.5.0';
 const SESSION_KEY = 'battleForOceans_gameResults';
 
 const OverPage = () => {
@@ -27,7 +28,7 @@ const OverPage = () => {
     selectedOpponent,
     userProfile,
     hasEraAccess,
-      getPromotableEras,
+    getPromotableEras,
     appVersion
   } = useGame();
 
@@ -37,6 +38,7 @@ const OverPage = () => {
   // State for achievements
   const [newAchievements, setNewAchievements] = useState([]);
   const [loadingAchievements, setLoadingAchievements] = useState(false);
+  const [showAchievementModal, setShowAchievementModal] = useState(false);
 
   // Redirect to login if no user profile
   useEffect(() => {
@@ -84,7 +86,7 @@ const OverPage = () => {
       }
 
       // TEMPORARY: Mock achievements for testing
-      const ENABLE_MOCK_ACHIEVEMENTS = false; // Set to false when done testing
+      const ENABLE_MOCK_ACHIEVEMENTS = true;
       
       if (ENABLE_MOCK_ACHIEVEMENTS) {
         console.log(version, 'Loading mock achievements for testing');
@@ -104,25 +106,10 @@ const OverPage = () => {
             badge_icon: 'Target',
             points: 25,
             tier: 'silver'
-          },
-          {
-            id: 'perfect-game',
-            name: 'Perfect Game',
-            description: 'Win without missing',
-            badge_icon: 'Crown',
-            points: 100,
-            tier: 'gold'
-          },
-          {
-            id: 'fleet-admiral',
-            name: 'Fleet Admiral',
-            description: 'Win 100 battles',
-            badge_icon: 'Medal',
-            points: 500,
-            tier: 'platinum'
           }
         ];
         setNewAchievements(mockAchievements);
+        setShowAchievementModal(true);
         return;
       }
 
@@ -154,7 +141,11 @@ const OverPage = () => {
 
         const unlocked = await AchievementService.checkAchievements(userProfile.id, achievementCheckData);
         console.log(version, 'New achievements unlocked:', unlocked);
-        setNewAchievements(unlocked);
+        
+        if (unlocked.length > 0) {
+          setNewAchievements(unlocked);
+          setShowAchievementModal(true);
+        }
       } catch (error) {
         console.error(version, 'Error checking achievements:', error);
       } finally {
@@ -166,64 +157,60 @@ const OverPage = () => {
   }, [gameResults, userProfile]);
   
   const [showPromotion, setShowPromotion] = useState(false);
-    const [promotionalEra, setPromotionalEra] = useState(null);  // ← ADD THIS
+  const [promotionalEra, setPromotionalEra] = useState(null);
   const [showPurchasePage, setShowPurchasePage] = useState(false);
   const [purchaseEraId, setPurchaseEraId] = useState(null);
 
   const isGuest = userProfile?.id?.startsWith('guest-');
 
   // Check if user needs to see Midway Island promotion
-    // Find a promotional era the user doesn't own
-    useEffect(() => {
-      const findPromotionalEra = async () => {
-        if (!userProfile?.id) {
+  useEffect(() => {
+    const findPromotionalEra = async () => {
+      if (!userProfile?.id) {
+        setShowPromotion(false);
+        return;
+      }
+
+      try {
+        const promotableEras = await getPromotableEras();
+        
+        if (promotableEras.length === 0) {
           setShowPromotion(false);
           return;
         }
 
-        try {
-          // Get all promotable eras (non-free eras with promotional content)
-          const promotableEras = await getPromotableEras();
-          
-          if (promotableEras.length === 0) {
-            setShowPromotion(false);
-            return;
+        const lockedEras = [];
+        for (const era of promotableEras) {
+          const hasAccess = await hasEraAccess(userProfile.id, era.id);
+          if (!hasAccess) {
+            lockedEras.push(era);
           }
-
-          // Filter to eras user doesn't have access to
-          const lockedEras = [];
-          for (const era of promotableEras) {
-            const hasAccess = await hasEraAccess(userProfile.id, era.id);
-            if (!hasAccess) {
-              lockedEras.push(era);
-            }
-          }
-
-          if (lockedEras.length === 0) {
-            setShowPromotion(false);
-            return;
-          }
-
-          // Pick a random locked era to promote
-          const randomEra = lockedEras[Math.floor(Math.random() * lockedEras.length)];
-          
-          console.log(version, 'Promoting era:', randomEra.name);
-          setPromotionalEra(randomEra);
-          setShowPromotion(true);
-
-        } catch (error) {
-          console.error(version, 'Error finding promotional era:', error);
-          setShowPromotion(false);
         }
-      };
 
-      findPromotionalEra();
-    }, [userProfile, hasEraAccess, getPromotableEras]);
+        if (lockedEras.length === 0) {
+          setShowPromotion(false);
+          return;
+        }
+
+        const randomEra = lockedEras[Math.floor(Math.random() * lockedEras.length)];
+        
+        console.log(version, 'Promoting era:', randomEra.name);
+        setPromotionalEra(randomEra);
+        setShowPromotion(true);
+
+      } catch (error) {
+        console.error(version, 'Error finding promotional era:', error);
+        setShowPromotion(false);
+      }
+    };
+
+    findPromotionalEra();
+  }, [userProfile, hasEraAccess, getPromotableEras]);
 
   // Helper function to get Lucide icon component by name
   const getLucideIcon = (iconName) => {
     const Icon = LucideIcons[iconName];
-    return Icon || LucideIcons.Award; // Fallback to Award icon
+    return Icon || LucideIcons.Award;
   };
 
   // Helper function to get tier badge class
@@ -233,6 +220,7 @@ const OverPage = () => {
       case 'silver': return 'badge--silver';
       case 'gold': return 'badge--gold';
       case 'platinum': return 'badge--platinum';
+      case 'diamond': return 'badge--diamond';
       default: return 'badge--primary';
     }
   };
@@ -340,6 +328,11 @@ const OverPage = () => {
     setShowPurchasePage(false);
     setPurchaseEraId(null);
   };
+  
+  const handleAchievementModalClose = () => {
+    console.log(version, 'Achievement modal dismissed');
+    setShowAchievementModal(false);
+  };
 
   // Don't render until we have results and userProfile
   if (!userProfile || !gameResults) {
@@ -384,37 +377,7 @@ const OverPage = () => {
             </div>
           )}
 
-          {/* Achievement Notifications */}
-          {!isGuest && newAchievements.length > 0 && (
-            <div className="achievements-section">
-              <h4 className="achievements-title">🎉 Achievements Unlocked!</h4>
-              <div className="achievements-grid">
-                {newAchievements.map((achievement, index) => {
-                  const Icon = getLucideIcon(achievement.badge_icon);
-                  return (
-                    <div
-                      key={achievement.id}
-                      className={`achievement-card achievement-card--${achievement.tier}`}
-                      style={{ animationDelay: `${index * 0.1}s` }}
-                    >
-                      <div className="achievement-card__icon">
-                        <Icon size={32} />
-                      </div>
-                      <div className="achievement-card__text">
-                        <div className="achievement-card__name">{achievement.name}</div>
-                        <div className="achievement-card__points">
-                          <span className={`badge ${getTierBadgeClass(achievement.tier)}`}>
-                            +{achievement.points}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
+          {/* Loading achievements indicator */}
           {loadingAchievements && !isGuest && (
             <div className="achievements-section">
               <div className="loading loading--sm">
@@ -475,13 +438,13 @@ const OverPage = () => {
           )}
         </div>
 
-         {showPromotion && promotionalEra && (
-           <PromotionalBox
-             eraConfig={promotionalEra}  // ← Changed from eraConfig
-             userProfile={userProfile}
-             onPurchase={handlePurchase}
-           />
-         )}
+        {showPromotion && promotionalEra && (
+          <PromotionalBox
+            eraConfig={promotionalEra}
+            userProfile={userProfile}
+            onPurchase={handlePurchase}
+          />
+        )}
                                  
         <div className="over-actions">
           <button
@@ -550,6 +513,58 @@ const OverPage = () => {
             )}
           </div>
         </div>
+
+        {/* Achievement Modal - Shows immediately after game over */}
+        {showAchievementModal && newAchievements.length > 0 && !isGuest && (
+          <div className="modal-overlay">
+            <div className="modal-content modal-content--achievement">
+              <div className="modal-header">
+                <h2 className="modal-title">🎉 Achievements Unlocked!</h2>
+              </div>
+              
+              <div className="modal-body">
+                <div className="achievements-grid achievements-grid--modal">
+                  {newAchievements.map((achievement, index) => {
+                    const Icon = getLucideIcon(achievement.badge_icon);
+                    return (
+                      <div
+                        key={achievement.id}
+                        className={`achievement-card achievement-card--${achievement.tier} achievement-card--modal`}
+                        style={{ animationDelay: `${index * 0.1}s` }}
+                      >
+                        <div className="achievement-card__icon achievement-card__icon--large">
+                          <Icon size={64} />
+                        </div>
+                        <div className="achievement-card__text">
+                          <div className="achievement-card__name achievement-card__name--large">
+                            {achievement.name}
+                          </div>
+                          <div className="achievement-card__description">
+                            {achievement.description}
+                          </div>
+                          <div className="achievement-card__points">
+                            <span className={`badge badge--lg ${getTierBadgeClass(achievement.tier)}`}>
+                              +{achievement.points} Points
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <div className="modal-footer">
+                <button
+                  className="btn btn--primary btn--lg"
+                  onClick={handleAchievementModalClose}
+                >
+                  Awesome!
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showPurchasePage && (
           <div className="modal-overlay modal-overlay--transparent">

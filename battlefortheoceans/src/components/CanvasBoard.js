@@ -1,5 +1,7 @@
-// src/components/CanvasBoard.js v0.4.8
+// src/components/CanvasBoard.js
 // Copyright(c) 2025, Clint H. O'Connor
+//
+// v0.4.9: FIXED opponent ship rendering when DEBUG_SHOW_OPPONENT_SHIPS is true
 // v0.4.8: FIXED stale currentShip closure in InputHandler validation
 //         - Bug: InputHandler captured isValidShipPlacement at creation with USS Macedonian
 //         - When placing later ships (USS Alligator), validation still checked against Macedonian
@@ -227,6 +229,44 @@ const CanvasBoard = forwardRef(({
         props.viewMode
       );
       
+        // Admin debug: Show opponent ships when 'Z' key is held
+        if (window.DEBUG_SHOW_OPPONENT_SHIPS && props.humanPlayerId) {
+          const opponentPlayers = props.gameInstance.players.filter(p => p.id !== props.humanPlayerId);
+          
+          opponentPlayers.forEach(opponent => {
+            if (opponent.fleet && opponent.fleet.ships) {
+              opponent.fleet.ships.forEach(ship => {
+                if (ship.isPlaced) {
+                  const shipCells = [];
+                  for (let row = 0; row < eraConfig.rows; row++) {
+                    for (let col = 0; col < eraConfig.cols; col++) {
+                      const placement = opponent.getShipAt(row, col);
+                      if (placement && placement.shipId === ship.id) {
+                        shipCells.push({ row, col });
+                      }
+                    }
+                  }
+                  
+                  if (shipCells.length > 0) {
+                    hitOverlayRendererRef.current.drawShipOutline(
+                      ctx,
+                      ship,
+                      shipCells,
+                      CELL_SIZE,
+                      LABEL_SIZE,
+                      offsetX,
+                      offsetY,
+                      opponent,
+                      0.6, // Semi-transparent debug view
+                      'red' // Enemy ships in red
+                    );
+                  }
+                }
+              });
+            }
+          });
+        }
+        
       // Draw star shell illumination
       if (props.starShellIllumination) {
         const elapsed = Date.now() - props.starShellIllumination.startTime;
