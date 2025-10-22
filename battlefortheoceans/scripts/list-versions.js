@@ -45,7 +45,7 @@ function analyzeFile(filePath, relativePath) {
     let versionSource = 'missing';
     
     // Check for version in different formats - search first 50 lines
-    for (let i = 0; i < Math.min(50, lines.length); i++) {
+    for (let i = 0; i < Math.min(100, lines.length); i++) {
       const line = lines[i].trim();
       
       // Look for const version = "vx.y.z" format (preferred for JS)

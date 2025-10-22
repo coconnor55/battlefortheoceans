@@ -460,3 +460,4 @@ class GameLifecycleManager {
 }
 
 export default GameLifecycleManager;
+// EOF
