@@ -1,5 +1,12 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.7: Refactored game initialization to use GameLifecycleManager
+//         - Created this.lifecycleManager in constructor
+//         - Delegated initializeForPlacement() to lifecycleManager
+//         - Removed calculateResourceWithBoost() (moved to GameLifecycleManager)
+//         - Removed getOpposingAlliance() (moved to GameLifecycleManager)
+//         - GameLifecycleManager now manages FULL lifecycle: birth + death
+//         - Reduced CoreEngine from 984 lines to ~870 lines (114 line reduction)
 // v0.6.6: Refactored to use NavigationManager utility class
 //         - Removed URL route mappings (stateToRoute, routeToRoute)
 //         - Removed initializeFromURL(), syncURL(), handleBrowserNavigation(), isValidBackwardTransition()
@@ -41,9 +48,10 @@ import configLoader from '../utils/ConfigLoader.js';
 import AchievementService from '../services/AchievementService.js';
 import SessionManager from '../utils/SessionManager.js';
 import NavigationManager from '../utils/NavigationManager.js';
+import GameLifecycleManager from '../classes/GameLifecycleManager.js';
 import { supabase } from '../utils/supabaseClient.js';
 
-const version = "v0.6.6";
+const version = "v0.6.7";
 
 class CoreEngine {
   constructor() {
@@ -131,6 +139,9 @@ class CoreEngine {
     
     // Navigation manager
     this.navigationManager = new NavigationManager(this);
+    
+    // Lifecycle manager (v0.6.7)
+    this.lifecycleManager = new GameLifecycleManager(this);
     
     // Achievement tracking
     this.newAchievements = [];
@@ -301,19 +312,6 @@ class CoreEngine {
    * @param {number} opponentCount - Number of opponents
    * @returns {number} Final resource count
    */
-  calculateResourceWithBoost(baseAmount, boostPerOpponent, opponentCount) {
-    if (!baseAmount || opponentCount <= 1 || !boostPerOpponent) {
-      return baseAmount || 0;
-    }
-    
-    const boost = boostPerOpponent * (opponentCount - 1);
-    const total = baseAmount + boost;
-    
-    this.log(`Resource boost: base=${baseAmount}, boost/opp=${boostPerOpponent}, opps=${opponentCount}, total=${total}`);
-    
-    return total;
-  }
-  
   /**
    * Handle star shell firing (consumes turn)
    * @param {number} row - Target row
@@ -555,103 +553,7 @@ class CoreEngine {
   }
 
   async initializeForPlacement() {
-    this.log('Initializing for placement phase');
-    
-    this.gameInstance = null;
-    this.board = null;
-    this.aiPlayers = [];
-    
-    if (!this.eraConfig || !this.humanPlayer || this.selectedOpponents.length === 0) {
-      const missing = [];
-      if (!this.eraConfig) missing.push('eraConfig');
-      if (!this.humanPlayer) missing.push('humanPlayer');
-      if (this.selectedOpponents.length === 0) missing.push('selectedOpponents');
-      throw new Error(`Cannot initialize placement - missing: ${missing.join(', ')}`);
-    }
-    
-    this.selectedEra = this.eraConfig.id;
-    
-    this.gameInstance = new Game(this.eraConfig, this.selectedOpponents[0].gameMode || 'turnBased');
-    
-    this.gameInstance.setUIUpdateCallback(() => this.notifySubscribers());
-    
-    this.gameInstance.setGameEndCallback(() => {
-      this.log('Game end callback triggered - dispatching OVER event');
-      this.dispatch(this.events.OVER).catch(error => {
-        console.error(`${version} Failed to dispatch OVER event:`, error);
-      });
-    });
-    
-    this.gameInstance.initializeAlliances();
-    
-    this.board = new Board(this.eraConfig.rows, this.eraConfig.cols, this.eraConfig.terrain);
-
-    // Determine alliances
-    let playerAlliance, opponentAlliance;
-    if (this.eraConfig.game_rules?.choose_alliance && this.selectedAlliance) {
-      playerAlliance = this.selectedAlliance;
-      opponentAlliance = this.getOpposingAlliance(this.selectedAlliance);
-    } else {
-      playerAlliance = this.eraConfig.alliances?.[0]?.name || 'Player';
-      opponentAlliance = this.eraConfig.alliances?.[1]?.name || 'Opponent';
-    }
-    
-    if (!opponentAlliance) {
-      throw new Error('Cannot determine opponent alliance');
-    }
-    
-    // Add human player
-    const humanPlayerAdded = this.gameInstance.addPlayer(this.humanPlayer, playerAlliance);
-    
-    // Add multiple AI opponents
-    this.log(`Adding ${this.selectedOpponents.length} AI opponent(s) to ${opponentAlliance}`);
-    
-    for (let i = 0; i < this.selectedOpponents.length; i++) {
-      const aiCaptain = this.selectedOpponents[i];
-      const aiId = `ai-${aiCaptain.id}-${i}`;
-      
-      const aiPlayer = new AiPlayer(
-        aiId,
-        aiCaptain.name,
-        aiCaptain.strategy || 'random',
-        aiCaptain.difficulty || 1.0
-      );
-      
-      if (aiCaptain.ships && Array.isArray(aiCaptain.ships)) {
-        this.gameInstance.addPlayerWithFleet(aiPlayer, opponentAlliance, aiCaptain.ships);
-        this.log(`Added AI ${aiCaptain.name} with ${aiCaptain.ships.length} specific ships (fleet_id: ${aiCaptain.fleet_id || 'unknown'})`);
-      } else {
-        this.gameInstance.addPlayer(aiPlayer, opponentAlliance);
-        this.log(`Added AI ${aiCaptain.name} with alliance fleet`);
-      }
-      
-      this.aiPlayers.push(aiPlayer);
-    }
-    
-    if (!humanPlayerAdded || this.aiPlayers.length === 0) {
-      throw new Error('Failed to add players to game');
-    }
-
-    this.gameInstance.setBoard(this.board);
-    
-    // Calculate resources with multi-opponent boost
-    const opponentCount = this.selectedOpponents.length;
-    this.resources = {
-      starShells: this.calculateResourceWithBoost(
-        this.eraConfig.resources?.star_shells,
-        this.eraConfig.resources?.star_shells_boost,
-        opponentCount
-      ),
-      scatterShot: this.calculateResourceWithBoost(
-        this.eraConfig.resources?.scatter_shot,
-        this.eraConfig.resources?.scatter_shot_boost,
-        opponentCount
-      )
-    };
-    
-    this.log(`Resources initialized: ${JSON.stringify(this.resources)}`);
-
-    this.log(`Game initialized with ${this.gameInstance.players.length} players (1 human + ${this.aiPlayers.length} AI)`);
+    await this.lifecycleManager.initializeForPlacement();
   }
 
   async startGame() {
@@ -836,16 +738,6 @@ class CoreEngine {
       },
       opponent: opponentAggregateStats
     };
-  }
-
-  getOpposingAlliance(selectedAlliance) {
-    if (!this.eraConfig?.alliances || this.eraConfig.alliances.length < 2) {
-      return null;
-    }
-    
-    return this.eraConfig.alliances.find(alliance =>
-      alliance.name !== selectedAlliance
-    )?.name;
   }
 
   subscribe(callback) {

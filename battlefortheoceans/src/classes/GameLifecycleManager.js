@@ -1,8 +1,27 @@
 // src/classes/GameLifecycleManager.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.1.0";
+import Game from './Game.js';
+import Board from './Board.js';
+import HumanPlayer from './HumanPlayer.js';
+import AiPlayer from './AiPlayer.js';
+
+const version = "v0.2.2";
 /**
+ * v0.2.2: Proper fix - Use instanceof for parent type detection
+ * - Changed from Array.isArray(parent.players) band-aid
+ * - Now uses proper instanceof Game check
+ * - Explicit, type-safe, standard JavaScript pattern
+ * v0.2.1: HOTFIX - Fixed parent detection logic (band-aid)
+ * v0.2.0: Added game initialization (birth) to complete lifecycle management
+ * - Added initializeForPlacement() - creates Game instance and sets up board
+ * - Added calculateResourceWithBoost() - multi-opponent resource calculation
+ * - Added getOpposingAlliance() - alliance determination helper
+ * - Constructor now accepts parent (CoreEngine or Game)
+ * - When passed CoreEngine: manages game creation + end
+ * - When passed Game: manages game end only (backward compatible)
+ * - Extracted ~120 lines from CoreEngine.js v0.6.6
+ * - GameLifecycleManager now manages FULL lifecycle: birth to death ✅
  * v0.1.0: Initial extraction from Game.js v0.8.5
  * - Extracted ~131 lines of game lifecycle logic
  * - checkGameEnd() - determines if game is over and identifies winner
@@ -14,32 +33,229 @@ const version = "v0.1.0";
 
 /**
  * GameLifecycleManager
- * 
- * Manages game lifecycle transitions:
- * - Game end detection
- * - Victory/defeat sequence
- * - Cleanup and reset
- * 
- * Extracted from Game.js to follow Single Responsibility Principle.
+ *
+ * Manages FULL game lifecycle:
+ * - Birth: Game initialization, player setup, board creation
+ * - Death: Game end detection, victory/defeat sequence, cleanup, reset
+ *
+ * Can be instantiated by:
+ * - CoreEngine: for game initialization (birth)
+ * - Game: for game termination (death)
+ *
+ * Extracted from Game.js and CoreEngine.js to follow Single Responsibility Principle.
  */
 class GameLifecycleManager {
   /**
-   * @param {Game} game - Reference to parent Game instance
+   * @param {Game|CoreEngine} parent - Reference to parent instance
    */
-  constructor(game) {
-    this.game = game;
-    this.version = version;
+  constructor(parent) {
+    // Use instanceof for proper type detection
+    if (parent instanceof Game) {
+      // Parent is Game instance
+      this.game = parent;
+      this.coreEngine = null;
+      console.log(`[GameLifecycleManager ${version}] Initialized for game ${parent.id}`);
+    } else {
+      // Parent is CoreEngine
+      this.coreEngine = parent;
+      this.game = null; // Will be set during initializeForPlacement
+      console.log(`[GameLifecycleManager ${version}] Initialized for CoreEngine`);
+    }
     
-    console.log(`[GameLifecycleManager ${version}] Initialized for game ${game.id}`);
+    this.version = version;
+  }
+
+  // ============================================================================
+  // BIRTH: Game Initialization
+  // ============================================================================
+
+  /**
+   * Initialize game for placement phase
+   *
+   * Creates:
+   * - Game instance with era config
+   * - Board with terrain
+   * - Players (human + AI opponents)
+   * - Alliances
+   * - Resources with multi-opponent boost
+   *
+   * Called by CoreEngine when transitioning to placement state.
+   *
+   * @returns {Promise<void>}
+   * @throws {Error} If required data is missing
+   */
+  async initializeForPlacement() {
+    if (!this.coreEngine) {
+      throw new Error('initializeForPlacement() requires CoreEngine reference');
+    }
+    
+    this.log('Initializing for placement phase');
+    
+    // Reset references
+    this.coreEngine.gameInstance = null;
+    this.coreEngine.board = null;
+    this.coreEngine.aiPlayers = [];
+    
+    // Validate required data
+    if (!this.coreEngine.eraConfig || !this.coreEngine.humanPlayer || this.coreEngine.selectedOpponents.length === 0) {
+      const missing = [];
+      if (!this.coreEngine.eraConfig) missing.push('eraConfig');
+      if (!this.coreEngine.humanPlayer) missing.push('humanPlayer');
+      if (this.coreEngine.selectedOpponents.length === 0) missing.push('selectedOpponents');
+      throw new Error(`Cannot initialize placement - missing: ${missing.join(', ')}`);
+    }
+    
+    this.coreEngine.selectedEra = this.coreEngine.eraConfig.id;
+    
+    // Create Game instance
+    this.game = new Game(
+      this.coreEngine.eraConfig,
+      this.coreEngine.selectedOpponents[0].gameMode || 'turnBased'
+    );
+    this.coreEngine.gameInstance = this.game;
+    
+    // Set up game callbacks
+    this.game.setUIUpdateCallback(() => this.coreEngine.notifySubscribers());
+    
+    this.game.setGameEndCallback(() => {
+      this.log('Game end callback triggered - dispatching OVER event');
+      this.coreEngine.dispatch(this.coreEngine.events.OVER).catch(error => {
+        console.error(`${version} Failed to dispatch OVER event:`, error);
+      });
+    });
+    
+    // Initialize alliances
+    this.game.initializeAlliances();
+    
+    // Create board
+    this.coreEngine.board = new Board(
+      this.coreEngine.eraConfig.rows,
+      this.coreEngine.eraConfig.cols,
+      this.coreEngine.eraConfig.terrain
+    );
+
+    // Determine alliances
+    let playerAlliance, opponentAlliance;
+    if (this.coreEngine.eraConfig.game_rules?.choose_alliance && this.coreEngine.selectedAlliance) {
+      playerAlliance = this.coreEngine.selectedAlliance;
+      opponentAlliance = this.getOpposingAlliance(this.coreEngine.selectedAlliance);
+    } else {
+      playerAlliance = this.coreEngine.eraConfig.alliances?.[0]?.name || 'Player';
+      opponentAlliance = this.coreEngine.eraConfig.alliances?.[1]?.name || 'Opponent';
+    }
+    
+    if (!opponentAlliance) {
+      throw new Error('Cannot determine opponent alliance');
+    }
+    
+    // Add human player
+    const humanPlayerAdded = this.game.addPlayer(this.coreEngine.humanPlayer, playerAlliance);
+    
+    // Add multiple AI opponents
+    this.log(`Adding ${this.coreEngine.selectedOpponents.length} AI opponent(s) to ${opponentAlliance}`);
+    
+    for (let i = 0; i < this.coreEngine.selectedOpponents.length; i++) {
+      const aiCaptain = this.coreEngine.selectedOpponents[i];
+      const aiId = `ai-${aiCaptain.id}-${i}`;
+      
+      const aiPlayer = new AiPlayer(
+        aiId,
+        aiCaptain.name,
+        aiCaptain.strategy || 'random',
+        aiCaptain.difficulty || 1.0
+      );
+      
+      if (aiCaptain.ships && Array.isArray(aiCaptain.ships)) {
+        this.game.addPlayerWithFleet(aiPlayer, opponentAlliance, aiCaptain.ships);
+        this.log(`Added AI ${aiCaptain.name} with ${aiCaptain.ships.length} specific ships (fleet_id: ${aiCaptain.fleet_id || 'unknown'})`);
+      } else {
+        this.game.addPlayer(aiPlayer, opponentAlliance);
+        this.log(`Added AI ${aiCaptain.name} with alliance fleet`);
+      }
+      
+      this.coreEngine.aiPlayers.push(aiPlayer);
+    }
+    
+    if (!humanPlayerAdded || this.coreEngine.aiPlayers.length === 0) {
+      throw new Error('Failed to add players to game');
+    }
+
+    // Set board on game
+    this.game.setBoard(this.coreEngine.board);
+    
+    // Calculate resources with multi-opponent boost
+    const opponentCount = this.coreEngine.selectedOpponents.length;
+    this.coreEngine.resources = {
+      starShells: this.calculateResourceWithBoost(
+        this.coreEngine.eraConfig.resources?.star_shells,
+        this.coreEngine.eraConfig.resources?.star_shells_boost,
+        opponentCount
+      ),
+      scatterShot: this.calculateResourceWithBoost(
+        this.coreEngine.eraConfig.resources?.scatter_shot,
+        this.coreEngine.eraConfig.resources?.scatter_shot_boost,
+        opponentCount
+      )
+    };
+    
+    this.log(`Resources initialized: ${JSON.stringify(this.coreEngine.resources)}`);
+
+    this.log(`Game initialized with ${this.game.players.length} players (1 human + ${this.coreEngine.aiPlayers.length} AI)`);
   }
 
   /**
+   * Calculate resource amount with multi-opponent boost
+   *
+   * Formula: base + (boost × (opponentCount - 1))
+   *
+   * Example: 3 star shells base, +2 per opponent, 2 opponents:
+   *   3 + (2 × (2 - 1)) = 3 + 2 = 5 star shells
+   *
+   * @param {number} baseAmount - Base resource amount
+   * @param {number} boostPerOpponent - Boost per additional opponent
+   * @param {number} opponentCount - Number of opponents
+   * @returns {number} Total resource amount
+   */
+  calculateResourceWithBoost(baseAmount, boostPerOpponent, opponentCount) {
+    if (!baseAmount || opponentCount <= 1 || !boostPerOpponent) {
+      return baseAmount || 0;
+    }
+    
+    const boost = boostPerOpponent * (opponentCount - 1);
+    const total = baseAmount + boost;
+    
+    this.log(`Resource boost: base=${baseAmount}, boost/opp=${boostPerOpponent}, opps=${opponentCount}, total=${total}`);
+    
+    return total;
+  }
+
+  /**
+   * Get opposing alliance name
+   *
+   * @param {string} selectedAlliance - Player's selected alliance
+   * @returns {string|null} Opposing alliance name
+   */
+  getOpposingAlliance(selectedAlliance) {
+    if (!this.coreEngine?.eraConfig?.alliances || this.coreEngine.eraConfig.alliances.length < 2) {
+      return null;
+    }
+    
+    return this.coreEngine.eraConfig.alliances.find(alliance =>
+      alliance.name !== selectedAlliance
+    )?.name;
+  }
+
+  // ============================================================================
+  // DEATH: Game Termination
+  // ============================================================================
+
+  /**
    * Check if the game has ended
-   * 
+   *
    * Game ends when:
    * - One or fewer active alliances remain
    * - All players in losing alliances are defeated
-   * 
+   *
    * @returns {boolean} True if game is over
    */
   checkGameEnd() {
@@ -72,7 +288,7 @@ class GameLifecycleManager {
 
   /**
    * End the game
-   * 
+   *
    * Sequence:
    * 1. Set state to 'finished', record end time
    * 2. Trigger onGameOver callback (synchronous - for video popups)
@@ -84,7 +300,7 @@ class GameLifecycleManager {
    * 8. Capture winner's board (for OverPage display)
    * 9. Wait for game over delay (4s)
    * 10. Notify CoreEngine (triggers transition to OverPage)
-   * 
+   *
    * Uses delays to coordinate animations:
    * - 1s before sound (let attacks settle)
    * - 2s for fire to clear (before board capture)
@@ -156,11 +372,11 @@ class GameLifecycleManager {
 
   /**
    * Clean up temporary alliances
-   * 
+   *
    * Removes:
    * - Alliances without an owner (temporary, game-created)
    * - Player alliance mappings for deleted alliances
-   * 
+   *
    * Called at end of game to prepare for new game.
    */
   cleanupTemporaryAlliances() {
@@ -179,7 +395,7 @@ class GameLifecycleManager {
 
   /**
    * Reset game to initial state
-   * 
+   *
    * Resets:
    * - Game state to 'setup'
    * - Turn counters
@@ -189,7 +405,7 @@ class GameLifecycleManager {
    * - Board cells
    * - Message system
    * - All players and their fleets
-   * 
+   *
    * Prepares for new game without creating new Game instance.
    */
   reset() {
@@ -219,6 +435,22 @@ class GameLifecycleManager {
       }
       player.reset();
     });
+  }
+
+  // ============================================================================
+  // UTILITIES
+  // ============================================================================
+
+  /**
+   * Log message (delegates to CoreEngine if available)
+   * @param {string} message - Message to log
+   */
+  log(message) {
+    if (this.coreEngine?.log) {
+      this.coreEngine.log(message);
+    } else {
+      console.log(`[GameLifecycleManager ${version}]`, message);
+    }
   }
 }
 
