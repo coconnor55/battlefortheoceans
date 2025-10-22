@@ -5,9 +5,15 @@ import Board from './Board.js';
 import Fleet from './Fleet.js';
 import Alliance from './Alliance.js';
 import Message from './Message.js';
+import CombatResolver from './CombatResolver.js';
 
-const version = "v0.8.3";
+const version = "v0.8.4";
 /**
+ * v0.8.4: Refactored to use CombatResolver utility class
+ * - Extracted ~300 lines of combat logic to CombatResolver.js
+ * - receiveAttack(), calculateDamage(), processAttack(), registerShipPlacement(), isValidAttack()
+ * - Game.js now delegates combat methods to combatResolver
+ * - Reduced Game.js from 1002 lines to ~700 lines
  * v0.8.3: Added onGameOver callback for synchronous victory/defeat video triggers
  * - Follows same pattern as onShipSunk (v0.8.1)
  * - Calls callback immediately when game ends, before delays
@@ -92,6 +98,9 @@ class Game {
     
     // Boost system (for future weapon upgrades)
     this.boosts = {};
+    
+    // Combat resolver (v0.8.4)
+    this.combatResolver = new CombatResolver(this);
     
     // Sound system
     this.soundEnabled = true;
@@ -346,276 +355,15 @@ class Game {
   }
 
   calculateDamage(firingPlayer, targetPlayer, targetShip, baseDamage = 1.0) {
-    let finalDamage = baseDamage;
-
-    const attackBoost = this.boosts?.[firingPlayer.id]?.attack || 0;
-    if (attackBoost > 0) {
-      finalDamage *= (1 + attackBoost);
-    }
-
-    const defenseBoost = this.boosts?.[targetPlayer.id]?.defense || 0;
-    if (defenseBoost > 0) {
-      finalDamage *= (1 - defenseBoost);
-    }
-
-    if (targetShip?.defense) {
-      finalDamage *= targetShip.defense;
-      console.log(`[DAMAGE] Ship ${targetShip.name} (${targetShip.class}) defense: ${targetShip.defense}x`);
-    }
-
-    const result = Math.max(0, finalDamage);
-    
-    if (attackBoost > 0 || defenseBoost > 0 || targetShip?.defense !== 1.0) {
-      console.log(`[DAMAGE] ${baseDamage.toFixed(2)} base -> ${finalDamage.toFixed(3)} final (attack: ${(1 + attackBoost).toFixed(2)}x, defense: ${(1 - defenseBoost).toFixed(2)}x, ship: ${targetShip?.defense?.toFixed(2) || 1.0}x)`);
-    }
-
-    return result;
+    return this.combatResolver.calculateDamage(firingPlayer, targetPlayer, targetShip, baseDamage);
   }
 
   receiveAttack(row, col, firingPlayer, damage = 1.0) {
-    console.log(`[TARGETING] Called by ${firingPlayer.name} (${firingPlayer.type}) at ${row},${col}`);
-
-    if (!this.board?.isValidCoordinate(row, col)) {
-      const result = { result: 'invalid', ships: [] };
-      this.lastAttackResult = result;
-      return result;
-    }
-
-    const cellName = `${String.fromCharCode(65 + col)}${row + 1}`;
-    
-    const liveTargets = [];
-    const deadTargets = [];
-    
-    for (const targetPlayer of this.players) {
-      if (this.isSameAlliance(firingPlayer.id, targetPlayer.id)) {
-        continue;
-      }
-      
-      const placement = targetPlayer.getShipAt(row, col);
-      if (!placement) {
-        continue;
-      }
-      
-      const ship = targetPlayer.getShip(placement.shipId);
-      if (!ship) {
-        continue;
-      }
-      
-      if (ship.health[placement.cellIndex] > 0) {
-        liveTargets.push({
-          player: targetPlayer,
-          ship: ship,
-          cellIndex: placement.cellIndex
-        });
-      } else {
-        deadTargets.push({
-          player: targetPlayer,
-          ship: ship,
-          cellIndex: placement.cellIndex
-        });
-      }
-    }
-    
-    const totalTargets = liveTargets.length + deadTargets.length;
-    
-    if (totalTargets === 0) {
-      console.log(`[TARGETING] MISS - no ships at ${cellName}`);
-      this.playSound('splash');
-      firingPlayer.misses++;
-      firingPlayer.recordDontShoot(row, col);
-      
-      this.message.post('attack_miss', {
-        attacker: firingPlayer,
-        cell: cellName
-      }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
-      
-      this.battleLog(`t${this.currentTurn}-Miss at ${cellName} by ${firingPlayer.name}`, 'miss');
-      
-      const result = { result: 'miss', ships: [] };
-      this.lastAttackResult = result;
-      return result;
-    }
-    
-    if (liveTargets.length === 0 && deadTargets.length > 0) {
-      console.log(`[TARGETING] ALL_DESTROYED - wasted shot on dead cells at ${cellName}`);
-      
-      const result = { result: 'all_destroyed', ships: [] };
-      this.lastAttackResult = result;
-      return result;
-    }
-    
-    console.log(`[TARGETING] HIT - ${liveTargets.length} live ships at ${cellName}`);
-    this.playSound('incomingWhistle');
-    this.playSound('explosionBang', 500);
-    
-    const hitResults = [];
-    
-    for (const target of liveTargets) {
-      const { player: targetPlayer, ship, cellIndex } = target;
-      
-      const finalDamage = this.calculateDamage(firingPlayer, targetPlayer, ship, damage);
-      const shipHealth = ship.receiveHit(cellIndex, finalDamage);
-      
-      const shipNowSunk = ship.isSunk();
-      const revealLevel = ship.getRevealLevel();
-      
-      hitResults.push({
-        ship: ship,
-        player: targetPlayer,
-        damage: finalDamage,
-        shipHealth: shipHealth,
-        shipSunk: shipNowSunk,
-        revealLevel: revealLevel
-      });
-      
-      if (shipNowSunk) {
-        this.playSound('sinkingShip');
-        this.message.post('ship_sunk', {
-          attacker: firingPlayer,
-          target: targetPlayer,
-          shipName: ship.name,
-          shipClass: ship.class,
-          cell: cellName
-        }, [this.message.channels.CONSOLE, this.message.channels.LOG]);
-        
-        firingPlayer.sunk++;
-        
-        const multiplier = (firingPlayer.type === 'human' && targetPlayer.type === 'ai')
-          ? (targetPlayer.difficulty || 1.0)
-          : 1.0;
-        firingPlayer.score += Math.round(10 * multiplier);
-        
-        console.log(`[Game ${this.id}] ${firingPlayer.name} sunk ${targetPlayer.name}'s ${ship.name}: 10 * ${multiplier} = ${Math.round(10 * multiplier)} points`);
-        
-        this.battleLog(`t${this.currentTurn}-SUNK: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name}`, 'sunk');
-        
-        // v0.8.2: Only trigger ship sunk callback if game won't end
-        // Check if target player is now defeated (might end game)
-        const targetWillBeDefeated = targetPlayer.fleet.ships.every(s => s.isSunk());
-        
-        // Check if this would end the game (all opponents defeated)
-        let gameWillEnd = false;
-        if (targetWillBeDefeated) {
-          const activeAlliances = Array.from(this.alliances.values()).filter(alliance => {
-            if (alliance.players.length === 0) return false;
-            return alliance.players.some(player => {
-              // Simulate what checkGameEnd() will see
-              if (player.id === targetPlayer.id) return false; // This player is defeated
-              return !player.isDefeated();
-            });
-          });
-          gameWillEnd = activeAlliances.length <= 1;
-        }
-        
-        // Only trigger video if game won't end (let victory/defeat video play instead)
-        if (this.onShipSunk && !gameWillEnd) {
-          const eventType = targetPlayer.id === this.humanPlayerId ? 'player' : 'opponent';
-          this.onShipSunk(eventType, {
-            ship: ship,
-            attacker: firingPlayer,
-            target: targetPlayer,
-            cell: cellName
-          });
-        } else if (gameWillEnd) {
-          console.log(`[Game ${this.id}] Skipping ship sunk video - game will end (victory/defeat will play instead)`);
-        }
-      } else {
-        let messageType;
-        const messageContext = {
-          attacker: firingPlayer,
-          target: targetPlayer,
-          cell: cellName,
-          opponent: targetPlayer.name
-        };
-        
-        if (revealLevel === 'critical') {
-          messageType = 'attack_hit_critical';
-          messageContext.shipClass = ship.class;
-          messageContext.shipName = ship.name;
-        } else if (revealLevel === 'size-hint') {
-          const sizeCategory = ship.getSizeCategory();
-          messageType = `attack_hit_size_${sizeCategory}`;
-          messageContext.sizeCategory = sizeCategory;
-        } else {
-          // revealLevel === 'hit' or 'hidden' - show unknown message
-          messageType = 'attack_hit_unknown';
-        }
-        
-        this.message.post(messageType, messageContext,
-          [this.message.channels.CONSOLE, this.message.channels.LOG]);
-        
-        this.battleLog(`t${this.currentTurn}-HIT: ${ship.name} (${targetPlayer.name}) at ${cellName} by ${firingPlayer.name} [${revealLevel}]`, 'hit');
-      }
-    }
-    
-    firingPlayer.hits++;
-    firingPlayer.hitsDamage += hitResults.reduce((sum, h) => sum + h.damage, 0);
-    
-    const multiplier = (firingPlayer.type === 'human' && hitResults[0]?.player?.type === 'ai')
-      ? (hitResults[0].player.difficulty || 1.0)
-      : 1.0;
-    firingPlayer.score += Math.round(1 * multiplier);
-    
-    console.log(`[Game ${this.id}] ${firingPlayer.name} hit at ${cellName}: 1 * ${multiplier} = ${Math.round(1 * multiplier)} points`);
-    
-    let stillAliveAtCell = false;
-    for (const target of liveTargets) {
-      if (target.ship.health[target.cellIndex] > 0) {
-        stillAliveAtCell = true;
-        break;
-      }
-    }
-    
-    const cellNowFullyDestroyed = !stillAliveAtCell;
-    const resultType = cellNowFullyDestroyed ? 'destroyed' : 'hit';
-    
-    if (resultType === 'destroyed') {
-      firingPlayer.recordDontShoot(row, col);
-      console.log(`[TARGETING] Marked ${cellName} as dontShoot (destroyed)`);
-    }
-    
-    const result = {
-      result: resultType,
-      ships: hitResults,
-      damage,
-      cellFullyDestroyed: cellNowFullyDestroyed
-    };
-    this.lastAttackResult = result;
-    
-    console.log(`[TARGETING] Final result: ${resultType}`);
-    return result;
+    return this.combatResolver.receiveAttack(row, col, firingPlayer, damage);
   }
   
   registerShipPlacement(ship, shipCells, orientation, playerId) {
-    console.log(`[GAME] Attempting to place ${ship.name} for player ${playerId}`);
-    
-    if (!this.board.canPlaceShip(shipCells, ship.terrain)) {
-      console.warn(`[GAME] Ship placement failed board validation (bounds/terrain)`);
-      return false;
-    }
-    
-    const player = this.getPlayer(playerId);
-    if (!player) {
-      console.warn(`[GAME] Player ${playerId} not found`);
-      return false;
-    }
-    
-    for (const cell of shipCells) {
-      if (player.hasShipAt(cell.row, cell.col)) {
-        console.warn(`[GAME] Player ${playerId} cannot overlap own ships at ${cell.row},${cell.col}`);
-        return false;
-      }
-    }
-    
-    console.log(`[GAME] Placement validated, registering ${ship.name} (${orientation})`);
-    
-    // Pass orientation to player.placeShip()
-    for (let i = 0; i < shipCells.length; i++) {
-      const cell = shipCells[i];
-      player.placeShip(cell.row, cell.col, ship.id, i, orientation);
-    }
-    
-    return true;
+    return this.combatResolver.registerShipPlacement(ship, shipCells, orientation, playerId);
   }
 
   getPlayer(playerId) {
@@ -711,29 +459,7 @@ class Game {
   }
 
   processAttack(attacker, row, col) {
-    if (this.state !== 'playing') {
-      throw new Error('Game is not in playing state');
-    }
-
-    if (!this.isValidAttack(row, col, attacker)) {
-      throw new Error('Invalid attack position');
-    }
-
-    if (attacker.type === 'human') {
-      this.playSound('cannonBlast');
-    }
-
-    const result = this.receiveAttack(row, col, attacker);
-    
-    if (this.checkGameEnd()) {
-      this.endGame();
-      return result;
-    }
-    
-    const wasHit = (result.result === 'hit' || result.result === 'destroyed');
-    this.handleTurnProgression(wasHit);
-    
-    return result;
+    return this.combatResolver.processAttack(attacker, row, col);
   }
   
   checkGameEnd() {
@@ -834,9 +560,7 @@ class Game {
   }
 
   isValidAttack(row, col, firingPlayer) {
-    if (!this.board) return false;
-    
-    return this.board.isValidCoordinate(row, col);
+    return this.combatResolver.isValidAttack(row, col, firingPlayer);
   }
   
   endGame() {
