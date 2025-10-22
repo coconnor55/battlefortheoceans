@@ -9,7 +9,7 @@
   "cols": 30,
   "boundary": [],
   "max_players": 5,
-  "resources": {
+  "munitions": {
     "star_shells": 8,
     "star_shell_pattern": "5x5"
   },

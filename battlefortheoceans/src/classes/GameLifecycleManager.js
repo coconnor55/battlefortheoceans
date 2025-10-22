@@ -6,8 +6,13 @@ import Board from './Board.js';
 import HumanPlayer from './HumanPlayer.js';
 import AiPlayer from './AiPlayer.js';
 
-const version = "v0.2.2";
+const version = "v0.2.3";
 /**
+ * v0.2.3: Munitions terminology rename (resources → munitions)
+ * - Changed this.coreEngine.resources → this.coreEngine.munitions
+ * - Changed eraConfig.resources → eraConfig.munitions
+ * - Updated calculateResourceWithBoost → calculateMunitionWithBoost naming in comments
+ * - Aligns with Game.js v0.8.8 and CoreEngine.js v0.6.10
  * v0.2.2: Proper fix - Use instanceof for parent type detection
  * - Changed from Array.isArray(parent.players) band-aid
  * - Now uses proper instanceof Game check
@@ -15,7 +20,7 @@ const version = "v0.2.2";
  * v0.2.1: HOTFIX - Fixed parent detection logic (band-aid)
  * v0.2.0: Added game initialization (birth) to complete lifecycle management
  * - Added initializeForPlacement() - creates Game instance and sets up board
- * - Added calculateResourceWithBoost() - multi-opponent resource calculation
+ * - Added calculateMunitionWithBoost() - multi-opponent munition calculation
  * - Added getOpposingAlliance() - alliance determination helper
  * - Constructor now accepts parent (CoreEngine or Game)
  * - When passed CoreEngine: manages game creation + end
@@ -77,7 +82,7 @@ class GameLifecycleManager {
    * - Board with terrain
    * - Players (human + AI opponents)
    * - Alliances
-   * - Resources with multi-opponent boost
+   * - Munitions with multi-opponent boost
    *
    * Called by CoreEngine when transitioning to placement state.
    *
@@ -183,40 +188,40 @@ class GameLifecycleManager {
     // Set board on game
     this.game.setBoard(this.coreEngine.board);
     
-    // Calculate resources with multi-opponent boost
+    // Calculate munitions with multi-opponent boost
     const opponentCount = this.coreEngine.selectedOpponents.length;
-    this.coreEngine.resources = {
-      starShells: this.calculateResourceWithBoost(
-        this.coreEngine.eraConfig.resources?.star_shells,
-        this.coreEngine.eraConfig.resources?.star_shells_boost,
+    this.coreEngine.munitions = {
+      starShells: this.calculateMunitionWithBoost(
+        this.coreEngine.eraConfig.munitions?.star_shells,
+        this.coreEngine.eraConfig.munitions?.star_shells_boost,
         opponentCount
       ),
-      scatterShot: this.calculateResourceWithBoost(
-        this.coreEngine.eraConfig.resources?.scatter_shot,
-        this.coreEngine.eraConfig.resources?.scatter_shot_boost,
+      scatterShot: this.calculateMunitionWithBoost(
+        this.coreEngine.eraConfig.munitions?.scatter_shot,
+        this.coreEngine.eraConfig.munitions?.scatter_shot_boost,
         opponentCount
       )
     };
     
-    this.log(`Resources initialized: ${JSON.stringify(this.coreEngine.resources)}`);
+    this.log(`Munitions initialized: ${JSON.stringify(this.coreEngine.munitions)}`);
 
     this.log(`Game initialized with ${this.game.players.length} players (1 human + ${this.coreEngine.aiPlayers.length} AI)`);
   }
 
   /**
-   * Calculate resource amount with multi-opponent boost
+   * Calculate munition amount with multi-opponent boost
    *
    * Formula: base + (boost × (opponentCount - 1))
    *
    * Example: 3 star shells base, +2 per opponent, 2 opponents:
    *   3 + (2 × (2 - 1)) = 3 + 2 = 5 star shells
    *
-   * @param {number} baseAmount - Base resource amount
+   * @param {number} baseAmount - Base munition amount
    * @param {number} boostPerOpponent - Boost per additional opponent
    * @param {number} opponentCount - Number of opponents
-   * @returns {number} Total resource amount
+   * @returns {number} Total munition amount
    */
-  calculateResourceWithBoost(baseAmount, boostPerOpponent, opponentCount) {
+  calculateMunitionWithBoost(baseAmount, boostPerOpponent, opponentCount) {
     if (!baseAmount || opponentCount <= 1 || !boostPerOpponent) {
       return baseAmount || 0;
     }
@@ -224,7 +229,7 @@ class GameLifecycleManager {
     const boost = boostPerOpponent * (opponentCount - 1);
     const total = baseAmount + boost;
     
-    this.log(`Resource boost: base=${baseAmount}, boost/opp=${boostPerOpponent}, opps=${opponentCount}, total=${total}`);
+    this.log(`Munition boost: base=${baseAmount}, boost/opp=${boostPerOpponent}, opps=${opponentCount}, total=${total}`);
     
     return total;
   }

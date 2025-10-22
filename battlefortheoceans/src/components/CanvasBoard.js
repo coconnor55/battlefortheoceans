@@ -1,6 +1,11 @@
 // src/components/CanvasBoard.js
 // Copyright(c) 2025, Clint H. O'Connor
 //
+// v0.4.10: Munitions terminology rename (resources → munitions)
+//          - No code changes needed - uses callback props
+//          - Prop names remain same (onStarShellFired, starShellsRemaining)
+//          - Underlying data now comes from munitions system
+//          - Aligns with Game.js v0.8.8, CoreEngine.js v0.6.10
 // v0.4.9: FIXED opponent ship rendering when DEBUG_SHOW_OPPONENT_SHIPS is true
 // v0.4.8: FIXED stale currentShip closure in InputHandler validation
 //         - Bug: InputHandler captured isValidShipPlacement at creation with USS Macedonian
@@ -19,7 +24,7 @@ import UXEngine from '../engines/UXEngine';
 import InputHandler from '../handlers/InputHandler';
 import ActionMenu from './ActionMenu';
 
-const version = 'v0.4.8';
+const version = 'v0.4.10';
 
 // Constants
 const CELL_SIZE = 30;

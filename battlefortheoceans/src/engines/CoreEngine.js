@@ -1,5 +1,15 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.10: Renamed resources to munitions for better semantics
+//         - Renamed handleStarShellFired() → fireMunition(munitionType, row, col)
+//         - getUIState() now reads munitions from gameInstance.munitions
+//         - More extensible architecture for future munition types
+// v0.6.9: Moved game logic methods to Game.js
+//         - Removed handleStarShellFired() - now in Game.js (~30 lines)
+//         - Removed getPlayerStats() - now in Game.js (~34 lines)
+//         - getUIState() now reads resources from gameInstance.resources
+//         - Game logic centralized in Game.js where it belongs
+//         - Reduced CoreEngine from 836 lines to ~772 lines
 // v0.6.8: Removed service wrapper methods
 //         - Deleted 11 simple pass-through methods (~35 lines)
 //         - getUserProfile, getLeaderboard, getRecentChampions, etc.
@@ -58,7 +68,7 @@ import NavigationManager from '../utils/NavigationManager.js';
 import GameLifecycleManager from '../classes/GameLifecycleManager.js';
 import { supabase } from '../utils/supabaseClient.js';
 
-const version = "v0.6.8";
+const version = "v0.6.10";
 
 class CoreEngine {
   constructor() {
@@ -129,9 +139,6 @@ class CoreEngine {
     this.board = null;
     this.userProfile = null;
     this.loginEventData = null;
-    
-    // Game resources (star shells, scatter shot, etc.)
-    this.resources = null;
     
     // Observer pattern for UI updates
     this.updateCounter = 0;
@@ -325,37 +332,6 @@ class CoreEngine {
    * @param {number} col - Target column
    * @returns {boolean} Success/failure
    */
-  handleStarShellFired(row, col) {
-    if (!this.gameInstance || this.gameInstance.state !== 'playing') {
-      this.log('Star shell blocked - game not active');
-      return false;
-    }
-    
-    const currentPlayer = this.gameInstance.getCurrentPlayer();
-    if (currentPlayer?.type !== 'human') {
-      this.log('Star shell blocked - not human turn');
-      return false;
-    }
-    
-    if (!this.resources || this.resources.starShells <= 0) {
-      this.log('Star shell blocked - none remaining');
-      return false;
-    }
-    
-    this.log(`Star shell fired at (${row}, ${col})`);
-    
-    // Decrement star shell count
-    this.resources.starShells = Math.max(0, this.resources.starShells - 1);
-    
-    // Advance turn (star shell consumes turn)
-    this.gameInstance.handleTurnProgression();
-    
-    // Notify subscribers of state change
-    this.notifySubscribers();
-    
-    return true;
-  }
-
   async initializeGameConfig() {
     try {
       this.gameConfig = await configLoader.loadGameConfig();
@@ -533,7 +509,6 @@ class CoreEngine {
     this.board = null;
     this.userProfile = null;
     this.newAchievements = [];
-    this.resources = null;
     
     SessionManager.clear();
   }
@@ -665,6 +640,28 @@ class CoreEngine {
     }
   }
 
+  // v0.6.10: Wrapper for fireMunition (delegates to Game.js)
+  fireMunition(munitionType, row, col) {
+    if (!this.gameInstance) {
+      this.log('Munition blocked - no game instance');
+      return false;
+    }
+    
+    const result = this.gameInstance.fireMunition(munitionType, row, col);
+    
+    if (result) {
+      // Notify subscribers of state change
+      this.notifySubscribers();
+    }
+    
+    return result;
+  }
+
+  // Backward compatibility wrapper
+  handleStarShellFired(row, col) {
+    return this.fireMunition('starShell', row, col);
+  }
+
   getPlacementProgress() {
     if (!this.gameInstance || !this.humanPlayer) {
       return { current: 0, total: 0, currentShip: null, isComplete: false };
@@ -697,8 +694,8 @@ class CoreEngine {
       gamePhase: this.gameInstance?.state || 'setup',
       winner: this.gameInstance?.winner,
       currentMessage: this.generateCurrentMessage(),
-      playerStats: this.getPlayerStats(),
-      resources: this.resources
+      playerStats: this.gameInstance?.getPlayerStats() || { player: {}, opponent: {} },
+      munitions: this.gameInstance?.munitions || { starShells: 0, scatterShot: 0 }
     };
   }
 
@@ -712,41 +709,6 @@ class CoreEngine {
     return this.gameInstance?.getGameStats() || null;
   }
     
-  getPlayerStats() {
-    if (!this.gameInstance) return {
-      player: { hits: 0, shots: 0, accuracy: 0 },
-      opponent: { hits: 0, shots: 0, accuracy: 0 }
-    };
-    
-    const humanPlayerInGame = this.gameInstance.players.find(p => p.type === 'human');
-    
-    const aiPlayers = this.gameInstance.players.filter(p => p.type === 'ai');
-    
-    const opponentAggregateStats = aiPlayers.reduce((acc, ai) => ({
-      hits: acc.hits + (ai.hits || 0),
-      shots: acc.shots + (ai.shots || 0),
-      misses: acc.misses + (ai.misses || 0),
-      sunk: acc.sunk + (ai.sunk || 0),
-      score: acc.score + (ai.score || 0)
-    }), { hits: 0, shots: 0, misses: 0, sunk: 0, score: 0 });
-    
-    opponentAggregateStats.accuracy = opponentAggregateStats.shots > 0
-      ? ((opponentAggregateStats.hits / opponentAggregateStats.shots) * 100).toFixed(1)
-      : 0;
-    
-    return {
-      player: {
-        hits: humanPlayerInGame?.hits || 0,
-        shots: humanPlayerInGame?.shots || 0,
-        misses: humanPlayerInGame?.misses || 0,
-        sunk: humanPlayerInGame?.sunk || 0,
-        accuracy: humanPlayerInGame?.accuracy || 0,
-        score: humanPlayerInGame?.score || 0
-      },
-      opponent: opponentAggregateStats
-    };
-  }
-
   subscribe(callback) {
     this.subscribers.add(callback);
     return () => this.subscribers.delete(callback);

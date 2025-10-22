@@ -1,5 +1,12 @@
 // src/hooks/useGameState.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.2: Munitions terminology rename (resources → munitions)
+//         - Renamed resources to munitions throughout
+//         - starShellsRemaining now reads from munitions.starShells
+//         - scatterShotRemaining now reads from munitions.scatterShot
+//         - Added fireMunition() wrapper for CoreEngine method
+//         - Kept handleStarShellFired for backward compatibility
+//         - Aligns with Game.js v0.8.8 and CoreEngine.js v0.6.10
 // v0.3.1: Exposed resources from CoreEngine and handleStarShellFired wrapper
 //         - Added resources (starShells, scatterShot) from uiState
 //         - Added starShellsRemaining convenience getter
@@ -15,7 +22,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = "v0.3.1";
+const version = "v0.3.2";
 
 const useGameState = () => {
   const {
@@ -27,6 +34,7 @@ const useGameState = () => {
     board,
     getUIState,
     getPlacementProgress,
+    fireMunition: coreFireMunition,
     handleStarShellFired: coreHandleStarShellFired
   } = useGame();
   
@@ -117,7 +125,18 @@ const useGameState = () => {
     }
   }, [gameInstance]);
   
-  // v0.3.1: Handle star shell firing - wrapper for CoreEngine method
+  // v0.3.2: Handle munition firing - primary method
+  const fireMunition = useCallback((munitionType, row, col) => {
+    if (!coreFireMunition) {
+      console.log('[HOOK] No munition handler available');
+      return false;
+    }
+    
+    console.log('[HOOK] Firing munition through CoreEngine:', { munitionType, row, col });
+    return coreFireMunition(munitionType, row, col);
+  }, [coreFireMunition]);
+  
+  // v0.3.2: Handle star shell firing - backward compatibility wrapper
   const handleStarShellFired = useCallback((row, col) => {
     if (!coreHandleStarShellFired) {
       console.log('[HOOK] No star shell handler available');
@@ -168,8 +187,8 @@ const useGameState = () => {
   const winner = uiState.winner;
   const playerStats = uiState.playerStats;
   
-  // v0.3.1: Resources from CoreEngine
-  const resources = uiState.resources || { starShells: 0, scatterShot: 0 };
+  // v0.3.2: Munitions from CoreEngine (renamed from resources)
+  const munitions = uiState.munitions || { starShells: 0, scatterShot: 0 };
 
   // Determine appropriate battle message
   const battleMessage = messages.console || 'Awaiting battle action...';
@@ -187,7 +206,7 @@ const useGameState = () => {
     hasMessages: !!gameInstance?.message,
     battleMessage: battleMessage.substring(0, 50) + '...',
     uiMessage: uiMessage.substring(0, 50) + '...',
-    resources: resources
+    munitions: munitions
   });
 
   return {
@@ -220,15 +239,16 @@ const useGameState = () => {
     // Single board instance (used by both placement and battle)
     gameBoard: board,
     
-    // v0.3.1: Resources from CoreEngine
-    resources,
-    starShellsRemaining: resources.starShells,
-    scatterShotRemaining: resources.scatterShot,
+    // v0.3.2: Munitions from CoreEngine (renamed from resources)
+    munitions,
+    starShellsRemaining: munitions.starShells,
+    scatterShotRemaining: munitions.scatterShot,
     
     // Actions
     fireShot: handleAttack, // Alias for compatibility
     handleAttack,
-    handleStarShellFired,   // v0.3.1: Star shell handler
+    fireMunition,           // v0.3.2: Primary munition handler
+    handleStarShellFired,   // v0.3.2: Backward compatibility wrapper
     resetGame,
     
     // Data accessors - computed properties

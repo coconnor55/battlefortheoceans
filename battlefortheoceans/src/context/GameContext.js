@@ -1,5 +1,9 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.5: Munitions terminology rename (resources → munitions)
+//         - Added fireMunition(munitionType, row, col) method
+//         - Kept handleStarShellFired for backward compatibility
+//         - Aligns with Game.js v0.8.8 and CoreEngine.js v0.6.10
 // v0.4.4: Updated to call services directly instead of CoreEngine wrappers
 //         - Import UserProfileService, LeaderboardService, RightsService, configLoader
 //         - Call services directly for methods removed from CoreEngine v0.6.8
@@ -25,7 +29,7 @@ import LeaderboardService from '../services/LeaderboardService';
 import RightsService from '../services/RightsService';
 import configLoader from '../utils/ConfigLoader';
 
-const version = "v0.4.4";
+const version = "v0.4.5";
 
 const GameState = createContext();
 
@@ -76,8 +80,9 @@ export const GameProvider = ({ children }) => {
       registerShipPlacement: (ship, shipCells, orientation, playerId) =>
         coreEngine.registerShipPlacement(ship, shipCells, orientation, playerId),
       
-      // v0.4.1: Resource actions
-      handleStarShellFired: (row, col) => coreEngine.handleStarShellFired(row, col),
+      // v0.4.5: Munitions actions
+      fireMunition: (munitionType, row, col) => coreEngine.fireMunition(munitionType, row, col),
+      handleStarShellFired: (row, col) => coreEngine.handleStarShellFired(row, col), // Backward compatibility
       
       // User profile functions
       // v0.4.4: Call services directly (not through CoreEngine)

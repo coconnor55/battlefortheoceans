@@ -1,5 +1,9 @@
-// src/pages/PlayingPage.js v0.5.2
+// src/pages/PlayingPage.js v0.5.3
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.3: Munitions terminology rename (resources → munitions)
+//         - No code changes needed - reads from useGameState hook
+//         - Hook now provides munitions data (was resources)
+//         - Aligns with Game.js v0.8.8, CoreEngine.js v0.6.10, useGameState v0.3.2
 // v0.5.2: REFACTOR - Replaced InfoPanel with GameGuide component
 //         - Removed ~100 lines of instruction content
 //         - GameGuide auto-shows on first visit to battle section
@@ -28,7 +32,7 @@ import InfoButton from '../components/InfoButton';
 import GameGuide from '../components/GameGuide';
 import VideoPopup from '../components/VideoPopup';
 
-const version = 'v0.5.2';
+const version = 'v0.5.3';
 
 const PlayingPage = () => {
   const {

@@ -9,8 +9,20 @@ import CombatResolver from './CombatResolver.js';
 import SoundManager from '../utils/SoundManager.js';
 import GameLifecycleManager from './GameLifecycleManager.js';
 
-const version = "v0.8.6";
+const version = "v0.8.8";
 /**
+ * v0.8.8: Renamed resources to munitions for better semantics
+ * - Renamed this.resources → this.munitions (star shells, scatter shot are munitions, not resources)
+ * - Renamed initializeResources() → initializeMunitions()
+ * - Renamed handleStarShellFired() → fireMunition(munitionType, row, col)
+ * - More extensible for future munition types (flares, torpedoes, depth charges)
+ * - Era configs should change "resources" to "munitions" as well
+ * v0.8.7: Added resource management and statistics methods from CoreEngine
+ * - Added this.resources to constructor for star shells, scatter shot
+ * - Added initializeResources() to set resource counts
+ * - Added handleStarShellFired() - game logic for star shell consumption
+ * - Added getPlayerStats() - aggregate player statistics for UI
+ * - Game logic now centralized in Game.js, not CoreEngine
  * v0.8.6: Refactored to use GameLifecycleManager utility class
  * - Extracted ~131 lines of lifecycle logic to GameLifecycleManager.js
  * - checkGameEnd(), endGame(), cleanupTemporaryAlliances(), reset() now in GameLifecycleManager
@@ -107,6 +119,12 @@ class Game {
     
     // Boost system (for future weapon upgrades)
     this.boosts = {};
+    
+    // v0.8.8: Munitions management (star shells, scatter shot, etc.)
+    this.munitions = {
+      starShells: 0,
+      scatterShot: 0
+    };
     
     // Combat resolver (v0.8.4)
     this.combatResolver = new CombatResolver(this);
@@ -560,6 +578,82 @@ class Game {
       winner: this.winner?.name || null,
       state: this.state,
       players: playerStats
+    };
+  }
+
+  // v0.8.8: Munitions management methods
+  initializeMunitions(starShells = 0, scatterShot = 0) {
+    this.munitions.starShells = starShells;
+    this.munitions.scatterShot = scatterShot;
+    console.log(`[Game ${this.id}] Munitions initialized:`, this.munitions);
+  }
+
+  fireMunition(munitionType, row, col) {
+    if (this.state !== 'playing') {
+      console.log(`[Game ${this.id}] Munition blocked - game not active`);
+      return false;
+    }
+    
+    const currentPlayer = this.getCurrentPlayer();
+    if (currentPlayer?.type !== 'human') {
+      console.log(`[Game ${this.id}] Munition blocked - not human turn`);
+      return false;
+    }
+    
+    // Validate munition type and availability
+    const munitionKey = munitionType === 'starShell' ? 'starShells' :
+                        munitionType === 'scatterShot' ? 'scatterShot' : null;
+    
+    if (!munitionKey || !this.munitions || this.munitions[munitionKey] <= 0) {
+      console.log(`[Game ${this.id}] ${munitionType} blocked - none remaining`);
+      return false;
+    }
+    
+    console.log(`[Game ${this.id}] ${munitionType} fired at (${row}, ${col})`);
+    
+    // Decrement munition count
+    this.munitions[munitionKey] = Math.max(0, this.munitions[munitionKey] - 1);
+    
+    // Advance turn (munitions consume turn)
+    this.handleTurnProgression();
+    
+    return true;
+  }
+
+  getPlayerStats() {
+    if (!this.players || this.players.length === 0) {
+      return {
+        player: { hits: 0, shots: 0, accuracy: 0 },
+        opponent: { hits: 0, shots: 0, accuracy: 0 }
+      };
+    }
+    
+    const humanPlayerInGame = this.players.find(p => p.type === 'human');
+    const aiPlayers = this.players.filter(p => p.type === 'ai');
+    
+    // Aggregate opponent stats (supports multi-fleet)
+    const opponentAggregateStats = aiPlayers.reduce((acc, ai) => ({
+      hits: acc.hits + (ai.hits || 0),
+      shots: acc.shots + (ai.shots || 0),
+      misses: acc.misses + (ai.misses || 0),
+      sunk: acc.sunk + (ai.sunk || 0),
+      score: acc.score + (ai.score || 0)
+    }), { hits: 0, shots: 0, misses: 0, sunk: 0, score: 0 });
+    
+    opponentAggregateStats.accuracy = opponentAggregateStats.shots > 0
+      ? ((opponentAggregateStats.hits / opponentAggregateStats.shots) * 100).toFixed(1)
+      : 0;
+    
+    return {
+      player: {
+        hits: humanPlayerInGame?.hits || 0,
+        shots: humanPlayerInGame?.shots || 0,
+        misses: humanPlayerInGame?.misses || 0,
+        sunk: humanPlayerInGame?.sunk || 0,
+        accuracy: humanPlayerInGame?.accuracy || 0,
+        score: humanPlayerInGame?.score || 0
+      },
+      opponent: opponentAggregateStats
     };
   }
 
