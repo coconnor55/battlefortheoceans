@@ -7,9 +7,15 @@ import Alliance from './Alliance.js';
 import Message from './Message.js';
 import CombatResolver from './CombatResolver.js';
 import SoundManager from '../utils/SoundManager.js';
+import GameLifecycleManager from './GameLifecycleManager.js';
 
-const version = "v0.8.5";
+const version = "v0.8.6";
 /**
+ * v0.8.6: Refactored to use GameLifecycleManager utility class
+ * - Extracted ~131 lines of lifecycle logic to GameLifecycleManager.js
+ * - checkGameEnd(), endGame(), cleanupTemporaryAlliances(), reset() now in GameLifecycleManager
+ * - Game.js delegates lifecycle methods to lifecycleManager
+ * - Reduced Game.js from 695 lines to ~564 lines
  * v0.8.5: Refactored to use SoundManager utility class
  * - Extracted ~40 lines of sound logic to SoundManager.js
  * - initializeSounds(), playSound(), toggleSound() now in SoundManager
@@ -107,6 +113,9 @@ class Game {
     
     // Sound manager (v0.8.5)
     this.soundManager = new SoundManager();
+    
+    // Lifecycle manager (v0.8.6)
+    this.lifecycleManager = new GameLifecycleManager(this);
     
     console.log(`[Game ${this.id}] Game created: ${this.id}, Mode: ${gameMode}`);
   }
@@ -431,31 +440,7 @@ class Game {
   }
   
   checkGameEnd() {
-    const activeAlliances = Array.from(this.alliances.values()).filter(alliance => {
-      if (alliance.players.length === 0) return false;
-      
-      return alliance.players.some(player => {
-        return !player.isDefeated();
-      });
-    });
-
-    if (activeAlliances.length <= 1) {
-      if (activeAlliances.length === 1) {
-        const winningAlliance = activeAlliances[0];
-        const survivingPlayers = winningAlliance.players.filter(player => {
-          return !player.isDefeated();
-        });
-        this.winner = survivingPlayers[0] || winningAlliance.players[0];
-        this.winningAlliance = winningAlliance;
-      } else {
-        this.winner = null;
-        this.winningAlliance = null;
-      }
-      
-      return true;
-    }
-    
-    return false;
+    return this.lifecycleManager.checkGameEnd();
   }
 
   handleTurnProgression(wasHit) {
@@ -532,110 +517,15 @@ class Game {
   }
   
   endGame() {
-    this.state = 'finished';
-    this.endTime = new Date();
-    
-    const humanPlayer = this.players.find(p => p.id === this.humanPlayerId);
-    const humanWon = this.winner && humanPlayer && this.winner.id === humanPlayer.id;
-    
-    // v0.8.3: Call onGameOver callback IMMEDIATELY (synchronous)
-    // This allows video to start while animations play
-    if (this.onGameOver) {
-      const eventType = humanWon ? 'victory' : 'defeat';
-      this.onGameOver(eventType, {
-        winner: this.winner,
-        humanPlayer: humanPlayer,
-        gameStats: this.getGameStats()
-      });
-    }
-    
-    // Play victory/defeat sound
-    if (humanWon) {
-      console.log(`[Game ${this.id}] Human victory - playing fanfare in 1 second`);
-      this.playSound('victoryFanfare', 1000);
-    } else {
-      console.log(`[Game ${this.id}] Human defeat - playing funeral march in 1 second`);
-      this.playSound('funeralMarch', 1000);
-    }
-    
-    this.message.post(this.message.types.GAME_END, {
-      winner: this.winner,
-      gameStats: this.getGameStats()
-    }, [this.message.channels.CONSOLE, this.message.channels.UI, this.message.channels.LOG]);
-    
-    if (this.winner) {
-      this.battleLog(`Game ended: ${this.winner.name} wins!`, 'victory');
-    } else {
-      this.battleLog('Game ended: Draw', 'draw');
-    }
-
-    this.cleanupTemporaryAlliances();
-    
-    // Wait for fire to clear, THEN capture winner's board, THEN notify
-    console.log(`[Game ${this.id}] Waiting ${this.animationSettings.fireAnimationClearDelay}ms for fire animations to clear`);
-    
-    setTimeout(() => {
-      // Capture winner's board AFTER fire has cleared
-      if (this.battleBoardRef?.current?.captureWinnerBoard) {
-        const winnerId = this.winner?.id || humanPlayer?.id;
-        console.log(`[Game ${this.id}] Capturing winner's board (fire cleared), winnerId:`, winnerId);
-        this.finalBoardImage = this.battleBoardRef.current.captureWinnerBoard(winnerId);
-        if (this.finalBoardImage) {
-          console.log(`[Game ${this.id}] Winner's board captured successfully (${this.finalBoardImage.length} bytes)`);
-        }
-      }
-      
-      // Now wait before transitioning to OverPage
-      console.log(`[Game ${this.id}] Delaying transition to OverPage by ${this.animationSettings.gameOverDelay}ms`);
-      setTimeout(() => {
-        console.log(`[Game ${this.id}] Notifying game end to CoreEngine`);
-        this.notifyGameEnd();
-      }, this.animationSettings.gameOverDelay);
-      
-    }, this.animationSettings.fireAnimationClearDelay);
+    this.lifecycleManager.endGame();
   }
 
   cleanupTemporaryAlliances() {
-    const temporaryAlliances = Array.from(this.alliances.values()).filter(alliance => !alliance.owner);
-    
-    temporaryAlliances.forEach(alliance => {
-      this.alliances.delete(alliance.id);
-    });
-
-    this.playerAlliances.forEach((allianceId, playerId) => {
-      if (!this.alliances.has(allianceId)) {
-        this.playerAlliances.delete(playerId);
-      }
-    });
+    this.lifecycleManager.cleanupTemporaryAlliances();
   }
 
   reset() {
-    this.state = 'setup';
-    this.currentTurn = 0;
-    this.currentPlayerIndex = 0;
-    this.winner = null;
-    this.startTime = null;
-    this.endTime = null;
-    this.gameLog = [];
-    
-    this.actionQueue = [];
-    this.isProcessingAction = false;
-    this.lastAttackResult = null;
-    
-    if (this.board) {
-      this.board.clear();
-    }
-    
-    if (this.message) {
-      this.message.clear();
-    }
-    
-    this.players.forEach(player => {
-      if (player.fleet) {
-        player.fleet.ships.forEach(ship => ship.reset());
-      }
-      player.reset();
-    });
+    this.lifecycleManager.reset();
   }
 
   getGameStats() {
