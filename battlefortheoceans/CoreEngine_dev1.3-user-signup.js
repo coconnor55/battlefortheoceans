@@ -1,11 +1,5 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.6.14: Added restoreToState() method for browser navigation and page refresh
-//         - New method handles state restoration without URL sync
-//         - Fixes browser back/forward button navigation
-//         - Fixes page refresh state restoration
-//         - State handlers now run properly for backward navigation
-//         - Used by NavigationManager for URL-driven state changes
 // v0.6.13: Better semantic naming for captured hash
 //         - Renamed pendingConfirmation → urlHash (more accurate)
 //         - Renamed confirmationCapturedAt → urlHashCapturedAt
@@ -88,7 +82,7 @@ import GameLifecycleManager from '../classes/GameLifecycleManager.js';
 import { supabase } from '../utils/supabaseClient.js';
 import { events } from '../constants/GameEvents.js';
 
-const version = "v0.6.14";
+const version = "v0.6.13";
 
 class CoreEngine {
   constructor() {
@@ -372,40 +366,6 @@ class CoreEngine {
     this.notifySubscribers();
 
     this.log(`State transition complete: ${previousState} -> ${newState}`);
-  }
-
-  /**
-   * v0.6.14: Restore to state without URL synchronization
-   * Used by NavigationManager for browser navigation and page refresh
-   *
-   * Sets state synchronously, then runs handlers asynchronously
-   * Saves session and notifies subscribers
-   * Does NOT sync URL (we're already at the correct URL)
-   *
-   * @param {string} state - Target state to restore
-   */
-  async restoreToState(state) {
-    const previousState = this.currentState;
-    
-    // Set state synchronously
-    this.currentState = state;
-    this.log(`Restoring to state: ${previousState || 'none'} -> ${state}`);
-    
-    // Run state handler asynchronously (if exists)
-    const stateHandler = `handleEvent_${state}`;
-    if (typeof this[stateHandler] === 'function') {
-      try {
-        await this[stateHandler](null);
-      } catch (error) {
-        console.error(`${version} State handler failed during restoration:`, error);
-      }
-    }
-    
-    // Save session and notify
-    this.saveSession();
-    this.notifySubscribers();
-    
-    this.log(`State restoration complete: ${state}`);
   }
 
   handleEvent_launch(eventData) {

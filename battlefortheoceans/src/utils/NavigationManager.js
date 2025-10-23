@@ -1,5 +1,12 @@
 // src/utils/NavigationManager.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.1: Fixed browser navigation and page refresh using restoreToState()
+//         - initializeFromURL() now calls restoreToState() instead of setCurrentState()
+//         - Fixes page refresh bug where state handlers didn't run
+//         - handleBrowserNavigation() now calls restoreToState()
+//         - Fixes browser back/forward button where state handlers didn't run
+//         - Made handleBrowserNavigation() async (restoreToState is async)
+//         - Removed call to non-existent handleStateTransition()
 // v0.1.0: Extracted from CoreEngine.js v0.6.5
 //         - URL route mapping (stateToRoute, routeToState)
 //         - initializeFromURL() - sets state from URL path
@@ -9,21 +16,21 @@
 //         - Browser popstate event listener setup
 //         - Reduces CoreEngine by ~200 lines
 
-const version = "v0.1.0";
+const version = "v0.1.1";
 
 /**
  * NavigationManager
- * 
+ *
  * Handles all URL synchronization and browser navigation for CoreEngine.
  * Extracted from CoreEngine v0.6.5 to separate navigation concerns.
- * 
+ *
  * Responsibilities:
  * - Map states to URLs and vice versa
  * - Initialize state from current URL
  * - Update URL when state changes
  * - Handle browser back/forward buttons
  * - Validate backward navigation transitions
- * 
+ *
  * @example
  * const navManager = new NavigationManager(coreEngine);
  * navManager.syncURL('era'); // Updates URL to /select-era
@@ -73,35 +80,26 @@ class NavigationManager {
   /**
    * Initialize state from current URL path
    * Called on page load to restore state from URL
-   * 
+   *
+   * v0.1.1: Now uses restoreToState() to properly run state handlers
+   * Fixes bug where page refresh didn't initialize game properly
+   *
    * @param {string} path - URL path (defaults to window.location.pathname)
    */
-  initializeFromURL(path = window.location?.pathname || '/') {
+  async initializeFromURL(path = window.location?.pathname || '/') {
     const targetState = this.routeToState[path] || 'launch';
     
     this.log(`Initializing from URL: ${path} → ${targetState}`);
-    
-    // Special handling for era state
-    if (targetState === 'era') {
-      this.coreEngine.setCurrentState('era');
-      if (window.history) {
-        window.history.replaceState(
-          { state: 'era', timestamp: Date.now() },
-          '',
-          '/select-era'
-        );
-      }
-      this.coreEngine.notifySubscribers();
-      return;
-    }
     
     // Log warning for direct access to protected states
     if (targetState !== 'launch' && targetState !== 'login') {
       this.log(`Direct URL to protected state ${targetState} - page will validate profile`);
     }
     
-    // Set state and sync URL
-    this.coreEngine.setCurrentState(targetState);
+    // Restore to state (runs handlers, saves session, notifies subscribers)
+    await this.coreEngine.restoreToState(targetState);
+    
+    // Replace history state (don't push, we're already here)
     if (window.history) {
       window.history.replaceState(
         { state: targetState, timestamp: Date.now() },
@@ -109,13 +107,12 @@ class NavigationManager {
         this.stateToRoute[targetState] || '/'
       );
     }
-    this.coreEngine.notifySubscribers();
   }
   
   /**
    * Sync browser URL to match current state
    * Called after state transitions to keep URL in sync
-   * 
+   *
    * @param {string} currentState - Current game state
    */
   syncURL(currentState) {
@@ -144,10 +141,13 @@ class NavigationManager {
   /**
    * Handle browser back/forward button navigation
    * Validates transition and updates state
-   * 
+   *
+   * v0.1.1: Now uses restoreToState() instead of non-existent handleStateTransition()
+   * Made async since restoreToState() is async
+   *
    * @param {PopStateEvent} event - Browser navigation event
    */
-  handleBrowserNavigation(event) {
+  async handleBrowserNavigation(event) {
     const targetState = event.state?.state;
     
     if (!targetState) {
@@ -156,7 +156,7 @@ class NavigationManager {
     }
     
     const currentState = this.coreEngine.getCurrentState();
-    this.log(`Browser back/forward to: ${targetState}`);
+    this.log(`Browser back/forward: ${currentState} → ${targetState}`);
     
     // Prevent navigation away from active game
     if (currentState === 'play' && this.coreEngine.isGameActive()) {
@@ -171,14 +171,9 @@ class NavigationManager {
     
     // Validate backward transition
     if (this.isValidBackwardTransition(currentState, targetState)) {
-      this.coreEngine.setCurrentState(targetState);
-      
-      // Trigger state transition handling (async)
-      this.coreEngine.handleStateTransition(targetState).catch(error => {
-        console.error(`${version} State transition failed:`, error);
-      });
-      
-      this.coreEngine.notifySubscribers();
+      // Restore to state (runs handlers, saves session, notifies subscribers)
+      // No URL sync needed - we're already at the correct URL (popstate event)
+      await this.coreEngine.restoreToState(targetState);
     } else {
       this.log(`Invalid backward navigation from ${currentState} to ${targetState}`);
       // Re-sync URL to current state
@@ -188,7 +183,7 @@ class NavigationManager {
   
   /**
    * Check if backward navigation is allowed
-   * 
+   *
    * @param {string} from - Current state
    * @param {string} to - Target state
    * @returns {boolean} True if transition is valid
@@ -211,7 +206,7 @@ class NavigationManager {
   
   /**
    * Get route for a given state
-   * 
+   *
    * @param {string} state - Game state
    * @returns {string|null} URL route
    */
@@ -221,7 +216,7 @@ class NavigationManager {
   
   /**
    * Get state for a given route
-   * 
+   *
    * @param {string} route - URL route
    * @returns {string|null} Game state
    */
