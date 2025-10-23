@@ -1,5 +1,6 @@
-// src/App.js v0.3.4
+// src/App.js v0.3.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.5: Added /email-confirmed route for email confirmation success page
 // v0.3.4: Fixed overlay scrolling - wrapped achievements/stats in modal-overlay
 // v0.3.3: Added StatsPage overlay integration
 // v0.3.2: Refactor to overlay pattern - achievements/stats as overlays, not game states
@@ -15,13 +16,14 @@ import PlacementPage from './pages/PlacementPage';
 import PlayingPage from './pages/PlayingPage';
 import OverPage from './pages/OverPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import EmailConfirmedPage from './pages/EmailConfirmedPage';
 import AchievementsPage from './pages/AchievementsPage';
 import StatsPage from './pages/StatsPage';
 import './App.css';
 
 export const APP_VERSION = 'dev1.3';
 
-const version = 'v0.3.4';
+const version = 'v0.3.5';
 
 const SceneRenderer = () => {
   const { currentState, eraConfig, subscribeToUpdates } = useGame();
@@ -102,12 +104,20 @@ const SceneRenderer = () => {
     }
   }, [eraConfig]);
   
+  // Check for special routes
   const isResetPasswordRoute = window.location.pathname === '/reset-password' ||
                                window.location.hash.includes('type=recovery');
+  
+  const isEmailConfirmedRoute = window.location.pathname === '/email-confirmed';
   
   if (isResetPasswordRoute) {
     console.log('[DEBUG]', version, 'Rendering reset password page');
     return <ResetPasswordPage />;
+  }
+  
+  if (isEmailConfirmedRoute) {
+    console.log('[DEBUG]', version, 'Rendering email confirmed page');
+    return <EmailConfirmedPage />;
   }
   
   console.log('[DEBUG]', version, 'Rendering scene for state:', currentState);

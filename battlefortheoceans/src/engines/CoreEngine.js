@@ -1,5 +1,18 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.13: Better semantic naming for captured hash
+//         - Renamed pendingConfirmation → urlHash (more accurate)
+//         - Renamed confirmationCapturedAt → urlHashCapturedAt
+//         - More flexible for future auth flows (signup, recovery, etc.)
+// v0.6.12: Clear confirmation data on logout (multi-user protection)
+//         - Added cleanup of pendingConfirmation and confirmationCapturedAt in logout()
+//         - Prevents confirmation message showing for new user after logout
+//         - Part of three-layer protection: age check + logout cleanup + clear on read
+// v0.6.11: Import events from GameEvents.js to prevent premature initialization
+//         - Events imported from standalone constants file
+//         - Prevents supabaseClient.js from loading when accessing events
+//         - Fixes Sign Up URL hash consumption issue
+//         - No other logic changes
 // v0.6.10: Renamed resources to munitions for better semantics
 //         - Renamed handleStarShellFired() → fireMunition(munitionType, row, col)
 //         - getUIState() now reads munitions from gameInstance.munitions
@@ -67,8 +80,9 @@ import SessionManager from '../utils/SessionManager.js';
 import NavigationManager from '../utils/NavigationManager.js';
 import GameLifecycleManager from '../classes/GameLifecycleManager.js';
 import { supabase } from '../utils/supabaseClient.js';
+import { events } from '../constants/GameEvents.js';
 
-const version = "v0.6.10";
+const version = "v0.6.13";
 
 class CoreEngine {
   constructor() {
@@ -76,17 +90,8 @@ class CoreEngine {
     this.currentState = null;
     this.lastEvent = null;
     
-    // State definitions
-    this.events = {
-      LAUNCH: Symbol('LAUNCH'),
-      LOGIN: Symbol('LOGIN'),
-      SELECTERA: Symbol('SELECTERA'),
-      SELECTOPPONENT: Symbol('SELECTOPPONENT'),
-      PLACEMENT: Symbol('PLACEMENT'),
-      PLAY: Symbol('PLAY'),
-      OVER: Symbol('OVER'),
-      ERA: Symbol('ERA')
-    };
+    // Import events from GameEvents.js (v0.6.11)
+    this.events = events;
     
     this.states = {
       launch: { on: { [this.events.LOGIN]: 'login' } },
@@ -208,6 +213,8 @@ class CoreEngine {
   
   /**
    * v0.6.5: Logout user and return to launch page
+   * v0.6.12: Added confirmation data cleanup for multi-user protection
+   * v0.6.13: Updated to use urlHash/urlHashCapturedAt names
    * Clears all game state and session data
    */
   logout() {
@@ -215,6 +222,12 @@ class CoreEngine {
     
     // Clear all game state
     this.clearGameState();
+    
+    // 🧹 LAYER 2: Clear URL hash data (multi-user protection)
+    // Prevents old confirmation message showing for next user
+    sessionStorage.removeItem('urlHash');
+    sessionStorage.removeItem('urlHashCapturedAt');
+    this.log('Cleared URL hash data from sessionStorage');
     
     // Transition to launch state
     this.currentState = 'launch';
@@ -246,305 +259,182 @@ class CoreEngine {
     if (sessionData.user) {
       this.userProfile = {
         id: sessionData.user.id,
-        game_name: sessionData.user.game_name,
-        total_games: sessionData.user.total_games || 0,
-        total_wins: sessionData.user.total_wins || 0,
-        total_score: sessionData.user.total_score || 0,
-        best_accuracy: sessionData.user.best_accuracy || 0,
-        total_ships_sunk: sessionData.user.total_ships_sunk || 0,
-        total_damage: sessionData.user.total_damage || 0
+        game_name: sessionData.user.game_name || sessionData.user.gameName || 'Unknown',
+        wins: sessionData.user.wins || 0,
+        losses: sessionData.user.losses || 0,
+        accuracy: sessionData.user.accuracy || 0,
+        score: sessionData.user.score || 0
       };
-      
-      this.humanPlayer = new HumanPlayer(sessionData.user.id, sessionData.user.game_name);
-      if (sessionData.user.email) {
-        this.humanPlayer.email = sessionData.user.email;
-      }
-      this.humanPlayer.gameName = sessionData.user.game_name;
-      
-      this.log(`User restored: ${sessionData.user.game_name}`);
-      
-      // Refresh registered user profile from database
-      if (sessionData.user.type === 'registered') {
-        this.refreshProfileAsync(sessionData.user.id);
-      }
     }
     
-    // Restore era
-    if (sessionData.eraId) {
-      this.restoreEraAsync(sessionData.eraId);
-    }
-    
-    // Restore opponents
-    if (sessionData.selectedOpponents && Array.isArray(sessionData.selectedOpponents)) {
-      this.selectedOpponents = sessionData.selectedOpponents;
-      this.log(`Opponents restored: ${sessionData.selectedOpponents.length} captains`);
+    // Restore game mode
+    if (sessionData.selectedGameMode) {
+      this.selectedGameMode = sessionData.selectedGameMode;
     }
     
     // Restore alliance
     if (sessionData.selectedAlliance) {
       this.selectedAlliance = sessionData.selectedAlliance;
-      this.log(`Alliance restored: ${sessionData.selectedAlliance}`);
     }
-  }
-  
-  /**
-   * Save session using SessionManager
-   */
-  saveSession() {
-    const context = {
-      user: this.userProfile ? {
-        id: this.userProfile.id,
-        game_name: this.userProfile.game_name,
-        email: this.humanPlayer?.email || null,
-        total_games: this.userProfile.total_games || 0,
-        total_wins: this.userProfile.total_wins || 0,
-        total_score: this.userProfile.total_score || 0,
-        best_accuracy: this.userProfile.best_accuracy || 0,
-        total_ships_sunk: this.userProfile.total_ships_sunk || 0,
-        total_damage: this.userProfile.total_damage || 0
-      } : null,
-      
-      eraId: this.eraConfig?.id || null,
-      
-      selectedOpponents: this.selectedOpponents.map(opp => ({
-        id: opp.id,
-        name: opp.name,
-        strategy: opp.strategy,
-        difficulty: opp.difficulty
-      })),
-      
-      selectedAlliance: this.selectedAlliance || null
-    };
     
-    SessionManager.save(context);
+    // Restore era configuration asynchronously
+    if (sessionData.eraId) {
+      const eraId = sessionData.eraId;
+      this.restoreEraAsync(eraId);
+    }
+    
+    // Restore opponents
+    if (sessionData.selectedOpponents && Array.isArray(sessionData.selectedOpponents)) {
+      this.selectedOpponents = sessionData.selectedOpponents;
+    }
+    
+    // Restore state (but allow URL to override)
+    if (sessionData.currentState) {
+      this.currentState = sessionData.currentState;
+    }
+    
+    this.log(`Session restored: state=${this.currentState}, user=${this.userProfile?.game_name}`);
   }
   
   /**
-   * Calculate resource count with multi-opponent boost
-   * @param {number} baseAmount - Base resource from era config
-   * @param {number} boostPerOpponent - Boost per additional opponent
-   * @param {number} opponentCount - Number of opponents
-   * @returns {number} Final resource count
+   * Restore era configuration asynchronously
    */
-  /**
-   * Handle star shell firing (consumes turn)
-   * @param {number} row - Target row
-   * @param {number} col - Target column
-   * @returns {boolean} Success/failure
-   */
-  async initializeGameConfig() {
-    try {
-      this.gameConfig = await configLoader.loadGameConfig();
-      this.log(`Game config loaded: v${this.gameConfig.version}`);
-    } catch (error) {
-      console.error(`${version} Failed to load game config:`, error);
-    }
-  }
-
-  async refreshProfileAsync(userId) {
-    try {
-      const profile = await this.userProfileService.getUserProfile(userId);
-      if (profile && profile.game_name) {
-        this.userProfile = profile;
-        if (this.humanPlayer) {
-          this.humanPlayer.name = profile.game_name;
-          this.humanPlayer.gameName = profile.game_name;
-        }
-        this.log(`Profile refreshed from database: ${profile.game_name}`);
-        this.notifySubscribers();
-      }
-    } catch (error) {
-      console.error(`${version} Error refreshing profile:`, error);
-    }
-  }
-
   async restoreEraAsync(eraId) {
     try {
       this.eraConfig = await configLoader.loadEraConfig(eraId);
-      if (this.eraConfig) {
-        this.log(`Era restored: ${this.eraConfig.name}`);
-        this.notifySubscribers();
-      }
-    } catch (error) {
-      console.error(`${version} Error restoring era:`, error);
-    }
-  }
-
-  async dispatch(event, eventData = null) {
-    this.log(`Dispatching event: ${this.getEventName(event)} from state: ${this.currentState}`);
-    
-    try {
-      await this.processEventData(event, eventData);
-      this.transition(event);
-      await this.handleStateTransition(this.currentState);
+      this.log(`Era config restored: ${eraId}`);
       this.notifySubscribers();
     } catch (error) {
-      console.error(`${version} Error in dispatch:`, error);
-      throw error;
+      console.error(`${version} Failed to restore era config:`, error);
     }
   }
 
-  async processEventData(event, eventData) {
-    if (!eventData) return;
-    
-    if (event === this.events.LOGIN && eventData.showSignup !== undefined) {
-      this.loginEventData = { showSignup: eventData.showSignup };
-      this.log(`LOGIN event with showSignup: ${eventData.showSignup}`);
-    }
-    
-    if (event === this.events.SELECTERA && eventData.userData) {
-      const isGuest = eventData.userData.id.startsWith('guest-');
-      
-      if (isGuest) {
-        this.userProfile = {
-          id: eventData.userData.id,
-          game_name: 'Guest',
-          total_games: 0,
-          total_wins: 0,
-          total_score: 0,
-          best_accuracy: 0,
-          total_ships_sunk: 0,
-          total_damage: 0
-        };
-        
-        if (!this.humanPlayer) {
-          this.humanPlayer = new HumanPlayer(eventData.userData.id, 'Guest');
-          this.log(`Guest player created: ${eventData.userData.id}`);
-        } else {
-          this.log(`Reusing existing guest player: ${eventData.userData.id}`);
-        }
-        
-      } else {
-        const profile = await this.userProfileService.getUserProfile(eventData.userData.id);
-        
-        if (!profile || !profile.game_name) {
-          throw new Error('Cannot access game without valid profile and game name');
-        }
-        
-        this.userProfile = profile;
-        
-        if (!this.humanPlayer) {
-          this.humanPlayer = new HumanPlayer(
-            eventData.userData.id,
-            profile.game_name
-          );
-          this.log(`Human player created: ${profile.game_name} (${eventData.userData.id})`);
-        } else {
-          this.humanPlayer.name = profile.game_name;
-          this.log(`Reusing human player, updated name: ${profile.game_name}`);
-        }
-        
-        this.humanPlayer.email = eventData.userData.email;
-        this.humanPlayer.userData = eventData.userData;
-        this.humanPlayer.gameName = profile.game_name;
-      }
-      
-      this.saveSession();
-      
-    } else if (event === this.events.SELECTOPPONENT) {
-      if (eventData.eraConfig) {
-        this.eraConfig = eventData.eraConfig;
-        this.log(`Era selected: ${eventData.eraConfig.name}`);
-      }
-      if (eventData.selectedAlliance) {
-        this.selectedAlliance = eventData.selectedAlliance;
-        this.log(`Alliance selected: ${eventData.selectedAlliance}`);
-      }
-      
-      this.saveSession();
-      
-    } else if (event === this.events.PLACEMENT) {
-      if (eventData?.selectedOpponents && Array.isArray(eventData.selectedOpponents)) {
-        this.selectedOpponents = eventData.selectedOpponents;
-        this.log(`Opponents selected: ${eventData.selectedOpponents.length} captains`);
-        eventData.selectedOpponents.forEach(opp => {
-          this.log(`  - ${opp.name} (${opp.difficulty || 1.0}x difficulty)`);
-        });
-      } else if (eventData?.selectedOpponent) {
-        this.selectedOpponents = [eventData.selectedOpponent];
-        this.log(`Opponent selected (legacy): ${eventData.selectedOpponent.name} (${eventData.selectedOpponent.difficulty || 1.0}x)`);
-      }
-      
-      if (eventData?.selectedAlliance && !this.selectedAlliance) {
-        this.selectedAlliance = eventData.selectedAlliance;
-        this.log(`Alliance selected from opponent page: ${eventData.selectedAlliance}`);
-      }
-      
-      if (this.currentState === 'over' && this.selectedEra) {
-        this.eraConfig = await configLoader.loadEraConfig(this.selectedEra);
-        this.log(`Restored eraConfig for Battle Again: ${this.eraConfig?.name}`);
-      }
-      
-      this.saveSession();
-    }
+  saveSession() {
+    SessionManager.save(this);
   }
 
-  transition(event) {
-    const nextState = this.states[this.currentState]?.on[event];
-    if (nextState) {
-      const oldState = this.currentState;
-      this.currentState = nextState;
-      this.lastEvent = event;
-      
-      if (nextState === 'login' || nextState === 'launch') {
-        this.clearGameState();
-      }
-      
-      this.navigationManager.syncURL(this.currentState);
-      this.log(`State transition: ${oldState} → ${this.currentState}`);
-    } else {
-      throw new Error(`No transition defined for ${this.currentState} with event ${this.getEventName(event)}`);
-    }
-  }
-    
   clearGameState() {
-    this.log('Clearing game state');
+    this.gameInstance = null;
+    this.board = null;
     this.eraConfig = null;
     this.selectedOpponents = [];
     this.selectedGameMode = null;
     this.selectedAlliance = null;
     this.humanPlayer = null;
     this.aiPlayers = [];
-    this.gameInstance = null;
-    this.board = null;
     this.userProfile = null;
-    this.newAchievements = [];
-    
+    this.loginEventData = null;
     SessionManager.clear();
   }
 
-  async handleStateTransition(newState) {
-    this.log(`Handling state transition to: ${newState}`);
+  initializeGameConfig() {
+    this.gameConfig = {
+      boardRows: 10,
+      boardCols: 10,
+      shipSizes: [5, 4, 3, 3, 2]
+    };
+  }
+
+  async dispatch(event, eventData) {
+    const eventName = this.getEventName(event);
+    this.log(`Dispatching event: ${eventName}`);
+    this.lastEvent = event;
+
+    const nextState = this.states[this.currentState]?.on[event];
     
-    switch (newState) {
-      case 'placement':
-        await this.initializeForPlacement();
-        break;
-        
-      case 'play':
-        await this.startGame();
-        break;
-        
-      case 'over':
-        await this.handleGameOver();
-        break;
-        
-      default:
-        break;
+    if (!nextState) {
+      console.error(`${version} Invalid state transition: ${this.currentState} + ${eventName}`);
+      return;
+    }
+
+    this.log(`Transitioning: ${this.currentState} -> ${nextState}`);
+    
+    await this.transition(nextState, eventData);
+  }
+
+  async transition(newState, eventData) {
+    const previousState = this.currentState;
+    this.currentState = newState;
+
+    const stateHandler = `handleEvent_${newState}`;
+    if (typeof this[stateHandler] === 'function') {
+      await this[stateHandler](eventData);
+    }
+
+    this.saveSession();
+    this.navigationManager.syncURL(newState);
+    this.notifySubscribers();
+
+    this.log(`State transition complete: ${previousState} -> ${newState}`);
+  }
+
+  handleEvent_launch(eventData) {
+    this.log('Handling LAUNCH event');
+    this.clearGameState();
+  }
+
+  handleEvent_login(eventData) {
+    this.log('Handling LOGIN event');
+    this.loginEventData = eventData || null;
+  }
+
+  async handleEvent_era(eventData) {
+    this.log('Handling ERA event');
+    
+    if (eventData && eventData.eraId) {
+      this.eraConfig = await configLoader.loadEraConfig(eventData.eraId);
+      this.log(`Era loaded: ${eventData.eraId}`);
+      this.notifySubscribers();
+    }
+    
+    if (eventData && eventData.user) {
+      this.userProfile = eventData.user;
+      this.log(`User profile set: ${this.userProfile.game_name}`);
+      this.notifySubscribers();
     }
   }
 
-  async initializeForPlacement() {
-    await this.lifecycleManager.initializeForPlacement();
-  }
-
-  async startGame() {
-    if (!this.gameInstance || this.gameInstance.state !== 'setup') {
-      throw new Error('Cannot start game - no instance or not in setup state');
+  handleEvent_opponent(eventData) {
+    this.log('Handling OPPONENT event');
+    
+    if (eventData && eventData.eraId) {
+      this.log(`Era selected: ${eventData.eraId}`);
     }
     
-    this.log('Starting game');
-    await this.gameInstance.startGame();
+    if (eventData && eventData.selectedOpponents) {
+      this.selectedOpponents = eventData.selectedOpponents;
+      this.log(`Opponents selected: ${this.selectedOpponents.map(o => o.name).join(', ')}`);
+    }
+    
+    if (eventData && eventData.gameMode) {
+      this.selectedGameMode = eventData.gameMode;
+      this.log(`Game mode: ${this.selectedGameMode}`);
+    }
+    
+    if (eventData && eventData.alliance) {
+      this.selectedAlliance = eventData.alliance;
+      this.log(`Alliance: ${this.selectedAlliance}`);
+    }
+  }
+
+  handleEvent_placement(eventData) {
+    this.log('Handling PLACEMENT event');
+    
+    // v0.6.7: Delegate to GameLifecycleManager
+    this.lifecycleManager.initializeForPlacement(this);
+  }
+
+  handleEvent_play(eventData) {
+    this.log('Handling PLAY event - game started');
+    if (this.gameInstance) {
+      this.gameInstance.startGame();
+    }
+  }
+
+  async handleEvent_over(eventData) {
+    this.log('Handling OVER event - game completed');
+    
+    await this.handleGameOver();
   }
 
   async handleGameOver() {

@@ -15,6 +15,7 @@
     "netlify": "^23.9.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.4",
     "react-scripts": "5.0.1",
     "sib-api-v3-sdk": "^8.5.0",
     "stripe": "^18.5.0",

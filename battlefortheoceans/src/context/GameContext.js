@@ -1,5 +1,16 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.8: Lazy-load services to prevent supabase initialization
+//         - Services created on first access, not at module load
+//         - Each service imports supabase, so delay their creation
+// v0.4.7: Lazy-initialize CoreEngine to prevent premature supabaseClient loading
+//         - CoreEngine created on first access, not at module load time
+//         - Allows LaunchPage to read URL hash before CoreEngine initializes
+//         - Fixes Sign Up URL hash consumption (for real this time!)
+// v0.4.6: Import events from GameEvents.js to prevent premature initialization
+//         - Events getter now returns imported events, not coreEngine.events
+//         - Prevents CoreEngine initialization when LaunchPage accesses events
+//         - Fixes Sign Up URL hash consumption issue
 // v0.4.5: Munitions terminology rename (resources → munitions)
 //         - Added fireMunition(munitionType, row, col) method
 //         - Kept handleStarShellFired for backward compatibility
@@ -28,83 +39,106 @@ import UserProfileService from '../services/UserProfileService';
 import LeaderboardService from '../services/LeaderboardService';
 import RightsService from '../services/RightsService';
 import configLoader from '../utils/ConfigLoader';
+import { events } from '../constants/GameEvents';
 
-const version = "v0.4.5";
+const version = "v0.4.8";
 
 const GameState = createContext();
 
-// CoreEngine singleton - single source of truth for all game state
-const coreEngine = new CoreEngine();
+// Lazy initialization - nothing created until first access
+let coreEngine = null;
+let userProfileService = null;
+let leaderboardService = null;
+let rightsService = null;
 
-// Service instances for direct calls
-const userProfileService = new UserProfileService();
-const leaderboardService = new LeaderboardService();
-const rightsService = new RightsService();
+function getCoreEngine() {
+  if (!coreEngine) {
+    console.log(`[GameContext ${version}] Lazy-initializing CoreEngine`);
+    coreEngine = new CoreEngine();
+  }
+  return coreEngine;
+}
+
+function getUserProfileService() {
+  if (!userProfileService) {
+    console.log(`[GameContext ${version}] Lazy-initializing UserProfileService`);
+    userProfileService = new UserProfileService();
+  }
+  return userProfileService;
+}
+
+function getLeaderboardService() {
+  if (!leaderboardService) {
+    console.log(`[GameContext ${version}] Lazy-initializing LeaderboardService`);
+    leaderboardService = new LeaderboardService();
+  }
+  return leaderboardService;
+}
+
+function getRightsService() {
+  if (!rightsService) {
+    console.log(`[GameContext ${version}] Lazy-initializing RightsService`);
+    rightsService = new RightsService();
+  }
+  return rightsService;
+}
 
 export const GameProvider = ({ children }) => {
-  console.log(`[GameContext ${version}] Provider initialized with CoreEngine`);
+  console.log(`[GameContext ${version}] Provider initialized (all lazy)`);
   
   return (
     <GameState.Provider value={{
 
       // State machine
-      get currentState() { return coreEngine.currentState; },
-      get events() { return coreEngine.events; },
+      get currentState() { return getCoreEngine().currentState; },
+      get events() { return events; },
       
       // Core dispatch
-      dispatch: (event, eventData) => coreEngine.dispatch(event, eventData),
+      dispatch: (event, eventData) => getCoreEngine().dispatch(event, eventData),
       
       // Observer pattern
-      subscribeToUpdates: (callback) => coreEngine.subscribe(callback),
-      updateCounter: coreEngine.updateCounter,
+      subscribeToUpdates: (callback) => getCoreEngine().subscribe(callback),
+      get updateCounter() { return getCoreEngine().updateCounter; },
       
       // Game state accessors
-      get eraConfig() { return coreEngine.eraConfig; },
-      
-      // v0.4.0: Multi-fleet support
-      get selectedOpponents() { return coreEngine.selectedOpponents; },
-      get selectedOpponent() { return coreEngine.selectedOpponents?.[0] || null; }, // Backward compatibility
-      
-      get selectedGameMode() { return coreEngine.selectedGameMode; },
-      get selectedAlliance() { return coreEngine.selectedAlliance; },
-      get humanPlayer() { return coreEngine.humanPlayer; },
-      get gameInstance() { return coreEngine.gameInstance; },
-      get board() { return coreEngine.board; },
-      get userProfile() { return coreEngine.userProfile; },
+      get eraConfig() { return getCoreEngine().eraConfig; },
+      get selectedOpponents() { return getCoreEngine().selectedOpponents; },
+      get selectedOpponent() { return getCoreEngine().selectedOpponents?.[0] || null; },
+      get selectedGameMode() { return getCoreEngine().selectedGameMode; },
+      get selectedAlliance() { return getCoreEngine().selectedAlliance; },
+      get humanPlayer() { return getCoreEngine().humanPlayer; },
+      get gameInstance() { return getCoreEngine().gameInstance; },
+      get board() { return getCoreEngine().board; },
+      get userProfile() { return getCoreEngine().userProfile; },
       
       // Computed state
-      getUIState: () => coreEngine.getUIState(),
-      getPlacementProgress: () => coreEngine.getPlacementProgress(),
+      getUIState: () => getCoreEngine().getUIState(),
+      getPlacementProgress: () => getCoreEngine().getPlacementProgress(),
       
       // Game actions
       registerShipPlacement: (ship, shipCells, orientation, playerId) =>
-        coreEngine.registerShipPlacement(ship, shipCells, orientation, playerId),
+        getCoreEngine().registerShipPlacement(ship, shipCells, orientation, playerId),
       
-      // v0.4.5: Munitions actions
-      fireMunition: (munitionType, row, col) => coreEngine.fireMunition(munitionType, row, col),
-      handleStarShellFired: (row, col) => coreEngine.handleStarShellFired(row, col), // Backward compatibility
+      fireMunition: (munitionType, row, col) => getCoreEngine().fireMunition(munitionType, row, col),
+      handleStarShellFired: (row, col) => getCoreEngine().handleStarShellFired(row, col),
       
-      // User profile functions
-      // v0.4.4: Call services directly (not through CoreEngine)
-      getUserProfile: (userId) => userProfileService.getUserProfile(userId),
-      createUserProfile: (userId, gameName) => coreEngine.createUserProfile(userId, gameName), // Keep - has business logic
-      updateGameStats: (gameResults) => coreEngine.updateGameStats(gameResults), // Keep - has business logic
-      getLeaderboard: (limit) => leaderboardService.getLeaderboard(limit),
-      getRecentChampions: (limit) => leaderboardService.getRecentChampions(limit),
-      getPlayerGameName: (playerId) => coreEngine.getPlayerGameName(playerId), // Keep - still in CoreEngine
+      // User profile functions (lazy-loaded services)
+      getUserProfile: (userId) => getUserProfileService().getUserProfile(userId),
+      createUserProfile: (userId, gameName) => getCoreEngine().createUserProfile(userId, gameName),
+      updateGameStats: (gameResults) => getCoreEngine().updateGameStats(gameResults),
+      getLeaderboard: (limit) => getLeaderboardService().getLeaderboard(limit),
+      getRecentChampions: (limit) => getLeaderboardService().getRecentChampions(limit),
+      getPlayerGameName: (playerId) => getCoreEngine().getPlayerGameName(playerId),
       
-      // v0.4.3: Logout function
-      logout: () => coreEngine.logout(),
+      logout: () => getCoreEngine().logout(),
       
-      // Rights functions
-      // v0.4.4: Call services directly (not through CoreEngine)
-      hasEraAccess: (userId, eraId) => coreEngine.hasEraAccess(userId, eraId), // Keep - has business logic
-      grantEraAccess: (userId, eraId, paymentData) => rightsService.grantEraAccess(userId, eraId, paymentData),
-      redeemVoucher: (userId, voucherCode) => rightsService.redeemVoucher(userId, voucherCode),
-      getUserRights: (userId) => rightsService.getUserRights(userId),
+      // Rights functions (lazy-loaded service)
+      hasEraAccess: (userId, eraId) => getCoreEngine().hasEraAccess(userId, eraId),
+      grantEraAccess: (userId, eraId, paymentData) => getRightsService().grantEraAccess(userId, eraId, paymentData),
+      redeemVoucher: (userId, voucherCode) => getRightsService().redeemVoucher(userId, voucherCode),
+      getUserRights: (userId) => getRightsService().getUserRights(userId),
       
-      // Era functions
-      // v0.4.4: Call configLoader directly (not through CoreEngine)
+      // Era functions (configLoader doesn't import supabase)
       getAllEras: () => configLoader.listEras(),
       getEraById: (eraId) => configLoader.loadEraConfig(eraId),
       getPromotableEras: async () => {
@@ -124,8 +158,6 @@ export const GameProvider = ({ children }) => {
 };
 
 export const useGame = () => useContext(GameState);
-
-// Export context for direct use if needed
 export { GameState as GameContext };
 
 // EOF

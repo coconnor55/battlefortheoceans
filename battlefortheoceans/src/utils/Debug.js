@@ -26,6 +26,7 @@ const control = {
   MESSAGE: true,
   FIRE: false,
     VIDEO: true,
+    INDEX: true,
   DEBUG: true
 };
 

@@ -1,10 +1,19 @@
-// src/components/LoginDialog.js v0.1.40
+// src/components/LoginDialog.js v0.1.43
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.43: Remove ?confirmed=true from emailRedirectTo URLs
+//          - Let Supabase add hash fragment naturally (#access_token=...&type=signup)
+//          - Query params interfere with hash capture in index.js
+//          - Clean URLs enable proper flow: hash capture → LaunchPage → /email-confirmed
+// v0.1.42: Add redirectTo URL for email confirmation with detection flag
+//          - Set redirectTo with ?confirmed=true query param
+//          - Tells Supabase where to redirect after confirmation
+//          - Enables detection in LaunchPage
+// v0.1.41: Better error handling for existing users during signup
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.40';
+const version = 'v0.1.43';
 
 const LoginDialog = ({ onClose, showSignup = false }) => {
   const [email, setEmail] = useState('');
@@ -12,10 +21,10 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
-  const [mode, setMode] = useState(showSignup ? 'signup' : 'login'); // Initialize based on prop
+  const [mode, setMode] = useState(showSignup ? 'signup' : 'login');
   const [loginAttempted, setLoginAttempted] = useState(false);
+  const [userAlreadyExists, setUserAlreadyExists] = useState(false);
 
-  // Update mode if showSignup prop changes
   useEffect(() => {
     if (showSignup) {
       setMode('signup');
@@ -43,13 +52,11 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
     } else {
       console.log(`${version} Login successful, user:`, data.user);
       
-      // Check if email is confirmed
       if (!data.user.email_confirmed_at) {
         setError('Please confirm your email address before logging in. Check your inbox for a confirmation link.');
         return;
       }
       
-      // Pass user data back to LoginPage
       onClose(data.user);
     }
   };
@@ -66,15 +73,39 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
       return;
     }
     
+    // Determine redirect URL - CLEAN, no query params
+    const isProduction = window.location.hostname === 'battlefortheoceans.com' ||
+                         window.location.hostname === 'www.battlefortheoceans.com';
+    
+    const redirectUrl = isProduction
+      ? 'https://battlefortheoceans.com'
+      : window.location.origin; // http://localhost:8888
+    
     console.log(`${version} Attempting user signup with email:`, email);
-    const { error, data } = await supabase.auth.signUp({ email, password });
+    console.log(`${version} Redirect URL for confirmation:`, redirectUrl);
+    
+    const { error, data } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl
+      }
+    });
     
     if (error) {
+      if (error.message.includes('User already registered') ||
+          error.message.includes('already been registered') ||
+          error.status === 400) {
+        console.log(`${version} User already exists:`, email);
+        setError('This email is already registered. Would you like to login instead?');
+        setUserAlreadyExists(true);
+        return;
+      }
+      
       setError(error.message);
     } else {
       console.log(`${version} Sign-up successful, user:`, data.user);
       
-      // Check if email confirmation is required
       if (data.user && !data.user.email_confirmed_at) {
         console.log(`${version} Email confirmation required for:`, email);
         setPendingConfirmation(true);
@@ -82,7 +113,6 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
         return;
       }
       
-      // If email is already confirmed (shouldn't happen on signup), proceed
       onClose(data.user);
     }
   };
@@ -94,7 +124,6 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
       return;
     }
     
-    // More reliable production detection
     const isProduction = window.location.hostname === 'battlefortheoceans.com' ||
                          window.location.hostname === 'www.battlefortheoceans.com';
     
@@ -103,8 +132,6 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
       : window.location.origin;
     
     console.log(`${version} Forgot password redirect URL:`, redirectUrl);
-    console.log(`${version} Current hostname:`, window.location.hostname);
-    console.log(`${version} Is production:`, isProduction);
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl
@@ -118,12 +145,10 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
   };
 
   const handleGuest = async () => {
-    // Generate guest ID with timestamp and random string
     const guestId = `guest-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     
     console.log(`${version} Playing as guest with ID:`, guestId);
     
-    // Create guest user object
     const guestUser = {
       id: guestId,
       email: null,
@@ -169,16 +194,19 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
     setMode('signup');
     setError(null);
     setLoginAttempted(false);
+    setUserAlreadyExists(false);
   };
 
   const switchToLogin = () => {
     setMode('login');
     setError(null);
+    setUserAlreadyExists(false);
   };
 
   const switchToForgot = () => {
     setMode('forgot');
     setError(null);
+    setUserAlreadyExists(false);
   };
 
   if (pendingConfirmation) {
@@ -225,6 +253,11 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
           {mode === 'login' && loginAttempted && error.includes('Account not found') && (
             <button className="btn btn--secondary btn--sm" onClick={switchToSignup}>
               Sign Up Instead
+            </button>
+          )}
+          {mode === 'signup' && userAlreadyExists && (
+            <button className="btn btn--secondary btn--sm" onClick={switchToLogin}>
+              Login Instead
             </button>
           )}
         </div>

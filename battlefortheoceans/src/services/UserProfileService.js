@@ -102,10 +102,10 @@ class UserProfileService {
       };
     }
     
-    if (trimmed.length > 20) {
+    if (trimmed.length > 32) {
       return {
         valid: false,
-        error: 'Game name must be 20 characters or less'
+        error: 'Game name must be 32 characters or less'
       };
     }
 
