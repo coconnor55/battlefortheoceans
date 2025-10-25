@@ -1,6 +1,18 @@
 // src/pages/SelectOpponentPage.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.6.1: Replaced InfoPanel with GameGuide component - removed ~65 lines of hardcoded instructions
+// v0.6.8: Fixed userProfile access AND opponents property name
+//         - Line 33: Changed from coreEngine.userProfile to coreEngine.humanPlayer.userProfile
+//         - Line 203: Changed selectedOpponents to opponents (matches CoreEngine expectation)
+//         - CoreEngine processEventData expects data.opponents, not data.selectedOpponents
+// v0.6.7: Fixed dispatch to send selectedOpponents array for consistency
+//         - Traditional/Midway now sends [selectedOpponent] array
+//         - Matches multi-fleet pattern and GameLifecycleManager expectations
+// v0.6.6: Merged v0.6.5 property access with v0.5.5 complete UI code
+//         - Use coreEngine.humanPlayer (Player instance for game logic)
+//         - Use coreEngine.userProfile (database object for display)
+//         - Restored all UI components, styling, and multi-fleet support
+// v0.6.5: Fixed property names - use coreEngine.humanPlayer and coreEngine.userProfile
+// v0.6.1: Replaced InfoPanel with GameGuide component
 // v0.6.0: Multi-fleet combat support (Pirates of the Gulf)
 // v0.5.0: Added avatar display for AI captains
 
@@ -10,22 +22,29 @@ import { useGame } from '../context/GameContext';
 import InfoButton from '../components/InfoButton';
 import GameGuide from '../components/GameGuide';
 
-const version = 'v0.6.1';
+const version = 'v0.6.8';
 
 const SelectOpponentPage = () => {
   const {
+    coreEngine,
     dispatch,
     events,
-    eraConfig,
-    userProfile
+    eraConfig
   } = useGame();
   
+  // v0.6.8: Use CoreEngine properties for Player singleton pattern
+  const player = coreEngine.humanPlayer;              // Player instance (game logic)
+  const profile = coreEngine.humanPlayer.userProfile; // Database object (display)
+  
+  console.log('[OPPONENT]', version, 'Player=', player);
+  console.log('[OPPONENT]', version, 'userProfile=', profile);
+  
   useEffect(() => {
-    if (!userProfile) {
-      console.log(version, 'No user profile detected - redirecting to login');
+    if (!player) {
+      console.log(version, 'No player detected - redirecting to login');
       dispatch(events.LOGIN);
     }
-  }, [userProfile, dispatch, events]);
+  }, [player, dispatch, events]);
   
   const [selectedAlliance, setSelectedAlliance] = useState(null);
   const [selectedOpponent, setSelectedOpponent] = useState(null);
@@ -194,162 +213,143 @@ const SelectOpponentPage = () => {
       
       dispatch(events.PLACEMENT, {
         eraConfig: eraConfig,
-        selectedOpponent: selectedOpponent,  // Single (backward compatible)
-        selectedAlliance: selectedAlliance
+        opponents: [selectedOpponent],  // CoreEngine expects 'opponents' property
+        selectedAlliance: selectedAlliance || null
       });
     }
   }, [isMultiFleet, selectedPirateFleets, selectedOpponent, selectedAlliance, eraConfig, dispatch, events]);
 
   const fetchOnlineHumans = useCallback(async () => {
+    if (!eraConfig) return;
+    
     setLoading(true);
     try {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('id, game_name, last_seen')
-        .gte('last_seen', new Date(Date.now() - 5 * 60 * 1000).toISOString())
-        .neq('id', (await supabase.auth.getUser()).data.user?.id);
-
-      if (error) {
-        console.error(version, 'Error fetching online humans:', error);
-      } else {
-        setOnlineHumans(data || []);
-        console.log(version, 'Found online humans:', data?.length || 0);
-      }
-    } catch (err) {
-      console.error(version, 'Error in fetchOnlineHumans:', err);
+        .from('player_online_status')
+        .select('user_id, game_name, last_seen')
+        .eq('is_online', true)
+        .gte('last_seen', fiveMinutesAgo)
+        .neq('user_id', profile?.id)
+        .limit(20);
+      
+      if (error) throw error;
+      
+      const humansWithIds = data.map(h => ({
+        id: h.user_id,
+        game_name: h.game_name,
+        name: h.game_name,
+        last_seen: h.last_seen
+      }));
+      
+      setOnlineHumans(humansWithIds);
+      console.log(version, 'Fetched online humans:', humansWithIds.length);
+    } catch (error) {
+      console.error(version, 'Error fetching online humans:', error);
+      setOnlineHumans([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, []);
+  }, [eraConfig, profile]);
 
   useEffect(() => {
     fetchOnlineHumans();
   }, [fetchOnlineHumans]);
 
-  if (!userProfile) {
-    return null;
-  }
+  const requiresAlliance = eraConfig?.game_rules?.choose_alliance;
+  const availableAlliances = eraConfig?.alliances?.filter(a => a.name !== 'Opponent') || [];
+  const availableAICaptains = getAvailableAICaptains();
 
-  if (!eraConfig) {
-    return (
-      <div className="container flex flex-column flex-center">
-        <div className="content-pane content-pane--narrow">
-          <div className="card-header">
-            <h2 className="card-title">No Era Selected</h2>
-          </div>
-          <div className="card-body">
-            <p>Please select an era first</p>
-            <p className="text-secondary">Use your browser's back button to return to era selection</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isTransitioning) {
-    return (
-      <div className="container flex flex-column flex-center">
-        <div className="content-pane content-pane--narrow">
-          <div className="loading">
-            <div className="spinner spinner--lg"></div>
-            <h2>Preparing for Battle</h2>
-            <p>Setting up {eraConfig.name} ...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const requiresAlliance = eraConfig.game_rules?.choose_alliance;
-  
   // v0.6.0: Determine if user can proceed
   const canProceed = isMultiFleet
-    ? selectedPirateFleets.length >= (eraConfig.game_rules.fleet_selection_min || 1)
-    : selectedOpponent && (!requiresAlliance || selectedAlliance);
-  
-  const availableAICaptains = getAvailableAICaptains();
-  
-  // v0.6.0: Dynamic button text
+    ? selectedPirateFleets.length > 0
+    : selectedOpponent !== null && (!requiresAlliance || selectedAlliance);
+
   const getButtonText = () => {
     if (isMultiFleet) {
-      if (selectedPirateFleets.length === 0) return 'Select Pirate Fleet(s)';
-      const fleetNames = selectedPirateFleets.map(f => f.ai_captain.name).join(' & ');
-      return `Play vs ${fleetNames}`;
-    } else {
-      return selectedOpponent ? `Play ${selectedOpponent.name}` : 'Select Opponent';
+      return selectedPirateFleets.length > 1
+        ? `Begin Battle vs ${selectedPirateFleets.length} Fleets`
+        : 'Begin Battle';
     }
+    return selectedOpponent?.type === 'human'
+      ? 'Challenge Player'
+      : 'Begin Battle';
   };
 
-  return (
-    <div className="container flex flex-column flex-center">
-      <div className="page-with-info">
-        <InfoButton onClick={() => setShowInfo(true)} />
-        
-        <GameGuide
-          section="opponent"
-          manualOpen={showInfo}
-          onClose={() => setShowInfo(false)}
-        />
+  // v0.6.6: Use profile for display, player for game logic checks
+  if (!player) {
+    return (
+      <div className="content-pane">
+        <div className="modal-overlay__content">
+          <p>Initializing player...</p>
+        </div>
+      </div>
+    );
+  }
 
-        <div className="content-pane content-pane--wide">
+  return (
+    <div className="page-container">
+      <div className="content-pane">
+        <div className="card card--game">
+          {/* Header */}
           <div className="card-header">
-            <h2 className="card-title">Select Opponent</h2>
-            <p className="card-subtitle">Playing: <strong>{eraConfig.name}</strong></p>
-            {selectedAlliance && <p className="card-subtitle">Alliance: <strong>{selectedAlliance}</strong></p>}
+            <div className="card-header__content">
+              <h2 className="card-title">Select Your Opponent</h2>
+              <p className="card-subtitle">
+                Era: {eraConfig?.name || 'Unknown'} | Captain: {profile?.game_name || player.name}
+              </p>
+            </div>
+            <InfoButton onClick={() => setShowInfo(true)} />
           </div>
 
-          <div className="card-body">
-            {/* Alliance Selection (Midway) */}
-            {requiresAlliance && !selectedAlliance && (
-              <div className="alliance-selection">
-                <div className="game-info">
-                  <h3>Choose Your Side</h3>
-                  <p>Select which alliance you want to command</p>
-                </div>
-                
-                <div className="alliance-list">
-                  {eraConfig.alliances.map((alliance) => (
-                    <div
+          {/* Info Overlay */}
+          {showInfo && (
+            <GameGuide onClose={() => setShowInfo(false)} />
+          )}
+
+          {/* Main Content */}
+          <div className="card-body card-body--scrollable">
+            {/* Alliance Selection (Midway Island only) */}
+            {requiresAlliance && availableAlliances.length > 0 && (
+              <div className="alliance-selector">
+                <h3 className="section-title">Choose Your Alliance</h3>
+                <div className="button-group button-group--wrap">
+                  {availableAlliances.map((alliance) => (
+                    <button
                       key={alliance.name}
-                      className={`selectable-item alliance-item ${selectedAlliance === alliance.name ? 'selectable-item--selected' : ''}`}
+                      className={`btn btn--alliance ${selectedAlliance === alliance.name ? 'btn--alliance-selected' : ''}`}
                       onClick={() => handleAllianceSelect(alliance.name)}
                     >
-                      <div className="item-header">
-                        <span className="item-name">{alliance.name}</span>
-                        <span className="ship-count">
-                          {alliance.ships?.length || 0} Ships
-                        </span>
-                      </div>
-                      <div className="item-description">
-                        {alliance.description}
-                      </div>
-                      <div className="alliance-fleet">
-                        <strong>Fleet:</strong> {alliance.ships?.map((ship, idx) => (
-                          <span key={idx} className="ship-name">
-                            {ship.name}
-                            {idx < alliance.ships.length - 1 ? ', ' : ''}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+                      <span className="btn__label">{alliance.name}</span>
+                      <span className="btn__sublabel">{alliance.ai_captains?.length || 0} captains</span>
+                    </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* v0.6.0: Multi-Fleet Selection (Pirates) */}
-            {isMultiFleet && (!requiresAlliance || selectedAlliance) && (
-              <div className="pirate-fleet-selection">
-                <div className="game-info">
-                  <h3>Select Pirate Fleets to Face</h3>
-                  <p>Choose 1-4 pirate captains (Each fleet has 5 ships)</p>
+            {/* Multi-Fleet Selection (Pirates of the Gulf) */}
+            {isMultiFleet && pirateFleets.length > 0 && (
+              <div className="multi-fleet-selector">
+                <h3 className="section-title">
+                  Select Pirate Fleets
                   {selectedPirateFleets.length > 0 && (
-                    <p className="text-secondary">
-                      Combined Difficulty: <strong className="badge badge--danger">{getCombinedDifficulty()}x</strong>
-                    </p>
+                    <span className="fleet-count-badge">
+                      {selectedPirateFleets.length} selected
+                      {selectedPirateFleets.length > 1 && (
+                        <span className="difficulty-multiplier">
+                          Combined: {getCombinedDifficulty()}x
+                        </span>
+                      )}
+                    </span>
                   )}
-                </div>
-
-                <div className="opponent-list">
+                </h3>
+                <p className="section-hint">
+                  Select 1-{eraConfig.game_rules.fleet_selection_max || 4} fleets to battle
+                </p>
+                
+                <div className="fleet-grid">
                   {pirateFleets.map((fleet) => {
                     const isSelected = selectedPirateFleets.some(f => f.fleet_id === fleet.fleet_id);
                     const difficulty = fleet.ai_captain.difficulty || 1.0;
@@ -357,7 +357,7 @@ const SelectOpponentPage = () => {
                     return (
                       <div
                         key={fleet.fleet_id}
-                        className={`selectable-item opponent-item pirate-fleet-item ${isSelected ? 'selectable-item--selected' : ''}`}
+                        className={`fleet-card ${isSelected ? 'fleet-card--selected' : ''}`}
                         onClick={() => handleFleetToggle(fleet)}
                       >
                         <div className="opponent-content">

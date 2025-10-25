@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.4",
   "game_name": "Battleship",
   "system_messages": {
     "turn": "Turn {turn}: {player}'s turn",
@@ -41,7 +41,18 @@
     "game_over_delay": 6000
   },
   "videos": {
-    "new_achievement": "/assets/videos/new-achievement.mp4"
+    "new_achievement": "/assets/videos/new-achievement.mp4",
+    "generic_fallbacks": {
+      "sunkplayer": "/assets/videos/traditional/my-ship-sunk.mp4",
+      "sunkopponent": "/assets/videos/traditional/opp-ship-sunk.mp4",
+      "victory": "/assets/videos/traditional/victory.mp4",
+      "defeat": "/assets/videos/traditional/defeat.mp4"
+    }
+  },
+  "inactivity": {
+    "warning_timeout": 900000,
+    "logout_timeout": 180000,
+    "enabled": true
   },
   "debug": {
     "reveal_ships_key": "z",

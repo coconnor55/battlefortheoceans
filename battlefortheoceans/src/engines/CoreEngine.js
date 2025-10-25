@@ -1,82 +1,77 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.6.10: Renamed resources to munitions for better semantics
-//         - Renamed handleStarShellFired() → fireMunition(munitionType, row, col)
-//         - getUIState() now reads munitions from gameInstance.munitions
-//         - More extensible architecture for future munition types
-// v0.6.9: Moved game logic methods to Game.js
-//         - Removed handleStarShellFired() - now in Game.js (~30 lines)
-//         - Removed getPlayerStats() - now in Game.js (~34 lines)
-//         - getUIState() now reads resources from gameInstance.resources
-//         - Game logic centralized in Game.js where it belongs
-//         - Reduced CoreEngine from 836 lines to ~772 lines
-// v0.6.8: Removed service wrapper methods
-//         - Deleted 11 simple pass-through methods (~35 lines)
-//         - getUserProfile, getLeaderboard, getRecentChampions, etc.
-//         - Components should call services directly
-//         - Kept service instances (safer incremental change)
-//         - Kept methods with business logic: createUserProfile, updateGameStats, hasEraAccess
-//         - Reduced CoreEngine from 876 lines to ~841 lines
-// v0.6.7: Refactored game initialization to use GameLifecycleManager
-//         - Created this.lifecycleManager in constructor
-//         - Delegated initializeForPlacement() to lifecycleManager
-//         - Removed calculateResourceWithBoost() (moved to GameLifecycleManager)
-//         - Removed getOpposingAlliance() (moved to GameLifecycleManager)
-//         - GameLifecycleManager now manages FULL lifecycle: birth + death
-//         - Reduced CoreEngine from 984 lines to ~870 lines (114 line reduction)
-// v0.6.6: Refactored to use NavigationManager utility class
-//         - Removed URL route mappings (stateToRoute, routeToRoute)
-//         - Removed initializeFromURL(), syncURL(), handleBrowserNavigation(), isValidBackwardTransition()
-//         - Removed browser popstate event listener setup
-//         - Added setCurrentState(), getCurrentState(), isGameActive() helper methods
-//         - NavigationManager handles all URL/browser navigation
-//         - Reduced CoreEngine by ~200 lines
-// v0.6.5: Added logout() method for user logout flow
-//         - Clears all game state and session
-//         - Transitions to 'launch' state
-//         - Accessible from anywhere via GameContext
-// v0.6.4: Refactored to use SessionManager utility class
-//         - Removed restoreSessionSync(), storeSessionContext(), clearSessionContext()
-//         - Now uses SessionManager.restore(), SessionManager.save(), SessionManager.clear()
-//         - Reduced CoreEngine by ~150 lines
-//         - Kept refreshProfileAsync() and restoreEraAsync() (service calls)
-// v0.6.3: added a direct getter for game stats
-// v0.6.2: Added handleStarShellFired() method - game logic for star shell consumption
-//         - Validates star shells remaining
-//         - Decrements resource count
-//         - Advances turn (star shell consumes turn)
-//         - Returns success/failure result
-// v0.6.1: Generic multi-opponent resource boost system
-//         - Added calculateResourceWithBoost() method
-//         - Initialize this.resources in initializeForPlacement()
-//         - Reads boost values from era config (star_shells_boost, scatter_shot_boost)
-//         - Formula: base + (boost × (opponentCount - 1))
-// v0.6.0: Multi-fleet combat support (Pirates of the Gulf)
+// v0.6.26: FIXED - Added back ship.place(), notifySubscribers() in registerShipPlacement
+// v0.6.25: FIXED - Added back missing transition() method
+//          - v0.6.24 accidentally deleted transition() when removing processEventData()
+//          - Reconstructed transition() method between dispatch() and handlers
+//          - Now properly passes data from dispatch() → transition() → handler()
+// v0.6.24: MAJOR REFACTOR - Removed processEventData, handlers do all the work
+//          - dispatch() now passes data directly to transition()
+//          - transition() passes data to handleEvent_XXX() methods
+//          - Each handler processes its own data (proper separation)
+//          - handleEvent_placement() now processes data BEFORE calling GameLifecycleManager
+//          - Removed 60+ lines of redundant processEventData() method
+//          - This is how it should have been from the start!
+// v0.6.23: Added PLACEMENT event data processing
+//          - Process opponents array from PLACEMENT dispatch
+//          - GameLifecycleManager requires coreEngine.selectedOpponents
+//          - Previously only processed during SELECTOPPONENT event
+// v0.6.22: Removed redundant reset from SELECTERA event
+//          - Only reset player stats in PLACEMENT event (where game actually starts)
+//          - SELECTERA reset was premature - stats should reset when placement begins, not era selection
+//          - Allows user to navigate back/forth between era/opponent without clearing stats prematurely
+// v0.6.21: Fixed userProfile getter - use humanPlayer.userProfile not humanPlayer.profile
+//          - Line 600: Changed from .profile to .userProfile
+//          - Player class property is userProfile, not profile
+//          - Added DEBUG logging to track userProfile through LOGIN/SELECTERA/PLACEMENT events
+// v0.6.20: Added get userProfile to get humanPlayer profile (guest has null)
+//          - humanPlayer is set directly by LoginPage via CoreEngine.humanPlayer
+// v0.6.19: Fixed humanPlayer initialization - set during LOGIN event
+//          - humanPlayer now set when processEventData receives LOGIN + player
+//          - Was previously only set in handleEvent_placement (too late!)
+//          - SelectOpponentPage (opponent state) needs humanPlayer available
+//          - Added player param to LOGIN event data handling
+// v0.6.18: Restore eraConfig passing in SELECTOPPONENT
 
-import Game from '../classes/Game.js';
-import Board from '../classes/Board.js';
-import HumanPlayer from '../classes/HumanPlayer.js';
-import AiPlayer from '../classes/AiPlayer.js';
+import SessionManager from '../utils/SessionManager.js';
+import NavigationManager from '../utils/NavigationManager.js';
+import GameLifecycleManager from '../classes/GameLifecycleManager.js';
+
 import UserProfileService from '../services/UserProfileService.js';
 import GameStatsService from '../services/GameStatsService.js';
 import LeaderboardService from '../services/LeaderboardService.js';
 import RightsService from '../services/RightsService.js';
-import configLoader from '../utils/ConfigLoader.js';
 import AchievementService from '../services/AchievementService.js';
-import SessionManager from '../utils/SessionManager.js';
-import NavigationManager from '../utils/NavigationManager.js';
-import GameLifecycleManager from '../classes/GameLifecycleManager.js';
-import { supabase } from '../utils/supabaseClient.js';
 
-const version = "v0.6.10";
+import ConfigLoader from '../utils/ConfigLoader.js';
 
+const version = 'v0.6.26';
+
+/**
+ * CoreEngine - Orchestrates game state machine and coordinates services
+ *
+ * Responsibilities:
+ * - State machine management (events, states, transitions)
+ * - Session persistence (via SessionManager)
+ * - URL synchronization (via NavigationManager)
+ * - Service coordination
+ * - Observer pattern for UI updates
+ *
+ * Delegates:
+ * - Session storage → SessionManager
+ * - URL/browser navigation → NavigationManager
+ * - Game initialization → GameLifecycleManager
+ * - Combat logic → Game.js
+ *
+ * Architecture: Thin orchestrator - coordinates but doesn't implement
+ */
 class CoreEngine {
   constructor() {
-    // State machine properties
-    this.currentState = null;
-    this.lastEvent = null;
+    console.log(`[CORE] CoreEngine v${version} initializing...`);
     
-    // State definitions
+    // =================================================================
+    // EVENTS - State machine event definitions
+    // =================================================================
     this.events = {
       LAUNCH: Symbol('LAUNCH'),
       LOGIN: Symbol('LOGIN'),
@@ -85,24 +80,36 @@ class CoreEngine {
       PLACEMENT: Symbol('PLACEMENT'),
       PLAY: Symbol('PLAY'),
       OVER: Symbol('OVER'),
-      ERA: Symbol('ERA')
+      ERA: Symbol('ERA'),
+      ACHIEVEMENTS: Symbol('ACHIEVEMENTS')
     };
-    
+
+    // =================================================================
+    // STATES - State machine state definitions
+    // =================================================================
     this.states = {
-      launch: { on: { [this.events.LOGIN]: 'login' } },
-      login: { on: { [this.events.SELECTERA]: 'era' } },
+      launch: {
+        on: {
+          [this.events.LAUNCH]: 'launch',
+          [this.events.LOGIN]: 'login',
+          [this.events.SELECTERA]: 'era'
+        }
+      },
+      login: {
+        on: {
+          [this.events.SELECTERA]: 'era'
+        }
+      },
       era: {
         on: {
           [this.events.SELECTOPPONENT]: 'opponent',
-          [this.events.LOGIN]: 'login',
           [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
       opponent: {
         on: {
           [this.events.PLACEMENT]: 'placement',
-          [this.events.LOGIN]: 'login',
-          [this.events.SELECTERA]: 'era',
+          [this.events.ERA]: 'era',
           [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
@@ -110,686 +117,527 @@ class CoreEngine {
         on: {
           [this.events.PLAY]: 'play',
           [this.events.SELECTOPPONENT]: 'opponent',
-          [this.events.LOGIN]: 'login',
           [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
-      play: { on: { [this.events.OVER]: 'over' } },
+      play: {
+        on: {
+          [this.events.OVER]: 'over'
+        }
+      },
       over: {
         on: {
-          [this.events.LAUNCH]: 'launch',
           [this.events.ERA]: 'era',
           [this.events.SELECTOPPONENT]: 'opponent',
           [this.events.PLACEMENT]: 'placement',
-          [this.events.LOGIN]: 'login',
+          [this.events.LAUNCH]: 'launch',
           [this.events.ACHIEVEMENTS]: 'achievements'
+        }
+      },
+      achievements: {
+        on: {
+          [this.events.ERA]: 'era',
+          [this.events.SELECTOPPONENT]: 'opponent',
+          [this.events.PLACEMENT]: 'placement',
+          [this.events.LAUNCH]: 'launch'
         }
       }
     };
-    
-    // Game state data
-    this.gameConfig = null;
+
+    // =================================================================
+    // CORE STATE
+    // =================================================================
+    this.currentState = 'launch';
+    this.humanPlayer = null;  // v0.6.15: Added Player instance tracking
     this.eraConfig = null;
     this.selectedOpponents = [];
     this.selectedGameMode = null;
     this.selectedAlliance = null;
-    this.humanPlayer = null;
-    this.aiPlayers = [];
     this.gameInstance = null;
-    this.board = null;
-    this.userProfile = null;
-    this.loginEventData = null;
-    
-    // Observer pattern for UI updates
-    this.updateCounter = 0;
-    this.subscribers = new Set();
-    
-    // Service instances
-    this.userProfileService = new UserProfileService();
-    this.gameStatsService = new GameStatsService();
-    this.leaderboardService = new LeaderboardService();
-    this.rightsService = new RightsService();
-    this.achievementService = AchievementService;
-    
-    // Navigation manager
-    this.navigationManager = new NavigationManager(this);
-    
-    // Lifecycle manager (v0.6.7)
+
+    // =================================================================
+    // MANAGERS - Initialize helper classes
+    // =================================================================
     this.lifecycleManager = new GameLifecycleManager(this);
     
-    // Achievement tracking
-    this.newAchievements = [];
-      
-    // initialize
-    this.initializeGameConfig();
+    // CRITICAL: Initialize subscribers BEFORE NavigationManager
+    // NavigationManager.initializeFromURL() calls notifySubscribers()
+    this.subscribers = [];
     
-    // Initialize from session and URL
-    if (typeof window !== 'undefined') {
-      this.restoreSession();
-      this.navigationManager.initializeFromURL();
-      
-      if (!this.currentState) {
-        this.currentState = 'launch';
+    // CRITICAL: Define notifySubscribers BEFORE NavigationManager
+    this.notifySubscribers = () => {
+      this.subscribers.forEach(callback => {
+        try {
+          callback();
+        } catch (error) {
+          console.error('[CORE] Error in subscriber callback:', error);
+        }
+      });
+    };
+    
+    this.navigationManager = new NavigationManager(this);
+    
+    // =================================================================
+    // SESSION RESTORATION
+    // =================================================================
+    this.restoreSession();
+  }
+
+  // =================================================================
+  // STATE MACHINE METHODS
+  // =================================================================
+
+  /**
+   * Dispatch an event to trigger state transition
+   * @param {Symbol} event - Event from this.events
+   * @param {Object} data - Optional data payload
+   */
+  dispatch(event, data = null) {
+    console.log(`[CORE] Dispatching event:`, event.description, 'with data:', data);
+
+    const nextState = this.states[this.currentState]?.on[event];
+    
+    if (!nextState) {
+      console.warn(`[CORE] No transition for ${this.currentState} + ${event.description}`);
+      return;
+    }
+
+    // Transition to new state, passing data to handler
+    this.transition(nextState, data);
+  }
+
+  /**
+   * Transition to a new state
+   * @param {String} newState - State to transition to
+   * @param {Object} data - Optional data for state handler
+   */
+  transition(newState, data = null) {
+    console.log(`[CORE] Transitioning: ${this.currentState} → ${newState}`);
+    
+    const oldState = this.currentState;
+    this.currentState = newState;
+
+    // Update URL
+    this.navigationManager.syncURL(newState);
+
+    // Call state-specific handler with data
+    const handler = this[`handleEvent_${newState}`];
+    if (typeof handler === 'function') {
+      handler.call(this, data);
+    }
+
+    // Save session
+    this.saveSession();
+
+    // Notify UI
+    this.notifySubscribers();
+  }
+
+  // =================================================================
+  // STATE HANDLERS
+  // =================================================================
+
+  handleEvent_launch() {
+    console.log('[CORE] Launch state');
+  }
+
+  handleEvent_login(data) {
+    console.log('[CORE] Login state');
+    // Login is handled by LoginPage setting coreEngine.humanPlayer directly
+  }
+
+  handleEvent_era(data) {
+    console.log('[CORE] Era selection state');
+    if (data?.eraConfig) {
+      this.eraConfig = data.eraConfig;
+    }
+  }
+
+  handleEvent_opponent(data) {
+    console.log('[CORE] Opponent selection state');
+    if (data?.eraConfig) {
+      this.eraConfig = data.eraConfig;
+    }
+  }
+
+  handleEvent_placement(data) {
+    console.log('[CORE] Placement state - processing data and delegating to GameLifecycleManager');
+    
+    // Process placement data
+    if (data) {
+      if (data.eraConfig) {
+        this.eraConfig = data.eraConfig;
       }
-    } else {
-      this.currentState = 'launch';
+      if (data.opponents) {
+        this.selectedOpponents = data.opponents;
+        console.log('[CORE] Stored selectedOpponents:', this.selectedOpponents);
+      }
+      if (data.selectedAlliance !== undefined) {
+        this.selectedAlliance = data.selectedAlliance;
+      }
     }
     
-    this.log('CoreEngine initialized');
-  }
-  
-  /**
-   * Helper methods for NavigationManager
-   */
-  
-  /**
-   * Set current state directly (used by NavigationManager)
-   * @param {string} state - New state
-   */
-  setCurrentState(state) {
-    this.currentState = state;
-  }
-  
-  /**
-   * Get current state (used by NavigationManager)
-   * @returns {string} Current state
-   */
-  getCurrentState() {
-    return this.currentState;
-  }
-  
-  /**
-   * Check if game is currently active (used by NavigationManager)
-   * @returns {boolean} True if game is in playing state
-   */
-  isGameActive() {
-    return this.gameInstance?.state === 'playing';
-  }
-  
-  /**
-   * v0.6.5: Logout user and return to launch page
-   * Clears all game state and session data
-   */
-  logout() {
-    this.log('User logging out');
+    // Reset player stats for new game
+    if (this.humanPlayer) {
+      console.log('[CORE] DEBUG - humanPlayer.userProfile BEFORE placement reset:', this.humanPlayer.userProfile);
+      this.humanPlayer.reset();
+      console.log('[CORE] Player stats reset for new game');
+      console.log('[CORE] DEBUG - humanPlayer.userProfile AFTER placement reset:', this.humanPlayer.userProfile);
+    }
     
-    // Clear all game state
-    this.clearGameState();
+    // Initialize placement (creates game, board, etc.)
+    this.lifecycleManager.initializeForPlacement(this);
     
-    // Transition to launch state
-    this.currentState = 'launch';
-    this.lastEvent = null;
-    
-    // Sync URL
-    this.navigationManager.syncURL(this.currentState);
-    
-    // Notify subscribers (triggers UI update to LaunchPage)
-    this.notifySubscribers();
-    
-    this.log('Logout complete - returned to launch');
+    // v0.6.19: humanPlayer should already be set from LOGIN
+    // Keep this as fallback only
+    if (!this.humanPlayer && this.gameInstance) {
+      this.humanPlayer = this.gameInstance.players.find(p => p.type === 'human');
+      console.log('[CORE] humanPlayer extracted (fallback):', this.humanPlayer?.name);
+    }
   }
-  
+
+  handleEvent_play() {
+    console.log('[CORE] Play state');
+    if (this.gameInstance) {
+      this.gameInstance.startGame();
+    }
+  }
+
+  handleEvent_over() {
+    console.log('[CORE] Game over state');
+  }
+
+  handleEvent_achievements() {
+    console.log('[CORE] Achievements state');
+  }
+
+  // =================================================================
+  // SESSION MANAGEMENT
+  // =================================================================
+
   /**
-   * Restore session using SessionManager
+   * Restore state from session storage
    */
   restoreSession() {
     const sessionData = SessionManager.restore();
     
     if (!sessionData) {
-      this.log('No stored session found');
+      console.log('[CORE] No session to restore');
       return;
     }
-    
-    this.log('Restoring session context');
-    
-    // Restore user profile
-    if (sessionData.user) {
-      this.userProfile = {
-        id: sessionData.user.id,
-        game_name: sessionData.user.game_name,
-        total_games: sessionData.user.total_games || 0,
-        total_wins: sessionData.user.total_wins || 0,
-        total_score: sessionData.user.total_score || 0,
-        best_accuracy: sessionData.user.best_accuracy || 0,
-        total_ships_sunk: sessionData.user.total_ships_sunk || 0,
-        total_damage: sessionData.user.total_damage || 0
-      };
-      
-      this.humanPlayer = new HumanPlayer(sessionData.user.id, sessionData.user.game_name);
-      if (sessionData.user.email) {
-        this.humanPlayer.email = sessionData.user.email;
+
+    console.log('[CORE] Restoring session:', sessionData);
+
+      // Restore humanPlayer (which contains the profile)
+      if (sessionData.humanPlayer) {
+        this.humanPlayer = sessionData.humanPlayer;
       }
-      this.humanPlayer.gameName = sessionData.user.game_name;
-      
-      this.log(`User restored: ${sessionData.user.game_name}`);
-      
-      // Refresh registered user profile from database
-      if (sessionData.user.type === 'registered') {
-        this.refreshProfileAsync(sessionData.user.id);
-      }
-    }
-    
-    // Restore era
+
+      this.currentState = sessionData.currentState;
+//    this.userProfile = sessionData.user;
+    this.selectedOpponents = sessionData.selectedOpponents;
+    this.selectedGameMode = sessionData.selectedGameMode;
+    this.selectedAlliance = sessionData.selectedAlliance;
+
+    // Restore era config
     if (sessionData.eraId) {
-      this.restoreEraAsync(sessionData.eraId);
+      SessionManager.restoreEraAsync(this, sessionData.eraId);
     }
-    
-    // Restore opponents
-    if (sessionData.selectedOpponents && Array.isArray(sessionData.selectedOpponents)) {
-      this.selectedOpponents = sessionData.selectedOpponents;
-      this.log(`Opponents restored: ${sessionData.selectedOpponents.length} captains`);
+
+    // Restore user profile
+    if (this.userProfile?.user_id) {
+      SessionManager.refreshProfileAsync(this);
     }
-    
-    // Restore alliance
-    if (sessionData.selectedAlliance) {
-      this.selectedAlliance = sessionData.selectedAlliance;
-      this.log(`Alliance restored: ${sessionData.selectedAlliance}`);
-    }
+
+    // Initialize from URL (handles browser navigation)
+    this.navigationManager.initializeFromURL();
   }
-  
+
   /**
-   * Save session using SessionManager
+   * Save current state to session storage
    */
   saveSession() {
-    const context = {
-      user: this.userProfile ? {
-        id: this.userProfile.id,
-        game_name: this.userProfile.game_name,
-        email: this.humanPlayer?.email || null,
-        total_games: this.userProfile.total_games || 0,
-        total_wins: this.userProfile.total_wins || 0,
-        total_score: this.userProfile.total_score || 0,
-        best_accuracy: this.userProfile.best_accuracy || 0,
-        total_ships_sunk: this.userProfile.total_ships_sunk || 0,
-        total_damage: this.userProfile.total_damage || 0
-      } : null,
-      
-      eraId: this.eraConfig?.id || null,
-      
-      selectedOpponents: this.selectedOpponents.map(opp => ({
-        id: opp.id,
-        name: opp.name,
-        strategy: opp.strategy,
-        difficulty: opp.difficulty
-      })),
-      
-      selectedAlliance: this.selectedAlliance || null
-    };
-    
-    SessionManager.save(context);
+    SessionManager.save(this);
   }
-  
+
   /**
-   * Calculate resource count with multi-opponent boost
-   * @param {number} baseAmount - Base resource from era config
-   * @param {number} boostPerOpponent - Boost per additional opponent
-   * @param {number} opponentCount - Number of opponents
-   * @returns {number} Final resource count
+   * Clear session storage
    */
+  clearSession() {
+    SessionManager.clear();
+  }
+
+  // =================================================================
+  // GAME ORCHESTRATION (thin wrappers to Game.js)
+  // =================================================================
+
   /**
-   * Handle star shell firing (consumes turn)
-   * @param {number} row - Target row
-   * @param {number} col - Target column
-   * @returns {boolean} Success/failure
+   * Handle attack on game board
+   * @param {Number} row - Target row
+   * @param {Number} col - Target column
+   * @returns {Object} Attack result
    */
-  async initializeGameConfig() {
+  handleAttack(row, col) {
+    if (!this.gameInstance) {
+      console.warn('[CORE] No game instance for attack');
+      return null;
+    }
+
+    const humanPlayer = this.gameInstance.players.find(p => p.type === 'human');
+    if (!humanPlayer) {
+      console.warn('[CORE] No human player found');
+      return null;
+    }
+
+    return this.gameInstance.receiveAttack(row, col, humanPlayer);
+  }
+
+  /**
+   * Fire a munition (star shell, scatter shot)
+   * @param {String} munitionType - Type of munition ('starShell', 'scatterShot')
+   * @param {Number} row - Target row
+   * @param {Number} col - Target column
+   * @returns {Boolean} Success
+   */
+  fireMunition(munitionType, row, col) {
+    if (!this.gameInstance) {
+      console.warn('[CORE] No game instance for munition');
+      return false;
+    }
+
+    return this.gameInstance.fireMunition(munitionType, row, col);
+  }
+
+  /**
+   * Register ship placement on board
+   */
+  registerShipPlacement(ship, shipCells, orientation, playerId) {
+    if (!this.gameInstance) {
+      console.warn('[CORE] No game instance for ship placement');
+      return false;
+    }
+      
+      const success = this.gameInstance.registerShipPlacement(ship, shipCells, orientation, playerId);
+      
+      if (success) {
+        ship.place();              // ⬅️ RESTORE THIS
+        this.notifySubscribers();  // ⬅️ AND THIS
+        return true;
+      }
+      
+      return false;
+  }
+
+  /**
+   * Get game statistics for UI display
+   * @returns {Object} Game statistics
+   */
+  getGameStats() {
+    if (!this.gameInstance) {
+      return null;
+    }
+
+    return this.gameInstance.getGameStats();
+  }
+
+  // =================================================================
+  // SERVICE COORDINATION
+  // =================================================================
+
+  /**
+   * Get user achievements
+   * @returns {Promise<Array>} List of achievements
+   */
+  async getUserAchievements() {
+    if (!this.userProfile?.user_id) {
+      console.warn('[CORE] No user profile for achievements');
+      return [];
+    }
+
     try {
-      this.gameConfig = await configLoader.loadGameConfig();
-      this.log(`Game config loaded: v${this.gameConfig.version}`);
+      return await AchievementService.getPlayerAchievements(this.userProfile.user_id);
     } catch (error) {
-      console.error(`${version} Failed to load game config:`, error);
+      console.error('[CORE] Error fetching achievements:', error);
+      return [];
     }
   }
 
-  async refreshProfileAsync(userId) {
+  /**
+   * Get leaderboard for current era
+   * @param {Number} limit - Number of top players
+   * @returns {Promise<Array>} Leaderboard data
+   */
+  async getLeaderboard(limit = 10) {
+    if (!this.eraConfig?.id) {
+      console.warn('[CORE] No era selected for leaderboard');
+      return [];
+    }
+
     try {
-      const profile = await this.userProfileService.getUserProfile(userId);
-      if (profile && profile.game_name) {
-        this.userProfile = profile;
-        if (this.humanPlayer) {
-          this.humanPlayer.name = profile.game_name;
-          this.humanPlayer.gameName = profile.game_name;
-        }
-        this.log(`Profile refreshed from database: ${profile.game_name}`);
-        this.notifySubscribers();
-      }
+      return await LeaderboardService.getLeaderboard(this.eraConfig.id, limit);
     } catch (error) {
-      console.error(`${version} Error refreshing profile:`, error);
+      console.error('[CORE] Error fetching leaderboard:', error);
+      return [];
     }
   }
 
-  async restoreEraAsync(eraId) {
+  /**
+   * Check if user has access to an era
+   * @param {String} eraId - Era identifier
+   * @returns {Promise<Boolean>} Has access
+   */
+  async hasEraAccess(eraId) {
+    if (!this.userProfile?.user_id) {
+      console.warn('[CORE] No user profile for era access check');
+      return false;
+    }
+
     try {
-      this.eraConfig = await configLoader.loadEraConfig(eraId);
-      if (this.eraConfig) {
-        this.log(`Era restored: ${this.eraConfig.name}`);
-        this.notifySubscribers();
+      // Free eras are always accessible
+      const eraConfig = await ConfigLoader.loadEraConfig(eraId);
+      if (eraConfig.price === 0) {
+        return true;
       }
+
+      // Check rights for premium eras
+      return await RightsService.hasEraAccess(this.userProfile.user_id, eraId);
     } catch (error) {
-      console.error(`${version} Error restoring era:`, error);
+      console.error('[CORE] Error checking era access:', error);
+      return false;
     }
   }
 
-  async dispatch(event, eventData = null) {
-    this.log(`Dispatching event: ${this.getEventName(event)} from state: ${this.currentState}`);
+  /**
+   * Logout user and clear state
+   */
+  logout() {
+    console.log('[CORE] Logging out user');
     
-    try {
-      await this.processEventData(event, eventData);
-      this.transition(event);
-      await this.handleStateTransition(this.currentState);
-      this.notifySubscribers();
-    } catch (error) {
-      console.error(`${version} Error in dispatch:`, error);
-      throw error;
-    }
-  }
-
-  async processEventData(event, eventData) {
-    if (!eventData) return;
-    
-    if (event === this.events.LOGIN && eventData.showSignup !== undefined) {
-      this.loginEventData = { showSignup: eventData.showSignup };
-      this.log(`LOGIN event with showSignup: ${eventData.showSignup}`);
-    }
-    
-    if (event === this.events.SELECTERA && eventData.userData) {
-      const isGuest = eventData.userData.id.startsWith('guest-');
-      
-      if (isGuest) {
-        this.userProfile = {
-          id: eventData.userData.id,
-          game_name: 'Guest',
-          total_games: 0,
-          total_wins: 0,
-          total_score: 0,
-          best_accuracy: 0,
-          total_ships_sunk: 0,
-          total_damage: 0
-        };
-        
-        if (!this.humanPlayer) {
-          this.humanPlayer = new HumanPlayer(eventData.userData.id, 'Guest');
-          this.log(`Guest player created: ${eventData.userData.id}`);
-        } else {
-          this.log(`Reusing existing guest player: ${eventData.userData.id}`);
-        }
-        
-      } else {
-        const profile = await this.userProfileService.getUserProfile(eventData.userData.id);
-        
-        if (!profile || !profile.game_name) {
-          throw new Error('Cannot access game without valid profile and game name');
-        }
-        
-        this.userProfile = profile;
-        
-        if (!this.humanPlayer) {
-          this.humanPlayer = new HumanPlayer(
-            eventData.userData.id,
-            profile.game_name
-          );
-          this.log(`Human player created: ${profile.game_name} (${eventData.userData.id})`);
-        } else {
-          this.humanPlayer.name = profile.game_name;
-          this.log(`Reusing human player, updated name: ${profile.game_name}`);
-        }
-        
-        this.humanPlayer.email = eventData.userData.email;
-        this.humanPlayer.userData = eventData.userData;
-        this.humanPlayer.gameName = profile.game_name;
-      }
-      
-      this.saveSession();
-      
-    } else if (event === this.events.SELECTOPPONENT) {
-      if (eventData.eraConfig) {
-        this.eraConfig = eventData.eraConfig;
-        this.log(`Era selected: ${eventData.eraConfig.name}`);
-      }
-      if (eventData.selectedAlliance) {
-        this.selectedAlliance = eventData.selectedAlliance;
-        this.log(`Alliance selected: ${eventData.selectedAlliance}`);
-      }
-      
-      this.saveSession();
-      
-    } else if (event === this.events.PLACEMENT) {
-      if (eventData?.selectedOpponents && Array.isArray(eventData.selectedOpponents)) {
-        this.selectedOpponents = eventData.selectedOpponents;
-        this.log(`Opponents selected: ${eventData.selectedOpponents.length} captains`);
-        eventData.selectedOpponents.forEach(opp => {
-          this.log(`  - ${opp.name} (${opp.difficulty || 1.0}x difficulty)`);
-        });
-      } else if (eventData?.selectedOpponent) {
-        this.selectedOpponents = [eventData.selectedOpponent];
-        this.log(`Opponent selected (legacy): ${eventData.selectedOpponent.name} (${eventData.selectedOpponent.difficulty || 1.0}x)`);
-      }
-      
-      if (eventData?.selectedAlliance && !this.selectedAlliance) {
-        this.selectedAlliance = eventData.selectedAlliance;
-        this.log(`Alliance selected from opponent page: ${eventData.selectedAlliance}`);
-      }
-      
-      if (this.currentState === 'over' && this.selectedEra) {
-        this.eraConfig = await configLoader.loadEraConfig(this.selectedEra);
-        this.log(`Restored eraConfig for Battle Again: ${this.eraConfig?.name}`);
-      }
-      
-      this.saveSession();
-    }
-  }
-
-  transition(event) {
-    const nextState = this.states[this.currentState]?.on[event];
-    if (nextState) {
-      const oldState = this.currentState;
-      this.currentState = nextState;
-      this.lastEvent = event;
-      
-      if (nextState === 'login' || nextState === 'launch') {
-        this.clearGameState();
-      }
-      
-      this.navigationManager.syncURL(this.currentState);
-      this.log(`State transition: ${oldState} → ${this.currentState}`);
-    } else {
-      throw new Error(`No transition defined for ${this.currentState} with event ${this.getEventName(event)}`);
-    }
-  }
-    
-  clearGameState() {
-    this.log('Clearing game state');
+//    this.userProfile = null;
+    this.humanPlayer = null;  // v0.6.15: Clear humanPlayer too
     this.eraConfig = null;
     this.selectedOpponents = [];
     this.selectedGameMode = null;
     this.selectedAlliance = null;
-    this.humanPlayer = null;
-    this.aiPlayers = [];
     this.gameInstance = null;
-    this.board = null;
-    this.userProfile = null;
-    this.newAchievements = [];
     
-    SessionManager.clear();
+    this.clearSession();
+    this.transition('launch');
   }
 
-  async handleStateTransition(newState) {
-    this.log(`Handling state transition to: ${newState}`);
-    
-    switch (newState) {
-      case 'placement':
-        await this.initializeForPlacement();
-        break;
-        
-      case 'play':
-        await this.startGame();
-        break;
-        
-      case 'over':
-        await this.handleGameOver();
-        break;
-        
-      default:
-        break;
-    }
-  }
+  // =================================================================
+  // UI STATE AGGREGATION
+  // =================================================================
 
-  async initializeForPlacement() {
-    await this.lifecycleManager.initializeForPlacement();
-  }
-
-  async startGame() {
-    if (!this.gameInstance || this.gameInstance.state !== 'setup') {
-      throw new Error('Cannot start game - no instance or not in setup state');
-    }
-    
-    this.log('Starting game');
-    await this.gameInstance.startGame();
-  }
-
-  async handleGameOver() {
-    const isGuestOrAI = this.userProfile?.id?.startsWith('guest-') ||
-                        this.userProfile?.id?.startsWith('ai-');
-    
-    if (!this.gameInstance || !this.userProfile || isGuestOrAI) {
-      this.log('Game over - guest/AI or no profile, skipping stats/achievements');
-      return;
-    }
-    
-    this.log('Processing game over - updating stats and checking achievements');
-    
-    try {
-      const gameResults = this.gameStatsService.calculateGameResults(
-        this.gameInstance,
-        this.eraConfig,
-        this.selectedOpponents[0]
-      );
-      
-      if (!gameResults) {
-        console.error(`${version} Failed to calculate game results`);
-        return;
-      }
-      
-      await this.updateGameStats(gameResults);
-      this.log('Stats update completed successfully');
-      
-      const newAchievements = await this.achievementService.checkAchievements(
-        this.userProfile.id,
-        gameResults
-      );
-
-      if (newAchievements.length > 0) {
-        this.log(`New achievements unlocked: ${newAchievements.length}`);
-        this.newAchievements = newAchievements;
-        this.notifySubscribers();
-      } else {
-        this.log('No new achievements unlocked this game');
-      }
-      
-    } catch (error) {
-      console.error(`${version} Error processing game completion:`, error);
-    }
-  }
-
-  registerShipPlacement(ship, shipCells, orientation, playerId) {
-    if (!this.gameInstance || !this.board) {
-      console.error(`${version} Cannot register ship placement without game/board`);
-      return false;
-    }
-
-    this.log(`Registering ship placement: ${ship.name} for ${playerId}`);
-    
-    const success = this.gameInstance.registerShipPlacement(ship, shipCells, orientation, playerId);
-    
-    if (success) {
-      ship.place();
-      this.notifySubscribers();
-      return true;
-    }
-    
-    return false;
-  }
-
-  async handleAttack(row, col) {
-    if (!this.audioUnlocked) {
-      Object.values(this.gameInstance.soundEffects).forEach(audio => {
-        audio.play().then(() => audio.pause()).catch(() => {});
-      });
-      this.audioUnlocked = true;
-    }
-    
-    if (!this.gameInstance || !this.gameInstance.isValidAttack(row, col)) {
-      this.log(`Invalid attack attempt: ${row}, ${col}`);
-      return false;
-    }
-
-    const currentPlayer = this.gameInstance.getCurrentPlayer();
-    if (currentPlayer?.type !== 'human') {
-      this.log('Attack blocked - not human turn');
-      return false;
-    }
-
-    try {
-      this.log(`Processing human attack: ${row}, ${col}`);
-      const result = await this.gameInstance.processPlayerAction('attack', { row, col });
-      this.log(`Attack completed: ${result.result}`);
-      return result;
-    } catch (error) {
-      console.error(`${version} Attack processing failed:`, error);
-      return false;
-    }
-  }
-
-  // v0.6.10: Wrapper for fireMunition (delegates to Game.js)
-  fireMunition(munitionType, row, col) {
-    if (!this.gameInstance) {
-      this.log('Munition blocked - no game instance');
-      return false;
-    }
-    
-    const result = this.gameInstance.fireMunition(munitionType, row, col);
-    
-    if (result) {
-      // Notify subscribers of state change
-      this.notifySubscribers();
-    }
-    
-    return result;
-  }
-
-  // Backward compatibility wrapper
-  handleStarShellFired(row, col) {
-    return this.fireMunition('starShell', row, col);
-  }
-
-  getPlacementProgress() {
-    if (!this.gameInstance || !this.humanPlayer) {
-      return { current: 0, total: 0, currentShip: null, isComplete: false };
-    }
-    
-    const fleet = this.humanPlayer.fleet;
-    if (!fleet) {
-      return { current: 0, total: 0, currentShip: null, isComplete: false };
-    }
-    
-    const placedCount = fleet.ships.filter(ship => ship.isPlaced).length;
-    const currentShip = fleet.ships.find(ship => !ship.isPlaced) || null;
-    
-    return {
-      current: placedCount,
-      total: fleet.ships.length,
-      currentShip: currentShip,
-      isComplete: placedCount === fleet.ships.length
-    };
-  }
-
+  /**
+   * Get current UI state for React components
+   * @returns {Object} Aggregated state
+   */
   getUIState() {
-    const currentPlayer = this.gameInstance?.getCurrentPlayer();
+    // v0.6.16: Compute game state properties
+    const isGameActive = this.gameInstance &&
+                        (this.currentState === 'play' || this.currentState === 'placement');
     
+    const currentPlayer = this.gameInstance?.getCurrentPlayer() || null;
+    const isPlayerTurn = currentPlayer?.type === 'human';
+    
+    let gamePhase = 'setup';
+    if (this.currentState === 'placement') gamePhase = 'placement';
+    else if (this.currentState === 'play') gamePhase = 'battle';
+    else if (this.currentState === 'over') gamePhase = 'gameover';
+    
+    const winner = this.gameInstance?.winner || null;
+    
+    // v0.6.16: Get player stats from game instance
+    const playerStats = this.gameInstance?.getPlayerStats() || {
+      player: { hits: 0, misses: 0, shots: 0 },
+      opponent: { hits: 0, misses: 0, shots: 0 }
+    };
+    
+    // v0.6.16: Get munitions from game instance
+    const munitions = this.gameInstance?.munitions || {
+      starShells: 0,
+      scatterShot: 0
+    };
+
     return {
-      currentPhase: this.gameInstance?.state || 'setup',
-      isPlayerTurn: currentPlayer?.type === 'human',
-      currentPlayer: currentPlayer,
-      isGameActive: this.gameInstance?.state === 'playing',
-      gamePhase: this.gameInstance?.state || 'setup',
-      winner: this.gameInstance?.winner,
-      currentMessage: this.generateCurrentMessage(),
-      playerStats: this.gameInstance?.getPlayerStats() || { player: {}, opponent: {} },
-      munitions: this.gameInstance?.munitions || { starShells: 0, scatterShot: 0 }
+      currentState: this.currentState,
+      userProfile: this.userProfile,
+      humanPlayer: this.humanPlayer,  // v0.6.15: Expose Player instance for components
+      eraConfig: this.eraConfig,
+      selectedOpponents: this.selectedOpponents,
+      selectedGameMode: this.selectedGameMode,
+      selectedAlliance: this.selectedAlliance,
+      gameInstance: this.gameInstance,
+      
+      // v0.6.16: Add back computed properties that were accidentally removed
+      isPlayerTurn,
+      currentPlayer,
+      isGameActive,
+      gamePhase,
+      winner,
+      playerStats,
+      munitions
     };
   }
 
-  generateCurrentMessage() {
-    if (!this.gameInstance) return 'Initializing game...';
-    
-    return this.gameInstance?.message?.getCurrentTurnMessage() || 'Initializing game...';
-  }
+  // =================================================================
+  // OBSERVER PATTERN
+  // =================================================================
 
-  getGameStates() {
-    return this.gameInstance?.getGameStats() || null;
-  }
-    
+  /**
+   * Subscribe to state changes
+   * @param {Function} callback - Function to call on state change
+   * @returns {Function} Unsubscribe function
+   */
   subscribe(callback) {
-    this.subscribers.add(callback);
-    return () => this.subscribers.delete(callback);
-  }
-
-  notifySubscribers() {
-    this.updateCounter++;
-    this.subscribers.forEach(callback => {
-      try {
-        callback(this.updateCounter);
-      } catch (error) {
-        console.error(`${version} Subscriber callback error:`, error);
+    this.subscribers.push(callback);
+    
+    return () => {
+      const index = this.subscribers.indexOf(callback);
+      if (index > -1) {
+        this.subscribers.splice(index, 1);
       }
-    });
+    };
   }
 
-  async createUserProfile(userId, gameName) {
-    const profile = await this.userProfileService.createUserProfile(userId, gameName);
-    if (profile) {
-      this.userProfile = profile;
-      this.notifySubscribers();
-    }
-    return profile;
-  }
-
-  async updateGameStats(gameResults) {
-    if (!this.userProfile) {
-      console.error(`${version} Cannot update stats without user profile`);
-      return false;
-    }
-
-    const updatedProfile = await this.gameStatsService.updateGameStats(this.userProfile, gameResults);
-    
-    if (updatedProfile) {
-      this.userProfile = updatedProfile;
-      this.saveSession();
-      this.notifySubscribers();
-      return true;
+  // =================================================================
+  // HELPER METHODS (for Player singleton)
+  // =================================================================
+    /**
+     * Get user profile from humanPlayer
+     * @returns {Object|null} User profile or null
+     */
+    get userProfile() {
+      return this.humanPlayer?.userProfile || null;
     }
     
-    return false;
+  // =================================================================
+  // HELPER METHODS (for NavigationManager)
+  // =================================================================
+
+  /**
+   * Set current state (for NavigationManager use)
+   * @param {String} state - New state
+   */
+  setCurrentState(state) {
+    this.currentState = state;
   }
 
-  async hasEraAccess(userId, eraId) {
-    const era = await configLoader.loadEraConfig(eraId);
-    
-    if (era?.free === true) {
-      return true;
-    }
-    
-    if (userId.startsWith('guest-')) {
-      return false;
-    }
-    
-    return await this.rightsService.hasEraAccess(userId, eraId);
-  }
-  getPlayerGameName(playerId) {
-    if (playerId === this.humanPlayer?.id && this.userProfile?.game_name) {
-      return this.userProfile.game_name;
-    }
-    
-    const player = this.gameInstance?.players.find(p => p.id === playerId);
-    return player?.name || 'Unknown Player';
+  /**
+   * Get current state (for NavigationManager use)
+   * @returns {String} Current state
+   */
+  getCurrentState() {
+    return this.currentState;
   }
 
-  getEventName(event) {
-    return Object.keys(this.events).find(key => this.events[key] === event) || 'UNKNOWN';
-  }
-
-  get unlockedAchievements() {
-    return this.newAchievements || [];
-  }
-
-  clearUnlockedAchievements() {
-    this.newAchievements = [];
-    this.log('Cleared unlocked achievements');
-  }
-
-  log(message) {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [CoreEngine ${version}] ${message}`);
+  /**
+   * Check if game is active (for NavigationManager use)
+   * @returns {Boolean} Is game active
+   */
+  isGameActive() {
+    return this.gameInstance && (this.currentState === 'play' || this.currentState === 'over');
   }
 }
 

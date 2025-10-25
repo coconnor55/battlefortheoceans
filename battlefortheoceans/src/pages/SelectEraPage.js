@@ -1,16 +1,13 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.3: Remove dead guest creation useEffect
+//         - Removed auto-guest-creation logic (LoginPage handles this)
+//         - Trust Player singleton is set by LoginPage before reaching this state
+//         - Keep eraConfig as passed data (game-scoped, not session-scoped)
+//         - Cleanup from pre-Player-singleton architecture
 // v0.5.2: REFACTOR - Replaced InfoPanel with GameGuide component
-//         - Removed ~60 lines of instruction content
-//         - GameGuide auto-shows on first visit to era selection
-//         - Instructions now centralized in GameGuide.js
-//         - Reduced from ~370 lines to ~310 lines
 // v0.5.1: Added 'tester' role to development era visibility check
-//         - Development eras now visible to both admins AND testers
-//         - Regular users still cannot see dev eras
 // v0.5.0: Added status filtering - development eras visible only to admins
-// v0.4.3: removed EraService
-// v0.4.2: Added InfoButton and InfoPanel with era selection instructions
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useGame } from '../context/GameContext';
@@ -19,7 +16,7 @@ import PurchasePage from './PurchasePage';
 import InfoButton from '../components/InfoButton';
 import GameGuide from '../components/GameGuide';
 
-const version = 'v0.5.2';
+const version = 'v0.5.3';
 
 const SelectEraPage = () => {
   const {
@@ -30,17 +27,6 @@ const SelectEraPage = () => {
     getAllEras,
     getEraById
   } = useGame();
-  
-  // Auto-create guest user if no profile exists
-  useEffect(() => {
-    if (!userProfile) {
-      console.log(`[SELECTERA] ${version} No user profile detected - creating guest session`);
-      const guestId = `guest-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-      dispatch(events.SELECTERA, {
-        userData: { id: guestId }
-      });
-    }
-  }, [userProfile, dispatch, events]);
   
   // Local UI state for browsing - not committed to game logic until button click
   const [selectedEra, setSelectedEra] = useState(null);
@@ -161,7 +147,7 @@ const SelectEraPage = () => {
       
       console.log(`[SELECTERA] ${version} Transitioning to opponent selection with era:`, fullEraConfig.name);
       
-      // Dispatch with full config
+      // Dispatch with full config (game-scoped data, not singleton)
       dispatch(events.SELECTOPPONENT, {
         eraConfig: fullEraConfig
       });

@@ -1,27 +1,86 @@
-// src/components/LoginDialog.js v0.1.40
+// src/components/LoginDialog.js v0.1.43
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.43: Create and return Player objects instead of user/profile objects
+//          - Import HumanPlayer and UserProfileService
+//          - handleGuest: Create guest profile + HumanPlayer, return player
+//          - handleLogin: Fetch profile + create HumanPlayer, return player
+//          - Simplifies downstream flow: Login → Player object → CoreEngine
+// v0.1.42: Fix welcome message to "Welcome back, {game_name}!"
+// v0.1.41: Add welcome-back mode for returning users
+//          - Accept existingUser and existingProfile props
+//          - If profile exists → show "Welcome back" with Continue/Log Out
+//          - Otherwise → normal login/signup/guest flow
+//          - No "Play as Guest" in welcome mode (logout to access)
+// v0.1.40: Prior version with full login/signup/forgot/guest functionality
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import HumanPlayer from '../classes/HumanPlayer';
+import UserProfileService from '../services/UserProfileService';
 
-const version = 'v0.1.40';
+const version = 'v0.1.43';
 
-const LoginDialog = ({ onClose, showSignup = false }) => {
+const LoginDialog = ({
+  existingUser = null,
+  existingProfile = null,
+  onClose,
+  onContinue,
+  onLogout,
+  showSignup = false
+}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
-  const [mode, setMode] = useState(showSignup ? 'signup' : 'login'); // Initialize based on prop
+  const [mode, setMode] = useState(showSignup ? 'signup' : 'login');
   const [loginAttempted, setLoginAttempted] = useState(false);
 
   // Update mode if showSignup prop changes
   useEffect(() => {
-    if (showSignup) {
+    if (showSignup && !existingProfile) {
       setMode('signup');
     }
-  }, [showSignup]);
+  }, [showSignup, existingProfile]);
 
+  // WELCOME BACK MODE - Returning user with profile
+  if (existingUser && existingProfile) {
+    console.log(version, 'Rendering welcome-back mode for:', existingProfile.game_name);
+    
+    return (
+      <div className="content-pane content-pane--narrow">
+        <div className="card-header">
+          <h2 className="card-title">Welcome back, {existingProfile.game_name}!</h2>
+        </div>
+        
+        <div className="welcome-message">
+          <p className="text-center text-muted">
+            {existingUser.email}
+          </p>
+        </div>
+        
+        <div className="form-actions">
+          <button
+            className="btn btn--primary btn--lg"
+            onClick={onContinue}
+          >
+            Continue Playing
+          </button>
+          
+          <div className="mt-md">
+            <button
+              className="btn btn--secondary btn--full"
+              onClick={onLogout}
+            >
+              Log Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // NORMAL MODE - New users or explicit login
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email || !password) {
@@ -40,17 +99,45 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
       } else {
         setError(error.message);
       }
-    } else {
-      console.log(`${version} Login successful, user:`, data.user);
+      return;
+    }
+    
+    console.log(`${version} Login successful, user:`, data.user);
+    
+    // Check if email is confirmed
+    if (!data.user.email_confirmed_at) {
+      setError('Please confirm your email address before logging in. Check your inbox for a confirmation link.');
+      return;
+    }
+    
+    try {
+      // Fetch user profile from database
+      console.log(`${version} Fetching profile for user:`, data.user.id);
+      const userProfile = await UserProfileService.getUserProfile(data.user.id);
       
-      // Check if email is confirmed
-      if (!data.user.email_confirmed_at) {
-        setError('Please confirm your email address before logging in. Check your inbox for a confirmation link.');
+      if (!userProfile || !userProfile.game_name) {
+        setError('Profile not found. Please contact support.');
         return;
       }
       
-      // Pass user data back to LoginPage
-      onClose(data.user);
+      console.log(`${version} Profile fetched:`, userProfile.game_name);
+      
+      // Create HumanPlayer with profile
+      const player = new HumanPlayer(
+        data.user.id,
+        userProfile.game_name,
+        'human',
+        1.0,
+        userProfile
+      );
+      
+      console.log(`${version} HumanPlayer created:`, player.name);
+      
+      // Return Player object
+      onClose(player);
+    } catch (err) {
+      console.error(`${version} Error creating player:`, err);
+      setError('Failed to load profile. Please try again.');
     }
   };
 
@@ -83,6 +170,7 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
       }
       
       // If email is already confirmed (shouldn't happen on signup), proceed
+      // Note: User still needs ProfileCreationDialog - parent handles this
       onClose(data.user);
     }
   };
@@ -123,18 +211,33 @@ const LoginDialog = ({ onClose, showSignup = false }) => {
     
     console.log(`${version} Playing as guest with ID:`, guestId);
     
-    // Create guest user object
-    const guestUser = {
+    // Create guest profile (same structure as v0.6.10 CoreEngine)
+    const guestProfile = {
       id: guestId,
-      email: null,
-      user_metadata: {
-        game_name: 'Guest'
-      },
-      app_metadata: {},
-      created_at: new Date().toISOString()
+      game_name: 'Guest',
+      total_games: 0,
+      total_wins: 0,
+      total_score: 0,
+      best_accuracy: 0,
+      total_ships_sunk: 0,
+      total_damage: 0
     };
     
-    onClose(guestUser);
+    console.log(`${version} Guest profile created:`, guestProfile);
+    
+    // Create HumanPlayer with guest profile
+    const guestPlayer = new HumanPlayer(
+      guestId,
+      'Guest',
+      'human',
+      1.0,
+      guestProfile
+    );
+    
+    console.log(`${version} Guest player created:`, guestPlayer.name);
+    
+    // Return Player object
+    onClose(guestPlayer);
   };
 
   const handleResendConfirmation = async () => {

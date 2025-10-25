@@ -1,5 +1,13 @@
-// src/pages/PlacementPage.js 
+// src/pages/PlacementPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.14: Get selectedOpponent from CoreEngine.selectedOpponents array
+//          - Removed selectedOpponent from GameContext destructuring
+//          - Get from coreEngine.selectedOpponents[0] instead
+//          - Matches CoreEngine storage of opponents as array
+// v0.4.13: Updated to use CoreEngine singleton pattern
+//          - Use coreEngine.humanPlayer (Player instance for game logic)
+//          - Use coreEngine.userProfile (database object for display)
+//          - Consistent with SelectOpponentPage v0.6.6 pattern
 // v0.4.12: Replaced InfoPanel with GameGuide component - removed ~60 lines of hardcoded instructions
 // v0.4.11: Positioned InfoButton relative to content pane, kept component reusable
 // v0.4.10: Added InfoButton and InfoPanel with placement instructions
@@ -12,21 +20,28 @@ import CanvasBoard from '../components/CanvasBoard';
 import InfoButton from '../components/InfoButton';
 import GameGuide from '../components/GameGuide';
 
-const version = 'v0.4.12';
+const version = 'v0.4.14';
 
 const PlacementPage = () => {
   const {
+    coreEngine,
     dispatch,
     events,
     eraConfig,
-    humanPlayer,
-    selectedOpponent,
     gameInstance,
     board,
     registerShipPlacement,
-    subscribeToUpdates,
-    userProfile
+    subscribeToUpdates
   } = useGame();
+  
+  // v0.4.14: Use CoreEngine singleton pattern
+  const humanPlayer = coreEngine.humanPlayer;              // Player instance (game logic)
+  const userProfile = coreEngine.humanPlayer.userProfile;  // Database object (display)
+  const selectedOpponent = coreEngine.selectedOpponents?.[0]; // First opponent from array
+  
+  console.log('[PLACEMENT]', version, 'humanPlayer=', humanPlayer);
+  console.log('[PLACEMENT]', version, 'userProfile=', userProfile);
+  console.log('[PLACEMENT]', version, 'selectedOpponent=', selectedOpponent);
   
   const {
     currentPlayer,
@@ -54,11 +69,11 @@ const PlacementPage = () => {
   }, []);
   
   useEffect(() => {
-    if (!userProfile) {
-      console.log(version, 'No user profile detected - redirecting to login');
+    if (!humanPlayer) {
+      console.log(version, 'No player detected - redirecting to login');
       dispatch(events.LOGIN);
     }
-  }, [userProfile, dispatch, events]);
+  }, [humanPlayer, dispatch, events]);
   
   const [error, setError] = useState(null);
   const [isAutoPlacing, setIsAutoPlacing] = useState(false);
@@ -203,7 +218,8 @@ const PlacementPage = () => {
     }
   };
 
-  if (!userProfile) {
+  // v0.4.13: Check humanPlayer instead of userProfile
+  if (!humanPlayer) {
     return null;
   }
 

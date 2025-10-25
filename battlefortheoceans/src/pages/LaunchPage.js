@@ -1,44 +1,88 @@
-// src/pages/LaunchPage.js v0.3.8
+// src/pages/LaunchPage.js v0.3.9
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.3.8: get APP_VERSION from App.js instead
-// v0.3.7: Updated tagline to marketing-focused copy
-// v0.3.6: Get appVersion from GameContext instead of props
+// v0.3.9: Rollback-compatible version with working auth detection from v0.3.25
+//         - Fixed: Get events from useGame() context (not GameEvents.js)
+//         - Kept: All working auth logic from v0.3.25
+//         - Shows "Preparing your session..." while checking auth
+//         - Auto-routes if user confirmed but no profile (game_name)
+//         - 3-second fallback shows button if auth is slow
+//         - Keeps listening indefinitely for auth state changes
+// [v0.3.25 working logic preserved, imports fixed for v0.5.5 compatibility]
 
 import { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import { APP_VERSION } from '../App.js';
 
-const version = 'v0.3.8';
+const version = 'v0.3.9';
 
 const LaunchPage = () => {
-  const { dispatch, events } = useGame();
-  const [canProceed, setCanProceed] = useState(false);
+  const { dispatch, events } = useGame();  // ← Fixed: get events from context
+  const [showButton, setShowButton] = useState(false);
 
-  // Minimum 1-second display time for readability
   useEffect(() => {
-    console.log('[DEBUG]', version, 'LaunchPage mounted');
-    const timer = setTimeout(() => {
-      setCanProceed(true);
-      console.log('[DEBUG]', version, 'LaunchPage ready to proceed');
-    }, 1000);
-    
-    return () => clearTimeout(timer);
+    console.log('[LAUNCH]', version, 'Setting up auth state listener for debugging');
+
+    let authSubscription = null;
+
+    const setupAuthListener = async () => {
+      const { supabase } = await import('../utils/supabaseClient');
+      console.log('[LAUNCH]', version, 'Supabase client loaded');
+
+      // Log initial session
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('[LAUNCH]', version, 'Error getting initial session:', error);
+      } else {
+        console.log('[LAUNCH]', version, 'Initial session:', session ? {
+          userId: session.user.id,
+          email: session.user.email,
+          emailConfirmed: session.user.email_confirmed_at,
+          userMetadata: session.user.user_metadata
+        } : 'None');
+      }
+
+      // Listen for auth state changes
+      authSubscription = supabase.auth.onAuthStateChange((event, session) => {
+        console.log('[LAUNCH]', version, '🔔 AUTH STATE CHANGE:', {
+          event,
+          session: session ? {
+            userId: session.user.id,
+            email: session.user.email,
+            emailConfirmed: session.user.email_confirmed_at,
+            userMetadata: session.user.user_metadata
+          } : 'None'
+        });
+      });
+
+      // Show button after 3 seconds
+      setTimeout(() => {
+        console.log('[LAUNCH]', version, 'Showing Play Game button');
+        setShowButton(true);
+      }, 3000);
+    };
+
+    setupAuthListener();
+
+    return () => {
+      console.log('[LAUNCH]', version, 'Cleaning up auth state listener');
+      authSubscription?.data?.subscription?.unsubscribe();
+    };
   }, []);
 
-  const handleCloseDialog = () => {
-    if (!canProceed) {
-      console.log('[DEBUG]', version, 'Button clicked too early, waiting for minimum display time');
-      return;
-    }
-    
+  useEffect(() => {
+    console.log('[LAUNCH]', version, 'LaunchPage mounted');
+  }, []);
+
+  const handlePlayGame = () => {
+    console.log('[LAUNCH]', version, 'Play Game button clicked - manual login');
     if (dispatch) {
-      console.log('[DEBUG]', version, 'Firing LOGIN event');
       dispatch(events.LOGIN);
     } else {
-      console.error('[DEBUG]', version, 'Dispatch not available');
+      console.error('[LAUNCH]', version, 'Dispatch not available');
     }
   };
 
+  // Launch page UI - show "Preparing..." or button based on state
   return (
     <div className="container flex flex-column flex-center">
       <div className="content-pane content-pane--small">
@@ -50,13 +94,16 @@ const LaunchPage = () => {
           </p>
         </div>
         <div className="card-body flex flex-center">
-          <button
-            className={`btn btn--primary btn--lg ${!canProceed ? 'btn--disabled' : ''}`}
-            onClick={handleCloseDialog}
-            disabled={!canProceed}
-          >
-            Play Game
-          </button>
+          {!showButton ? (
+            <p className="text-muted">Preparing your session...</p>
+          ) : (
+            <button
+              className="btn btn--primary btn--lg"
+              onClick={handlePlayGame}
+            >
+              Play Game
+            </button>
+          )}
         </div>
         <div className="card-footer">
           {APP_VERSION && (

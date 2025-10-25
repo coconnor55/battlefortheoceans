@@ -1,18 +1,58 @@
-// src/components/ProfileCreationDialog.js
+// src/components/ProfileCreationDialog.js v0.1.7
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.7: Create and return Player objects instead of profile objects
+//          - Import HumanPlayer
+//          - handleSubmit: Create HumanPlayer with profile, return player
+//          - handleContinue: Create HumanPlayer with existing profile, return player
+//          - Simplifies downstream flow: ProfileCreation → Player object → CoreEngine
+// v0.1.6: Combined defensive check + retry logic
+//          - Defensive: Check existing profile on mount, prevent overwrite
+//          - Retry: Wait for auth.users with exponential backoff (5 attempts)
+//          - Prevents foreign key constraint from email confirmation timing
+//          - Shows read-only UI if user already has game_name
+// v0.1.5: (my version) Defensive check for existing profile
+// v0.1.5: (branch version) Retry logic for auth timing issue
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
+import { supabase } from '../utils/supabaseClient';
+import HumanPlayer from '../classes/HumanPlayer';
 
-const version = 'v0.1.4';
+const version = 'v0.1.7';
 
 const ProfileCreationDialog = ({ userData, onComplete }) => {
-  const { createUserProfile } = useGame();
+  const { createUserProfile, getUserProfile } = useGame();
   
   const [gameName, setGameName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [existingProfile, setExistingProfile] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // Start true while checking
   const [error, setError] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
+
+  // Defensive check: Load existing profile on mount
+  useEffect(() => {
+    const checkExistingProfile = async () => {
+      try {
+        console.log(version, 'Checking for existing profile for user:', userData.id);
+        const profile = await getUserProfile(userData.id);
+        
+        if (profile && profile.game_name) {
+          console.log(version, 'DEFENSIVE: User already has game_name:', profile.game_name);
+          setExistingProfile(profile);
+        } else {
+          console.log(version, 'No existing profile, allowing creation');
+        }
+      } catch (err) {
+        console.error(version, 'Error checking profile:', err);
+        // Continue to allow creation on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkExistingProfile();
+  }, [userData.id, getUserProfile]);
 
   // Real-time validation
   const validateGameName = (name) => {
@@ -51,8 +91,78 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
     setValidationError(validation);
   };
 
+  // Check if user exists in auth.users
+  const checkUserExists = async (userId) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user && user.id === userId;
+    } catch (err) {
+      console.error(version, 'Error checking user existence:', err);
+      return false;
+    }
+  };
+
+  // Retry profile creation with exponential backoff
+  const createProfileWithRetry = async (userId, gameName, maxAttempts = 5) => {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      console.log(version, `Profile creation attempt ${attempt}/${maxAttempts}`);
+      
+      // Wait before attempting (exponential backoff: 1s, 2s, 3s, 4s, 5s)
+      if (attempt > 1) {
+        const waitTime = attempt * 1000;
+        console.log(version, `Waiting ${waitTime}ms before retry...`);
+        setStatusMessage(`Preparing your account... (${attempt}/${maxAttempts})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      } else {
+        setStatusMessage('Creating your profile...');
+        // Initial 1 second delay to let auth.users commit
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      // Check if user exists in auth.users
+      const userExists = await checkUserExists(userId);
+      if (!userExists) {
+        console.log(version, `User not yet in auth.users, attempt ${attempt}`);
+        if (attempt === maxAttempts) {
+          throw new Error('Account not fully initialized. Please try again in a moment.');
+        }
+        continue; // Retry
+      }
+      
+      // Try to create profile
+      try {
+        console.log(version, 'User exists in auth.users, creating profile...');
+        const profile = await createUserProfile(userId, gameName);
+        console.log(version, 'Profile created successfully:', profile.game_name);
+        return profile;
+      } catch (err) {
+        console.error(version, `Profile creation failed on attempt ${attempt}:`, err);
+        
+        // If it's a foreign key constraint error, retry
+        if (err.message && err.message.includes('foreign key constraint')) {
+          if (attempt === maxAttempts) {
+            throw new Error('Unable to create profile. Please try again in a moment.');
+          }
+          continue; // Retry
+        }
+        
+        // Other errors - don't retry
+        throw err;
+      }
+    }
+    
+    throw new Error('Profile creation timed out. Please try again.');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Defensive check: Prevent submission if profile exists
+    if (existingProfile && existingProfile.game_name) {
+      console.warn(version, 'DEFENSIVE: Blocked profile creation - user already has game_name');
+      setError('You already have a game handle. You cannot change it.');
+      return;
+    }
     
     // Final validation
     const validation = validateGameName(gameName);
@@ -63,28 +173,113 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
 
     setIsLoading(true);
     setError('');
+    setStatusMessage('Creating your profile...');
     
     try {
       console.log(version, 'Creating profile for user:', userData.id, 'with name:', gameName.trim());
       
-      const profile = await createUserProfile(userData.id, gameName.trim());
+      const profile = await createProfileWithRetry(userData.id, gameName.trim());
       
       if (profile) {
-        console.log(version, 'Profile created successfully:', profile.game_name);
-        onComplete(profile);
+        console.log(version, 'Profile creation completed successfully');
+        setStatusMessage('Success! Creating player...');
+        
+        // Create HumanPlayer with profile
+        const player = new HumanPlayer(
+          userData.id,
+          profile.game_name,
+          'human',
+          1.0,
+          profile
+        );
+        
+        console.log(version, 'HumanPlayer created:', player.name);
+        
+        // Return Player object
+        onComplete(player);
       } else {
         setError('Failed to create profile. Please try again.');
+        setStatusMessage('');
       }
     } catch (err) {
       console.error(version, 'Profile creation error:', err);
       setError(err.message || 'Failed to create profile. Please try again.');
+      setStatusMessage('');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleContinue = () => {
+    console.log(version, 'User continuing with existing profile:', existingProfile.game_name);
+    
+    // Create HumanPlayer with existing profile
+    const player = new HumanPlayer(
+      existingProfile.id,
+      existingProfile.game_name,
+      'human',
+      1.0,
+      existingProfile
+    );
+    
+    console.log(version, 'HumanPlayer created from existing profile:', player.name);
+    
+    // Return Player object
+    onComplete(player);
+  };
+
   const canSubmit = gameName.trim().length >= 3 && !validationError && !isLoading;
 
+  // Loading state while checking for existing profile
+  if (isLoading && !existingProfile) {
+    return (
+      <div className="modal-overlay">
+        <div className="card">
+          <div className="card-body">
+            <div className="loading">
+              <div className="spinner spinner--lg"></div>
+              <p>Checking your profile...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // DEFENSIVE MODE: User already has a game_name
+  if (existingProfile && existingProfile.game_name) {
+    return (
+      <div className="modal-overlay">
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title">Welcome Back!</h2>
+            <p className="card-subtitle">You already have a game handle.</p>
+          </div>
+          
+          <div className="card-body">
+            <div className="existing-profile-display">
+              <label className="form-label">Your Game Handle</label>
+              <div className="profile-name-display">
+                {existingProfile.game_name}
+              </div>
+              <p className="text-muted text-sm">Game handles cannot be changed once created.</p>
+            </div>
+            
+            <div className="form-actions">
+              <button
+                className="btn btn--primary btn--lg"
+                onClick={handleContinue}
+              >
+                Continue to Game
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // NORMAL MODE: Create new profile
   return (
     <div className="modal-overlay">
       <div className="card">
@@ -122,8 +317,12 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
               )}
             </div>
             
+            {statusMessage && (
+              <div className="message message--info">{statusMessage}</div>
+            )}
+            
             {error && (
-              <div className="message--error">{error}</div>
+              <div className="message message--error">{error}</div>
             )}
             
             <div className="form-actions">
@@ -132,7 +331,7 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
                 className="btn btn--primary btn--lg"
                 disabled={!canSubmit}
               >
-                {isLoading ? 'Creating Profile...' : 'Create Game Handle'}
+                {isLoading ? statusMessage : 'Create Game Handle'}
               </button>
             </div>
           </form>

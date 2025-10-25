@@ -1,10 +1,14 @@
 // src/services/UserProfileService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.3: Export singleton instance instead of class
+//         - Fixes "getUserProfile is not a function" error in LoginDialog
+//         - Methods are instance methods, not static methods
+//         - Export instantiated service so components can call methods directly
 
 import { supabase } from '../utils/supabaseClient';
 import { Filter } from 'bad-words';
 
-const version = "v0.1.2";
+const version = "v0.1.3";
 
 class UserProfileService {
   constructor() {
@@ -168,5 +172,9 @@ class UserProfileService {
   }
 }
 
-export default UserProfileService;
+// Export singleton instance (not class)
+// This allows LoginDialog.js and other components to call methods directly:
+// await UserProfileService.getUserProfile(userId)
+const userProfileService = new UserProfileService();
+export default userProfileService;
 // EOF
