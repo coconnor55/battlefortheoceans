@@ -1,5 +1,6 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.27: Changed ERA to SELECTERA (Claude error)
 // v0.6.26: FIXED - Added back ship.place(), notifySubscribers() in registerShipPlacement
 // v0.6.25: FIXED - Added back missing transition() method
 //          - v0.6.24 accidentally deleted transition() when removing processEventData()
@@ -45,7 +46,7 @@ import AchievementService from '../services/AchievementService.js';
 
 import ConfigLoader from '../utils/ConfigLoader.js';
 
-const version = 'v0.6.26';
+const version = 'v0.6.27';
 
 /**
  * CoreEngine - Orchestrates game state machine and coordinates services
@@ -109,7 +110,7 @@ class CoreEngine {
       opponent: {
         on: {
           [this.events.PLACEMENT]: 'placement',
-          [this.events.ERA]: 'era',
+          [this.events.SELECTERA]: 'era',
           [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
@@ -127,7 +128,7 @@ class CoreEngine {
       },
       over: {
         on: {
-          [this.events.ERA]: 'era',
+          [this.events.SELECTERA]: 'era',
           [this.events.SELECTOPPONENT]: 'opponent',
           [this.events.PLACEMENT]: 'placement',
           [this.events.LAUNCH]: 'launch',
@@ -136,7 +137,8 @@ class CoreEngine {
       },
       achievements: {
         on: {
-          [this.events.ERA]: 'era',
+          [this.events.SELECTERA// v0.4.15: Changed ERA to SELECTERA (Claude error)
+]: 'era',
           [this.events.SELECTOPPONENT]: 'opponent',
           [this.events.PLACEMENT]: 'placement',
           [this.events.LAUNCH]: 'launch'

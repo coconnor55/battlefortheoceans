@@ -50,8 +50,8 @@
     }
   },
   "inactivity": {
-    "warning_timeout": 900000,
-    "logout_timeout": 180000,
+    "warning_timeout": 60000,
+    "logout_timeout": 30000,
     "enabled": true
   },
   "debug": {

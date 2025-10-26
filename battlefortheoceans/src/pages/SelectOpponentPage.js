@@ -267,14 +267,20 @@ const SelectOpponentPage = () => {
     : selectedOpponent !== null && (!requiresAlliance || selectedAlliance);
 
   const getButtonText = () => {
-    if (isMultiFleet) {
-      return selectedPirateFleets.length > 1
-        ? `Begin Battle vs ${selectedPirateFleets.length} Fleets`
-        : 'Begin Battle';
-    }
-    return selectedOpponent?.type === 'human'
-      ? 'Challenge Player'
-      : 'Begin Battle';
+//    if (isMultiFleet) {
+//      return selectedPirateFleets.length > 1
+//        ? `Begin Battle vs ${selectedPirateFleets.length} Fleets`
+//        : 'Begin Battle';
+//    }
+//    return selectedOpponent?.type === 'human'
+//      ? 'Challenge Player'
+//      : 'Begin Battle';
+      if (isMultiFleet) {
+        const fleetNames = selectedPirateFleets.map(f => f.ai_captain.name).join(' & ');
+        return `Play ${fleetNames}`;
+      } else {
+        return selectedOpponent ? `Play ${selectedOpponent.name}` : 'Select Opponent';
+      }
   };
 
   // v0.6.6: Use profile for display, player for game logic checks
@@ -289,24 +295,26 @@ const SelectOpponentPage = () => {
   }
 
   return (
-    <div className="page-container">
-      <div className="content-pane">
-        <div className="card card--game">
+    <div className="container flex flex-column flex-center">
+      <div className="page-with-info">
+          <InfoButton onClick={() => setShowInfo(true)} />
+          
+          <GameGuide
+            section="opponent"
+            manualOpen={showInfo}
+            onClose={() => setShowInfo(false)}
+          />
+
+        <div className="content-pane content-pane--wide">
           {/* Header */}
           <div className="card-header">
             <div className="card-header__content">
               <h2 className="card-title">Select Your Opponent</h2>
               <p className="card-subtitle">
-                Era: {eraConfig?.name || 'Unknown'} | Captain: {profile?.game_name || player.name}
+                Era: {eraConfig?.name || 'Unknown'}  | Captain: {profile?.game_name || player.name}
               </p>
             </div>
-            <InfoButton onClick={() => setShowInfo(true)} />
           </div>
-
-          {/* Info Overlay */}
-          {showInfo && (
-            <GameGuide onClose={() => setShowInfo(false)} />
-          )}
 
           {/* Main Content */}
           <div className="card-body card-body--scrollable">
@@ -314,15 +322,32 @@ const SelectOpponentPage = () => {
             {requiresAlliance && availableAlliances.length > 0 && (
               <div className="alliance-selector">
                 <h3 className="section-title">Choose Your Alliance</h3>
-                <div className="button-group button-group--wrap">
+                <div className="alliance-list">
                   {availableAlliances.map((alliance) => (
                     <button
                       key={alliance.name}
-                      className={`btn btn--alliance ${selectedAlliance === alliance.name ? 'btn--alliance-selected' : ''}`}
+                      className={`selectable-item alliance-item ${selectedAlliance === alliance.name ? 'selectable-item--selected' : ''}`}
                       onClick={() => handleAllianceSelect(alliance.name)}
                     >
-                      <span className="btn__label">{alliance.name}</span>
-                      <span className="btn__sublabel">{alliance.ai_captains?.length || 0} captains</span>
+                         <div className="item-header">
+                           <span className="item-name">{alliance.name}</span>
+                           <span className="ship-count">
+                             {alliance.ships?.length || 0} Ships
+                           </span>
+                         </div>
+                        <hr />
+                         <div className="item-description">
+                           {alliance.description}
+                         </div>
+                         <div className="alliance-fleet">
+                           <strong>Fleet:</strong> {alliance.ships?.map((ship, idx) => (
+                             <span key={idx} className="ship-name">
+                               {ship.name}
+                               {idx < alliance.ships.length - 1 ? ', ' : ''}
+                             </span>
+                           ))}
+                         </div>
+
                     </button>
                   ))}
                 </div>
@@ -331,25 +356,26 @@ const SelectOpponentPage = () => {
 
             {/* Multi-Fleet Selection (Pirates of the Gulf) */}
             {isMultiFleet && pirateFleets.length > 0 && (
-              <div className="multi-fleet-selector">
+              <div className="pirate-fleet-selection">
                 <h3 className="section-title">
                   Select Pirate Fleets
-                  {selectedPirateFleets.length > 0 && (
-                    <span className="fleet-count-badge">
-                      {selectedPirateFleets.length} selected
-                      {selectedPirateFleets.length > 1 && (
-                        <span className="difficulty-multiplier">
-                          Combined: {getCombinedDifficulty()}x
-                        </span>
-                      )}
-                    </span>
-                  )}
                 </h3>
                 <p className="section-hint">
-                  Select 1-{eraConfig.game_rules.fleet_selection_max || 4} fleets to battle
+                  Select 1-{eraConfig.game_rules.fleet_selection_max || 4} fleets to battle - &nbsp;
+                 {selectedPirateFleets.length > 0 && (
+                   <span className="fleet-count-badge">
+                     {selectedPirateFleets.length} selected
+                     {selectedPirateFleets.length > 1 && (
+                       <span className="difficulty-multiplier">
+                         , combined difficulty  {getCombinedDifficulty()}x
+                       </span>
+                     )}
+                   </span>
+                 )}
+
                 </p>
                 
-                <div className="fleet-grid">
+                <div className="opponent-list">
                   {pirateFleets.map((fleet) => {
                     const isSelected = selectedPirateFleets.some(f => f.fleet_id === fleet.fleet_id);
                     const difficulty = fleet.ai_captain.difficulty || 1.0;
@@ -357,7 +383,7 @@ const SelectOpponentPage = () => {
                     return (
                       <div
                         key={fleet.fleet_id}
-                        className={`fleet-card ${isSelected ? 'fleet-card--selected' : ''}`}
+                            className={`selectable-item opponent-item pirate-fleet-item ${isSelected ? 'selectable-item--selected' : ''}`}
                         onClick={() => handleFleetToggle(fleet)}
                       >
                         <div className="opponent-content">
@@ -532,8 +558,9 @@ const SelectOpponentPage = () => {
               <p className="text-dim text-center">
                 {isMultiFleet
                   ? 'Select at least one pirate fleet to continue'
-                  : 'Select an opponent above to continue'
+                  : ''
                 }
+                {selectedAlliance ? "Select an opponent to continue" : "Select an alliance to continue"}
               </p>
             ) : (
               <div className="card-footer">

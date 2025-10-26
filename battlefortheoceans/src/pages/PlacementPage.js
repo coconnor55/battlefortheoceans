@@ -1,5 +1,6 @@
 // src/pages/PlacementPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.15: Changed ERA to SELECTERA (Claude error)
 // v0.4.14: Get selectedOpponent from CoreEngine.selectedOpponents array
 //          - Removed selectedOpponent from GameContext destructuring
 //          - Get from coreEngine.selectedOpponents[0] instead
@@ -20,7 +21,7 @@ import CanvasBoard from '../components/CanvasBoard';
 import InfoButton from '../components/InfoButton';
 import GameGuide from '../components/GameGuide';
 
-const version = 'v0.4.14';
+const version = 'v0.4.15';
 
 const PlacementPage = () => {
   const {
@@ -237,7 +238,7 @@ const PlacementPage = () => {
           <div className="card-footer">
             <button
               className="btn btn--primary"
-              onClick={() => dispatch(events.ERA)}
+              onClick={() => dispatch(events.SELECTERA)}
             >
               Back to Era Selection
             </button>
