@@ -1,5 +1,6 @@
 // src/pages/PlayingPage.js v0.5.3
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.4: Moved GameGuide to App.js, removed setShowInfo and InfoButton
 // v0.5.3: Munitions terminology rename (resources → munitions)
 //         - No code changes needed - reads from useGameState hook
 //         - Hook now provides munitions data (was resources)
@@ -28,11 +29,9 @@ import useVideoTriggers from '../hooks/useVideoTriggers';
 import useAutoPlay from '../hooks/useAutoPlay';
 import CanvasBoard from '../components/CanvasBoard';
 import FleetStatusSidebar from '../components/FleetStatusSidebar';
-import InfoButton from '../components/InfoButton';
-import GameGuide from '../components/GameGuide';
 import VideoPopup from '../components/VideoPopup';
 
-const version = 'v0.5.3';
+const version = 'v0.5.4';
 
 const PlayingPage = () => {
   const {
@@ -68,7 +67,6 @@ const PlayingPage = () => {
   const { showVideo, currentVideo, handleVideoComplete } = useVideoTriggers(gameInstance, eraConfig);
   
   const [viewMode, setViewMode] = useState('blended');
-  const [showInfo, setShowInfo] = useState(false);
   
   // Warn user before leaving page (refresh/close/navigate away)
   useEffect(() => {
@@ -194,15 +192,6 @@ const PlayingPage = () => {
   return (
     <div className="container flex flex-column flex-center">
       <div className="page-with-info">
-        <InfoButton onClick={() => setShowInfo(true)} />
-        
-        {/* v0.5.2: GameGuide replaces InfoPanel with static content */}
-        <GameGuide
-          section="battle"
-          manualOpen={showInfo}
-          onClose={() => setShowInfo(false)}
-          eraName={eraConfig?.name}
-        />
 
         <div className="content-pane content-pane--wide">
           <div className="card-header text-center">

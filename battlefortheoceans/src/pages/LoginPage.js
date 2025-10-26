@@ -1,13 +1,3 @@
-<<<<<<< HEAD
-// src/pages/LoginPage.js v0.3.8
-// Copyright(c) 2025, Clint H. O'Connor
-// v0.3.8: Remove "Checking authentication..." intermediate UI
-//         - Check still runs but doesn't show loading screen
-//         - Smoother flow from email confirmation via LaunchPage
-//         - Goes straight to profile creation without visual interruption
-// v0.3.7: Check if user already authenticated on mount (from email confirmation)
-//         Skip LoginDialog and go straight to profile check/creation
-=======
 // src/pages/LoginPage.js v0.3.13
 // Copyright(c) 2025, Clint H. O'Connor
 // v0.3.13: SINGLETON PATTERN - Set coreEngine.humanPlayer directly
@@ -19,7 +9,6 @@
 // v0.3.12: FIX - Create Player object in checkExistingAuth for welcome-back flow
 // v0.3.11: Use player singleton pattern correctly
 // v0.3.10: Call coreEngine.logout() on logout to clear all game state
->>>>>>> rollback-to-v0.5.5-plus-auth
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
@@ -28,27 +17,11 @@ import LoginDialog from '../components/LoginDialog';
 import ProfileCreationDialog from '../components/ProfileCreationDialog';
 import HumanPlayer from '../classes/HumanPlayer';
 
-<<<<<<< HEAD
-const version = 'v0.3.8';
-=======
 const version = 'v0.3.13';
->>>>>>> rollback-to-v0.5.5-plus-auth
 
 const LoginPage = () => {
   const { coreEngine, dispatch, events, getUserProfile, logout } = useGame();
   
-<<<<<<< HEAD
-  const [authStep, setAuthStep] = useState('login'); // Start at 'login', not 'checking'
-  const [authenticatedUser, setAuthenticatedUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(false); // Don't show loading initially
-  const [error, setError] = useState(null);
-  const [showSignup, setShowSignup] = useState(false);
-
-  // Check if user already authenticated (from email confirmation)
-  useEffect(() => {
-    const checkExistingAuth = async () => {
-      console.log(version, 'Silently checking for existing authentication...');
-=======
   const [authStep, setAuthStep] = useState('login');
   const [authenticatedUser, setAuthenticatedUser] = useState(null); // Supabase user object
   const [authenticatedPlayer, setAuthenticatedPlayer] = useState(null); // Player instance
@@ -61,23 +34,11 @@ const LoginPage = () => {
   useEffect(() => {
     const checkExistingAuth = async () => {
       console.log('[LOGIN]', version, 'Checking for existing authentication...');
->>>>>>> rollback-to-v0.5.5-plus-auth
       
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
-<<<<<<< HEAD
-          console.log(version, 'User already authenticated:', session.user.id);
-          // User is authenticated, proceed to profile check
-          await handleAuthenticatedUser(session.user);
-        } else {
-          console.log(version, 'No existing session, showing login dialog');
-          setAuthStep('login');
-        }
-      } catch (err) {
-        console.error(version, 'Error checking session:', err);
-=======
           console.log('[LOGIN]', version, 'User authenticated:', session.user.id);
           
           // Check if user has profile
@@ -115,17 +76,12 @@ const LoginPage = () => {
         }
       } catch (err) {
         console.error('[LOGIN]', version, 'Error checking session:', err);
->>>>>>> rollback-to-v0.5.5-plus-auth
         setAuthStep('login');
       }
     };
     
     checkExistingAuth();
-<<<<<<< HEAD
-  }, []);
-=======
   }, [getUserProfile]);
->>>>>>> rollback-to-v0.5.5-plus-auth
 
   // Check for showSignup flag in URL
   useEffect(() => {
@@ -135,36 +91,6 @@ const LoginPage = () => {
     }
   }, []);
   
-<<<<<<< HEAD
-  const handleAuthenticatedUser = async (userData) => {
-    setAuthenticatedUser(userData);
-    setIsLoading(true);
-    
-    try {
-      // Check if guest user - bypass profile system
-      if (userData.id.startsWith('guest-')) {
-        console.log(version, 'Guest user detected, proceeding directly to game');
-        await new Promise(resolve => setTimeout(resolve, 400));
-        dispatch(events.SELECTERA, { userData });
-        return;
-      }
-      
-      // Check if registered user has a profile
-      console.log(version, 'Checking for existing profile...');
-      const profile = await getUserProfile(userData.id);
-      
-      if (profile && profile.game_name) {
-        console.log(version, 'Existing profile found:', profile.game_name);
-        await new Promise(resolve => setTimeout(resolve, 400));
-        dispatch(events.SELECTERA, { userData });
-      } else {
-        console.log(version, 'No profile found, showing profile creation');
-        setAuthStep('profile-creation');
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error(version, 'Error during authentication flow:', error);
-=======
   const handleAuthenticatedPlayer = async (player) => {
     console.log('[LOGIN]', version, 'Player authenticated:', player.name, 'ID:', player.id);
     setAuthenticatedPlayer(player);
@@ -191,28 +117,18 @@ const LoginPage = () => {
       
     } catch (error) {
       console.error('[LOGIN]', version, 'Error during authentication flow:', error);
->>>>>>> rollback-to-v0.5.5-plus-auth
       setError(error.message || 'An unexpected error occurred');
       setAuthStep('login');
       setIsLoading(false);
     }
   };
   
-<<<<<<< HEAD
-  const handleLoginComplete = async (userData) => {
-    if (userData) {
-      console.log(version, 'User authenticated via LoginDialog:', userData.id);
-      await handleAuthenticatedUser(userData);
-    } else {
-      console.log(version, 'Login dialog closed without authentication');
-=======
   const handleLoginComplete = async (player) => {
     if (player) {
       console.log('[LOGIN]', version, 'Player received from LoginDialog:', player.name);
       await handleAuthenticatedPlayer(player);
     } else {
       console.log('[LOGIN]', version, 'Login dialog closed without authentication');
->>>>>>> rollback-to-v0.5.5-plus-auth
       handleReset();
     }
   };
@@ -252,11 +168,6 @@ const LoginPage = () => {
     console.log('[LOGIN]', version, 'Profile creation completed, Player:', player.name);
     setIsLoading(true);
     
-<<<<<<< HEAD
-    await new Promise(resolve => setTimeout(resolve, 400));
-    
-    dispatch(events.SELECTERA, { userData: authenticatedUser });
-=======
     // v0.3.13: Set CoreEngine singleton directly
     coreEngine.humanPlayer = player;
     console.log('[LOGIN]', version, 'Set coreEngine.humanPlayer =', player.name);
@@ -265,7 +176,6 @@ const LoginPage = () => {
     
     // v0.3.13: Dispatch with NO data
     dispatch(events.SELECTERA);
->>>>>>> rollback-to-v0.5.5-plus-auth
     setIsLoading(false);
   };
 
@@ -280,11 +190,7 @@ const LoginPage = () => {
     setShowSignup(false);
   };
 
-<<<<<<< HEAD
-  console.log(version, 'Current state:', {
-=======
   console.log('[LOGIN]', version, 'Current state:', {
->>>>>>> rollback-to-v0.5.5-plus-auth
     authStep,
     hasUser: !!authenticatedUser,
     hasPlayer: !!authenticatedPlayer,

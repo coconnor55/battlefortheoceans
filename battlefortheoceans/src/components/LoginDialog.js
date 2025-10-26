@@ -1,16 +1,5 @@
 // src/components/LoginDialog.js v0.1.43
 // Copyright(c) 2025, Clint H. O'Connor
-<<<<<<< HEAD
-// v0.1.43: Remove ?confirmed=true from emailRedirectTo URLs
-//          - Let Supabase add hash fragment naturally (#access_token=...&type=signup)
-//          - Query params interfere with hash capture in index.js
-//          - Clean URLs enable proper flow: hash capture → LaunchPage → /email-confirmed
-// v0.1.42: Add redirectTo URL for email confirmation with detection flag
-//          - Set redirectTo with ?confirmed=true query param
-//          - Tells Supabase where to redirect after confirmation
-//          - Enables detection in LaunchPage
-// v0.1.41: Better error handling for existing users during signup
-=======
 // v0.1.43: Create and return Player objects instead of user/profile objects
 //          - Import HumanPlayer and UserProfileService
 //          - handleGuest: Create guest profile + HumanPlayer, return player
@@ -23,7 +12,6 @@
 //          - Otherwise → normal login/signup/guest flow
 //          - No "Play as Guest" in welcome mode (logout to access)
 // v0.1.40: Prior version with full login/signup/forgot/guest functionality
->>>>>>> rollback-to-v0.5.5-plus-auth
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
@@ -127,14 +115,6 @@ const LoginDialog = ({
       console.log(`${version} Fetching profile for user:`, data.user.id);
       const userProfile = await UserProfileService.getUserProfile(data.user.id);
       
-<<<<<<< HEAD
-      if (!data.user.email_confirmed_at) {
-        setError('Please confirm your email address before logging in. Check your inbox for a confirmation link.');
-        return;
-      }
-      
-      onClose(data.user);
-=======
       if (!userProfile || !userProfile.game_name) {
         setError('Profile not found. Please contact support.');
         return;
@@ -158,7 +138,6 @@ const LoginDialog = ({
     } catch (err) {
       console.error(`${version} Error creating player:`, err);
       setError('Failed to load profile. Please try again.');
->>>>>>> rollback-to-v0.5.5-plus-auth
     }
   };
 
@@ -214,11 +193,8 @@ const LoginDialog = ({
         return;
       }
       
-<<<<<<< HEAD
-=======
       // If email is already confirmed (shouldn't happen on signup), proceed
       // Note: User still needs ProfileCreationDialog - parent handles this
->>>>>>> rollback-to-v0.5.5-plus-auth
       onClose(data.user);
     }
   };
@@ -255,12 +231,8 @@ const LoginDialog = ({
     
     console.log(`${version} Playing as guest with ID:`, guestId);
     
-<<<<<<< HEAD
-    const guestUser = {
-=======
     // Create guest profile (same structure as v0.6.10 CoreEngine)
     const guestProfile = {
->>>>>>> rollback-to-v0.5.5-plus-auth
       id: guestId,
       game_name: 'Guest',
       total_games: 0,

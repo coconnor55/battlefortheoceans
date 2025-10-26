@@ -1,5 +1,9 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.10: Added Help menu item to user dropdown
+//          - Help appears between username header and Logout
+//          - Calls onShowHelp prop to trigger GameGuide in App.js
+//          - GameGuide centralized at App level, not page level
 // v0.2.9: Added user menu dropdown with logout functionality
 //         - Click username to show dropdown menu
 //         - Menu shows username header + Logout button
@@ -13,10 +17,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { LogOut } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 
-const version = 'v0.2.9';
+const version = 'v0.2.10';
 
-const NavBar = ({ onShowStats, onShowAchievements, onCloseOverlay, hasActiveOverlay }) => {
+const NavBar = ({ onShowStats, onShowAchievements, onShowHelp, onCloseOverlay, hasActiveOverlay }) => {
   const { currentState, userProfile, subscribeToUpdates, logout } = useGame();
   const [, forceUpdate] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -88,7 +93,16 @@ const NavBar = ({ onShowStats, onShowAchievements, onCloseOverlay, hasActiveOver
     }
   };
   
-  const toggleUserMenu = () => {
+    const handleHelp = () => {
+      console.log('[NAVBAR]', version, 'User clicked help');
+      setShowUserMenu(false);
+      
+      if (onShowHelp) {
+        onShowHelp();
+      }
+    };
+    
+    const toggleUserMenu = () => {
     setShowUserMenu(prev => !prev);
   };
   
@@ -181,6 +195,14 @@ const NavBar = ({ onShowStats, onShowAchievements, onCloseOverlay, hasActiveOver
                       <span>{userProfile.game_name || 'Guest'}</span>
                     </div>
                     
+                      <div
+                        className="action-menu__item"
+                        onClick={handleHelp}
+                      >
+                              <HelpCircle size={20} className="action-menu__emoji" />
+                        <span className="action-menu__emoji"></span>
+                        <span className="action-menu__label">Help</span>
+                      </div>
                     <div
                       className="action-menu__item"
                       onClick={handleLogout}

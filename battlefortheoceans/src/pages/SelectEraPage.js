@@ -1,5 +1,6 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.4: Moved GameGuide to App.js, removed setShowInfo and InfoButton
 // v0.5.3: Remove dead guest creation useEffect
 //         - Removed auto-guest-creation logic (LoginPage handles this)
 //         - Trust Player singleton is set by LoginPage before reaching this state
@@ -13,10 +14,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useGame } from '../context/GameContext';
 import { supabase } from '../utils/supabaseClient';
 import PurchasePage from './PurchasePage';
-import InfoButton from '../components/InfoButton';
 import GameGuide from '../components/GameGuide';
 
-const version = 'v0.5.3';
+const version = 'v0.5.4';
 
 const SelectEraPage = () => {
   const {
@@ -30,7 +30,6 @@ const SelectEraPage = () => {
   
   // Local UI state for browsing - not committed to game logic until button click
   const [selectedEra, setSelectedEra] = useState(null);
-  const [showInfo, setShowInfo] = useState(false);
   
   // Data fetching state
   const [eras, setEras] = useState([]);
@@ -294,14 +293,6 @@ const SelectEraPage = () => {
   return (
     <div className="container flex flex-column flex-center">
       <div className="page-with-info">
-        <InfoButton onClick={() => setShowInfo(true)} />
-        
-        {/* v0.5.2: GameGuide replaces InfoPanel with static content */}
-        <GameGuide
-          section="era"
-          manualOpen={showInfo}
-          onClose={() => setShowInfo(false)}
-        />
 
         <div className="content-pane content-pane--wide">
           <div className="card-header">

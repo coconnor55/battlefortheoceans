@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-// src/components/ProfileCreationDialog.js v0.1.5
-// Copyright(c) 2025, Clint H. O'Connor
-// v0.1.5: Add retry logic for auth.users timing issue
-//         - Wait for user to be committed to auth.users before creating profile
-//         - Retry up to 5 times with exponential backoff (1s, 2s, 3s...)
-//         - Prevents foreign key constraint violation from email confirmation flow
-=======
 // src/components/ProfileCreationDialog.js v0.1.7
 // Copyright(c) 2025, Clint H. O'Connor
 // v0.1.7: Create and return Player objects instead of profile objects
@@ -20,19 +12,13 @@
 //          - Shows read-only UI if user already has game_name
 // v0.1.5: (my version) Defensive check for existing profile
 // v0.1.5: (branch version) Retry logic for auth timing issue
->>>>>>> rollback-to-v0.5.5-plus-auth
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import { supabase } from '../utils/supabaseClient';
-<<<<<<< HEAD
-
-const version = 'v0.1.5';
-=======
 import HumanPlayer from '../classes/HumanPlayer';
 
 const version = 'v0.1.7';
->>>>>>> rollback-to-v0.5.5-plus-auth
 
 const ProfileCreationDialog = ({ userData, onComplete }) => {
   const { createUserProfile, getUserProfile } = useGame();
@@ -43,8 +29,6 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
   const [error, setError] = useState('');
   const [validationError, setValidationError] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
-<<<<<<< HEAD
-=======
 
   // Defensive check: Load existing profile on mount
   useEffect(() => {
@@ -69,7 +53,6 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
     
     checkExistingProfile();
   }, [userData.id, getUserProfile]);
->>>>>>> rollback-to-v0.5.5-plus-auth
 
   // Real-time validation
   const validateGameName = (name) => {
@@ -111,10 +94,6 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
   // Check if user exists in auth.users
   const checkUserExists = async (userId) => {
     try {
-<<<<<<< HEAD
-      // Query auth.users via admin API or check session
-=======
->>>>>>> rollback-to-v0.5.5-plus-auth
       const { data: { user } } = await supabase.auth.getUser();
       return user && user.id === userId;
     } catch (err) {
@@ -203,10 +182,6 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
       
       if (profile) {
         console.log(version, 'Profile creation completed successfully');
-<<<<<<< HEAD
-        setStatusMessage('Success!');
-        onComplete(profile);
-=======
         setStatusMessage('Success! Creating player...');
         
         // Create HumanPlayer with profile
@@ -222,7 +197,6 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
         
         // Return Player object
         onComplete(player);
->>>>>>> rollback-to-v0.5.5-plus-auth
       } else {
         setError('Failed to create profile. Please try again.');
         setStatusMessage('');

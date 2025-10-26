@@ -1,15 +1,8 @@
-<<<<<<< HEAD
-// src/App.js v0.3.5
-// Copyright(c) 2025, Clint H. O'Connor
-// v0.3.5: Added /email-confirmed route for email confirmation success page
-// v0.3.4: Fixed overlay scrolling - wrapped achievements/stats in modal-overlay
-// v0.3.3: Added StatsPage overlay integration
-// v0.3.2: Refactor to overlay pattern - achievements/stats as overlays, not game states
-=======
+
 // src/App.js
 // Copyright(c) 2025, Clint H. O'Connor
->>>>>>> rollback-to-v0.5.5-plus-auth
-
+// v0.4.2: moved GameGuide handling into App.js
+// v0.4.1: Added page-container wrapper for NavBar spacing
 /**
  * v0.4.0: Added inactivity tracking and auto-logout
  *         - Tracks user activity across entire application
@@ -38,15 +31,23 @@ import EmailConfirmedPage from './pages/EmailConfirmedPage';
 import AchievementsPage from './pages/AchievementsPage';
 import StatsPage from './pages/StatsPage';
 import InactivityWarning from './components/InactivityWarning';
+import GameGuide from './components/GameGuide';
 import './App.css';
 
 export const APP_VERSION = 'dev1.3';
 
-<<<<<<< HEAD
-const version = 'v0.3.5';
-=======
-const version = 'v0.4.0';
->>>>>>> rollback-to-v0.5.5-plus-auth
+const version = 'v0.4.1';
+
+// Map game state to help section
+const getHelpSection = (state) => {
+  const sectionMap = {
+    'era': 'era',
+    'opponent': 'opponent',
+    'placement': 'placement',
+    'play': 'battle'
+  };
+  return sectionMap[state] || 'era';
+};
 
 const SceneRenderer = () => {
   const { currentState, eraConfig, subscribeToUpdates, coreEngine } = useGame();
@@ -284,19 +285,22 @@ const SceneRenderer = () => {
       <NavBar
         onShowStats={() => setOverlayPage('stats')}
         onShowAchievements={() => setOverlayPage('achievements')}
+          onShowHelp={() => setOverlayPage('help')}
         onCloseOverlay={closeOverlay}
         hasActiveOverlay={overlayPage !== null}
       />
           
-      <div className="scene">
-        {currentState === 'launch' && <LaunchPage />}
-        {currentState === 'login' && <LoginPage />}
-        {currentState === 'era' && <SelectEraPage />}
-        {currentState === 'opponent' && <SelectOpponentPage />}
-        {currentState === 'placement' && <PlacementPage />}
-        {currentState === 'play' && <PlayingPage />}
-        {currentState === 'over' && <OverPage />}
-      </div>
+      <div className="page-container">
+          <div className="scene">
+            {currentState === 'launch' && <LaunchPage />}
+            {currentState === 'login' && <LoginPage />}
+            {currentState === 'era' && <SelectEraPage />}
+            {currentState === 'opponent' && <SelectOpponentPage />}
+            {currentState === 'placement' && <PlacementPage />}
+            {currentState === 'play' && <PlayingPage />}
+            {currentState === 'over' && <OverPage />}
+          </div>
+        </div>
       
       {/* Overlays wrapped in modal-overlay to prevent background scroll */}
       {overlayPage === 'achievements' && (
@@ -311,7 +315,15 @@ const SceneRenderer = () => {
         </div>
       )}
       
-      {/* Inactivity warning modal */}
+          {overlayPage === 'help' && (
+              <GameGuide
+                section={getHelpSection(currentState)}
+                manualOpen={true}
+                onClose={closeOverlay}
+              />
+          )}
+          
+          {/* Inactivity warning modal */}
       <InactivityWarning
         show={showInactivityWarning}
         remainingSeconds={remainingSeconds}

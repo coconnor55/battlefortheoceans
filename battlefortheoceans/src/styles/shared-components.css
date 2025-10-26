@@ -113,7 +113,7 @@
   background: var(--nav-bg, rgba(20, 40, 60, 0.95));
   backdrop-filter: blur(10px);
   border-bottom: 2px solid var(--primary);
-  z-index: 1000;
+  z-index: 100;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
@@ -145,6 +145,7 @@
 
 .nav-bar__user {
   display: flex;
+  position: relative;
   align-items: center;
   gap: 0.5rem;
 }
@@ -157,8 +158,8 @@
 }
 
 /* Add top padding to content to account for fixed nav */
-.App main {
-  padding-top: 60px;
+.page-container {
+    padding-top: 60px;
 }
 
 /* ============================================

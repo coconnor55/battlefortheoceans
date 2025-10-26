@@ -1,5 +1,6 @@
 // src/pages/SelectOpponentPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.10: Moved GameGuide to App.js, removed setShowInfo and InfoButton
 // v0.6.9: Manually restored lost page formatting
 // v0.6.8: Fixed userProfile access AND opponents property name
 //         - Line 33: Changed from coreEngine.userProfile to coreEngine.humanPlayer.userProfile
@@ -20,10 +21,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useGame } from '../context/GameContext';
-import InfoButton from '../components/InfoButton';
-import GameGuide from '../components/GameGuide';
 
-const version = 'v0.6.9';
+const version = 'v0.6.10';
 
 const SelectOpponentPage = () => {
   const {
@@ -298,13 +297,6 @@ const SelectOpponentPage = () => {
   return (
     <div className="container flex flex-column flex-center">
       <div className="page-with-info">
-          <InfoButton onClick={() => setShowInfo(true)} />
-          
-          <GameGuide
-            section="opponent"
-            manualOpen={showInfo}
-            onClose={() => setShowInfo(false)}
-          />
 
         <div className="content-pane content-pane--wide">
           {/* Header */}
