@@ -1,5 +1,6 @@
 // src/pages/SelectOpponentPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.9: Manually restored lost page formatting
 // v0.6.8: Fixed userProfile access AND opponents property name
 //         - Line 33: Changed from coreEngine.userProfile to coreEngine.humanPlayer.userProfile
 //         - Line 203: Changed selectedOpponents to opponents (matches CoreEngine expectation)
@@ -22,7 +23,7 @@ import { useGame } from '../context/GameContext';
 import InfoButton from '../components/InfoButton';
 import GameGuide from '../components/GameGuide';
 
-const version = 'v0.6.8';
+const version = 'v0.6.9';
 
 const SelectOpponentPage = () => {
   const {

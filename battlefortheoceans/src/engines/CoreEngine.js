@@ -1,5 +1,6 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.28: Removed ACHIEVEMENTS event (Claude error)
 // v0.6.27: Changed ERA to SELECTERA (Claude error)
 // v0.6.26: FIXED - Added back ship.place(), notifySubscribers() in registerShipPlacement
 // v0.6.25: FIXED - Added back missing transition() method
@@ -46,7 +47,7 @@ import AchievementService from '../services/AchievementService.js';
 
 import ConfigLoader from '../utils/ConfigLoader.js';
 
-const version = 'v0.6.27';
+const version = 'v0.6.28';
 
 /**
  * CoreEngine - Orchestrates game state machine and coordinates services
@@ -80,9 +81,7 @@ class CoreEngine {
       SELECTOPPONENT: Symbol('SELECTOPPONENT'),
       PLACEMENT: Symbol('PLACEMENT'),
       PLAY: Symbol('PLAY'),
-      OVER: Symbol('OVER'),
-      ERA: Symbol('ERA'),
-      ACHIEVEMENTS: Symbol('ACHIEVEMENTS')
+      OVER: Symbol('OVER')
     };
 
     // =================================================================
@@ -104,21 +103,18 @@ class CoreEngine {
       era: {
         on: {
           [this.events.SELECTOPPONENT]: 'opponent',
-          [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
       opponent: {
         on: {
           [this.events.PLACEMENT]: 'placement',
           [this.events.SELECTERA]: 'era',
-          [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
       placement: {
         on: {
           [this.events.PLAY]: 'play',
           [this.events.SELECTOPPONENT]: 'opponent',
-          [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
       play: {
@@ -132,18 +128,8 @@ class CoreEngine {
           [this.events.SELECTOPPONENT]: 'opponent',
           [this.events.PLACEMENT]: 'placement',
           [this.events.LAUNCH]: 'launch',
-          [this.events.ACHIEVEMENTS]: 'achievements'
         }
       },
-      achievements: {
-        on: {
-          [this.events.SELECTERA// v0.4.15: Changed ERA to SELECTERA (Claude error)
-]: 'era',
-          [this.events.SELECTOPPONENT]: 'opponent',
-          [this.events.PLACEMENT]: 'placement',
-          [this.events.LAUNCH]: 'launch'
-        }
-      }
     };
 
     // =================================================================
