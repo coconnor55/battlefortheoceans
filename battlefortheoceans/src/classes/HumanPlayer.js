@@ -3,13 +3,17 @@
 
 import Player from './Player.js';
 
-const version = "v0.1.0"
+const version = "v0.2.0"
+// v0.2.0: Fixed constructor to accept userProfile parameter
+//         - Now accepts: (id, name, playerType, difficulty, userProfile, sessionData)
+//         - Passes userProfile to parent Player constructor
+//         - Maintains backward compatibility with sessionData
 
 class HumanPlayer extends Player {
     // This is the person playing the game.  Each person has a player name and may use the autoplace capability the AIs use.
 
-  constructor(id, name, sessionData = {}) {
-    super(id, name, 'human');
+  constructor(id, name, playerType = 'human', difficulty = 1.0, userProfile = null, sessionData = {}) {
+    super(id, name, playerType, difficulty, userProfile);
     
     // Human-specific properties
     this.sessionId = sessionData.sessionId || null;

@@ -1,28 +1,20 @@
-// src/hooks/useGameState.js
+// src/hooks/useGameState.js v0.3.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.5: Compute placement progress inline from humanPlayer.fleet
+//          - Removed call to non-existent getPlacementProgress()
+//          - Calculate currentShipIndex, totalShips, currentShip, isPlacementComplete
+//          - Read directly from humanPlayer.fleet.ships
+// v0.3.4: Player Singleton Pattern implementation
+//          - Extract humanPlayer from CoreEngine's UIState
+//          - Return both humanPlayer (game logic) and userProfile (database)
+//          - Components use humanPlayer for validation, userProfile for display
+// v0.3.3: Added userProfile to returned state
 // v0.3.2: Munitions terminology rename (resources → munitions)
-//         - Renamed resources to munitions throughout
-//         - starShellsRemaining now reads from munitions.starShells
-//         - scatterShotRemaining now reads from munitions.scatterShot
-//         - Added fireMunition() wrapper for CoreEngine method
-//         - Kept handleStarShellFired for backward compatibility
-//         - Aligns with Game.js v0.8.8 and CoreEngine.js v0.6.10
-// v0.3.1: Exposed resources from CoreEngine and handleStarShellFired wrapper
-//         - Added resources (starShells, scatterShot) from uiState
-//         - Added starShellsRemaining convenience getter
-//         - Added handleStarShellFired() wrapper for CoreEngine method
-//         - PlayingPage can now read resources instead of maintaining local state
-// v0.3.0: Phase 4 Refactor - Updated for missedShots → dontShoot rename
-//         Reflects that dontShoot includes both water misses AND destroyed ship cells
-//         Updated log messages and comments for clarity
-// v0.2.5: Phase 3 Refactor - Fixed handleAttack() to use correct isValidAttack signature
-//         Removed getPlayerView() which referenced deprecated playerFleets/shipOwnership
-//         Integration with player-owned fleet, shipPlacements, and miss tracking
 
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = "v0.3.2";
+const version = "v0.3.5";
 
 const useGameState = () => {
   const {
@@ -33,7 +25,6 @@ const useGameState = () => {
     gameInstance,
     board,
     getUIState,
-    getPlacementProgress,
     fireMunition: coreFireMunition,
     handleStarShellFired: coreHandleStarShellFired
   } = useGame();
@@ -78,7 +69,34 @@ const useGameState = () => {
 
   // Get computed state directly from game logic
   const uiState = getUIState();
-  const placementProgress = getPlacementProgress();
+
+  // v0.3.5: Compute placement progress inline from humanPlayer.fleet
+  const placementProgress = (() => {
+    if (!humanPlayer || !humanPlayer.fleet) {
+      return {
+        current: 0,
+        total: 0,
+        isComplete: false,
+        currentShip: null
+      };
+    }
+    
+    const fleet = humanPlayer.fleet;
+    const ships = fleet.ships || [];
+    const totalShips = ships.length;
+    const placedShips = ships.filter(ship => ship.isPlaced);
+    const placedCount = placedShips.length;
+    
+    // Find first unplaced ship
+    const currentShip = ships.find(ship => !ship.isPlaced) || null;
+    
+    return {
+      current: placedCount,
+      total: totalShips,
+      isComplete: placedCount === totalShips && totalShips > 0,
+      currentShip: currentShip
+    };
+  })();
 
   // Handle player attack using Game's unified turn management
   const handleAttack = useCallback((row, col) => {
@@ -187,6 +205,10 @@ const useGameState = () => {
   const winner = uiState.winner;
   const playerStats = uiState.playerStats;
   
+  // v0.3.4: Extract BOTH player objects from UIState
+  const userProfile = uiState.userProfile;      // Database object (display, services)
+  const humanPlayerFromState = uiState.humanPlayer;  // Player instance (game logic)
+  
   // v0.3.2: Munitions from CoreEngine (renamed from resources)
   const munitions = uiState.munitions || { starShells: 0, scatterShot: 0 };
 
@@ -199,6 +221,8 @@ const useGameState = () => {
   console.log('[HOOK] useGameState render', {
     hasGameInstance: !!gameInstance,
     hasBoard: !!board,
+    hasUserProfile: !!userProfile,
+    hasHumanPlayer: !!humanPlayerFromState,
     gamePhase: gamePhase,
     isPlayerTurn: isPlayerTurn,
     isGameActive: isGameActive,
@@ -206,7 +230,8 @@ const useGameState = () => {
     hasMessages: !!gameInstance?.message,
     battleMessage: battleMessage.substring(0, 50) + '...',
     uiMessage: uiMessage.substring(0, 50) + '...',
-    munitions: munitions
+    munitions: munitions,
+    placementProgress: placementProgress
   });
 
   return {
@@ -219,6 +244,10 @@ const useGameState = () => {
     gameMode: selectedGameMode,
     userId: humanPlayer?.id,
     
+    // v0.3.4: BOTH player objects for different purposes
+    userProfile,        // Database object - for user display, services, leaderboards
+    humanPlayer: humanPlayerFromState,  // Player instance - for game logic, validation
+    
     // Message state - from Message system with appropriate fallbacks
     battleMessage,           // Battle console message (hits, misses, sunk ships)
     uiMessage,              // UI console message (turn status, game state)
@@ -230,7 +259,7 @@ const useGameState = () => {
     playerShots: playerStats.player?.shots || 0,
     opponentShots: playerStats.opponent?.shots || 0,
     
-    // Placement state - computed from game logic
+    // v0.3.5: Placement state - computed inline from humanPlayer.fleet
     currentShipIndex: placementProgress.current,
     totalShips: placementProgress.total,
     currentShip: placementProgress.currentShip,

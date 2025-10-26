@@ -6,8 +6,12 @@ import Board from './Board.js';
 import HumanPlayer from './HumanPlayer.js';
 import AiPlayer from './AiPlayer.js';
 
-const version = "v0.2.3";
+const version = "v0.2.4";
 /**
+ * v0.2.4: BUGFIX - Removed .catch() from dispatch call
+ *         - CoreEngine.dispatch() is now synchronous (returns undefined, not Promise)
+ *         - Was causing "can't access property 'catch'" error on game over
+ *         - Changed line 127: removed .catch(error => {...})
  * v0.2.3: Munitions terminology rename (resources → munitions)
  * - Changed this.coreEngine.resources → this.coreEngine.munitions
  * - Changed eraConfig.resources → eraConfig.munitions
@@ -124,9 +128,7 @@ class GameLifecycleManager {
     
     this.game.setGameEndCallback(() => {
       this.log('Game end callback triggered - dispatching OVER event');
-      this.coreEngine.dispatch(this.coreEngine.events.OVER).catch(error => {
-        console.error(`${version} Failed to dispatch OVER event:`, error);
-      });
+      this.coreEngine.dispatch(this.coreEngine.events.OVER);
     });
     
     // Initialize alliances

@@ -17,7 +17,7 @@ const control = {
   NETWORK: false,
   STATS: false,
   PAYMENT: false,
-  OPPONENT: false,
+  OPPONENT: true,
   OVERLAY: false,
   TARGETING: false,
   GAME: false,
@@ -26,7 +26,13 @@ const control = {
   MESSAGE: true,
   FIRE: false,
     VIDEO: true,
+<<<<<<< HEAD
     INDEX: true,
+=======
+    LAUNCH: true,
+    LOGIN: true,
+    CORE: true,
+>>>>>>> rollback-to-v0.5.5-plus-auth
   DEBUG: true
 };
 

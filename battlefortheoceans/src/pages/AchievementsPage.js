@@ -1,5 +1,6 @@
 // src/pages/AchievementsPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.2: Changed ERA to SELECTERA (Claude error)
 // v0.1.1: Added badge click handler with InfoPanel details
 //         - Click any achievement card to see full details
 //         - InfoPanel shows description, tooltip, requirements, progress
@@ -11,7 +12,7 @@ import AchievementService from '../services/AchievementService';
 import InfoPanel from '../components/InfoPanel';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.1.1';
+const version = 'v0.1.2';
 
 const AchievementsPage = ({ onClose }) => {
   const { userProfile, dispatch, events } = useGame();
@@ -427,7 +428,7 @@ const AchievementsPage = ({ onClose }) => {
             <p>Play games to start earning achievements!</p>
             <button
               className="btn btn--primary mt-md"
-              onClick={() => dispatch(events.ERA)}
+              onClick={() => dispatch(events.SELECTERA)}
             >
               Play a Game
             </button>

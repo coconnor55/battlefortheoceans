@@ -1,5 +1,6 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
+<<<<<<< HEAD
 // v0.4.8: Lazy-load services to prevent supabase initialization
 //         - Services created on first access, not at module load
 //         - Each service imports supabase, so delay their creation
@@ -11,27 +12,22 @@
 //         - Events getter now returns imported events, not coreEngine.events
 //         - Prevents CoreEngine initialization when LaunchPage accesses events
 //         - Fixes Sign Up URL hash consumption issue
+=======
+// v0.4.7: Expose coreEngine directly for Player singleton pattern
+//         - Added `coreEngine` to context value
+//         - Components can now access `coreEngine.player` and `coreEngine.userProfile`
+//         - Removes need for wrapper getters (humanPlayer, userProfile)
+//         - Aligns with Player singleton documentation
+// v0.4.6: Use UserProfileService singleton directly
+//         - UserProfileService now exports singleton instance (v0.1.3)
+//         - Remove "new UserProfileService()" - use imported instance directly
+//         - Same pattern for LeaderboardService and RightsService
+//         - Fixes "UserProfileService is not a constructor" error
+>>>>>>> rollback-to-v0.5.5-plus-auth
 // v0.4.5: Munitions terminology rename (resources → munitions)
 //         - Added fireMunition(munitionType, row, col) method
 //         - Kept handleStarShellFired for backward compatibility
 //         - Aligns with Game.js v0.8.8 and CoreEngine.js v0.6.10
-// v0.4.4: Updated to call services directly instead of CoreEngine wrappers
-//         - Import UserProfileService, LeaderboardService, RightsService, configLoader
-//         - Call services directly for methods removed from CoreEngine v0.6.8
-//         - Keep calls to CoreEngine for methods with business logic
-// v0.4.3: Exposed logout() from CoreEngine
-//         - User can logout from anywhere via GameContext
-//         - NavBar uses this to provide logout dropdown menu
-// v0.4.2: Fixed missing handleStarShellFired after revert
-//         - Revert attempted to go back to v0.4.1 but used OLD v0.4.1
-//         - This version correctly includes handleStarShellFired from v0.6.2 CoreEngine
-//         - Lesson: Always increment version on every change
-// v0.4.1: Exposed handleStarShellFired from CoreEngine
-//         - Star shell logic now lives in CoreEngine (game logic layer)
-//         - Context provides wrapper for UI access via useGameState hook
-// v0.4.0: Multi-fleet combat support
-//         - Exposed selectedOpponents[] array
-//         - Backward compatible selectedOpponent (first opponent)
 
 import React, { createContext, useContext } from 'react';
 import CoreEngine from '../engines/CoreEngine';
@@ -41,7 +37,11 @@ import RightsService from '../services/RightsService';
 import configLoader from '../utils/ConfigLoader';
 import { events } from '../constants/GameEvents';
 
+<<<<<<< HEAD
 const version = "v0.4.8";
+=======
+const version = "v0.4.7";
+>>>>>>> rollback-to-v0.5.5-plus-auth
 
 const GameState = createContext();
 
@@ -51,6 +51,7 @@ let userProfileService = null;
 let leaderboardService = null;
 let rightsService = null;
 
+<<<<<<< HEAD
 function getCoreEngine() {
   if (!coreEngine) {
     console.log(`[GameContext ${version}] Lazy-initializing CoreEngine`);
@@ -82,12 +83,19 @@ function getRightsService() {
   }
   return rightsService;
 }
+=======
+// Services are already singletons - use imported instances directly
+// No need to instantiate with "new" - they export instances, not classes
+>>>>>>> rollback-to-v0.5.5-plus-auth
 
 export const GameProvider = ({ children }) => {
   console.log(`[GameContext ${version}] Provider initialized (all lazy)`);
   
   return (
     <GameState.Provider value={{
+
+      // v0.4.7: Expose CoreEngine directly for Player singleton pattern
+      coreEngine: coreEngine,
 
       // State machine
       get currentState() { return getCoreEngine().currentState; },
@@ -101,6 +109,7 @@ export const GameProvider = ({ children }) => {
       get updateCounter() { return getCoreEngine().updateCounter; },
       
       // Game state accessors
+<<<<<<< HEAD
       get eraConfig() { return getCoreEngine().eraConfig; },
       get selectedOpponents() { return getCoreEngine().selectedOpponents; },
       get selectedOpponent() { return getCoreEngine().selectedOpponents?.[0] || null; },
@@ -114,6 +123,27 @@ export const GameProvider = ({ children }) => {
       // Computed state
       getUIState: () => getCoreEngine().getUIState(),
       getPlacementProgress: () => getCoreEngine().getPlacementProgress(),
+=======
+      get eraConfig() { return coreEngine.eraConfig; },
+      
+      // v0.4.0: Multi-fleet support
+      get selectedOpponents() { return coreEngine.selectedOpponents; },
+      get selectedOpponent() { return coreEngine.selectedOpponents?.[0] || null; }, // Backward compatibility
+      
+      get selectedGameMode() { return coreEngine.selectedGameMode; },
+      get selectedAlliance() { return coreEngine.selectedAlliance; },
+      
+      // v0.4.7: Keep for backward compatibility, but prefer coreEngine.player/profile
+      get humanPlayer() { return coreEngine.humanPlayer; },
+      get userProfile() { return coreEngine.userProfile; },
+      
+      get gameInstance() { return coreEngine.gameInstance; },
+      get board() { return coreEngine.board; },
+      
+      // Computed state
+      getUIState: () => coreEngine.getUIState(),
+//      getPlacementProgress: () => coreEngine.getPlacementProgress(),
+>>>>>>> rollback-to-v0.5.5-plus-auth
       
       // Game actions
       registerShipPlacement: (ship, shipCells, orientation, playerId) =>
@@ -122,6 +152,7 @@ export const GameProvider = ({ children }) => {
       fireMunition: (munitionType, row, col) => getCoreEngine().fireMunition(munitionType, row, col),
       handleStarShellFired: (row, col) => getCoreEngine().handleStarShellFired(row, col),
       
+<<<<<<< HEAD
       // User profile functions (lazy-loaded services)
       getUserProfile: (userId) => getUserProfileService().getUserProfile(userId),
       createUserProfile: (userId, gameName) => getCoreEngine().createUserProfile(userId, gameName),
@@ -129,14 +160,33 @@ export const GameProvider = ({ children }) => {
       getLeaderboard: (limit) => getLeaderboardService().getLeaderboard(limit),
       getRecentChampions: (limit) => getLeaderboardService().getRecentChampions(limit),
       getPlayerGameName: (playerId) => getCoreEngine().getPlayerGameName(playerId),
+=======
+      // User profile functions
+      // v0.4.6: Use service singletons directly
+      getUserProfile: (userId) => UserProfileService.getUserProfile(userId),
+      createUserProfile: (userId, gameName) => coreEngine.createUserProfile(userId, gameName), // Keep - has business logic
+      updateGameStats: (gameResults) => coreEngine.updateGameStats(gameResults), // Keep - has business logic
+      getLeaderboard: (limit) => LeaderboardService.getLeaderboard(limit),
+      getRecentChampions: (limit) => LeaderboardService.getRecentChampions(limit),
+      getPlayerGameName: (playerId) => coreEngine.getPlayerGameName(playerId), // Keep - still in CoreEngine
+>>>>>>> rollback-to-v0.5.5-plus-auth
       
       logout: () => getCoreEngine().logout(),
       
+<<<<<<< HEAD
       // Rights functions (lazy-loaded service)
       hasEraAccess: (userId, eraId) => getCoreEngine().hasEraAccess(userId, eraId),
       grantEraAccess: (userId, eraId, paymentData) => getRightsService().grantEraAccess(userId, eraId, paymentData),
       redeemVoucher: (userId, voucherCode) => getRightsService().redeemVoucher(userId, voucherCode),
       getUserRights: (userId) => getRightsService().getUserRights(userId),
+=======
+      // Rights functions
+      // v0.4.6: Use service singletons directly
+      hasEraAccess: (userId, eraId) => coreEngine.hasEraAccess(userId, eraId), // Keep - has business logic
+      grantEraAccess: (userId, eraId, paymentData) => RightsService.grantEraAccess(userId, eraId, paymentData),
+      redeemVoucher: (userId, voucherCode) => RightsService.redeemVoucher(userId, voucherCode),
+      getUserRights: (userId) => RightsService.getUserRights(userId),
+>>>>>>> rollback-to-v0.5.5-plus-auth
       
       // Era functions (configLoader doesn't import supabase)
       getAllEras: () => configLoader.listEras(),

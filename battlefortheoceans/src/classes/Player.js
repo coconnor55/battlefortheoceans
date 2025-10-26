@@ -1,7 +1,12 @@
 // src/classes/Player.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.9.3";
+const version = "v0.9.4";
+// v0.9.4: Added userProfile parameter to constructor
+//         - Player now holds reference to lifetime statistics (userProfile)
+//         - Per-game stats (hits, misses, etc.) still reset each game
+//         - userProfile contains: total_games, total_wins, total_score, best_accuracy, etc.
+//         - Simplifies architecture: Player is self-contained with both per-game and lifetime stats
 // v0.9.3: Fixed autoPlaceShips to use all four orientations (0/90/180/270)
 //         - Was only using 0° and 90°
 //         - Now randomly selects from all four directions
@@ -32,7 +37,7 @@ const version = "v0.9.3";
 class Player {
     // A player in the game can be human or AI, with a game handle (unique) and a player id. Players own fleets.  Initially, the game is a human vs. AI.  [FUTURE] Two people will be able to play the game against each other, but this requires shared game play through the database, which has not been added.
     
-  constructor(id, name, playerType = 'human', difficulty = 1.0) {
+  constructor(id, name, playerType = 'human', difficulty = 1.0, userProfile = null) {
     // Core identity
     this.id = id;
     this.name = name;
@@ -42,6 +47,13 @@ class Player {
     // Score multiplier for beating this player
     // 0.8 = Easy (less score), 1.0 = Medium (baseline), 1.2-1.5 = Hard (bonus score)
     this.difficulty = difficulty;
+    
+    // USER PROFILE (v0.9.4)
+    // Lifetime statistics for this player (from database)
+    // Contains: id, game_name, total_games, total_wins, total_score, best_accuracy, total_ships_sunk, total_damage
+    // Only used for human players (null for AI players)
+    // Per-game stats (hits, misses, etc.) are separate and reset each game
+    this.userProfile = userProfile;
     
     // BOARD REFERENCE (v0.6.0 - Phase 1 Refactor)
     // Reference to shared Board instance for coordinate validation
@@ -54,6 +66,7 @@ class Player {
     this.fleet = null;
     
     // STATISTICS (initialized here, updated by Game.js)
+    // These are PER-GAME stats that reset each game
     this.hits = 0; // successful shots that hit ships
     this.misses = 0; // shots that missed
     this.sunk = 0; // ships sunk by this player
@@ -75,7 +88,7 @@ class Player {
     // Set by Game.receiveAttack() when result is 'miss' or 'destroyed'
     this.dontShoot = new Set(); // "row,col" of cells this player cannot target again
     
-    console.log(`[PLAYER] ${name} created (${playerType}, difficulty: ${difficulty})`);
+    console.log(`[PLAYER] ${name} created (${playerType}, difficulty: ${difficulty})${userProfile ? ' with profile' : ''}`);
   }
 
   /**
@@ -385,9 +398,11 @@ class Player {
 
   /**
    * Reset player statistics for new game
+   * v0.9.4: Does NOT reset userProfile (lifetime stats preserved)
    * v0.9.0: Also clears dontShoot Set
    */
   reset() {
+    // Reset per-game stats
     this.hits = 0;
     this.misses = 0;
     this.sunk = 0;
@@ -395,7 +410,9 @@ class Player {
     this.score = 0;
     this.shipPlacements.clear();
     this.dontShoot.clear();
-    // Note: fleet and board references are NOT cleared - they're set by Game
+    // Note: fleet, board, and userProfile references are NOT cleared
+    // - fleet and board are set by Game
+    // - userProfile contains lifetime stats and should persist
     console.log(`[PLAYER] ${this.name} reset for new game`);
   }
 

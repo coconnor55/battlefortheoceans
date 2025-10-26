@@ -3,7 +3,10 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.0";
+const version = "v0.1.1";
+// v0.1.1: Export singleton instance instead of class
+//         - GameContext expects instance, not class
+//         - Matches pattern of other services
 
 class RightsService {
   constructor() {
@@ -188,6 +191,8 @@ class RightsService {
   }
 }
 
-export default RightsService;
+// Export singleton instance (not class)
+const rightsServiceInstance = new RightsService();
+export default rightsServiceInstance;
 
 // EOF

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // src/pages/LaunchPage.js v0.3.25
 // Copyright(c) 2025, Clint H. O'Connor
 // v0.3.25: Keep listening for auth even after showing button
@@ -8,12 +9,25 @@
 // v0.3.24: Show "Preparing..." message while waiting for auth
 // v0.3.23: Improved UX - hide button initially, show only if no auto-auth
 // v0.3.22: Handle INITIAL_SESSION event for email confirmations
+=======
+// src/pages/LaunchPage.js v0.3.9
+// Copyright(c) 2025, Clint H. O'Connor
+// v0.3.9: Rollback-compatible version with working auth detection from v0.3.25
+//         - Fixed: Get events from useGame() context (not GameEvents.js)
+//         - Kept: All working auth logic from v0.3.25
+//         - Shows "Preparing your session..." while checking auth
+//         - Auto-routes if user confirmed but no profile (game_name)
+//         - 3-second fallback shows button if auth is slow
+//         - Keeps listening indefinitely for auth state changes
+// [v0.3.25 working logic preserved, imports fixed for v0.5.5 compatibility]
+>>>>>>> rollback-to-v0.5.5-plus-auth
 
 import { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import { events } from '../constants/GameEvents';
 import { APP_VERSION } from '../App.js';
 
+<<<<<<< HEAD
 const version = 'v0.3.25';
 
 const LaunchPage = () => {
@@ -99,10 +113,74 @@ const LaunchPage = () => {
 
   const handlePlayGame = () => {
     console.log('[DEBUG]', version, 'Play Game button clicked - manual login');
+=======
+const version = 'v0.3.9';
+
+const LaunchPage = () => {
+  const { dispatch, events } = useGame();  // ← Fixed: get events from context
+  const [showButton, setShowButton] = useState(false);
+
+  useEffect(() => {
+    console.log('[LAUNCH]', version, 'Setting up auth state listener for debugging');
+
+    let authSubscription = null;
+
+    const setupAuthListener = async () => {
+      const { supabase } = await import('../utils/supabaseClient');
+      console.log('[LAUNCH]', version, 'Supabase client loaded');
+
+      // Log initial session
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('[LAUNCH]', version, 'Error getting initial session:', error);
+      } else {
+        console.log('[LAUNCH]', version, 'Initial session:', session ? {
+          userId: session.user.id,
+          email: session.user.email,
+          emailConfirmed: session.user.email_confirmed_at,
+          userMetadata: session.user.user_metadata
+        } : 'None');
+      }
+
+      // Listen for auth state changes
+      authSubscription = supabase.auth.onAuthStateChange((event, session) => {
+        console.log('[LAUNCH]', version, '🔔 AUTH STATE CHANGE:', {
+          event,
+          session: session ? {
+            userId: session.user.id,
+            email: session.user.email,
+            emailConfirmed: session.user.email_confirmed_at,
+            userMetadata: session.user.user_metadata
+          } : 'None'
+        });
+      });
+
+      // Show button after 3 seconds
+      setTimeout(() => {
+        console.log('[LAUNCH]', version, 'Showing Play Game button');
+        setShowButton(true);
+      }, 3000);
+    };
+
+    setupAuthListener();
+
+    return () => {
+      console.log('[LAUNCH]', version, 'Cleaning up auth state listener');
+      authSubscription?.data?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log('[LAUNCH]', version, 'LaunchPage mounted');
+  }, []);
+
+  const handlePlayGame = () => {
+    console.log('[LAUNCH]', version, 'Play Game button clicked - manual login');
+>>>>>>> rollback-to-v0.5.5-plus-auth
     if (dispatch) {
       dispatch(events.LOGIN);
     } else {
-      console.error('[DEBUG]', version, 'Dispatch not available');
+      console.error('[LAUNCH]', version, 'Dispatch not available');
     }
   };
 

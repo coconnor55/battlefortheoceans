@@ -1,5 +1,6 @@
 // src/pages/OverPage.js v0.5.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.6: Changed ERA to SELECTERA (Claude error)
 // v0.5.5: Fixed VideoPopup props to match component interface
 //         - Changed videoData={videoData} to videoSrc={videoData.url}
 //         - Changed onClose={handleVideoClose} to onComplete={handleVideoClose}
@@ -34,7 +35,7 @@ import AchievementService from '../services/AchievementService';
 import configLoader from '../utils/ConfigLoader';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.5.5';
+const version = 'v0.5.6';
 const SESSION_KEY = 'battleForOceans_gameResults';
 
 const OverPage = () => {
@@ -111,7 +112,7 @@ const OverPage = () => {
         setGameResults(JSON.parse(saved));
       } else {
         console.log(version, 'No game results available - redirecting to era selection');
-        dispatch(events.ERA);
+        dispatch(events.SELECTERA);
       }
     }
   }, [gameInstance, eraConfig, selectedOpponent, humanPlayer, userProfile, dispatch, events]);
@@ -465,7 +466,7 @@ const OverPage = () => {
             Play Again
           </button>
           <button
-            className="btn btn--secondary btn--lg"
+            className="btn btn--primary btn--lg"
             onClick={handleChangeEra}
             title="Select a different era"
           >
