@@ -85,13 +85,25 @@
    ============================================ */
 
 /* Info Panel - Right sidebar overlay */
+
+.achievement-guide-sticky {
+  position: sticky;
+  top: 1rem;
+  z-index: 10;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
 .info-panel-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  min-height: 200%;
+  background: rgba(0, 0, 0, 0.2);
   z-index: 1000;
   animation: fadeIn 0.2s ease-in-out;
 }

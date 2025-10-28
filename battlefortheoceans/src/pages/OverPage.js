@@ -1,5 +1,10 @@
 // src/pages/OverPage.js v0.5.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.8: Removed unused import GameStatsService
+// v0.5.7: Added inline achievement display after battle duration (belt and braces)
+//         - Shows newly unlocked achievements in results section
+//         - Reuses achievement styling patterns
+//         - Added navigation message to stats/achievements
 // v0.5.6: Changed ERA to SELECTERA (Claude error)
 // v0.5.5: Fixed VideoPopup props to match component interface
 //         - Changed videoData={videoData} to videoSrc={videoData.url}
@@ -30,12 +35,11 @@ import { useGame } from '../context/GameContext';
 import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
 import VideoPopup from '../components/VideoPopup';
-import GameStatsService from '../services/GameStatsService';
 import AchievementService from '../services/AchievementService';
 import configLoader from '../utils/ConfigLoader';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.5.6';
+const version = 'v0.5.8';
 const SESSION_KEY = 'battleForOceans_gameResults';
 
 const OverPage = () => {
@@ -62,6 +66,10 @@ const OverPage = () => {
   const [newAchievements, setNewAchievements] = useState([]);
   const [loadingAchievements, setLoadingAchievements] = useState(false);
   const [showAchievementModal, setShowAchievementModal] = useState(false);
+ 
+    // InfoPanel state
+    const [showInfo, setShowInfo] = useState(false);
+    const [selectedAchievement, setSelectedAchievement] = useState(null);
 
   // State for achievement video
   const [videoData, setVideoData] = useState(null);
@@ -125,7 +133,7 @@ const OverPage = () => {
       }
 
       // TEMPORARY: Mock achievements for testing
-      const ENABLE_MOCK_ACHIEVEMENTS = true;
+      const ENABLE_MOCK_ACHIEVEMENTS = false;
       
       if (ENABLE_MOCK_ACHIEVEMENTS) {
         console.log(version, 'Loading mock achievements for testing');
@@ -286,7 +294,14 @@ const OverPage = () => {
     }
   };
 
-  const handleAchievementModalClose = () => {
+    // Handle achievement card click
+    const handleAchievementClick = (achievement) => {
+      console.log(version, 'Achievement clicked:', achievement.name);
+      setSelectedAchievement(achievement);
+      setShowInfo(true);
+    };
+
+    const handleAchievementModalClose = () => {
     console.log(version, 'Achievement modal closed');
     setShowAchievementModal(false);
   };
@@ -445,6 +460,48 @@ const OverPage = () => {
                   <span>Battle Duration: {Math.floor(gameStats.duration / 60)} minutes</span>
                 </div>
               )}
+
+              {/* NEW v0.5.7: Inline Achievement Display (Belt and Braces) */}
+              {newAchievements.length > 0 && !isGuest && (
+                <div className="achievements-section">
+                  <h4 className="achievements-title">
+                    🏆 New Achievements Unlocked!
+                  </h4>
+                  <div className="achievements-grid">
+                    {newAchievements.map((achievement) => {
+                      const Icon = getLucideIcon(achievement.badge_icon);
+                      return (
+                        <div
+                          key={achievement.id}
+                          className={`achievement-card achievement-card--${achievement.tier} achievement-card--clickable`}
+                              onClick={() => handleAchievementClick(achievement)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyPress={(e) => e.key === 'Enter' && handleAchievementClick(achievement)}
+                        >
+                          <div className="achievement-card__icon">
+                            <Icon size={48} />
+                          </div>
+                              <div className="achievement-card__text">
+                                <div className="achievement-card__name">{achievement.name}</div>
+                              <div className="achievement-card__description">
+                                {achievement.description}
+                              </div>
+                                <div className="achievement-card__points">
+                                  <span className={`badge ${getTierBadgeClass(achievement.tier)}`}>
+                                    +{achievement.points} pts
+                                  </span>
+                                </div>
+                              </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-secondary text-center mb-md">
+                    <br />Check your stats and achievements in the menu bar above!
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -525,6 +582,8 @@ const OverPage = () => {
           </div>
         </div>
 
+         <div className="divider"></div>
+
         {/* Achievement Video - Shows before modal */}
         {showVideo && videoData && (
           <VideoPopup
@@ -535,34 +594,33 @@ const OverPage = () => {
 
         {/* Achievement Modal - Shows after video */}
         {showAchievementModal && newAchievements.length > 0 && !isGuest && (
-          <div className="modal-overlay">
-            <div className="modal-content modal-content--achievement">
-              <div className="modal-header">
-                <h2 className="modal-title">🎉 Achievements Unlocked!</h2>
+          <div >
+            <div className="achievements-section">
+              <div >
+                <h2 className="achievements-title">🎉 Achievements Unlocked!</h2>
               </div>
               
-              <div className="modal-body">
-                <div className="achievements-grid achievements-grid--modal">
+              <div >
+                <div className="achievement-grid achievement-grid--compact">
                   {newAchievements.map((achievement, index) => {
                     const Icon = getLucideIcon(achievement.badge_icon);
                     return (
                       <div
                         key={achievement.id}
-                        className={`achievement-card achievement-card--${achievement.tier} achievement-card--modal`}
-                        style={{ animationDelay: `${index * 0.1}s` }}
-                      >
+                        className={`achievement-card achievement-card--${achievement.tier} achievement-card--clickable`}
+                          >
                         <div className="achievement-card__icon achievement-card__icon--large">
-                          <Icon size={64} />
+                          <Icon size={48} />
                         </div>
                         <div className="achievement-card__text">
-                          <div className="achievement-card__name achievement-card__name--large">
+                          <div className="achievement-card__name">
                             {achievement.name}
                           </div>
                           <div className="achievement-card__description">
                             {achievement.description}
                           </div>
                           <div className="achievement-card__points">
-                            <span className={`badge badge--lg ${getTierBadgeClass(achievement.tier)}`}>
+                            <span className={`badge ${getTierBadgeClass(achievement.tier)}`}>
                               +{achievement.points} Points
                             </span>
                           </div>

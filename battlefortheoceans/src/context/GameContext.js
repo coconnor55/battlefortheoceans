@@ -1,5 +1,14 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.10: Use singleton RightsService instance
+//         - Changed import from RightsService (class) to rightsService (instance)
+//         - RightsService already exports singleton per v0.1.2
+//         - All services now use consistent singleton pattern
+// v0.4.9: Use singleton LeaderboardService instance
+//         - Changed import from LeaderboardService (class) to leaderboardService (instance)
+//         - LeaderboardService now exports singleton per v0.1.6
+//         - Matches pattern already used for other services
+// v0.4.8: Added disableGameGuide context value
 // v0.4.7: Expose coreEngine directly for Player singleton pattern
 //         - Added `coreEngine` to context value
 //         - Components can now access `coreEngine.player` and `coreEngine.userProfile`
@@ -18,11 +27,11 @@
 import React, { createContext, useContext } from 'react';
 import CoreEngine from '../engines/CoreEngine';
 import UserProfileService from '../services/UserProfileService';
-import LeaderboardService from '../services/LeaderboardService';
-import RightsService from '../services/RightsService';
+import leaderboardService from '../services/LeaderboardService';
+import rightsService from '../services/RightsService';
 import configLoader from '../utils/ConfigLoader';
 
-const version = "v0.4.7";
+const version = "v0.4.10";
 
 const GameState = createContext();
 
@@ -76,6 +85,9 @@ export const GameProvider = ({ children }) => {
       // Game actions
       registerShipPlacement: (ship, shipCells, orientation, playerId) =>
         coreEngine.registerShipPlacement(ship, shipCells, orientation, playerId),
+        
+        // Game Guide preferences
+        disableGameGuide: (userId) => UserProfileService.disableGameGuide(userId),
       
       // v0.4.5: Munitions actions
       fireMunition: (munitionType, row, col) => coreEngine.fireMunition(munitionType, row, col),
@@ -86,8 +98,8 @@ export const GameProvider = ({ children }) => {
       getUserProfile: (userId) => UserProfileService.getUserProfile(userId),
       createUserProfile: (userId, gameName) => coreEngine.createUserProfile(userId, gameName), // Keep - has business logic
       updateGameStats: (gameResults) => coreEngine.updateGameStats(gameResults), // Keep - has business logic
-      getLeaderboard: (limit) => LeaderboardService.getLeaderboard(limit),
-      getRecentChampions: (limit) => LeaderboardService.getRecentChampions(limit),
+      getLeaderboard: (limit) => leaderboardService.getLeaderboard(limit),
+      getRecentChampions: (limit) => leaderboardService.getRecentChampions(limit),
       getPlayerGameName: (playerId) => coreEngine.getPlayerGameName(playerId), // Keep - still in CoreEngine
       
       // v0.4.3: Logout function
@@ -96,9 +108,9 @@ export const GameProvider = ({ children }) => {
       // Rights functions
       // v0.4.6: Use service singletons directly
       hasEraAccess: (userId, eraId) => coreEngine.hasEraAccess(userId, eraId), // Keep - has business logic
-      grantEraAccess: (userId, eraId, paymentData) => RightsService.grantEraAccess(userId, eraId, paymentData),
-      redeemVoucher: (userId, voucherCode) => RightsService.redeemVoucher(userId, voucherCode),
-      getUserRights: (userId) => RightsService.getUserRights(userId),
+      grantEraAccess: (userId, eraId, paymentData) => rightsService.grantEraAccess(userId, eraId, paymentData),
+      redeemVoucher: (userId, voucherCode) => rightsService.redeemVoucher(userId, voucherCode),
+      getUserRights: (userId) => rightsService.getUserRights(userId),
       
       // Era functions
       // v0.4.4: Call configLoader directly (not through CoreEngine)

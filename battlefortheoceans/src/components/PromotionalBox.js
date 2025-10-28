@@ -1,17 +1,21 @@
 // src/components/PromotionalBox.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.1: Use singleton StripeService instance
+//         - Changed import from StripeService (class) to stripeService (instance)
+//         - Removed line 14: const stripeService = new StripeService()
+//         - StripeService now exports singleton per v0.1.1
+// v0.2.0: Previous version
 
 import React, { useState, useEffect } from 'react';
-import StripeService from '../services/StripeService';
+import stripeService from '../services/StripeService';
 
-const version = 'v0.2.0';
+const version = 'v0.2.1';
 
 const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) => {
   const [promotionalEra, setPromotionalEra] = useState(null);
   const [priceInfo, setPriceInfo] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const stripeService = new StripeService();
   const gameCDN = process.env.REACT_APP_GAME_CDN || '';
 
   useEffect(() => {

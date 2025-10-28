@@ -1,5 +1,13 @@
 // src/hooks/useAutoPlay.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.2: Fixed valid target detection to check canShootAt()
+//         - fireRandomShot now checks BOTH isValidAttack() AND canShootAt()
+//         - Prevents AutoPlay from firing at already-shot cells
+//         - Fixes AutoPlay stopping when it tries to fire at same cell twice
+// v0.1.1: Added detailed debug logging to diagnose timer stopping
+//         - Logs every useEffect trigger with dependency values
+//         - Logs timer creation and cleanup
+//         - Logs why timer doesn't restart
 // v0.1.0: Initial autoplay hook
 //         - Extracts autoplay logic from PlayingPage
 //         - Testing/debug utility for admin/developer/tester roles
@@ -8,14 +16,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const version = 'v0.1.0';
+const version = 'v0.1.2';
 
 /**
  * useAutoPlay - Automated testing utility for rapid gameplay
- * 
+ *
  * Fires random valid shots automatically at 200ms intervals.
  * Only available to users with admin/developer/tester roles.
- * 
+ *
  * @param {Object} params - Configuration object
  * @param {Game} params.gameInstance - Game instance
  * @param {Object} params.eraConfig - Era configuration (for board dimensions)
@@ -24,9 +32,9 @@ const version = 'v0.1.0';
  * @param {Function} params.handleShotFired - Callback to fire a shot (row, col)
  * @param {Object} params.userProfile - User profile (to check role)
  * @param {string} params.battleMessage - Battle message (for render trigger)
- * 
+ *
  * @returns {Object} { autoPlayEnabled, canUseAutoPlay, handleAutoPlayToggle }
- * 
+ *
  * @example
  * const { autoPlayEnabled, canUseAutoPlay, handleAutoPlayToggle } = useAutoPlay({
  *   gameInstance,
@@ -37,7 +45,7 @@ const version = 'v0.1.0';
  *   userProfile,
  *   battleMessage
  * });
- * 
+ *
  * // In JSX:
  * {canUseAutoPlay && isGameActive && (
  *   <button onClick={handleAutoPlayToggle}>
@@ -72,11 +80,13 @@ const useAutoPlay = ({
       return;
     }
 
-    // Find all valid targets
+    // Find all valid targets (must pass BOTH checks)
     const validTargets = [];
     for (let row = 0; row < eraConfig.rows; row++) {
       for (let col = 0; col < eraConfig.cols; col++) {
-        if (gameInstance.isValidAttack(row, col, humanPlayerFromGame)) {
+        // Check board validity AND that we haven't shot here before
+        if (gameInstance.isValidAttack(row, col, humanPlayerFromGame) &&
+            humanPlayerFromGame.canShootAt(row, col)) {
           validTargets.push({ row, col });
         }
       }
@@ -98,22 +108,40 @@ const useAutoPlay = ({
 
   // Manage autoplay timer
   useEffect(() => {
+    console.log('[AUTOPLAY]', version, 'useEffect triggered:', {
+      autoPlayEnabled,
+      isGameActive,
+      isPlayerTurn,
+      battleMessage: battleMessage?.substring(0, 50),
+      hasTimer: !!autoPlayTimerRef.current
+    });
+
     // Clear existing timer
     if (autoPlayTimerRef.current) {
+      console.log('[AUTOPLAY]', version, 'Clearing existing timer');
       clearTimeout(autoPlayTimerRef.current);
       autoPlayTimerRef.current = null;
     }
 
     // Start new timer if enabled and ready
     if (autoPlayEnabled && isGameActive && isPlayerTurn) {
+      console.log('[AUTOPLAY]', version, 'Starting new timer (200ms)');
       autoPlayTimerRef.current = setTimeout(() => {
+        console.log('[AUTOPLAY]', version, 'Timer fired, calling fireRandomShot');
         fireRandomShot();
       }, 200); // 200ms delay between shots
+    } else {
+      console.log('[AUTOPLAY]', version, 'NOT starting timer - conditions not met:', {
+        autoPlayEnabled,
+        isGameActive,
+        isPlayerTurn
+      });
     }
 
     // Cleanup on unmount
     return () => {
       if (autoPlayTimerRef.current) {
+        console.log('[AUTOPLAY]', version, 'Cleanup: clearing timer');
         clearTimeout(autoPlayTimerRef.current);
         autoPlayTimerRef.current = null;
       }

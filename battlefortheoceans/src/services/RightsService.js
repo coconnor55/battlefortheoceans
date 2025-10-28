@@ -3,7 +3,8 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.1";
+const version = "v0.1.2";
+// v0.1.2: return empty rights for guest users
 // v0.1.1: Export singleton instance instead of class
 //         - GameContext expects instance, not class
 //         - Matches pattern of other services
@@ -164,7 +165,13 @@ class RightsService {
       return [];
     }
 
-    try {
+      // Skip database query for guest users
+      if (!userId || userId.startsWith('guest-')) {
+        console.log('[RightsService]', this.version, 'Guest user - returning empty rights');
+        return [];
+      }
+
+      try {
       const { data, error } = await supabase
         .from('user_rights')
         .select('*')

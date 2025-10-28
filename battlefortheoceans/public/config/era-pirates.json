@@ -13,9 +13,12 @@
     "star_shells": 8,
     "star_shell_pattern": "5x5"
   },
-  "promotional": {
-    "background_image": "pirates-background.jpg",
-    "promotional_image": "pirates-promotional.jpg",
+  "era_assets": {
+    "ship_silhouettes_path": "assets/eras/pirates/ships"
+  },
+"promotional": {
+    "background_image": "assets/eras/pirates/images/background.jpg",
+    "promotional_image": "assets/eras/pirates/images/promotional.jpg",
     "stripe_price_id": "price_1SJr36FKFdXJ01egBrmf5SPw",
     "tagline": "Hunt the Last Pirates!",
     "marketing_description": "Command the West Indies Squadron against the final generation of Caribbean pirates. Navigate treacherous waters, shallow reefs, and island hideouts in this sprawling Gulf of Mexico battlefield. Face up to four legendary pirate captains simultaneously!",
@@ -28,10 +31,10 @@
     ]
   },
   "videos": {
-    "sunkplayer": "assets/videos/sunkplayer.mp4",
-    "sunkopponent": "assets/videos/sunkopponent.mp4",
-    "victory": "assets/videos/victory.mp4",
-    "defeat": "assets/videos/defeat.mp4"
+    "sunkplayer": "assets/eras/pirates/videos/playersunk.mp4",
+    "sunkopponent": "assets/eras/pirates/videos/opponentsunk.mp4",
+    "victory": "assets/eras/pirates/videos/victory.mp4",
+    "defeat": "assets/eras/pirates/videos/defeat.mp4"
   },
   "game_rules": {
     "change_alliance": false,

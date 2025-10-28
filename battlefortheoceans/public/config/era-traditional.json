@@ -9,11 +9,17 @@
   "boundary": [],
   "max_players": 2,
   "era_assets": {
-    "ship_silhouettes_path": "traditional"
+    "ship_silhouettes_path": "assets/eras/traditional/ships"
   },
   "promotional": {
-    "background_image": "battle-background.jpg",
-    "promotional_image": null
+    "background_image": "assets/eras/traditional/images/background.jpg",
+    "promotional_image": "assets/eras/traditional/images/promotional.jpg"
+  },
+  "videos": {
+    "sunkplayer": "assets/eras/traditional/videos/playersunk.mp4",
+    "sunkopponent": "assets/eras/traditional/videos/opponentsunk.mp4",
+    "victory": "assets/eras/traditional/videos/victory.mp4",
+    "defeat": "assets/eras/traditional/videos/defeat.mp4"
   },
   "game_rules": {
     "change_alliance": false,

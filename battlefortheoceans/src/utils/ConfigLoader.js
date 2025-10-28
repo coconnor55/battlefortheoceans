@@ -1,13 +1,20 @@
 // src/utils/ConfigLoader.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v1.1.1: Updated for new era-based asset structure
+//         - Changed from /assets/ships/{era}/ to /assets/eras/{era}/ships/
+//         - Changed from combined ships-{era}.svg to individual ship files
+//         - Added loadShipGraphic() for individual ship SVG loading
+//         - Added getEraImagePath(), getEraVideoPath(), getEraShipPath() helpers
+//         - Removed getShipCellSymbol() methods (no longer using combined SVG symbols)
+// v1.1.0: Added ship graphics loading from single SVG file
 
-const version = "v1.1.0";
+const version = "v1.1.1";
 
 /**
  * ConfigLoader - Centralized configuration loading utility
  * Loads game-config.json and era configs from /public/config/
  * Provides caching to avoid repeated fetches
- * v1.1.0: Added ship graphics loading from single SVG file
+ * New in v1.1.1: Era-based asset structure (/assets/eras/{era}/)
  */
 
 class ConfigLoader {
@@ -16,7 +23,7 @@ class ConfigLoader {
     this.configPath = '/config';
     this.gameConfig = null;
     this.eraList = null;
-    this.shipGraphicsCache = new Map(); // Cache loaded ship SVG files by era
+    this.shipGraphicsCache = new Map(); // Cache loaded ship SVG files
   }
 
   /**
@@ -48,25 +55,36 @@ class ConfigLoader {
   }
 
   /**
-   * Load ship graphics SVG file for a specific era
-   * Parses and caches the SVG document for symbol access
+   * Load individual ship graphic SVG file
    * @param {string} eraId - Era identifier (e.g., 'traditional', 'midway')
+   * @param {string} shipClass - Ship class name (e.g., 'battleship', 'carrier')
+   * @param {string|null} color - Optional color variant ('red', 'blue', or null for default)
    * @returns {Promise<Document>} Parsed SVG document
    */
-  async loadShipGraphics(eraId) {
-    const cacheKey = `ships-${eraId}`;
+  async loadShipGraphic(eraId, shipClass, color = null) {
+    // Normalize ship class name (lowercase, hyphenate spaces)
+    const normalizedClass = shipClass.toLowerCase().replace(/\s+/g, '-');
+    
+    // Build filename
+    const filename = color
+      ? `${normalizedClass}-${color}.svg`
+      : `${normalizedClass}.svg`;
+    
+    const cacheKey = `${eraId}-${filename}`;
     
     if (this.shipGraphicsCache.has(cacheKey)) {
-      console.log(`[CONFIG] ${version} Using cached ship graphics: ${eraId}`);
+      console.log(`[CONFIG] ${version} Using cached ship graphic: ${filename}`);
       return this.shipGraphicsCache.get(cacheKey);
     }
 
     try {
-      console.log(`[CONFIG] ${version} Loading ship graphics: ships-${eraId}.svg`);
-      const response = await fetch(`/assets/ships/ships-${eraId}.svg`);
+      const path = this.getEraShipPath(eraId, normalizedClass, color);
+      console.log(`[CONFIG] ${version} Loading ship graphic: ${path}`);
+      
+      const response = await fetch(path);
       
       if (!response.ok) {
-        throw new Error(`Failed to load ships-${eraId}.svg: ${response.status}`);
+        throw new Error(`Failed to load ${filename}: ${response.status}`);
       }
 
       const svgText = await response.text();
@@ -80,50 +98,48 @@ class ConfigLoader {
       }
 
       this.shipGraphicsCache.set(cacheKey, svgDoc);
-      console.log(`[CONFIG] ${version} Ship graphics loaded for era: ${eraId}`);
+      console.log(`[CONFIG] ${version} Ship graphic loaded: ${filename}`);
       
       return svgDoc;
     } catch (error) {
-      console.error(`[CONFIG] ${version} Error loading ship graphics for ${eraId}:`, error);
+      console.error(`[CONFIG] ${version} Error loading ship graphic:`, error);
       throw error;
     }
   }
 
   /**
-   * Get ship cell symbol ID for rendering
-   * @param {string} shipClass - Ship class name (e.g., 'carrier', 'battleship')
-   * @param {number} cellIndex - Cell index (0 = stern, n-1 = bow)
-   * @returns {string} Symbol ID (e.g., 'carrier-cell-0')
+   * Get path to era image asset
+   * @param {string} eraId - Era identifier
+   * @param {string} filename - Image filename (e.g., 'background.jpg', 'promotional.jpg')
+   * @returns {string} Full path to image
    */
-  getShipCellSymbolId(shipClass, cellIndex) {
-    // Normalize ship class name (lowercase, hyphenate spaces)
-    const normalizedClass = shipClass.toLowerCase().replace(/\s+/g, '-');
-    return `${normalizedClass}-cell-${cellIndex}`;
+  getEraImagePath(eraId, filename) {
+    return `/assets/eras/${eraId}/images/${filename}`;
   }
 
   /**
-   * Get ship cell symbol element from loaded SVG
+   * Get path to era video asset
    * @param {string} eraId - Era identifier
-   * @param {string} shipClass - Ship class name
-   * @param {number} cellIndex - Cell index (0 = stern, n-1 = bow)
-   * @returns {Promise<SVGSymbolElement|null>} Symbol element or null if not found
+   * @param {string} filename - Video filename (e.g., 'victory.mp4', 'defeat.mp4')
+   * @returns {string} Full path to video
    */
-  async getShipCellSymbol(eraId, shipClass, cellIndex) {
-    try {
-      const svgDoc = await this.loadShipGraphics(eraId);
-      const symbolId = this.getShipCellSymbolId(shipClass, cellIndex);
-      const symbol = svgDoc.getElementById(symbolId);
-      
-      if (!symbol) {
-        console.warn(`[CONFIG] ${version} Symbol not found: ${symbolId} in era ${eraId}`);
-        return null;
-      }
-      
-      return symbol;
-    } catch (error) {
-      console.error(`[CONFIG] ${version} Error getting ship cell symbol:`, error);
-      return null;
-    }
+  getEraVideoPath(eraId, filename) {
+    return `/assets/eras/${eraId}/videos/${filename}`;
+  }
+
+  /**
+   * Get path to era ship asset
+   * @param {string} eraId - Era identifier
+   * @param {string} shipClass - Ship class (normalized: lowercase, hyphenated)
+   * @param {string|null} color - Optional color variant ('red', 'blue', or null)
+   * @returns {string} Full path to ship SVG
+   */
+  getEraShipPath(eraId, shipClass, color = null) {
+    const filename = color
+      ? `${shipClass}-${color}.svg`
+      : `${shipClass}.svg`;
+    
+    return `/assets/eras/${eraId}/ships/${filename}`;
   }
 
   /**
@@ -204,31 +220,6 @@ class ConfigLoader {
     } catch (error) {
       console.error(`[CONFIG] ${version} Error preloading eras:`, error);
     }
-  }
-
-  /**
-   * Get ship silhouette path for a specific ship (DEPRECATED)
-   * Use getShipCellSymbol() instead for new ship graphics system
-   * @deprecated
-   */
-  getShipSilhouettePath(eraId, shipClass, cellIndex) {
-    console.warn(`[CONFIG] ${version} getShipSilhouettePath is deprecated, use getShipCellSymbol instead`);
-    if (!this.gameConfig) {
-      console.warn(`[CONFIG] ${version} Game config not loaded, using default path`);
-      return `/assets/ships/default/${cellIndex}.svg`;
-    }
-
-    const template = this.gameConfig.ship_silhouettes?.path_template;
-    if (!template) {
-      return `/assets/ships/ships-${eraId}.svg#${this.getShipCellSymbolId(shipClass, cellIndex)}`;
-    }
-    
-    const path = template
-      .replace('{era}', eraId)
-      .replace('{class}', shipClass)
-      .replace('{index}', cellIndex);
-
-    return path;
   }
 
   /**

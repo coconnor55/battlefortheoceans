@@ -29,6 +29,8 @@ const control = {
     LAUNCH: true,
     LOGIN: true,
     CORE: true,
+    GUIDE: true,
+    AUTOPLAY: true, 
   DEBUG: true
 };
 

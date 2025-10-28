@@ -46,13 +46,38 @@ const getHelpSection = (state) => {
     'placement': 'placement',
     'play': 'battle'
   };
+    const section = sectionMap[state] || 'era';
+    console.log('[GUIDE] App: ', version, 'getHelpSection for state:', state, '→', section);
   return sectionMap[state] || 'era';
 };
 
 const SceneRenderer = () => {
   const { currentState, eraConfig, subscribeToUpdates, coreEngine } = useGame();
   const [overlayPage, setOverlayPage] = useState(null); // 'stats' | 'achievements' | null
-  const [, setRenderTrigger] = useState(0);
+    const [autoShowedSections, setAutoShowedSections] = useState(new Set());
+
+    // Auto-show guide on state change (first time only per session)
+    useEffect(() => {
+      const validStates = ['era', 'opponent', 'placement', 'play'];
+      
+      // Check if should auto-show for current state
+      if (validStates.includes(currentState) && !autoShowedSections.has(currentState)) {
+        // Check user preference from CoreEngine
+        const userProfile = coreEngine.humanPlayer?.userProfile;
+        
+        // Don't auto-show if user has disabled it
+        if (userProfile?.show_game_guide === false) {
+          console.log('[APP]', version, 'Auto-show disabled by user preference');
+          return;
+        }
+        
+        console.log('[APP]', version, 'Auto-showing guide for first visit to:', currentState);
+        setOverlayPage('help');
+        setAutoShowedSections(prev => new Set([...prev, currentState]));
+      }
+    }, [currentState, coreEngine, autoShowedSections]);
+    
+    const [, setRenderTrigger] = useState(0);
   
   // Inactivity tracking state
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
@@ -318,7 +343,7 @@ const SceneRenderer = () => {
           {overlayPage === 'help' && (
               <GameGuide
                 section={getHelpSection(currentState)}
-                manualOpen={true}
+                manualOpen={overlayPage === 'help'}
                 onClose={closeOverlay}
               />
           )}

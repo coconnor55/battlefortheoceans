@@ -1,5 +1,9 @@
 // src/pages/PurchasePage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.4: Use singleton StripeService instance
+//         - Changed import from StripeService (class) to stripeService (instance)
+//         - Removed line 132: const stripeService = new StripeService()
+//         - StripeService now exports singleton per v0.1.1
 // v0.4.3: Show both Pay and Dev/Test buttons for admin/tester
 //         - Removed !canBypassPayment condition from payment form visibility
 //         - Admin/tester can now test Stripe payment flow
@@ -16,9 +20,9 @@ import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useGame } from '../context/GameContext';
-import StripeService from '../services/StripeService';
+import stripeService from '../services/StripeService';
 
-const version = 'v0.4.3';
+const version = 'v0.4.4';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -129,7 +133,6 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
   const [priceInfo, setPriceInfo] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const stripeService = new StripeService();
   const gameCDN = process.env.REACT_APP_GAME_CDN || '';
   
   // Check if user is guest

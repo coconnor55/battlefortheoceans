@@ -1,16 +1,24 @@
-// src/pages/StatsPage.js v0.1.3
+// src/pages/StatsPage.js v0.1.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.5: Use singleton LeaderboardService instance
+//         - Changed import from LeaderboardService (class) to leaderboardService (instance)
+//         - Removed line 38: const leaderboardService = new LeaderboardService()
+//         - LeaderboardService now exports singleton per v0.1.6
+// v0.1.4: Use singleton GameStatsService instance
+//         - Changed import from GameStatsService (class) to gameStatsService (instance)
+//         - Removed line 34: const gameStatsService = new GameStatsService()
+//         - GameStatsService now exports singleton per v0.3.3
 // v0.1.3: Added leaderboard, toggle for Last 10/All Time stats, load last 100 games
 // v0.1.2: Added AI captain performance tracking
 // v0.1.1: Removed modal-overlay wrapper (now provided by App.js) to match AchievementsPage pattern
 
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
-import GameStatsService from '../services/GameStatsService';
-import LeaderboardService from '../services/LeaderboardService';
+import gameStatsService from '../services/GameStatsService';
+import leaderboardService from '../services/LeaderboardService';
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.3";
+const version = "v0.1.5";
 const CACHE_DURATION = 300000; // 5 minutes
 
 function StatsPage({ onClose }) {
@@ -31,8 +39,6 @@ function StatsPage({ onClose }) {
   const [showAllAI, setShowAllAI] = useState(false);
   const [showAllEra, setShowAllEra] = useState(false);
 
-  const gameStatsService = new GameStatsService();
-  const leaderboardService = new LeaderboardService();
   const isGuest = userProfile?.id?.startsWith('guest-');
 
   useEffect(() => {

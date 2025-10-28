@@ -1,7 +1,12 @@
 // src/services/StripeService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.1: Export singleton instance instead of class
+//         - Matches pattern of all other services
+//         - Services are stateless and should be shared singletons
+//         - Simplifies usage in components
+// v0.1.0: Initial version
 
-const version = 'v0.1.0';
+const version = 'v0.1.1';
 
 class StripeService {
   constructor() {
@@ -114,6 +119,8 @@ class StripeService {
   }
 }
 
-export default StripeService;
+// Export singleton instance (not class)
+const stripeService = new StripeService();
+export default stripeService;
 
 // EOF

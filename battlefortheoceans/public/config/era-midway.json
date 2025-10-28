@@ -13,11 +13,11 @@
     "star_shell_pattern": "3x3"
   },
   "era_assets": {
-    "ship_silhouettes_path": "midway"
+    "ship_silhouettes_path": "assets/eras/midway/ships"
   },
   "promotional": {
-    "background_image": "midway-background.jpg",
-    "promotional_image": "midway-promotional.jpg",
+    "background_image": "assets/eras/midway/images/background.jpg",
+    "promotional_image": "assets/eras/midway/images/midway-promotional.jpg",
     "stripe_price_id": "price_1SKvxVFKFdXJ01egvawS3rHH",
     "tagline": "Try Midway Island!",
     "marketing_description": "Take command of the US Navy or Imperial Navy and fight the historic Battle of Midway, June 4-7, 1942. Experience carrier warfare with authentic ship rosters and strategic Pacific theater combat.",
@@ -28,6 +28,12 @@
       "Expanded historical fleet with destroyers, cruisers, and PT boats",
       "3 Star Shells for surgical reconnaissance"
     ]
+  },
+  "videos": {
+    "sunkplayer": "assets/eras/midway/videos/playersunk.mp4",
+    "sunkopponent": "assets/eras/midway/videos/opponentsunk.mp4",
+    "victory": "assets/eras/midway/videos/victory.mp4",
+    "defeat": "assets/eras/midway/videos/defeat.mp4"
   },
   "game_rules": {
     "change_alliance": false,

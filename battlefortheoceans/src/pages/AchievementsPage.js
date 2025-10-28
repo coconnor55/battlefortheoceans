@@ -410,7 +410,7 @@ const AchievementsPage = ({ onClose }) => {
                       <div className="achievement-card__name">{achievement.name}</div>
                       <div className="achievement-card__points">
                         <span className={`badge ${getTierBadgeClass(achievement.tier)}`}>
-                          {achievement.points} pts
+                          +{achievement.points} pts
                         </span>
                       </div>
                     </div>

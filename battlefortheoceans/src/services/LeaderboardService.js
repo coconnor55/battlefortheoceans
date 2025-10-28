@@ -1,11 +1,14 @@
-
-// src/services/LeaderboardService.js v0.1.5
+// src/services/LeaderboardService.js v0.1.6
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.6: Export singleton instance instead of class
+//         - Matches pattern of UserProfileService, RightsService, AchievementService, GameStatsService
+//         - Services are stateless and should be shared singletons
+//         - Simplifies usage in components and CoreEngine
 // v0.1.5: Removed getTotalGamesPlayed() - moved to GameStatsService
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.5";
+const version = "v0.1.6";
 
 class LeaderboardService {
   constructor() {
@@ -188,5 +191,7 @@ class LeaderboardService {
   }
 }
 
-export default LeaderboardService;
+// Export singleton instance (not class)
+const leaderboardService = new LeaderboardService();
+export default leaderboardService;
 // EOF

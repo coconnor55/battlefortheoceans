@@ -1,5 +1,9 @@
 // src/renderers/HitOverlayRenderer.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.12.2: Updated to use new era-based asset structure
+//          - Import configLoader for path construction
+//          - Use configLoader.getEraShipPath() instead of hard-coded path
+//          - Aligns with ConfigLoader v1.1.1 asset structure
 // v0.12.1: Added explicit globalCompositeOperation reset in drawShipOutline for proper z-layering
 // v0.12.0: Added fire/smoke effects to blended view for both player and opponent ships
 // v0.11.2: Simplified - uses pre-generated colored SVG files (-blue.svg, -red.svg)
@@ -9,7 +13,9 @@
 // v0.10.3: Changed miss markers to consistent dark grey (#4A5568)
 // v0.10.2: Refactored miss markers to be shared between Fleet and Attack views
 
-const version = 'v0.12.1';
+import configLoader from '../utils/ConfigLoader';
+
+const version = 'v0.12.2';
 
 class HitOverlayRenderer {
   constructor(eraId = 'traditional', gameBoard = null) {
@@ -51,7 +57,7 @@ class HitOverlayRenderer {
     
     try {
       const classLower = shipClass.toLowerCase().replace(/\s+/g, '-');
-      const svgPath = `/assets/ships/${this.eraId}/${classLower}-${color}.svg`;
+      const svgPath = configLoader.getEraShipPath(this.eraId, classLower, color);
       
       const img = new Image();
       

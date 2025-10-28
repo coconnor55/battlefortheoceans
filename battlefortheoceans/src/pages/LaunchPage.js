@@ -65,8 +65,10 @@ const LaunchPage = () => {
     setupAuthListener();
 
     return () => {
-      console.log('[LAUNCH]', version, 'Cleaning up auth state listener');
-      authSubscription?.data?.subscription?.unsubscribe();
+        console.log('[LAUNCH]', version, 'Cleaning up auth state listener');
+        if (authSubscription?.data?.subscription) {
+          authSubscription.data.subscription.unsubscribe();
+        }
     };
   }, []);
 

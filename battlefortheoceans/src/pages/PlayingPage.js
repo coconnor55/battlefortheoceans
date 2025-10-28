@@ -1,5 +1,9 @@
 // src/pages/PlayingPage.js v0.5.3
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.5: Added error handling to handleShotFired for AutoPlay debugging
+//         - Wraps handleAttack in try/catch
+//         - Logs any errors that might be swallowed
+//         - Returns error result to prevent AutoPlay from hanging
 // v0.5.4: Moved GameGuide to App.js, removed setShowInfo and InfoButton
 // v0.5.3: Munitions terminology rename (resources → munitions)
 //         - No code changes needed - reads from useGameState hook
@@ -31,7 +35,7 @@ import CanvasBoard from '../components/CanvasBoard';
 import FleetStatusSidebar from '../components/FleetStatusSidebar';
 import VideoPopup from '../components/VideoPopup';
 
-const version = 'v0.5.4';
+const version = 'v0.5.5';
 
 const PlayingPage = () => {
   const {
@@ -130,13 +134,28 @@ const PlayingPage = () => {
   }, [gameInstance]);
 
   const handleShotFired = useCallback((row, col) => {
-    console.log(version, 'Player shot fired at', { row, col });
-    const result = handleAttack(row, col);
-    return { result, row, col };
+    console.log('[ATTACK]', version, 'Player shot fired at', { row, col });
+    
+    try {
+      const result = handleAttack(row, col);
+      
+      if (!result) {
+        console.error('[ATTACK]', version, 'handleAttack returned falsy result:', result);
+        return { result: 'error', row, col, error: 'No result from handleAttack' };
+      }
+      
+      console.log('[ATTACK]', version, 'Shot completed successfully:', result.result);
+      return { result, row, col };
+      
+    } catch (error) {
+      console.error('[ATTACK]', version, 'ERROR in handleShotFired:', error);
+      console.error('[ATTACK]', version, 'Error stack:', error.stack);
+      return { result: 'error', row, col, error: error.message };
+    }
   }, [handleAttack]);
   
   const onStarShellFired = useCallback((row, col) => {
-    console.log(version, 'Star shell fired at', { row, col });
+    console.log('[ATTACK]', version, 'Star shell fired at', { row, col });
     handleStarShellFired(row, col);
   }, [handleStarShellFired]);
   

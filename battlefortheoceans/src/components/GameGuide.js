@@ -1,72 +1,74 @@
 // src/components/GameGuide.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.1: fix AutoShow
+// v0.2.0: Use database flag for game guide preferences
+//         - Reads show_game_guide from userProfile (database)
+//         - "Got It!" dismisses for current session only (state)
+//         - "Turn Off Game Guide" sets show_game_guide = false in database
+//         - Works for both authenticated and guest users
+//         - Guest users: guide always shows (no persistence)
+// v0.1.1: Improved auto-show UX
 // v0.1.0: Initial game guide component
-//         - Centralized game instructions for all pages
-//         - Auto-shows on first visit to each section
-//         - "Don't show again" button stores preference in localStorage
-//         - Can still be manually opened via InfoButton
-//         - Context-aware based on section prop
 
 import React, { useState, useEffect } from 'react';
+import { useGame } from '../context/GameContext';
 import InfoPanel from './InfoPanel';
 
-const version = 'v0.1.0';
+const version = 'v0.2.1';
 
-/**
- * GameGuide - Context-aware game documentation and tutorial system
- * 
- * Auto-shows on first visit to each section, can be dismissed permanently,
- * and can still be manually opened via InfoButton.
- * 
- * @param {string} section - Guide section: 'placement', 'battle', 'era', 'opponent'
- * @param {boolean} manualOpen - Manual open state from parent (via InfoButton)
- * @param {Function} onClose - Callback when guide closes
- * @param {string} eraName - Optional era name for context
- * 
- * @example
- * // In PlayingPage
- * const [showInfo, setShowInfo] = useState(false);
- * 
- * <InfoButton onClick={() => setShowInfo(true)} />
- * <GameGuide 
- *   section="battle"
- *   manualOpen={showInfo}
- *   onClose={() => setShowInfo(false)}
- * />
- */
-const GameGuide = ({ section, manualOpen = false, onClose, eraName = '' }) => {
-  const [autoShowFirstTime, setAutoShowFirstTime] = useState(false);
-
-  // Check if section has been seen before
-  useEffect(() => {
-    const storageKey = `gameGuide_seen_${section}`;
-    const hasSeenBefore = localStorage.getItem(storageKey) === 'true';
+const GameGuide = ({ section, manualOpen = false, onClose, forceShow = false, eraName = '' }) => {
+    console.log('[GUIDE]', version, 'Component rendered - section:', section, 'manualOpen:', manualOpen, 'forceShow:', forceShow);
+  const { userProfile, disableGameGuide, coreEngine } = useGame();
     
-    if (!hasSeenBefore) {
-      console.log('[GUIDE]', version, `First time seeing ${section} - auto-showing guide`);
-      setAutoShowFirstTime(true);
-    }
-  }, [section]);
+    const shouldAutoShow = () => {
+      if (forceShow) return true;
+      
+      // Check if show_game_guide is explicitly false (user disabled it)
+      // If undefined/null, default to true (show guide)
+      if (userProfile?.show_game_guide === false) {
+        console.log('[GUIDE]', version, 'Auto-show disabled in user profile');
+        return false;
+      }
+      
+      // Always auto-show for new sessions (unless explicitly disabled)
+      console.log('[GUIDE]', version, 'Auto-showing guide for section: ' + section);
+      return true;
+    };
+    
+  const [autoShowFirstTime] = useState(() => shouldAutoShow());
 
-  // Handle "Don't show again" button
-  const handleDontShowAgain = () => {
-    const storageKey = `gameGuide_seen_${section}`;
-    localStorage.setItem(storageKey, 'true');
-    console.log('[GUIDE]', version, `Marked ${section} as seen`);
-    setAutoShowFirstTime(false);
-    onClose();
-  };
+    const handleClose = () => {
+      onClose();
+    };
 
-  // Handle regular close (X button or backdrop)
-  const handleClose = () => {
-    setAutoShowFirstTime(false);
-    onClose();
-  };
+    const handleDontShowAgain = async () => {
+      console.log('[GUIDE]', version, '"Turn Off Game Guide" clicked');
+      
+      if (!userProfile?.id || userProfile.id.startsWith('guest-')) {
+        console.log('[GUIDE]', version, 'Guest user - cannot persist preference');
+        onClose();
+        return;
+      }
+      
+      try {
+        await disableGameGuide(userProfile.id);
+        console.log('[GUIDE]', version, 'Game guide disabled in database');
+        
+        // Update the in-memory profile
+        if (coreEngine.humanPlayer?.userProfile) {
+          coreEngine.humanPlayer.userProfile.show_game_guide = false;
+          console.log('[GUIDE]', version, 'Updated in-memory profile: show_game_guide = false');
+        }
+        
+        onClose();
+      } catch (error) {
+        console.error('[GUIDE]', version, 'Failed to disable game guide:', error);
+        onClose();
+      }
+    };
+    
+  const isOpen = forceShow || manualOpen || autoShowFirstTime;
 
-  // Show if: manual open OR first time auto-show
-  const isOpen = manualOpen || autoShowFirstTime;
-
-  // Get content based on section
   const getContent = () => {
     switch (section) {
       case 'placement':
@@ -139,15 +141,15 @@ const GameGuide = ({ section, manualOpen = false, onClose, eraName = '' }) => {
                 <li><strong>Gray dots:</strong> Your missed shots (Combined/Attack views)</li>
                 <li><strong>Red slash:</strong> Your hits on enemy ships</li>
                 <li><strong>Blue slash:</strong> Enemy hits on your ships</li>
-                <li><strong>Fire 🔥:</strong> Damaged ships</li>
-                <li><strong>Smoke 💨:</strong> Rising from damaged vessels</li>
+                <li><strong>Fire:</strong> Damaged ships</li>
+                <li><strong>Smoke:</strong> Rising from damaged vessels</li>
               </ul>
 
               <h4>Fleet Status Sidebars</h4>
               <ul>
                 <li><strong>Left sidebar (Home):</strong> Your fleet status</li>
                 <li><strong>Right sidebar (Enemy):</strong> Opponent fleet status</li>
-                <li><strong>💀 Skull:</strong> Ship is sunk (crossed out)</li>
+                <li><strong>Skull:</strong> Ship is sunk (crossed out)</li>
                 <li><strong>Star Shells:</strong> Special reconnaissance ability (if available)</li>
               </ul>
 
@@ -171,10 +173,10 @@ const GameGuide = ({ section, manualOpen = false, onClose, eraName = '' }) => {
 
               <h4>Game Stats</h4>
               <p>
-                Below the board, you'll see:
+                Below the board, you will see:
               </p>
               <ul>
-                <li><strong>Your Hits:</strong> Number of successful attacks you've made</li>
+                <li><strong>Your Hits:</strong> Number of successful attacks you have made</li>
                 <li><strong>Enemy Hits:</strong> Number of times enemy has hit your ships</li>
               </ul>
             </>
@@ -193,7 +195,7 @@ const GameGuide = ({ section, manualOpen = false, onClose, eraName = '' }) => {
 
               <h4>Traditional Battleship</h4>
               <ul>
-                <li><strong>Board:</strong> 10×10 classic grid</li>
+                <li><strong>Board:</strong> 10x10 classic grid</li>
                 <li><strong>Gameplay:</strong> Simple, pure strategy</li>
                 <li><strong>Best for:</strong> Learning the game, quick matches</li>
                 <li><strong>Status:</strong> Free - always available</li>
@@ -201,7 +203,7 @@ const GameGuide = ({ section, manualOpen = false, onClose, eraName = '' }) => {
 
               <h4>Midway Island (Premium)</h4>
               <ul>
-                <li><strong>Board:</strong> 13×13 Pacific theater</li>
+                <li><strong>Board:</strong> 13x13 Pacific theater</li>
                 <li><strong>Ships:</strong> WWII carriers, battleships, submarines</li>
                 <li><strong>Features:</strong> Terrain restrictions, larger fleet battles</li>
                 <li><strong>Best for:</strong> Extended tactical gameplay</li>
@@ -209,7 +211,7 @@ const GameGuide = ({ section, manualOpen = false, onClose, eraName = '' }) => {
 
               <h4>Pirates of the Gulf (Premium)</h4>
               <ul>
-                <li><strong>Board:</strong> 30×20 irregular Caribbean map</li>
+                <li><strong>Board:</strong> 30x20 irregular Caribbean map</li>
                 <li><strong>Ships:</strong> Pirate vessels, privateers, naval frigates</li>
                 <li><strong>Features:</strong> Alliance battles, multiple opponents</li>
                 <li><strong>Best for:</strong> Advanced strategic combat</li>
@@ -292,26 +294,33 @@ const GameGuide = ({ section, manualOpen = false, onClose, eraName = '' }) => {
     >
       {content}
       
-      {autoShowFirstTime && (
-        <div style={{ 
-          marginTop: '2rem', 
-          paddingTop: '1rem', 
+      {autoShowFirstTime && !forceShow && (
+        <div style={{
+          marginTop: '2rem',
+          paddingTop: '1rem',
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-          textAlign: 'center'
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+          alignItems: 'center'
         }}>
-          <button 
+          
+          <button
             className="btn btn--secondary"
             onClick={handleDontShowAgain}
-            style={{ marginRight: '0.5rem' }}
           >
-            Don't Show Again
+            Turn Off Game Guide
           </button>
-          <button 
-            className="btn btn--primary"
-            onClick={handleClose}
-          >
-            Got It!
-          </button>
+          
+          <p style={{
+            fontSize: '0.85rem',
+            color: 'var(--text-dim)',
+            fontStyle: 'italic',
+            margin: '0',
+            textAlign: 'center'
+          }}>
+            Use Help menu to see Game Guide information
+          </p>
         </div>
       )}
     </InfoPanel>

@@ -1,11 +1,15 @@
-// src/services/GameStatsService.js v0.3.2
+// src/services/GameStatsService.js v0.3.3
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.3: Export singleton instance instead of class
+//         - Matches pattern of UserProfileService, RightsService, AchievementService
+//         - Services are stateless and should be shared singletons
+//         - Simplifies usage in components and CoreEngine
 // v0.3.2: CRITICAL FIX - Round scores to integers to match database schema
 // v0.3.1: Added getTotalGamesPlayed() method
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.3.2";
+const version = "v0.3.3";
 
 class GameStatsService {
   constructor() {
@@ -181,5 +185,7 @@ class GameStatsService {
   }
 }
 
-export default GameStatsService;
+// Export singleton instance (not class)
+const gameStatsService = new GameStatsService();
+export default gameStatsService;
 // EOF

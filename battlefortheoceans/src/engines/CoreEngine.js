@@ -1,5 +1,11 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.32: Added restoreToState() method and converted services to singletons
+//          - Added restoreToState(state) method for browser navigation (after transition())
+//          - Handles browser back/forward button state restoration without URL sync
+//          - Changed service imports to lowercase singleton instances (no 'new' needed)
+//          - userProfileService, gameStatsService, leaderboardService, rightsService, achievementService
+//          - Removed handleEvent_achievements() (was legacy from removed ACHIEVEMENTS event)
 // v0.6.28: Removed ACHIEVEMENTS event (Claude error)
 // v0.6.27: Changed ERA to SELECTERA (Claude error)
 // v0.6.26: FIXED - Added back ship.place(), notifySubscribers() in registerShipPlacement
@@ -39,15 +45,15 @@ import SessionManager from '../utils/SessionManager.js';
 import NavigationManager from '../utils/NavigationManager.js';
 import GameLifecycleManager from '../classes/GameLifecycleManager.js';
 
-import UserProfileService from '../services/UserProfileService.js';
-import GameStatsService from '../services/GameStatsService.js';
-import LeaderboardService from '../services/LeaderboardService.js';
-import RightsService from '../services/RightsService.js';
-import AchievementService from '../services/AchievementService.js';
+import userProfileService from '../services/UserProfileService.js';
+import gameStatsService from '../services/GameStatsService.js';
+import leaderboardService from '../services/LeaderboardService.js';
+import rightsService from '../services/RightsService.js';
+import achievementService from '../services/AchievementService.js';
 
 import ConfigLoader from '../utils/ConfigLoader.js';
 
-const version = 'v0.6.28';
+const version = 'v0.6.32';
 
 /**
  * CoreEngine - Orchestrates game state machine and coordinates services
@@ -221,6 +227,40 @@ class CoreEngine {
     this.notifySubscribers();
   }
 
+  /**
+   * v0.6.32: Restore to state without URL synchronization
+   * Used by NavigationManager for browser navigation and page refresh
+   *
+   * Sets state synchronously, then runs handlers asynchronously
+   * Saves session and notifies subscribers
+   * Does NOT sync URL (we're already at the correct URL)
+   *
+   * @param {string} state - Target state to restore
+   */
+  async restoreToState(state) {
+    const previousState = this.currentState;
+    
+    // Set state synchronously
+    this.currentState = state;
+    console.log(`[CORE] Restoring to state: ${previousState || 'none'} → ${state}`);
+    
+    // Run state handler asynchronously (if exists)
+    const stateHandler = `handleEvent_${state}`;
+    if (typeof this[stateHandler] === 'function') {
+      try {
+        await this[stateHandler](null);
+      } catch (error) {
+        console.error(`[CORE] ${version} State handler failed during restoration:`, error);
+      }
+    }
+    
+    // Save session and notify
+    this.saveSession();
+    this.notifySubscribers();
+    
+    console.log(`[CORE] State restoration complete: ${state}`);
+  }
+
   // =================================================================
   // STATE HANDLERS
   // =================================================================
@@ -293,10 +333,6 @@ class CoreEngine {
 
   handleEvent_over() {
     console.log('[CORE] Game over state');
-  }
-
-  handleEvent_achievements() {
-    console.log('[CORE] Achievements state');
   }
 
   // =================================================================
@@ -408,8 +444,8 @@ class CoreEngine {
       const success = this.gameInstance.registerShipPlacement(ship, shipCells, orientation, playerId);
       
       if (success) {
-        ship.place();              // ⬅️ RESTORE THIS
-        this.notifySubscribers();  // ⬅️ AND THIS
+        ship.place();              // ⬅️ CRITICAL
+        this.notifySubscribers();  // ⬅️ CRITICAL
         return true;
       }
       
@@ -443,7 +479,7 @@ class CoreEngine {
     }
 
     try {
-      return await AchievementService.getPlayerAchievements(this.userProfile.user_id);
+      return await achievementService.getPlayerAchievements(this.userProfile.user_id);
     } catch (error) {
       console.error('[CORE] Error fetching achievements:', error);
       return [];
@@ -462,7 +498,7 @@ class CoreEngine {
     }
 
     try {
-      return await LeaderboardService.getLeaderboard(this.eraConfig.id, limit);
+      return await leaderboardService.getLeaderboard(this.eraConfig.id, limit);
     } catch (error) {
       console.error('[CORE] Error fetching leaderboard:', error);
       return [];
@@ -488,7 +524,7 @@ class CoreEngine {
       }
 
       // Check rights for premium eras
-      return await RightsService.hasEraAccess(this.userProfile.user_id, eraId);
+      return await rightsService.hasEraAccess(this.userProfile.user_id, eraId);
     } catch (error) {
       console.error('[CORE] Error checking era access:', error);
       return false;
