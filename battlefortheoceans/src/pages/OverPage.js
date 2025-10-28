@@ -1,5 +1,6 @@
 // src/pages/OverPage.js v0.5.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.9: Changed to support multiple opponents
 // v0.5.8: Removed unused import GameStatsService
 // v0.5.7: Added inline achievement display after battle duration (belt and braces)
 //         - Shows newly unlocked achievements in results section
@@ -49,7 +50,7 @@ const OverPage = () => {
     gameInstance,
     eraConfig,
     humanPlayer,
-    selectedOpponent,
+    selectedOpponents,
     userProfile,
     hasEraAccess,
     getPromotableEras,
@@ -98,15 +99,14 @@ const OverPage = () => {
   // Load game results on mount
   useEffect(() => {
     // Try to get from CoreEngine first (normal flow)
-    if (gameInstance && eraConfig && selectedOpponent && humanPlayer) {
+    if (gameInstance && eraConfig && selectedOpponents && humanPlayer) {
       const results = {
         gameStats: gameInstance.getGameStats(),
         gameLog: gameInstance.gameLog || [],
         finalBoardImage: gameInstance.finalBoardImage,
         eraName: eraConfig.name,
         playerName: humanPlayer.name,
-        opponentName: selectedOpponent.name,
-        opponentDifficulty: selectedOpponent.difficulty || 1.0
+        opponents: selectedOpponents || [],
       };
       
       console.log(version, 'Saving game results to sessionStorage');
@@ -123,7 +123,7 @@ const OverPage = () => {
         dispatch(events.SELECTERA);
       }
     }
-  }, [gameInstance, eraConfig, selectedOpponent, humanPlayer, userProfile, dispatch, events]);
+  }, [gameInstance, eraConfig, selectedOpponents, humanPlayer, userProfile, dispatch, events]);
 
   // Check for new achievements when game results are available
   useEffect(() => {
@@ -322,6 +322,17 @@ const OverPage = () => {
     }
   };
 
+    // Format opponent fleet names for victory message
+    const formatOpponentFleets = (opponents) => {
+      if (!opponents || opponents.length === 0) return "the enemy fleet";
+      if (opponents.length === 1) return `${opponents[0].name}'s fleet`;
+      if (opponents.length === 2) return `${opponents[0].name}'s fleet and ${opponents[1].name}'s fleet`;
+      const lastOpponent = opponents[opponents.length - 1];
+      const otherOpponents = opponents.slice(0, -1);
+      const otherNames = otherOpponents.map(opp => `${opp.name}'s fleet`).join(', ');
+      return `${otherNames}, and ${lastOpponent.name}'s fleet`;
+    };
+
   const copyGameLog = () => {
     if (!gameResults?.gameLog) return;
     
@@ -383,8 +394,8 @@ const OverPage = () => {
           </h1>
           <p className="over-subtitle">
             {isWinner
-              ? `You destroyed ${gameResults.opponentName}'s entire fleet!`
-              : `${gameResults.opponentName} destroyed your entire fleet!`
+              ? `You destroyed ${formatOpponentFleets(gameResults.opponents)}!`
+              : `${formatOpponentFleets(gameResults.opponents)} destroyed your entire fleet!`
             }
           </p>
           <p className="over-era">

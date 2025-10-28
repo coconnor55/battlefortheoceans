@@ -16,7 +16,7 @@
   "era_assets": {
     "ship_silhouettes_path": "assets/eras/pirates/ships"
   },
-"promotional": {
+  "promotional": {
     "background_image": "assets/eras/pirates/images/background.jpg",
     "promotional_image": "assets/eras/pirates/images/promotional.jpg",
     "stripe_price_id": "price_1SJr36FKFdXJ01egBrmf5SPw",
