@@ -1,5 +1,10 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.11: Added About {Era} button to center navigation
+//          - Shows "About {eraName}" button when era is selected
+//          - Positioned before Stats and Achievements
+//          - Calls onShowAbout prop
+//          - Only visible when eraConfig is available
 // v0.2.10: Added Help menu item to user dropdown
 //          - Help appears between username header and Logout
 //          - Calls onShowHelp prop to trigger GameGuide in App.js
@@ -19,10 +24,10 @@ import { useGame } from '../context/GameContext';
 import { LogOut } from 'lucide-react';
 import { HelpCircle } from 'lucide-react';
 
-const version = 'v0.2.10';
+const version = 'v0.2.11';
 
-const NavBar = ({ onShowStats, onShowAchievements, onShowHelp, onCloseOverlay, hasActiveOverlay }) => {
-  const { currentState, userProfile, subscribeToUpdates, logout } = useGame();
+const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onCloseOverlay, hasActiveOverlay }) => {
+  const { currentState, userProfile, eraConfig, subscribeToUpdates, logout } = useGame();
   const [, forceUpdate] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
@@ -65,6 +70,12 @@ const NavBar = ({ onShowStats, onShowAchievements, onShowHelp, onCloseOverlay, h
         }
         break;
         
+      case 'about':
+        if (onShowAbout) {
+          onShowAbout();
+        }
+        break;
+        
       case 'stats':
         if (onShowStats) {
           onShowStats();
@@ -93,21 +104,22 @@ const NavBar = ({ onShowStats, onShowAchievements, onShowHelp, onCloseOverlay, h
     }
   };
   
-    const handleHelp = () => {
-      console.log('[NAVBAR]', version, 'User clicked help');
-      setShowUserMenu(false);
-      
-      if (onShowHelp) {
-        onShowHelp();
-      }
-    };
+  const handleHelp = () => {
+    console.log('[NAVBAR]', version, 'User clicked help');
+    setShowUserMenu(false);
     
-    const toggleUserMenu = () => {
+    if (onShowHelp) {
+      onShowHelp();
+    }
+  };
+    
+  const toggleUserMenu = () => {
     setShowUserMenu(prev => !prev);
   };
   
   // Show "Return to Game" whenever there's an active overlay (any state except launch/login)
   const showReturnButton = hasActiveOverlay;
+  const showAboutButton = ['era', 'opponent', 'placement', 'play', 'over'].includes(currentState) && eraConfig && eraConfig.about;
   const showStatsButton = ['era', 'opponent', 'placement', 'play', 'over'].includes(currentState);
   const showAchievementsButton = ['era', 'opponent', 'placement', 'play', 'over'].includes(currentState);
   
@@ -129,6 +141,17 @@ const NavBar = ({ onShowStats, onShowAchievements, onShowHelp, onCloseOverlay, h
               aria-label="Return to game"
             >
               Return to Game
+            </button>
+          )}
+          
+          {showAboutButton && (
+            <button
+              className="btn btn--secondary btn--thin"
+              onClick={() => handleNavigate('about')}
+              aria-label={`About ${eraConfig.name}`}
+              title={`Learn about ${eraConfig.name}`}
+            >
+              About {eraConfig.name}
             </button>
           )}
           
@@ -195,14 +218,14 @@ const NavBar = ({ onShowStats, onShowAchievements, onShowHelp, onCloseOverlay, h
                       <span>{userProfile.game_name || 'Guest'}</span>
                     </div>
                     
-                      <div
-                        className="action-menu__item"
-                        onClick={handleHelp}
-                      >
-                              <HelpCircle size={20} className="action-menu__emoji" />
-                        <span className="action-menu__emoji"></span>
-                        <span className="action-menu__label">Help</span>
-                      </div>
+                    <div
+                      className="action-menu__item"
+                      onClick={handleHelp}
+                    >
+                      <HelpCircle size={20} className="action-menu__emoji" />
+                      <span className="action-menu__emoji"></span>
+                      <span className="action-menu__label">Help</span>
+                    </div>
                     <div
                       className="action-menu__item"
                       onClick={handleLogout}

@@ -190,10 +190,10 @@ const GameGuide = ({ section, manualOpen = false, onClose, forceShow = false, er
             <>
               <h4>Choose Your Naval Theater</h4>
               <p>
-                Each era offers a unique battlefield with different rules, ships, and strategic challenges.
+                Each era offers a unique battlefield with different rules, ships, and strategic challenges.  For example:
               </p>
 
-              <h4>Traditional Battleship</h4>
+              <h4>Classic Battleship</h4>
               <ul>
                 <li><strong>Board:</strong> 10x10 classic grid</li>
                 <li><strong>Gameplay:</strong> Simple, pure strategy</li>

@@ -1,5 +1,5 @@
 {
-  "version": "0.2.4",
+  "version": "0.2.7",
   "era": "pirates",
   "name": "Pirates of the Gulf",
   "era_description": "Caribbean Sea, 1822-1825. The US Navy's West Indies Squadron hunts the last generation of Caribbean pirates in the warm waters of the Gulf of Mexico. Choose your fleet size and face legendary pirates like Cofresí, Lafitte, and Diabolito in this irregular battlefield.",
@@ -17,8 +17,8 @@
     "ship_silhouettes_path": "assets/eras/pirates/ships"
   },
   "promotional": {
-    "background_image": "assets/eras/pirates/images/background.jpg",
-    "promotional_image": "assets/eras/pirates/images/promotional.jpg",
+    "background_image": "images/background.jpg",
+    "promotional_image": "images/promotional.jpg",
     "stripe_price_id": "price_1SJr36FKFdXJ01egBrmf5SPw",
     "tagline": "Hunt the Last Pirates!",
     "marketing_description": "Command the West Indies Squadron against the final generation of Caribbean pirates. Navigate treacherous waters, shallow reefs, and island hideouts in this sprawling Gulf of Mexico battlefield. Face up to four legendary pirate captains simultaneously!",
@@ -115,29 +115,27 @@
           },
           "description": "The Robin Hood of Puerto Rico. Known for distributing loot to the poor while evading Spanish and American naval forces.",
           "ships": [
-            { "name": "Anne", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
-            { "name": "La Criolla", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
-            { "name": "El Mosquito", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
+            { "name": "Ana", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
+            { "name": "Bravo", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
             { "name": "San José", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
-            { "name": "María", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] }
+            { "name": "Intrépida", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
+            { "name": "El Mosquito", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] }
           ]
         },
         {
           "fleet_id": "lafitte",
-          "fleet_name": "Lafitte's Fleet",
+          "fleet_name": "Lafitte's Baratarians",
           "ai_captain": {
             "id": "jean-lafitte",
             "name": "Jean Lafitte",
-            "strategy": "methodical_optimal",
-            "difficulty": 1.3,
-            "description": "Master smuggler and privateer. Cunning strategist who uses systematic search patterns and years of Caribbean experience to outmaneuver opponents.",
+            "strategy": "hunt-target",
+            "difficulty": 1.0,
+            "description": "The Gentleman Pirate - Master smuggler of Barataria Bay. Known for cunning tactics and switching between hunt and target modes like a true predator.",
             "avatar": "captains/jean-lafitte.png"
           },
-          "description": "Legendary smuggler and privateer. Master tactician who operated from Galveston until 1821. His ships are fast and his crews experienced.",
+          "description": "Gentleman pirate and hero of New Orleans. Lafitte's Baratarian smugglers know every hidden cove and channel in the Gulf.",
           "ships": [
             { "name": "Pride", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
-            { "name": "General Santander", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
-            { "name": "Petit Milan", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
             { "name": "Dorada", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
             { "name": "Jupiter", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] }
           ]
@@ -186,27 +184,27 @@
     }
   ],
   "terrain": [
-      ["excluded", "excluded", "excluded", "excluded", "excluded", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "excluded", "excluded", "excluded", "excluded", "excluded", "excluded"],
-      ["excluded", "excluded", "excluded", "excluded", "shoal", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shoal", "excluded", "excluded", "excluded", "excluded", "excluded"],
-      ["excluded", "excluded", "excluded", "shoal", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shoal", "excluded", "excluded", "excluded", "excluded"],
-      ["excluded", "excluded", "shoal", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shoal", "excluded", "excluded", "excluded"],
-      ["excluded", "shoal", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shoal", "excluded", "excluded"],
-      ["shoal", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shoal", "excluded"],
-      ["shoal", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shoal"],
-      ["shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "shoal"],
-      ["shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "shoal"],
-      ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "land", "shoal", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shoal"],
-      ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "shoal", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shoal"],
-      ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "shoal", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shoal"],
-      ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "land", "land", "shoal", "shallow", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shoal", "shoal"],
-      ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "land", "land", "land", "land", "shoal", "shallow", "deep", "deep", "deep", "shallow", "shallow", "shoal", "shoal", "shallow"],
-      ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "land", "land", "land", "land", "land", "land", "land", "shoal", "shallow", "deep", "deep", "deep", "shallow", "shallow", "shoal", "shallow", "shallow"],
-      ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "shoal", "land", "land", "land", "land", "shoal", "shoal", "shallow", "shallow", "deep", "deep", "shallow", "shallow", "shoal", "shoal", "shallow", "shallow"],
-      ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "shoal", "land", "land", "shoal", "shoal", "shallow", "shallow", "deep", "deep", "shallow", "shallow", "shoal", "shoal", "shallow", "shallow", "shallow"],
-      ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shoal", "shoal", "shallow", "shallow", "shallow", "deep", "deep", "shallow", "shallow", "shoal", "shoal", "shallow", "shallow", "shallow", "shallow"],
-      ["excluded", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "shallow", "shallow", "shoal", "shoal", "shallow", "shallow", "shallow", "shallow", "excluded"],
-      ["excluded", "excluded", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "excluded", "excluded"]
-    ],
+    ["land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep"],
+    ["land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "shallow", "shallow", "shallow", "land", "land", "land", "land", "land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep"],
+    ["land", "land", "land", "land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep"],
+    ["land", "land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "land", "land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep"],
+    ["land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "land", "land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep"],
+    ["land", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "land", "land", "land", "shallow", "shoal", "shoal", "shallow", "deep", "deep", "deep"],
+    ["land", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "land", "land", "land", "shallow", "shallow", "shallow", "land", "deep", "deep"],
+    ["land", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "shallow", "land", "land", "shallow", "shoal", "shoal", "deep", "shallow", "deep"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "shallow", "land", "shallow", "shoal", "land", "shallow", "shoal", "deep"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "land", "land", "shallow", "shoal", "land", "land", "shoal", "deep", "deep"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "shoal", "land", "deep"],
+    ["land", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep", "deep", "land", "land", "land", "land", "deep", "shoal", "shoal", "shoal", "shoal"],
+    ["land", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "shallow", "shallow", "shallow"],
+    ["land", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "land", "shallow", "land", "shallow", "shoal", "shallow", "land", "land", "land", "land", "land", "deep"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "shallow", "land", "land", "land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "land", "land", "land"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "land", "land", "land", "land", "land", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "land", "land", "land"],
+    ["land", "land", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "land", "land", "land", "land", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["land", "land", "land", "deep", "deep", "deep", "deep", "shallow", "shallow", "land", "land", "land", "land", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["land", "land", "land", "land", "shallow", "shallow", "shallow", "shallow", "land", "land", "land", "land", "land", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "land", "land", "land"],
+    ["land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
+  ],
   "messages": {
     "transition": [
       "The Caribbean sun beats down as sails fill with wind - engage the enemy!",

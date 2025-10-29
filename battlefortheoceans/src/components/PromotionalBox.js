@@ -10,13 +10,14 @@ import React, { useState, useEffect } from 'react';
 import stripeService from '../services/StripeService';
 
 const version = 'v0.2.1';
+// Detect if we're in production (battlefortheoceans.com) or local development
+const isProduction = window.location.hostname === 'battlefortheoceans.com';
+const gameCDN = process.env.REACT_APP_GAME_CDN || '';
 
 const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) => {
   const [promotionalEra, setPromotionalEra] = useState(null);
   const [priceInfo, setPriceInfo] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  const gameCDN = process.env.REACT_APP_GAME_CDN || '';
 
   useEffect(() => {
     findPromotionalEra();
@@ -96,10 +97,12 @@ const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) =
     return null;
   }
 
-  const promotional = promotionalEra.promotional;
-  const promotionalImageUrl = promotional.promotional_image
-    ? `${gameCDN}/${promotional.promotional_image}`
-    : null;
+    const promotionalImageUrl = promotionalEra.promontional.promotional_image
+      ? isProduction
+        ? `${gameCDN}/assets/eras/${promotionalEra.era}/${promotionalEra.promontional.promotional_image}`
+        : `/assets/eras/${promotionalEra.era}/${promotionalEra.promontional.promotional_image}`
+      : null;
+    console.log('[DEBUG]', version, 'Setting promotional image:', promotionalImageUrl);
 
   return (
     <div className="promotional-box">
@@ -109,14 +112,14 @@ const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) =
       
       <div className="promo-content">
         <div className="promo-text">
-          <h4>{promotional.tagline || `Try ${promotionalEra.name}!`}</h4>
+          <h4>{promotionalEra.tagline || `Try ${promotionalEra.name}!`}</h4>
           <p>
-            {promotional.marketing_description || promotionalEra.era_description}
+            {promotionalEra.marketing_description || promotionalEra.era_description}
           </p>
           
-          {promotional.features && promotional.features.length > 0 && (
+          {promotionalEra.features && promotionalEra.features.length > 0 && (
             <div className="promo-features">
-              {promotional.features.map((feature, index) => (
+              {promotionalEra.features.map((feature, index) => (
                 <div key={index} className="feature-item">
                   <span className="feature-icon">⚓</span>
                   <span>{feature}</span>

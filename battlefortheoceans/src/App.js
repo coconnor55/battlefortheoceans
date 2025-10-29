@@ -1,6 +1,7 @@
 
 // src/App.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.3: added routing for About page, removed hardcoded era info
 // v0.4.2: moved GameGuide handling into App.js
 // v0.4.1: Added page-container wrapper for NavBar spacing
 /**
@@ -32,11 +33,15 @@ import AchievementsPage from './pages/AchievementsPage';
 import StatsPage from './pages/StatsPage';
 import InactivityWarning from './components/InactivityWarning';
 import GameGuide from './components/GameGuide';
+import AboutPage from './pages/AboutPage';  // ADD THIS LINE
 import './App.css';
 
 export const APP_VERSION = 'dev1.3';
 
-const version = 'v0.4.1';
+const version = 'v0.4.3';
+// Detect if we're in production (battlefortheoceans.com) or local development
+const isProduction = window.location.hostname === 'battlefortheoceans.com';
+const gameCDN = process.env.REACT_APP_GAME_CDN || '';
 
 // Map game state to help section
 const getHelpSection = (state) => {
@@ -232,13 +237,14 @@ const SceneRenderer = () => {
       });
       
       if (eraConfig.promotional?.background_image) {
-        const cdnBase = process.env.REACT_APP_GAME_CDN || '';
-        const imageUrl = cdnBase
-          ? `${cdnBase}/assets/images/${eraConfig.promotional.background_image}`
-          : `/assets/images/${eraConfig.promotional.background_image}`;
-        console.log('[DEBUG]', version, 'Setting background image:', imageUrl);
+          const backgroundImageUrl = eraConfig.promotional?.background_image
+            ? isProduction
+              ? `${gameCDN}/assets/eras/${eraConfig.era}/${eraConfig.promotional.background_image}`
+              : `/assets/eras/${eraConfig.era}/${eraConfig.promotional.background_image}`
+            : null;
+        console.log('[DEBUG]', version, 'Setting background image:', backgroundImageUrl);
         
-        const backgroundValue = `url('${imageUrl}')`;
+        const backgroundValue = `url('${backgroundImageUrl}')`;
         document.body.style.backgroundImage = backgroundValue;
         document.body.setAttribute('data-has-background-image', 'true');
         document.body.style.setProperty('--app-background', 'none');
@@ -260,11 +266,7 @@ const SceneRenderer = () => {
     } else if (eraConfig?.name) {
       console.log('[DEBUG]', version, 'No theme object, using fallback mapping');
       
-      const eraMap = {
-        'Traditional Battleship': 'traditional',
-        'Midway Island': 'midway'
-      };
-      const eraKey = eraMap[eraConfig.name] || 'traditional';
+      const eraKey = eraConfig.era || 'traditional';
       document.body.setAttribute('data-era', eraKey);
       
       document.body.style.backgroundImage = '';
@@ -308,6 +310,7 @@ const SceneRenderer = () => {
   return (
     <>
       <NavBar
+          onShowAbout={() => setOverlayPage('about')}  // ADD THIS LINE
         onShowStats={() => setOverlayPage('stats')}
         onShowAchievements={() => setOverlayPage('achievements')}
           onShowHelp={() => setOverlayPage('help')}
@@ -340,6 +343,13 @@ const SceneRenderer = () => {
         </div>
       )}
       
+          {/* ADD THIS SECTION */}
+          {overlayPage === 'about' && (
+            <div className="modal-overlay">
+              <AboutPage onClose={closeOverlay} />
+            </div>
+          )}
+
           {overlayPage === 'help' && (
               <GameGuide
                 section={getHelpSection(currentState)}

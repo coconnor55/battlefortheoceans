@@ -1,5 +1,6 @@
 // src/services/GameStatsService.js v0.3.3
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.4: Three new stats: total_damage, eras_played, eras_won
 // v0.3.3: Export singleton instance instead of class
 //         - Matches pattern of UserProfileService, RightsService, AchievementService
 //         - Services are stateless and should be shared singletons
@@ -9,7 +10,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.3.3";
+const version = "v0.3.4";
 
 class GameStatsService {
   constructor() {
@@ -30,6 +31,21 @@ class GameStatsService {
       console.log(version, 'Updating game stats:', gameResults);
 
       const userId = userProfile.id;
+        
+        // NEW: Track unique eras played and won for achievements
+          const { data: existingStats } = await supabase
+            .from('user_profiles')
+            .select('eras_played, eras_won')
+            .eq('id', userId)
+            .single();
+
+          const erasPlayed = new Set(existingStats?.eras_played || []);
+          erasPlayed.add(gameResults.era_id);
+
+          const erasWon = new Set(existingStats?.eras_won || []);
+          if (gameResults.won) {
+            erasWon.add(gameResults.era_id);
+          }
       
       // Calculate new totals - ROUND score to integer to match database schema
       const newTotalGames = userProfile.total_games + 1;
@@ -39,22 +55,24 @@ class GameStatsService {
       const newTotalShipsSunk = (userProfile.total_ships_sunk || 0) + gameResults.ships_sunk;
       const newTotalDamage = (userProfile.total_damage || 0) + gameResults.hits_damage;
 
-      // Update user_profiles table
-      const { data: updatedProfile, error: profileError } = await supabase
-        .from('user_profiles')
-        .update({
-          total_games: newTotalGames,
-          total_wins: newTotalWins,
-          total_score: newTotalScore,
-          best_accuracy: newBestAccuracy,
-          total_ships_sunk: newTotalShipsSunk,
-          total_damage: newTotalDamage,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId)
-        .select()
-        .single();
-
+        // Update user_profiles table
+        const { data: updatedProfile, error: profileError } = await supabase
+          .from('user_profiles')
+          .update({
+            total_games: newTotalGames,
+            total_wins: newTotalWins,
+            total_score: newTotalScore,
+            best_accuracy: newBestAccuracy,
+            total_ships_sunk: newTotalShipsSunk,
+            total_damage: newTotalDamage,
+            eras_played: Array.from(erasPlayed),    // NEW
+            eras_won: Array.from(erasWon),          // NEW
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId)
+          .select()
+          .single();
+        
       if (profileError) {
         console.error(version, 'Error updating profile stats:', profileError);
         return false;

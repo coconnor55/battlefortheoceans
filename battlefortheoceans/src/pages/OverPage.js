@@ -41,6 +41,8 @@ import configLoader from '../utils/ConfigLoader';
 import * as LucideIcons from 'lucide-react';
 
 const version = 'v0.5.8';
+// Detect if we're in production (battlefortheoceans.com) or local development
+const isProduction = window.location.hostname === 'battlefortheoceans.com';
 const SESSION_KEY = 'battleForOceans_gameResults';
 
 const OverPage = () => {

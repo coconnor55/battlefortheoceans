@@ -1,5 +1,6 @@
 // src/classes/CombatResolver.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.1: added totalDamage calculation
 // v0.1.0: Extracted from Game.js v0.8.3
 //         - receiveAttack() - 214 lines of combat resolution
 //         - calculateDamage() - damage calculation with boosts
@@ -8,7 +9,7 @@
 //         - isValidAttack() - coordinate validation
 //         - Reduces Game.js by ~300 lines
 
-const version = "v0.1.0";
+const version = "v0.1.1";
 
 /**
  * CombatResolver
@@ -274,8 +275,10 @@ class CombatResolver {
     }
     
     // Update firing player stats
+      const totalDamageDealt = hitResults.reduce((sum, h) => sum + h.damage, 0);
     firingPlayer.hits++;
     firingPlayer.hitsDamage += hitResults.reduce((sum, h) => sum + h.damage, 0);
+      firingPlayer.totalDamage = (firingPlayer.totalDamage || 0) + totalDamageDealt;
     
     // Score for hit (difficulty multiplier)
     const multiplier = (firingPlayer.type === 'human' && hitResults[0]?.player?.type === 'ai')

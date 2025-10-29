@@ -1,7 +1,8 @@
 // src/classes/Player.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.9.4";
+const version = "v0.9.5";
+// v0.9.5: Added totalDamage tracking for achievements
 // v0.9.4: Added userProfile parameter to constructor
 //         - Player now holds reference to lifetime statistics (userProfile)
 //         - Per-game stats (hits, misses, etc.) still reset each game
@@ -42,6 +43,7 @@ class Player {
     this.id = id;
     this.name = name;
     this.type = playerType;
+      this.totalDamage = 0;
     
     // DIFFICULTY (v0.4.1)
     // Score multiplier for beating this player
@@ -72,6 +74,7 @@ class Player {
     this.sunk = 0; // ships sunk by this player
     this.hitsDamage = 0.0; // cumulative damage dealt
     this.score = 0; // calculated game score
+      this.totalDamage = 0;  // new - cumulative damage across all games for achievements
     
     // SHIP PLACEMENT (v0.6.0 - Phase 1 Refactor, v0.9.2 orientation as degrees)
     // Map of where MY ships are located
@@ -408,6 +411,7 @@ class Player {
     this.sunk = 0;
     this.hitsDamage = 0.0;
     this.score = 0;
+      this.totalDamage = 0;
     this.shipPlacements.clear();
     this.dontShoot.clear();
     // Note: fleet, board, and userProfile references are NOT cleared
@@ -430,6 +434,7 @@ class Player {
       misses: this.misses,
       sunk: this.sunk,
       hitsDamage: this.hitsDamage,
+        totalDamage: this.totalDamage,
       score: this.score,
       accuracy: parseFloat(this.accuracy),
       averageDamage: parseFloat(this.averageDamage),

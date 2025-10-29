@@ -1,16 +1,26 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.3",
   "era": "traditional",
-  "name": "Traditional Battleship",
+  "name": "Classic Battleship",
   "era_description": "Classic naval warfare on the high seas. Command your fleet in the timeless battle of strategy and luck that has captivated players since the 1930s.",
+  "about": "<div class=\"about-content\"><h2>Classic Battleship</h2><p class=\"subtitle\">The Timeless Game of Naval Strategy</p><h3>Origins of the Game</h3><p>Battleship, one of the world's most enduring strategy games, has its roots in the early 20th century as a pencil-and-paper game played by soldiers and schoolchildren alike. While the exact origins are disputed, the game appears to have emerged during World War I, when naval warfare captured the public imagination and the strategic challenge of locating hidden enemy vessels translated naturally into gameplay.</p><p>The earliest known commercial version was published by the Starex novelty company in 1931 as \"Salvo,\" followed by similar games under various names throughout the 1930s and 1940s. Players would draw their own grids on paper, secretly position their fleet, and call out coordinates in turns, marking hits and misses as they attempted to locate and sink their opponent's ships.</p><h3>The Milton Bradley Era</h3><p>The game achieved widespread recognition in 1967 when Milton Bradley (now part of Hasbro) released \"Battleship\" as a plastic board game. This version featured the now-iconic red and white pegs, two side-by-side grids, and vertical plastic boards that allowed players to hide their ships while tracking their attacks. The satisfying \"click\" of pegs being placed and the tactile nature of the physical game made it an instant classic.</p><p>Milton Bradley's version standardized the fleet composition that became familiar to generations: a Carrier (5 spaces), Battleship (4 spaces), Cruiser or Submarine (3 spaces), and Destroyer (2 spaces). The 10×10 grid, labeled A-J vertically and 1-10 horizontally, became the universal standard for the game.</p><h3>Cultural Impact</h3><p>Over the decades, Battleship transcended its status as a simple children's game to become a cultural touchstone. The phrase \"You sank my battleship!\" entered popular language, and the game's tension-filled gameplay—balancing the thrill of scoring hits with the anxiety of protecting your own fleet—proved timelessly appealing across age groups.</p><p>The game has been adapted countless times: electronic versions with sound effects, travel editions, video games, mobile apps, and even a 2012 Hollywood film. Despite these modern incarnations, the core gameplay remains unchanged from those World War I-era pencil-and-paper beginnings—a testament to the elegance of its simple strategic premise.</p><h3>Strategy and Psychology</h3><p>What makes Battleship endure is its unique blend of logic and luck. Skilled players develop systematic search patterns—checkerboard approaches, probability-based targeting, and adaptive strategies based on board size and ship placement. Yet even the most methodical approach cannot eliminate the element of chance that keeps every game unpredictable.</p><p>The psychological dimension adds another layer. Where opponents place their ships, how they react to near-misses, and the mind games of tracking patterns all contribute to gameplay that remains engaging through thousands of matches. It's a game simple enough for children to master, yet deep enough that adults continue discovering new strategic approaches.</p><h3>The Digital Age</h3><p>The internet era brought Battleship to new audiences through online multiplayer versions, mobile apps, and digital adaptations that preserve the core turn-based gameplay while adding visual flair and convenience. These versions honor the game's heritage while making it accessible to players anywhere in the world.</p><p>Battle for the Oceans continues this tradition, bringing classic Battleship gameplay to the web with modern graphics, intelligent AI opponents, and expanded scenarios that explore different naval warfare eras. Whether you learned the game with pencil and paper in a school classroom or with plastic pegs on a family game night, the fundamental appeal remains: outthink your opponent, sink their fleet, and claim victory on the high seas.</p></div>",
   "free": true,
   "rows": 10,
   "cols": 10,
   "boundary": [],
   "max_players": 2,
+  "era_assets": {
+    "ship_silhouettes_path": "assets/eras/traditional/ships"
+  },
   "promotional": {
-    "background_image": "battle-background.jpg",
-    "promotional_image": null
+    "background_image": "assets/eras/traditional/images/background.jpg",
+    "promotional_image": "assets/eras/traditional/images/promotional.jpg"
+  },
+  "videos": {
+    "sunkplayer": "assets/eras/traditional/videos/playersunk.mp4",
+    "sunkopponent": "assets/eras/traditional/videos/opponentsunk.mp4",
+    "victory": "assets/eras/traditional/videos/victory.mp4",
+    "defeat": "assets/eras/traditional/videos/defeat.mp4"
   },
   "game_rules": {
     "change_alliance": false,
@@ -65,11 +75,11 @@
       "name": "Opponent",
       "avatar": "opponent-icon.png",
       "ships": [
-        { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"], "health_per_cell": 1.0 },
-        { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"], "health_per_cell": 1.5 },
-        { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"], "health_per_cell": 1.0 },
-        { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"], "health_per_cell": 2.0 },
-        { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"], "health_per_cell": 1.0 }
+        { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
+        { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+        { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
       ],
       "ai_captains": [
         {
@@ -161,8 +171,8 @@
     "attack_miss": "You fired at {cell} - miss.",
     "opponent_attack_hit": "{opponent} fired at {cell} - HIT!",
     "opponent_attack_miss": "{opponent} fired at {cell} - miss.",
-    "ship_sunk": "You sank the enemy {shipClass} at {cell}!",
-    "opponent_attack_sunk": "{opponent} sank your {shipClass} at {cell}!",
+    "ship_sunk": "You sank the {shipName} at {cell}!",
+    "opponent_attack_sunk": "{opponent} sank your {shipName} at {cell}!",
     "player_turn": "Your turn - click to fire!",
     "ai_turn": "{opponent} is taking their turn...",
     "victory": "Victory! You sank the enemy fleet!",

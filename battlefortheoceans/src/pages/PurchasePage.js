@@ -23,6 +23,9 @@ import { useGame } from '../context/GameContext';
 import stripeService from '../services/StripeService';
 
 const version = 'v0.4.4';
+// Detect if we're in production (battlefortheoceans.com) or local development
+const isProduction = window.location.hostname === 'battlefortheoceans.com';
+const gameCDN = process.env.REACT_APP_GAME_CDN || '';
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
@@ -132,8 +135,6 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
   const [eraInfo, setEraInfo] = useState(null);
   const [priceInfo, setPriceInfo] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  const gameCDN = process.env.REACT_APP_GAME_CDN || '';
   
   // Check if user is guest
   const isGuest = userProfile?.id?.startsWith('guest-');
@@ -331,15 +332,15 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
 
   // Image URL construction
   const backgroundImageUrl = eraInfo.promotional?.background_image
-    ? gameCDN
-      ? `${gameCDN}/assets/images/${eraInfo.promotional.background_image}`
-      : `/assets/images/${eraInfo.promotional.background_image}`
+    ? isProduction
+      ? `${gameCDN}/assets/eras/${eraInfo.era}/${eraInfo.promotional.background_image}`
+      : `/assets/eras/${eraInfo.era}/${eraInfo.promotional.background_image}`
     : null;
 
   const promotionalImageUrl = eraInfo.promotional?.promotional_image
-    ? gameCDN
-      ? `${gameCDN}/assets/images/${eraInfo.promotional.promotional_image}`
-      : `/assets/images/${eraInfo.promotional.promotional_image}`
+    ? isProduction
+      ? `${gameCDN}/assets/eras/${eraInfo.era}/${eraInfo.promotional.promotional_image}`
+      : `/assets/eras/${eraInfo.era}/${eraInfo.promotional.promotional_image}`
     : null;
 
   return (

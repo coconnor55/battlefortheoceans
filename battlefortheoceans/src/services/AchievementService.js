@@ -1,9 +1,10 @@
 // src/services/AchievementService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.1: Added total_damage, eras_played, eras_won, pirate_fleets_sunk
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.2.0';
+const version = 'v0.2.1';
 
 class AchievementService {
   constructor() {
@@ -260,7 +261,21 @@ class AchievementService {
               currentProgress = achievement.requirement_value;
             }
             break;
-          case 'win_streak':
+            case 'total_damage':
+              currentProgress = profile.total_damage || 0;
+              break;
+            case 'eras_played':
+              // Count unique eras played (JSONB array length)
+              currentProgress = profile.eras_played?.length || 0;
+              break;
+            case 'eras_won':
+              // Count unique eras won (JSONB array length)
+              currentProgress = profile.eras_won?.length || 0;
+              break;
+            case 'pirate_fleets_sunk':
+              currentProgress = profile.pirate_fleets_sunk || 0;
+              break;
+            case 'win_streak':
             // TODO: Implement win streak tracking
             // For now, skip these achievements
             continue;
