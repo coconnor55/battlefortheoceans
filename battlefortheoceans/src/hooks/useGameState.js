@@ -1,5 +1,9 @@
-// src/hooks/useGameState.js v0.3.5
+// src/hooks/useGameState.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.6: Complete munitions refactoring - remove backward compatibility
+//          - Removed handleStarShellFired wrapper
+//          - Removed starShellsRemaining and scatterShotRemaining exports
+//          - Components now use munitions object and fireMunition() directly
 // v0.3.5: Compute placement progress inline from humanPlayer.fleet
 //          - Removed call to non-existent getPlacementProgress()
 //          - Calculate currentShipIndex, totalShips, currentShip, isPlacementComplete
@@ -14,7 +18,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = "v0.3.5";
+const version = "v0.3.6";
 
 const useGameState = () => {
   const {
@@ -26,7 +30,6 @@ const useGameState = () => {
     board,
     getUIState,
     fireMunition: coreFireMunition,
-    handleStarShellFired: coreHandleStarShellFired
   } = useGame();
   
   // Message state from Game's Message system
@@ -153,18 +156,7 @@ const useGameState = () => {
     console.log('[HOOK] Firing munition through CoreEngine:', { munitionType, row, col });
     return coreFireMunition(munitionType, row, col);
   }, [coreFireMunition]);
-  
-  // v0.3.2: Handle star shell firing - backward compatibility wrapper
-  const handleStarShellFired = useCallback((row, col) => {
-    if (!coreHandleStarShellFired) {
-      console.log('[HOOK] No star shell handler available');
-      return false;
-    }
-    
-    console.log('[HOOK] Firing star shell through CoreEngine:', { row, col });
-    return coreHandleStarShellFired(row, col);
-  }, [coreHandleStarShellFired]);
-    
+      
   // Reset game
   const resetGame = useCallback(() => {
     if (gameInstance) {
@@ -270,14 +262,11 @@ const useGameState = () => {
     
     // v0.3.2: Munitions from CoreEngine (renamed from resources)
     munitions,
-    starShellsRemaining: munitions.starShells,
-    scatterShotRemaining: munitions.scatterShot,
     
     // Actions
     fireShot: handleAttack, // Alias for compatibility
     handleAttack,
     fireMunition,           // v0.3.2: Primary munition handler
-    handleStarShellFired,   // v0.3.2: Backward compatibility wrapper
     resetGame,
     
     // Data accessors - computed properties

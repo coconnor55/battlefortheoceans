@@ -1,5 +1,10 @@
 // src/pages/OverPage.js v0.5.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.10: Added final board snapshot display
+//         - Shows captured board image after game stats
+//         - Reveals all enemy ship positions to player
+//         - Uses finalBoardImage captured by GameLifecycleManager
+//         - Reuses game-board-container styling from PlayingPage
 // v0.5.9: Changed to support multiple opponents
 // v0.5.8: Removed unused import GameStatsService
 // v0.5.7: Added inline achievement display after battle duration (belt and braces)
@@ -40,7 +45,7 @@ import AchievementService from '../services/AchievementService';
 import configLoader from '../utils/ConfigLoader';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.5.8';
+const version = 'v0.5.10';
 // Detect if we're in production (battlefortheoceans.com) or local development
 const isProduction = window.location.hostname === 'battlefortheoceans.com';
 const SESSION_KEY = 'battleForOceans_gameResults';
@@ -416,6 +421,20 @@ const OverPage = () => {
             </div>
           )}
 
+          {/* Final Board Snapshot */}
+          {gameResults.finalBoardImage && (
+            <div className="game-board-container">
+              <h4 className="text-center">Final Battle Board</h4>
+              <img
+                src={gameResults.finalBoardImage}
+                alt="Final battle board showing all ship positions"
+              />
+              <p className="text-center text-muted">
+                All enemy ship locations revealed
+              </p>
+            </div>
+          )}
+          
           {/* Loading achievements indicator */}
           {loadingAchievements && !isGuest && (
             <div className="achievements-section">

@@ -135,7 +135,7 @@ class Game {
     // Lifecycle manager (v0.8.6)
     this.lifecycleManager = new GameLifecycleManager(this);
     
-    console.log(`[Game ${this.id}] Game created: ${this.id}, Mode: ${gameMode}`);
+    console.log(`[GAME] ${this.id} Game created: ${this.id}, Mode: ${gameMode}`);
   }
 
   playSound(soundType, delay = 0) {
@@ -585,18 +585,18 @@ class Game {
   initializeMunitions(starShells = 0, scatterShot = 0) {
     this.munitions.starShells = starShells;
     this.munitions.scatterShot = scatterShot;
-    console.log(`[Game ${this.id}] Munitions initialized:`, this.munitions);
+    console.log(`[GAME] ${this.id} Munitions initialized:`, this.munitions);
   }
 
   fireMunition(munitionType, row, col) {
     if (this.state !== 'playing') {
-      console.log(`[Game ${this.id}] Munition blocked - game not active`);
+      console.log(`[GAME] ${this.id} Munition blocked - game not active`);
       return false;
     }
     
     const currentPlayer = this.getCurrentPlayer();
     if (currentPlayer?.type !== 'human') {
-      console.log(`[Game ${this.id}] Munition blocked - not human turn`);
+      console.log(`[GAME] ${this.id} Munition blocked - not human turn`);
       return false;
     }
     
@@ -605,11 +605,11 @@ class Game {
                         munitionType === 'scatterShot' ? 'scatterShot' : null;
     
     if (!munitionKey || !this.munitions || this.munitions[munitionKey] <= 0) {
-      console.log(`[Game ${this.id}] ${munitionType} blocked - none remaining`);
+      console.log(`[GAME] ${this.id} ${munitionType} blocked - none remaining`);
       return false;
     }
     
-    console.log(`[Game ${this.id}] ${munitionType} fired at (${row}, ${col})`);
+    console.log(`[GAME] ${this.id} ${munitionType} fired at (${row}, ${col})`);
     
     // Decrement munition count
     this.munitions[munitionKey] = Math.max(0, this.munitions[munitionKey] - 1);

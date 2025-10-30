@@ -1,5 +1,9 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.33: FIXED munitions ownership - Game owns munitions, not CoreEngine
+//          - Removed CoreEngine.munitions references
+//          - getUIState now reads from gameInstance.munitions
+//          - handleEvent_play simplified (GameLifecycleManager handles init)
 // v0.6.32: Added restoreToState() method and converted services to singletons
 //          - Added restoreToState(state) method for browser navigation (after transition())
 //          - Handles browser back/forward button state restoration without URL sync
@@ -53,7 +57,7 @@ import achievementService from '../services/AchievementService.js';
 
 import ConfigLoader from '../utils/ConfigLoader.js';
 
-const version = 'v0.6.32';
+const version = 'v0.6.33';
 
 /**
  * CoreEngine - Orchestrates game state machine and coordinates services
@@ -327,7 +331,8 @@ class CoreEngine {
   handleEvent_play() {
     console.log('[CORE] Play state');
     if (this.gameInstance) {
-      this.gameInstance.startGame();
+        this.gameInstance.startGame();
+        this.notifySubscribers();  // ADD THIS LINE
     }
   }
 
@@ -423,15 +428,20 @@ class CoreEngine {
    * @param {Number} col - Target column
    * @returns {Boolean} Success
    */
-  fireMunition(munitionType, row, col) {
-    if (!this.gameInstance) {
-      console.warn('[CORE] No game instance for munition');
-      return false;
+    fireMunition(munitionType, row, col) {
+      console.log('[MUNITIONS] fireMunition called:', { munitionType, row, col, currentMunitions: this.munitions });
+      
+      if (!this.gameInstance) {
+        console.log('[MUNITIONS] No game instance!');
+        return false;
+      }
+      
+      const result = this.gameInstance.fireMunition(munitionType, row, col);
+      console.log('[MUNITIONS] fireMunition result:', result, 'munitions after:', this.munitions);
+      
+      return result;
     }
-
-    return this.gameInstance.fireMunition(munitionType, row, col);
-  }
-
+    
   /**
    * Register ship placement on board
    */

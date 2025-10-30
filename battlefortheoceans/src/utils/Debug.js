@@ -8,7 +8,7 @@ const version = "v0.1.3";
 // Control which categories are logged
 const control = {
   HOOK: false,
-  PLACEMENT: true,
+  PLACEMENT: false,
   SOUND: false,
   AI: false,
   ATTACK: false,
@@ -17,20 +17,21 @@ const control = {
   NETWORK: false,
   STATS: false,
   PAYMENT: false,
-  OPPONENT: true,
+  OPPONENT: false,
   OVERLAY: false,
   TARGETING: false,
-  GAME: false,
+  GAME: true,
   NAVBAR: false,
   ACHIEVEMENT: false,
   MESSAGE: true,
   FIRE: false,
-    VIDEO: true,
-    LAUNCH: true,
+    VIDEO: false,
+    LAUNCH: false,
     LOGIN: true,
     CORE: true,
     GUIDE: true,
-    AUTOPLAY: true, 
+    AUTOPLAY: true,
+    MUNITIONS: true,
   DEBUG: true
 };
 

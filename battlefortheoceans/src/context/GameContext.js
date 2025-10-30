@@ -1,5 +1,9 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.11: Complete munitions refactoring - remove backward compatibility wrapper
+//          - Removed handleStarShellFired - no longer needed
+//          - All components now use fireMunition(munitionType, row, col) directly
+//          - Completes refactoring started in v0.4.5
 // v0.4.10: Use singleton RightsService instance
 //         - Changed import from RightsService (class) to rightsService (instance)
 //         - RightsService already exports singleton per v0.1.2
@@ -31,7 +35,7 @@ import leaderboardService from '../services/LeaderboardService';
 import rightsService from '../services/RightsService';
 import configLoader from '../utils/ConfigLoader';
 
-const version = "v0.4.10";
+const version = "v0.4.11";
 
 const GameState = createContext();
 
@@ -91,7 +95,6 @@ export const GameProvider = ({ children }) => {
       
       // v0.4.5: Munitions actions
       fireMunition: (munitionType, row, col) => coreEngine.fireMunition(munitionType, row, col),
-      handleStarShellFired: (row, col) => coreEngine.handleStarShellFired(row, col), // Backward compatibility
       
       // User profile functions
       // v0.4.6: Use service singletons directly

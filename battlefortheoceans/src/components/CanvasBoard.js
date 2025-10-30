@@ -1,6 +1,13 @@
 // src/components/CanvasBoard.js
 // Copyright(c) 2025, Clint H. O'Connor
 //
+// v0.4.13: Pass starShellIllumination to HitOverlayRenderer for expanding ring effect
+//          - HitOverlayRenderer now draws animated red ring on star shell fire
+// v0.4.12: TargetOptionsMenu refactor - removed munitions prop drilling
+//          - ActionMenu renamed to TargetOptionsMenu
+//          - Munitions now read from useGameState directly in both CanvasBoard and TargetOptionsMenu
+//          - Removed munitions from component props and inputPropsRef
+// v0.4.11: Munitions refactoring - use munitions object instead of starShellsRemaining
 // v0.4.10: Munitions terminology rename (resources → munitions)
 //          - No code changes needed - uses callback props
 //          - Prop names remain same (onStarShellFired, starShellsRemaining)
@@ -22,9 +29,10 @@ import AnimationManager from '../renderers/AnimationManager';
 import HitOverlayRenderer from '../renderers/HitOverlayRenderer';
 import UXEngine from '../engines/UXEngine';
 import InputHandler from '../handlers/InputHandler';
-import ActionMenu from './ActionMenu';
+import TargetOptionsMenu from './TargetOptionsMenu';
+import useGameState from '../hooks/useGameState';
 
-const version = 'v0.4.10';
+const version = 'v0.4.13';
 
 // Constants
 const CELL_SIZE = 30;
@@ -42,9 +50,9 @@ const CanvasBoard = forwardRef(({
   currentShip = null,
   onShipPlaced = null,
   humanPlayer = null,
-  starShellsRemaining = 0
 }, ref) => {
-  const canvasRef = useRef(null);
+    const { munitions } = useGameState();
+    const canvasRef = useRef(null);
   const { subscribeToUpdates, userProfile } = useGame();
   
   const boardWidth = eraConfig ? eraConfig.cols * CELL_SIZE + LABEL_SIZE : 0;
@@ -104,7 +112,6 @@ const CanvasBoard = forwardRef(({
     mode,
     gameState,
     currentShip,
-    starShellsRemaining
   });
 
   // Preload ship SVGs
@@ -141,15 +148,14 @@ const CanvasBoard = forwardRef(({
       mode,
       gameState,
       currentShip,
-      starShellsRemaining
     };
-  }, [mode, gameState, currentShip, starShellsRemaining]);
+  }, [mode, gameState, currentShip]);
 
   // Star shell illumination effect
   const triggerStarShell = useCallback((centerRow, centerCol) => {
-    if (starShellsRemaining <= 0) return;
-    
-    console.log('[CANVAS]', version, 'Star shell at', centerRow, centerCol);
+      if (!munitions || munitions.starShells <= 0) return;
+      
+    console.log('[MUNITIONS]', version, 'Star shell at', centerRow, centerCol);
     
     const illuminatedCells = [];
     
@@ -198,9 +204,10 @@ const CanvasBoard = forwardRef(({
       setStarShellIllumination(null);
     }, 2000);
     
+      console.log('[MUNITIONS] Calling onStarShellFired for row:', centerRow, 'col:', centerCol);
     onStarShellFired?.(centerRow, centerCol);
     
-  }, [starShellsRemaining, eraConfig, onStarShellFired]);
+  }, [eraConfig, onStarShellFired]);
 
   // Render function
   const renderFrame = useCallback(() => {
@@ -231,7 +238,8 @@ const CanvasBoard = forwardRef(({
         LABEL_SIZE,
         offsetX,
         offsetY,
-        props.viewMode
+        props.viewMode,
+           props.starShellIllumination
       );
       
         // Admin debug: Show opponent ships when 'Z' key is held
@@ -629,7 +637,7 @@ const CanvasBoard = forwardRef(({
     }
   }), [showOpponentAnimation, createExplosion, gameState, renderFrame]);
   
-  const handleActionMenuChoice = useCallback((action) => {
+  const handleTargetOptionsMenuChoice = useCallback((action) => {
     setShowActionMenu(false);
     
     if (!actionMenuCell) return;
@@ -665,8 +673,7 @@ const CanvasBoard = forwardRef(({
         getGameBoard: () => gameBoard,
         getGameState: () => inputPropsRef.current.gameState,
         getCurrentShip: () => inputPropsRef.current.currentShip,
-        getStarShellsRemaining: () => inputPropsRef.current.starShellsRemaining,
-        cellSize: CELL_SIZE,
+          cellSize: CELL_SIZE,
         labelSize: LABEL_SIZE,
         // Callbacks
         onShotFired: (row, col) => {
@@ -703,8 +710,8 @@ const CanvasBoard = forwardRef(({
       inputHandlerRef.current?.detach();
     };
   }, [eraConfig, gameBoard, onShotFired, onShipPlaced, showShotAnimation]);
-  // mode, gameState, currentShip, starShellsRemaining NOT in dependencies - read from inputPropsRef!
-  // isValidShipPlacement NOT in dependencies - read from validationCallbackRef!
+    // mode, gameState, currentShip NOT in dependencies - read from inputPropsRef!
+    // isValidShipPlacement NOT in dependencies - read from validationCallbackRef!
 
   // Reset input handler on mode/ship change
   useEffect(() => {
@@ -751,12 +758,11 @@ const CanvasBoard = forwardRef(({
       />
       
       {showActionMenu && ReactDOM.createPortal(
-        <ActionMenu
+        <TargetOptionsMenu
           x={actionMenuPos.x}
           y={actionMenuPos.y}
-          onAction={handleActionMenuChoice}
+          onAction={handleTargetOptionsMenuChoice}
           onClose={() => setShowActionMenu(false)}
-          starShellsRemaining={starShellsRemaining}
         />,
         document.body
       )}

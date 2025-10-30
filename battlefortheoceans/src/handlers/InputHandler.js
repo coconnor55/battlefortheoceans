@@ -1,9 +1,11 @@
 // src/handlers/InputHandler.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.2: Removed getMunitions - TargetOptionsMenu reads munitions directly
+// v0.1.1: Munitions refactoring - use munitions object instead of starShellsRemaining
 // Handles all canvas input events (mouse, touch, keyboard)
 // Manages long press detection, coordinate transformation, and input state
 
-const version = 'v0.1.0';
+const version = 'v0.1.2';
 
 const LONG_PRESS_DURATION = 500; // ms
 
@@ -15,8 +17,7 @@ class InputHandler {
     getGameBoard, // () => gameBoard
     getGameState, // () => gameState
     getCurrentShip, // () => currentShip
-    getStarShellsRemaining, // () => number
-    cellSize,
+      cellSize,
     labelSize,
     // Callbacks
     onShotFired, // (row, col) => shotResult
@@ -31,8 +32,7 @@ class InputHandler {
     this.getGameBoard = getGameBoard;
     this.getGameState = getGameState;
     this.getCurrentShip = getCurrentShip;
-    this.getStarShellsRemaining = getStarShellsRemaining;
-    this.cellSize = cellSize;
+      this.cellSize = cellSize;
     this.labelSize = labelSize;
     
     // Callbacks

@@ -1,5 +1,6 @@
 // src/components/FleetStatusSidebar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.1: Munitions refactoring - use munitions object instead of starShellsRemaining
 // v0.2.0: Added multi-fleet support for Pirates era
 //         - Can now display multiple opponent fleets with captain names
 //         - Uses last name as header (e.g., "Cofresí", "Lafitte")
@@ -10,7 +11,7 @@
 
 import React from 'react';
 
-const version = 'v0.2.0';
+const version = 'v0.2.1';
 
 // Ship class abbreviations
 const CLASS_ABBREV = {
@@ -28,10 +29,10 @@ const CLASS_ABBREV = {
   'Cutter': 'CTR'
 };
 
-const FleetStatusSidebar = ({ fleet, fleets, title = 'Fleet', playerId, starShellsRemaining }) => {
+const FleetStatusSidebar = ({ fleet, fleets, title = 'Fleet', playerId, munitions }) => {
   // Debug log
-  if (title === 'Home' && starShellsRemaining !== undefined) {
-    console.log('[FLEET-SIDEBAR]', 'Star shells remaining:', starShellsRemaining);
+  if (title === 'Home' && munitions) {
+    console.log('[MUNITIONS]', 'Munitions:', munitions);
   }
   
   // Multi-fleet mode (Pirates era)
@@ -84,13 +85,13 @@ const FleetStatusSidebar = ({ fleet, fleets, title = 'Fleet', playerId, starShel
       <div className="fleet-status-header">{title}</div>
       
       {/* Star shell counter (only for Home/player fleet) */}
-      {title === 'Home' && starShellsRemaining !== undefined && (
-        <div className="fleet-status-resource">
-          <span className="fleet-status-resource-emoji">💥</span>
-          <span className="fleet-status-resource-count">{starShellsRemaining}</span>
-        </div>
-      )}
-      
+          {title === 'Home' && munitions && (
+            <div className="fleet-status-resource">
+              <span className="fleet-status-resource-emoji">💥</span>
+              <span className="fleet-status-resource-count">{munitions.starShells}</span>
+            </div>
+          )}
+          
       <div className="fleet-status-ships">
         {fleet.ships.map((ship) => {
           const { emoji, status } = getShipStatus(ship);

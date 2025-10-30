@@ -1,5 +1,9 @@
-// src/pages/PlayingPage.js v0.5.3
+// src/pages/PlayingPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.6: Complete munitions refactoring - remove backward compatibility wrapper
+//         - Changed onStarShellFired to use fireMunition('starShell', row, col)
+//         - Removed dependency on handleStarShellFired
+//         - Completes munitions terminology rename started in v0.5.3
 // v0.5.5: Added error handling to handleShotFired for AutoPlay debugging
 //         - Wraps handleAttack in try/catch
 //         - Logs any errors that might be swallowed
@@ -35,7 +39,7 @@ import CanvasBoard from '../components/CanvasBoard';
 import FleetStatusSidebar from '../components/FleetStatusSidebar';
 import VideoPopup from '../components/VideoPopup';
 
-const version = 'v0.5.5';
+const version = 'v0.5.6';
 
 const PlayingPage = () => {
   const {
@@ -63,8 +67,8 @@ const PlayingPage = () => {
     gameBoard,
     gameMode,
     handleAttack,
-    starShellsRemaining,
-    handleStarShellFired
+    munitions,
+    fireMunition
   } = useGameState();
   
   // Video system (v0.5.0)
@@ -155,9 +159,9 @@ const PlayingPage = () => {
   }, [handleAttack]);
   
   const onStarShellFired = useCallback((row, col) => {
-    console.log('[ATTACK]', version, 'Star shell fired at', { row, col });
-    handleStarShellFired(row, col);
-  }, [handleStarShellFired]);
+    console.log('[MUNITIONS]', version, 'Star shell fired at', { row, col });
+    fireMunition('starShell', row, col);
+  }, [fireMunition]);
   
   // v0.5.1: AutoPlay testing utility extracted to hook
   const { autoPlayEnabled, canUseAutoPlay, handleAutoPlayToggle } = useAutoPlay({
@@ -221,7 +225,7 @@ const PlayingPage = () => {
             <FleetStatusSidebar
               fleet={humanPlayer?.fleet}
               title="Home"
-              starShellsRemaining={starShellsRemaining}
+              munitions={munitions}
             />
             
             <div className="game-board-container">
@@ -243,7 +247,6 @@ const PlayingPage = () => {
                 onShotFired={handleShotFired}
                 onStarShellFired={onStarShellFired}
                 humanPlayer={humanPlayer}
-                starShellsRemaining={starShellsRemaining}
               />
             </div>
             

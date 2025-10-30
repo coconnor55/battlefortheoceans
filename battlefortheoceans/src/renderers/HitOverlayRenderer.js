@@ -1,5 +1,9 @@
 // src/renderers/HitOverlayRenderer.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.12.3: Added star shell expanding ring effect
+//          - New drawStarShellEffect() method
+//          - Red expanding ring animation (0.5s duration)
+//          - Fades out as it expands
 // v0.12.2: Updated to use new era-based asset structure
 //          - Import configLoader for path construction
 //          - Use configLoader.getEraShipPath() instead of hard-coded path
@@ -15,7 +19,7 @@
 
 import configLoader from '../utils/ConfigLoader';
 
-const version = 'v0.12.2';
+const version = 'v0.12.3';
 
 class HitOverlayRenderer {
   constructor(eraId = 'traditional', gameBoard = null) {
@@ -119,6 +123,50 @@ class HitOverlayRenderer {
     }
   }
 
+    /**
+     * Draw star shell expanding ring effect
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} starShellIllumination - Star shell data { cells, startTime }
+     * @param {number} cellSize - Cell size in pixels
+     * @param {number} labelSize - Label size in pixels
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     */
+    drawStarShellEffect(ctx, starShellIllumination, cellSize, labelSize, offsetX, offsetY) {
+      if (!starShellIllumination) return;
+      
+      const elapsed = Date.now() - starShellIllumination.startTime;
+      const duration = 500; // 0.5 seconds
+      
+      if (elapsed > duration) return; // Effect finished
+      
+      const progress = elapsed / duration; // 0.0 to 1.0
+      
+      // Find center cell (the one with opacity 1.0)
+      const centerCell = starShellIllumination.cells.find(cell => cell.opacity === 1.0);
+      if (!centerCell) return;
+      
+      // Calculate center position
+      const centerX = offsetX + labelSize + (centerCell.col * cellSize) + (cellSize / 2);
+      const centerY = offsetY + labelSize + (centerCell.row * cellSize) + (cellSize / 2);
+      
+      // Expanding ring
+      const maxRadius = cellSize * 2.5; // Covers 5x5 area
+      const radius = maxRadius * progress;
+      
+      // Fade out as it expands
+      const alpha = 1.0 - progress;
+      
+      // Draw expanding red ring
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 50, 50, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    
   /**
    * Initialize fire particles for a cell (now using emoji with rotation)
    */
@@ -311,7 +359,8 @@ class HitOverlayRenderer {
     this.fireParticles.delete(key);
   }
 
-  drawHitOverlay(ctx, gameInstance, gameState, cellSize, labelSize, offsetX, offsetY, viewMode = 'blended') {
+    drawHitOverlay(ctx, gameInstance, gameState, cellSize, labelSize, offsetX, offsetY, viewMode = 'blended', starShellIllumination = null) {
+        
     if (!gameState?.userId || !gameInstance) {
       return;
     }
@@ -333,6 +382,12 @@ class HitOverlayRenderer {
     } else if (viewMode === 'blended') {
       this.drawBlendedView(ctx, playerId, humanPlayer, cellSize, labelSize, offsetX, offsetY, gameInstance);
     }
+        
+        // Draw star shell effect (if active)
+        if (starShellIllumination) {
+          this.drawStarShellEffect(ctx, starShellIllumination, cellSize, labelSize, offsetX, offsetY);
+        }
+
   }
 
   /**

@@ -1,12 +1,16 @@
 // src/classes/GameLifecycleManager.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.5: FIXED munitions initialization - Game owns munitions, not CoreEngine
+//         - Removed coreEngine.munitions assignment
+//         - Now calls game.initializeMunitions() directly
+//         - Munitions are owned by Game instance, read via gameInstance.munitions
 
 import Game from './Game.js';
 import Board from './Board.js';
 import HumanPlayer from './HumanPlayer.js';
 import AiPlayer from './AiPlayer.js';
 
-const version = "v0.2.4";
+const version = "v0.2.5";
 /**
  * v0.2.4: BUGFIX - Removed .catch() from dispatch call
  *         - CoreEngine.dispatch() is now synchronous (returns undefined, not Promise)
@@ -190,23 +194,24 @@ class GameLifecycleManager {
     // Set board on game
     this.game.setBoard(this.coreEngine.board);
     
-    // Calculate munitions with multi-opponent boost
-    const opponentCount = this.coreEngine.selectedOpponents.length;
-    this.coreEngine.munitions = {
-      starShells: this.calculateMunitionWithBoost(
+      // Calculate munitions with multi-opponent boost
+      const opponentCount = this.coreEngine.selectedOpponents.length;
+      const starShells = this.calculateMunitionWithBoost(
         this.coreEngine.eraConfig.munitions?.star_shells,
         this.coreEngine.eraConfig.munitions?.star_shells_boost,
         opponentCount
-      ),
-      scatterShot: this.calculateMunitionWithBoost(
+      );
+      const scatterShot = this.calculateMunitionWithBoost(
         this.coreEngine.eraConfig.munitions?.scatter_shot,
         this.coreEngine.eraConfig.munitions?.scatter_shot_boost,
         opponentCount
-      )
-    };
-    
-    this.log(`Munitions initialized: ${JSON.stringify(this.coreEngine.munitions)}`);
+      );
 
+      // Initialize munitions on game instance (Game owns munitions, not CoreEngine)
+      this.game.initializeMunitions(starShells, scatterShot);
+
+      this.log(`Munitions initialized: starShells=${starShells}, scatterShot=${scatterShot}`);
+      
     this.log(`Game initialized with ${this.game.players.length} players (1 human + ${this.coreEngine.aiPlayers.length} AI)`);
   }
 

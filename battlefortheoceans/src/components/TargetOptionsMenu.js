@@ -1,14 +1,22 @@
-// src/components/ActionMenu.js
+// src/components/TargetOptionsMenu.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.0: Renamed from ActionMenu to TargetOptionsMenu (semantic accuracy)
+//         - Removed munitions prop drilling - now reads from useGameState directly
+//         - Component name reflects purpose: options when targeting a cell
+// v0.1.3: Munitions refactoring - use munitions object instead of starShellsRemaining// v0.1.1: Added backdrop to close menu on outside click
 // v0.1.1: Added backdrop to close menu on outside click
 // v0.1.0: Radial menu for attack actions (Shot/Star Shell/Scatter Shot)
 
 import React from 'react';
+import useGameState from '../hooks/useGameState';
 
-const version = 'v0.1.2';
+const version = 'v0.2.0';
 
-const ActionMenu = ({ x, y, onAction, onClose, starShellsRemaining = 0 }) => {
-  const actions = [
+const TargetOptionsMenu = ({ x, y, onAction, onClose }) => {
+  const { munitions } = useGameState();
+    console.log('[MUNITIONS] Received munitions:', munitions);  // ADD THIS LINE
+
+    const actions = [
     {
       id: 'shot',
       label: 'Shot',
@@ -19,8 +27,8 @@ const ActionMenu = ({ x, y, onAction, onClose, starShellsRemaining = 0 }) => {
       id: 'star',
       label: 'Star Shell',
       emoji: '✨',
-      enabled: starShellsRemaining > 0,
-      count: starShellsRemaining
+        enabled: munitions.starShells > 0,
+        count: munitions.starShells
     },
     {
       id: 'scatter',
@@ -69,5 +77,5 @@ const ActionMenu = ({ x, y, onAction, onClose, starShellsRemaining = 0 }) => {
   );
 };
 
-export default ActionMenu;
+export default TargetOptionsMenu;
 // EOF
