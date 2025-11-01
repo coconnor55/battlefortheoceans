@@ -15,7 +15,7 @@ const control = {
   BOARD: false,
   CANVAS: true,
   NETWORK: false,
-  STATS: false,
+  STATS: true,
   PAYMENT: false,
   OPPONENT: false,
   OVERLAY: false,
@@ -32,6 +32,7 @@ const control = {
     GUIDE: true,
     AUTOPLAY: true,
     MUNITIONS: true,
+    TESTS: true,
   DEBUG: true
 };
 

@@ -1,6 +1,9 @@
-
 // src/App.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.4: Added Test overlay for admin/developer testing
+//         - Added onShowTest prop to NavBar
+//         - Renders TestSuite component in modal overlay
+//         - Test option only visible to admins/developers (handled in NavBar)
 // v0.4.3: added routing for About page, removed hardcoded era info
 // v0.4.2: moved GameGuide handling into App.js
 // v0.4.1: Added page-container wrapper for NavBar spacing
@@ -33,12 +36,13 @@ import AchievementsPage from './pages/AchievementsPage';
 import StatsPage from './pages/StatsPage';
 import InactivityWarning from './components/InactivityWarning';
 import GameGuide from './components/GameGuide';
-import AboutPage from './pages/AboutPage';  // ADD THIS LINE
+import AboutPage from './pages/AboutPage';
+import TestSuite from './tests/TestSuite';
 import './App.css';
 
 export const APP_VERSION = 'dev1.3';
 
-const version = 'v0.4.3';
+const version = 'v0.4.4';
 // Detect if we're in production (battlefortheoceans.com) or local development
 const isProduction = window.location.hostname === 'battlefortheoceans.com';
 const gameCDN = process.env.REACT_APP_GAME_CDN || '';
@@ -51,38 +55,38 @@ const getHelpSection = (state) => {
     'placement': 'placement',
     'play': 'battle'
   };
-    const section = sectionMap[state] || 'era';
-    console.log('[GUIDE] App: ', version, 'getHelpSection for state:', state, '→', section);
+  const section = sectionMap[state] || 'era';
+  console.log('[GUIDE] App: ', version, 'getHelpSection for state:', state, '→', section);
   return sectionMap[state] || 'era';
 };
 
 const SceneRenderer = () => {
   const { currentState, eraConfig, subscribeToUpdates, coreEngine } = useGame();
-  const [overlayPage, setOverlayPage] = useState(null); // 'stats' | 'achievements' | null
-    const [autoShowedSections, setAutoShowedSections] = useState(new Set());
+  const [overlayPage, setOverlayPage] = useState(null); // 'stats' | 'achievements' | 'about' | 'help' | 'test' | null
+  const [autoShowedSections, setAutoShowedSections] = useState(new Set());
 
-    // Auto-show guide on state change (first time only per session)
-    useEffect(() => {
-      const validStates = ['era', 'opponent', 'placement', 'play'];
-      
-      // Check if should auto-show for current state
-      if (validStates.includes(currentState) && !autoShowedSections.has(currentState)) {
-        // Check user preference from CoreEngine
-        const userProfile = coreEngine.humanPlayer?.userProfile;
-        
-        // Don't auto-show if user has disabled it
-        if (userProfile?.show_game_guide === false) {
-          console.log('[APP]', version, 'Auto-show disabled by user preference');
-          return;
-        }
-        
-        console.log('[APP]', version, 'Auto-showing guide for first visit to:', currentState);
-        setOverlayPage('help');
-        setAutoShowedSections(prev => new Set([...prev, currentState]));
-      }
-    }, [currentState, coreEngine, autoShowedSections]);
+  // Auto-show guide on state change (first time only per session)
+  useEffect(() => {
+    const validStates = ['era', 'opponent', 'placement', 'play'];
     
-    const [, setRenderTrigger] = useState(0);
+    // Check if should auto-show for current state
+    if (validStates.includes(currentState) && !autoShowedSections.has(currentState)) {
+      // Check user preference from CoreEngine
+      const userProfile = coreEngine.humanPlayer?.userProfile;
+      
+      // Don't auto-show if user has disabled it
+      if (userProfile?.show_game_guide === false) {
+        console.log('[APP]', version, 'Auto-show disabled by user preference');
+        return;
+      }
+      
+      console.log('[APP]', version, 'Auto-showing guide for first visit to:', currentState);
+      setOverlayPage('help');
+      setAutoShowedSections(prev => new Set([...prev, currentState]));
+    }
+  }, [currentState, coreEngine, autoShowedSections]);
+  
+  const [, setRenderTrigger] = useState(0);
   
   // Inactivity tracking state
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
@@ -237,11 +241,11 @@ const SceneRenderer = () => {
       });
       
       if (eraConfig.promotional?.background_image) {
-          const backgroundImageUrl = eraConfig.promotional?.background_image
-            ? isProduction
-              ? `${gameCDN}/assets/eras/${eraConfig.era}/${eraConfig.promotional.background_image}`
-              : `/assets/eras/${eraConfig.era}/${eraConfig.promotional.background_image}`
-            : null;
+        const backgroundImageUrl = eraConfig.promotional?.background_image
+          ? isProduction
+            ? `${gameCDN}/assets/eras/${eraConfig.era}/${eraConfig.promotional.background_image}`
+            : `/assets/eras/${eraConfig.era}/${eraConfig.promotional.background_image}`
+          : null;
         console.log('[DEBUG]', version, 'Setting background image:', backgroundImageUrl);
         
         const backgroundValue = `url('${backgroundImageUrl}')`;
@@ -304,31 +308,32 @@ const SceneRenderer = () => {
   }
   
   console.log('[DEBUG]', version, 'Rendering scene for state:', currentState);
-    
+  
   const closeOverlay = () => setOverlayPage(null);
 
   return (
     <>
       <NavBar
-          onShowAbout={() => setOverlayPage('about')}  // ADD THIS LINE
+        onShowAbout={() => setOverlayPage('about')}
         onShowStats={() => setOverlayPage('stats')}
         onShowAchievements={() => setOverlayPage('achievements')}
-          onShowHelp={() => setOverlayPage('help')}
+        onShowHelp={() => setOverlayPage('help')}
+        onShowTest={() => setOverlayPage('test')}
         onCloseOverlay={closeOverlay}
         hasActiveOverlay={overlayPage !== null}
       />
-          
+      
       <div className="page-container">
-          <div className="scene">
-            {currentState === 'launch' && <LaunchPage />}
-            {currentState === 'login' && <LoginPage />}
-            {currentState === 'era' && <SelectEraPage />}
-            {currentState === 'opponent' && <SelectOpponentPage />}
-            {currentState === 'placement' && <PlacementPage />}
-            {currentState === 'play' && <PlayingPage />}
-            {currentState === 'over' && <OverPage />}
-          </div>
+        <div className="scene">
+          {currentState === 'launch' && <LaunchPage />}
+          {currentState === 'login' && <LoginPage />}
+          {currentState === 'era' && <SelectEraPage />}
+          {currentState === 'opponent' && <SelectOpponentPage />}
+          {currentState === 'placement' && <PlacementPage />}
+          {currentState === 'play' && <PlayingPage />}
+          {currentState === 'over' && <OverPage />}
         </div>
+      </div>
       
       {/* Overlays wrapped in modal-overlay to prevent background scroll */}
       {overlayPage === 'achievements' && (
@@ -343,22 +348,27 @@ const SceneRenderer = () => {
         </div>
       )}
       
-          {/* ADD THIS SECTION */}
-          {overlayPage === 'about' && (
-            <div className="modal-overlay">
-              <AboutPage onClose={closeOverlay} />
-            </div>
-          )}
+      {overlayPage === 'about' && (
+        <div className="modal-overlay">
+          <AboutPage onClose={closeOverlay} />
+        </div>
+      )}
 
-          {overlayPage === 'help' && (
-              <GameGuide
-                section={getHelpSection(currentState)}
-                manualOpen={overlayPage === 'help'}
-                onClose={closeOverlay}
-              />
-          )}
-          
-          {/* Inactivity warning modal */}
+      {overlayPage === 'help' && (
+        <GameGuide
+          section={getHelpSection(currentState)}
+          manualOpen={overlayPage === 'help'}
+          onClose={closeOverlay}
+        />
+      )}
+      
+      {overlayPage === 'test' && (
+        <div className="modal-overlay">
+          <TestSuite onClose={closeOverlay} />
+        </div>
+      )}
+      
+      {/* Inactivity warning modal */}
       <InactivityWarning
         show={showInactivityWarning}
         remainingSeconds={remainingSeconds}

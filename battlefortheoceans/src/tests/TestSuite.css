@@ -1,0 +1,476 @@
+/* src/tests/TestSuite.css */
+/* v0.1.2: Added skip status styling
+            - test-result-skip for skipped tests (gray/muted)
+            - test-status-skip indicator (gray)
+            - test-quick-stats for inline pass/fail display
+*/
+/* v0.1.1: Added styles for separate run/expand controls
+            - test-suite-item-controls flexbox container
+            - btn-icon for expand/collapse toggle
+            - test-results-summary for collapsed view
+            - test-detail styles for individual test items
+*/
+/* v0.1.0: Test suite styling */
+
+/* Overlay */
+.test-suite-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+/* Main Container */
+.test-suite-container {
+  background: #1f2937;
+  color: #f3f4f6;
+  border-radius: 8px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* Header */
+.test-suite-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 2px solid #374151;
+}
+
+.test-suite-header h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.test-suite-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 5px 10px;
+  transition: color 0.2s;
+}
+
+.test-suite-close:hover {
+  color: #f3f4f6;
+}
+
+/* Info Section */
+.test-suite-info {
+  padding: 15px 20px;
+  background: #111827;
+  border-bottom: 1px solid #374151;
+}
+
+.test-suite-info p {
+  margin: 5px 0;
+}
+
+.test-user-id code {
+  background: #374151;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+}
+
+.test-warning {
+  color: #fbbf24;
+}
+
+/* Actions */
+.test-suite-actions {
+  padding: 15px 20px;
+  border-bottom: 1px solid #374151;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
+.btn-primary:disabled {
+  background: #4b5563;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-secondary {
+  background: #374151;
+  color: #f3f4f6;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #4b5563;
+}
+
+.btn-secondary:disabled {
+  background: #1f2937;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 8px 12px;
+  transition: color 0.2s;
+  min-width: 40px;
+}
+
+.btn-icon:hover {
+  color: #f3f4f6;
+}
+
+/* Summary */
+.test-suite-summary {
+  display: flex;
+  gap: 20px;
+  padding: 15px 20px;
+  background: #111827;
+  border-bottom: 1px solid #374151;
+}
+
+.test-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.test-stat-label {
+  font-size: 12px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.test-stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.test-stat-success {
+  color: #10b981;
+}
+
+.test-stat-error {
+  color: #ef4444;
+}
+
+/* Test List */
+.test-suite-list {
+  padding: 20px;
+}
+
+.test-suite-item {
+  background: #111827;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  overflow: hidden;
+}
+
+.test-suite-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+}
+
+.test-suite-item-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+}
+
+.test-suite-item-info h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.test-version {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: normal;
+  margin-left: 10px;
+}
+
+.test-description {
+  margin: 5px 0 0 0;
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.test-quick-stats {
+  margin: 3px 0 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: normal;
+}
+
+/* Controls Container */
+.test-suite-item-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Status Indicator */
+.test-status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.test-status-pending {
+  background: #6b7280;
+}
+
+.test-status-success {
+  background: #10b981;
+}
+
+.test-status-error {
+  background: #ef4444;
+}
+
+.test-status-skip {
+  background: #6b7280;
+  opacity: 0.5;
+}
+
+/* Test Content */
+.test-suite-item-content {
+  border-top: 1px solid #374151;
+  padding: 15px;
+}
+
+/* Test Results Summary (collapsed view) */
+.test-results-summary {
+  background: #1f2937;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+.test-result-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #374151;
+  font-size: 14px;
+}
+
+.test-result-row:last-child {
+  border-bottom: none;
+}
+
+.test-result-row.test-result-success {
+  color: #10b981;
+}
+
+.test-result-row.test-result-error {
+  color: #ef4444;
+}
+
+/* Test Details */
+.test-details {
+  margin-top: 10px;
+}
+
+.test-detail {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 5px;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+.test-detail-pass {
+  background: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10b981;
+}
+
+.test-detail-fail {
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid #ef4444;
+}
+
+.test-detail-icon {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.test-detail-pass .test-detail-icon {
+  color: #10b981;
+}
+
+.test-detail-fail .test-detail-icon {
+  color: #ef4444;
+}
+
+.test-detail-name {
+  flex: 1;
+}
+
+/* Test Component */
+.test-component {
+  font-family: 'Courier New', monospace;
+}
+
+.test-results {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.test-result {
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 3px;
+  border-left: 3px solid;
+}
+
+.test-result-success {
+  background: rgba(16, 185, 129, 0.1);
+  border-left-color: #10b981;
+}
+
+.test-result-error {
+  background: rgba(239, 68, 68, 0.1);
+  border-left-color: #ef4444;
+}
+
+.test-result-skip {
+  background: rgba(107, 114, 128, 0.1);
+  border-left-color: #6b7280;
+}
+
+.test-result-running {
+  background: rgba(59, 130, 246, 0.1);
+  border-left-color: #3b82f6;
+}
+
+.test-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.test-result-name {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.test-result-time {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.test-result-message {
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.test-result-data {
+  margin-top: 10px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.test-result-data summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.test-result-data pre {
+  background: #000;
+  padding: 10px;
+  border-radius: 3px;
+  overflow-x: auto;
+  margin-top: 5px;
+}
+
+.test-running {
+  text-align: center;
+  padding: 10px;
+  color: #3b82f6;
+  font-style: italic;
+}
+
+/* Footer */
+.test-suite-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #374151;
+  text-align: center;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.test-suite-footer p {
+  margin: 5px 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .test-suite-overlay {
+    padding: 10px;
+  }
+
+  .test-suite-container {
+    max-height: 95vh;
+  }
+
+  .test-suite-header h1 {
+    font-size: 20px;
+  }
+
+  .test-suite-item-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .test-suite-summary {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+/* EOF */

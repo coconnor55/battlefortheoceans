@@ -1,5 +1,14 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.14: Restricted Test menu item to admins and developers only
+//          - Check userProfile.role for 'admin' or 'developer'
+//          - Test only visible to authorized users
+// v0.2.13: Added Test menu item to user dropdown
+//          - Test appears between Help and Logout
+//          - Calls onShowTest prop
+//          - Uses TestTube icon from lucide-react
+//          - Available to all users (will add admin check later if needed)
+// v0.2.12: Import TestSuite (removed - not needed in NavBar)
 // v0.2.11: Added About {Era} button to center navigation
 //          - Shows "About {eraName}" button when era is selected
 //          - Positioned before Stats and Achievements
@@ -21,12 +30,11 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
-import { LogOut } from 'lucide-react';
-import { HelpCircle } from 'lucide-react';
+import { LogOut, HelpCircle, TestTube } from 'lucide-react';
 
-const version = 'v0.2.11';
+const version = 'v0.2.14';
 
-const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onCloseOverlay, hasActiveOverlay }) => {
+const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onShowTest, onCloseOverlay, hasActiveOverlay }) => {
   const { currentState, userProfile, eraConfig, subscribeToUpdates, logout } = useGame();
   const [, forceUpdate] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -112,6 +120,15 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onCl
       onShowHelp();
     }
   };
+  
+  const handleTest = () => {
+    console.log('[NAVBAR]', version, 'User clicked test');
+    setShowUserMenu(false);
+    
+    if (onShowTest) {
+      onShowTest();
+    }
+  };
     
   const toggleUserMenu = () => {
     setShowUserMenu(prev => !prev);
@@ -125,6 +142,9 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onCl
   
   // Don't show stats for guest users (no persistent data)
   const isGuest = userProfile?.id?.startsWith('guest-');
+  
+  // Check if user has permission to run tests (admin or developer only)
+  const canTest = ['admin', 'developer'].includes(userProfile?.role);
   
   return (
     <nav className="nav-bar">
@@ -223,9 +243,19 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onCl
                       onClick={handleHelp}
                     >
                       <HelpCircle size={20} className="action-menu__emoji" />
-                      <span className="action-menu__emoji"></span>
                       <span className="action-menu__label">Help</span>
                     </div>
+                    
+                    {canTest && (
+                      <div
+                        className="action-menu__item"
+                        onClick={handleTest}
+                      >
+                        <TestTube size={20} className="action-menu__emoji" />
+                        <span className="action-menu__label">Test</span>
+                      </div>
+                    )}
+                    
                     <div
                       className="action-menu__item"
                       onClick={handleLogout}
