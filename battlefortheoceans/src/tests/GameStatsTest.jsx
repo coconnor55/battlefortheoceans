@@ -4,7 +4,7 @@
 // v0.3.1: Fixed mock game to include getGameStats() method
 // v0.3.0: Fixed - converted from class to React functional component
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import GameStatsService from '../services/GameStatsService';
 import ConfigLoader from '../utils/ConfigLoader';
@@ -21,6 +21,15 @@ const TEST_USER = {
 const GameStatsTest = ({ userId, onComplete }) => {
   const [results, setResults] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
+  const hasRun = useRef(false);  // <-- ADD THIS
+
+  useEffect(() => {
+    // Prevent double-run in StrictMode
+    if (hasRun.current) return;  // <-- ADD THIS
+    hasRun.current = true;        // <-- ADD THIS
+    
+    runTests();
+  }, []);
 
   const log = (message, type = 'info') => {
     const timestamp = new Date().toISOString();
@@ -264,7 +273,7 @@ const GameStatsTest = ({ userId, onComplete }) => {
     }
   };
 
-  const runAllTests = async () => {
+  const runTests = async () => {
     setIsRunning(true);
     setResults([]);
 
@@ -326,10 +335,6 @@ const GameStatsTest = ({ userId, onComplete }) => {
       onComplete({ passed, failed, total: passed + failed });
     }
   };
-
-  useEffect(() => {
-    runAllTests();
-  }, []);
 
   return (
     <div className="test-output">

@@ -1,5 +1,5 @@
 {
-  "version": "0.3.5",
+  "version": "0.3.6",
   "era": "midway",
   "name": "Midway Island",
   "era_description": "Battle of Midway, June 4-7, 1942. Fight for control of this strategic Pacific atoll where American forces turned the tide against the Japanese Navy in World War II.",
@@ -9,6 +9,8 @@
   "cols": 13,
   "boundary": [],
   "max_players": 2,
+  "passes_required": 0,     // NEW: Pass cost per game
+  "exclusive": false,       // NEW: Blocks pass usage
   "munitions": {
     "star_shells": 3,
     "star_shell_pattern": "3x3"

@@ -16,13 +16,14 @@ const MunitionsTest = ({ userId, onComplete }) => {
   const { coreEngine } = useGame();
   const [results, setResults] = useState([]);
   const [running, setRunning] = useState(false);
-  const hasRunRef = useRef(false);
+  const hasRun = useRef(false);  // <-- ADD THIS
 
   useEffect(() => {
-    if (!hasRunRef.current) {
-      hasRunRef.current = true;
-      runTests();
-    }
+    // Prevent double-run in StrictMode
+    if (hasRun.current) return;  // <-- ADD THIS
+    hasRun.current = true;        // <-- ADD THIS
+    
+    runTests();
   }, []);
 
   const addResult = (name, status, message, data = null) => {

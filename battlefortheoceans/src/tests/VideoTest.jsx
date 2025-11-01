@@ -1,35 +1,38 @@
 // src/tests/VideoTest.jsx
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.4: Fix path to /config/game-config.json (not /data/)
+//         - Use correct path from useVideoTriggers.js
+//         - Path is /config/game-config.json
+// v0.1.3: Fix to read game-config.json instead of era config
+// v0.1.2: Add detailed reasons for each test result
 // v0.1.1: Fix duplicate test runs and add skip status
-//         - Run tests only once (not on every visibility toggle)
-//         - Add 'skip' status for missing prerequisites
-//         - Clear skip message: "Video tests skipped - select an era first"
-//         - Don't count skips as failures in summary
 // v0.1.0: Video popup system testing
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 
-const version = 'v0.1.1';
+const version = 'v0.1.4';
 
 const VideoTest = ({ userId, onComplete }) => {
   const { coreEngine } = useGame();
   const [results, setResults] = useState([]);
   const [running, setRunning] = useState(false);
-  const hasRunRef = useRef(false);
+  const hasRun = useRef(false);
 
   useEffect(() => {
-    if (!hasRunRef.current) {
-      hasRunRef.current = true;
-      runTests();
-    }
+    // Prevent double-run in StrictMode
+    if (hasRun.current) return;
+    hasRun.current = true;
+    
+    runTests();
   }, []);
 
-  const addResult = (name, status, message, data = null) => {
+  const addResult = (name, status, message, reason = null, data = null) => {
     setResults(prev => [...prev, {
       name,
       status,
       message,
+      reason,
       data,
       timestamp: new Date().toISOString()
     }]);
@@ -37,176 +40,308 @@ const VideoTest = ({ userId, onComplete }) => {
 
   const runTests = async () => {
     setRunning(true);
+    const testResults = [];
 
     try {
-      // Test 1: Check era config
-      const hasEraConfig = coreEngine?.eraConfig !== null && coreEngine?.eraConfig !== undefined;
-      
-      addResult(
-        'Era Config Available',
-        hasEraConfig ? 'pass' : 'skip',
-        hasEraConfig
-          ? `Era config found: ${coreEngine.eraConfig?.name || 'Unknown'}`
-          : '⊘ Video tests skipped - select an era first',
-        { hasEraConfig, eraName: coreEngine?.eraConfig?.name }
-      );
-
-      if (!hasEraConfig) {
+      // Test 1: Load game-config.json
+      let gameConfig = null;
+      try {
+        const response = await fetch('/config/game-config.json');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        gameConfig = await response.json();
+        
+        addResult(
+          'Game Config Loading',
+          'pass',
+          'Successfully loaded game-config.json',
+          null,
+          { configKeys: Object.keys(gameConfig) }
+        );
+        testResults.push({
+          name: 'Game Config Loading',
+          status: 'pass'
+        });
+      } catch (error) {
+        addResult(
+          'Game Config Loading',
+          'fail',
+          'Failed to load game-config.json',
+          `Error: ${error.message}. File path: /config/game-config.json`,
+          { error: error.message }
+        );
+        testResults.push({
+          name: 'Game Config Loading',
+          status: 'fail',
+          reason: `Error: ${error.message}. File path: /config/game-config.json`
+        });
+        
+        // Can't continue without config
         const summary = {
           total: 1,
           passed: 0,
-          failed: 0,
-          skipped: 1,
-          details: [{ name: 'Era Config Available', status: 'skip' }]
+          failed: 1,
+          skipped: 0,
+          details: testResults
         };
         onComplete(summary);
         setRunning(false);
         return;
       }
 
-      const eraConfig = coreEngine.eraConfig;
-
-      // Test 2: Check videos configuration
-      const hasVideos = eraConfig.videos && typeof eraConfig.videos === 'object';
+      // Test 2: Check videos object exists
+      const hasVideos = gameConfig.videos && typeof gameConfig.videos === 'object';
+      const videosReason = hasVideos ? null :
+        'Missing "videos" object in game-config.json';
       addResult(
         'Videos Configuration',
         hasVideos ? 'pass' : 'fail',
         hasVideos
-          ? 'Videos configuration exists in era config'
+          ? 'Videos configuration exists in game-config.json'
           : 'No videos configuration found',
-        { hasVideos, videos: eraConfig.videos }
+        videosReason,
+        { hasVideos, videos: gameConfig.videos }
       );
+      testResults.push({
+        name: 'Videos Configuration',
+        status: hasVideos ? 'pass' : 'fail',
+        reason: videosReason
+      });
 
-      // Test 3: Check ship_sunk videos
-      const hasShipSunkVideos = hasVideos && Array.isArray(eraConfig.videos.ship_sunk);
-      addResult(
-        'Ship Sunk Videos',
-        hasShipSunkVideos ? 'pass' : 'fail',
-        hasShipSunkVideos
-          ? `${eraConfig.videos.ship_sunk.length} ship sunk videos configured`
-          : 'No ship sunk videos found',
-        { count: eraConfig.videos?.ship_sunk?.length, videos: eraConfig.videos?.ship_sunk }
-      );
-
-      // Test 4: Check game_over videos
-      const hasGameOverVideos = hasVideos &&
-        eraConfig.videos.game_over &&
-        typeof eraConfig.videos.game_over === 'object';
-      addResult(
-        'Game Over Videos',
-        hasGameOverVideos ? 'pass' : 'fail',
-        hasGameOverVideos
-          ? 'Game over videos (victory/defeat) configured'
-          : 'No game over videos found',
-        { gameOverVideos: eraConfig.videos?.game_over }
-      );
-
-      // Test 5: Check victory videos
-      const hasVictoryVideos = hasGameOverVideos &&
-        Array.isArray(eraConfig.videos.game_over.victory);
-      addResult(
-        'Victory Videos',
-        hasVictoryVideos ? 'pass' : 'fail',
-        hasVictoryVideos
-          ? `${eraConfig.videos.game_over.victory.length} victory videos configured`
-          : 'No victory videos found',
-        { count: eraConfig.videos?.game_over?.victory?.length, videos: eraConfig.videos?.game_over?.victory }
-      );
-
-      // Test 6: Check defeat videos
-      const hasDefeatVideos = hasGameOverVideos &&
-        Array.isArray(eraConfig.videos.game_over.defeat);
-      addResult(
-        'Defeat Videos',
-        hasDefeatVideos ? 'pass' : 'fail',
-        hasDefeatVideos
-          ? `${eraConfig.videos.game_over.defeat.length} defeat videos configured`
-          : 'No defeat videos found',
-        { count: eraConfig.videos?.game_over?.defeat?.length, videos: eraConfig.videos?.game_over?.defeat }
-      );
-
-      // Test 7: Check video URL format
-      if (hasShipSunkVideos) {
-        const firstVideo = eraConfig.videos.ship_sunk[0];
-        const hasValidUrl = firstVideo && typeof firstVideo.url === 'string' && firstVideo.url.length > 0;
-        addResult(
-          'Video URL Format',
-          hasValidUrl ? 'pass' : 'fail',
-          hasValidUrl
-            ? `Valid URL format: ${firstVideo.url}`
-            : 'Invalid or missing video URL',
-          { firstVideo }
-        );
+      if (!hasVideos) {
+        const summary = {
+          total: testResults.length,
+          passed: testResults.filter(r => r.status === 'pass').length,
+          failed: testResults.filter(r => r.status === 'fail').length,
+          skipped: 0,
+          details: testResults
+        };
+        onComplete(summary);
+        setRunning(false);
+        return;
       }
 
-      // Test 8: Check video title format
-      if (hasShipSunkVideos) {
-        const firstVideo = eraConfig.videos.ship_sunk[0];
-        const hasTitle = firstVideo && typeof firstVideo.title === 'string';
-        addResult(
-          'Video Title',
-          hasTitle ? 'pass' : 'fail',
-          hasTitle
-            ? `Video has title: "${firstVideo.title}"`
-            : 'Video missing title',
-          { title: firstVideo?.title }
-        );
+      // Test 3: Check generic_fallbacks object
+      const hasFallbacks = gameConfig.videos.generic_fallbacks &&
+        typeof gameConfig.videos.generic_fallbacks === 'object';
+      const fallbacksReason = hasFallbacks ? null :
+        'Missing "generic_fallbacks" object in videos config. Expected path: videos.generic_fallbacks';
+      addResult(
+        'Generic Fallbacks',
+        hasFallbacks ? 'pass' : 'fail',
+        hasFallbacks
+          ? 'Generic fallback videos configured'
+          : 'No generic_fallbacks found',
+        fallbacksReason,
+        { generic_fallbacks: gameConfig.videos?.generic_fallbacks }
+      );
+      testResults.push({
+        name: 'Generic Fallbacks',
+        status: hasFallbacks ? 'pass' : 'fail',
+        reason: fallbacksReason
+      });
+
+      if (!hasFallbacks) {
+        const summary = {
+          total: testResults.length,
+          passed: testResults.filter(r => r.status === 'pass').length,
+          failed: testResults.filter(r => r.status === 'fail').length,
+          skipped: 0,
+          details: testResults
+        };
+        onComplete(summary);
+        setRunning(false);
+        return;
       }
 
-      // Test 9: Check useVideoTriggers hook availability
-      // Note: Can't directly test the hook, but we can check if game has video callbacks
+      const fallbacks = gameConfig.videos.generic_fallbacks;
+
+      // Test 4: Check sunkplayer video
+      const hasSunkPlayer = typeof fallbacks.sunkplayer === 'string' && fallbacks.sunkplayer.length > 0;
+      const sunkPlayerReason = hasSunkPlayer ? null :
+        `Missing or invalid "sunkplayer" path. Expected: string path, Got: ${JSON.stringify(fallbacks.sunkplayer)}`;
+      addResult(
+        'Sunk Player Video',
+        hasSunkPlayer ? 'pass' : 'fail',
+        hasSunkPlayer
+          ? `Configured: ${fallbacks.sunkplayer}`
+          : 'No sunkplayer video path found',
+        sunkPlayerReason,
+        { path: fallbacks.sunkplayer }
+      );
+      testResults.push({
+        name: 'Sunk Player Video',
+        status: hasSunkPlayer ? 'pass' : 'fail',
+        reason: sunkPlayerReason
+      });
+
+      // Test 5: Check sunkopponent video
+      const hasSunkOpponent = typeof fallbacks.sunkopponent === 'string' && fallbacks.sunkopponent.length > 0;
+      const sunkOpponentReason = hasSunkOpponent ? null :
+        `Missing or invalid "sunkopponent" path. Expected: string path, Got: ${JSON.stringify(fallbacks.sunkopponent)}`;
+      addResult(
+        'Sunk Opponent Video',
+        hasSunkOpponent ? 'pass' : 'fail',
+        hasSunkOpponent
+          ? `Configured: ${fallbacks.sunkopponent}`
+          : 'No sunkopponent video path found',
+        sunkOpponentReason,
+        { path: fallbacks.sunkopponent }
+      );
+      testResults.push({
+        name: 'Sunk Opponent Video',
+        status: hasSunkOpponent ? 'pass' : 'fail',
+        reason: sunkOpponentReason
+      });
+
+      // Test 6: Check victory video
+      const hasVictory = typeof fallbacks.victory === 'string' && fallbacks.victory.length > 0;
+      const victoryReason = hasVictory ? null :
+        `Missing or invalid "victory" path. Expected: string path, Got: ${JSON.stringify(fallbacks.victory)}`;
+      addResult(
+        'Victory Video',
+        hasVictory ? 'pass' : 'fail',
+        hasVictory
+          ? `Configured: ${fallbacks.victory}`
+          : 'No victory video path found',
+        victoryReason,
+        { path: fallbacks.victory }
+      );
+      testResults.push({
+        name: 'Victory Video',
+        status: hasVictory ? 'pass' : 'fail',
+        reason: victoryReason
+      });
+
+      // Test 7: Check defeat video
+      const hasDefeat = typeof fallbacks.defeat === 'string' && fallbacks.defeat.length > 0;
+      const defeatReason = hasDefeat ? null :
+        `Missing or invalid "defeat" path. Expected: string path, Got: ${JSON.stringify(fallbacks.defeat)}`;
+      addResult(
+        'Defeat Video',
+        hasDefeat ? 'pass' : 'fail',
+        hasDefeat
+          ? `Configured: ${fallbacks.defeat}`
+          : 'No defeat video path found',
+        defeatReason,
+        { path: fallbacks.defeat }
+      );
+      testResults.push({
+        name: 'Defeat Video',
+        status: hasDefeat ? 'pass' : 'fail',
+        reason: defeatReason
+      });
+
+      // Test 8: Check new_achievement video (top level)
+      const hasAchievement = typeof gameConfig.videos.new_achievement === 'string' &&
+        gameConfig.videos.new_achievement.length > 0;
+      const achievementReason = hasAchievement ? null :
+        `Missing or invalid "new_achievement" path. Expected: string path, Got: ${JSON.stringify(gameConfig.videos.new_achievement)}`;
+      addResult(
+        'New Achievement Video',
+        hasAchievement ? 'pass' : 'fail',
+        hasAchievement
+          ? `Configured: ${gameConfig.videos.new_achievement}`
+          : 'No new_achievement video path found',
+        achievementReason,
+        { path: gameConfig.videos.new_achievement }
+      );
+      testResults.push({
+        name: 'New Achievement Video',
+        status: hasAchievement ? 'pass' : 'fail',
+        reason: achievementReason
+      });
+
+      // Test 9: Check video callbacks (if game is active)
       const hasGame = coreEngine?.gameInstance !== undefined;
-      const hasVideoCallbacks = hasGame && (
-        typeof coreEngine.gameInstance.onShipSunk === 'function' ||
-        typeof coreEngine.gameInstance.onGameOver === 'function'
-      );
-      addResult(
-        'Video Callbacks',
-        hasVideoCallbacks ? 'pass' : 'fail',
-        hasVideoCallbacks
-          ? 'Game has video callback hooks'
-          : 'No game instance or video callbacks not set',
-        { hasGame, hasVideoCallbacks }
-      );
+      if (hasGame) {
+        const hasVideoCallbacks =
+          typeof coreEngine.gameInstance.onShipSunk === 'function' ||
+          typeof coreEngine.gameInstance.onGameOver === 'function';
+        const callbackReason = hasVideoCallbacks ? null :
+          'Game instance exists but video callbacks (onShipSunk, onGameOver) not set';
+        addResult(
+          'Video Callbacks',
+          hasVideoCallbacks ? 'pass' : 'fail',
+          hasVideoCallbacks
+            ? 'Game has video callback hooks'
+            : 'Video callbacks not set on game instance',
+          callbackReason,
+          { hasGame, hasVideoCallbacks }
+        );
+        testResults.push({
+          name: 'Video Callbacks',
+          status: hasVideoCallbacks ? 'pass' : 'fail',
+          reason: callbackReason
+        });
+      } else {
+        addResult(
+          'Video Callbacks',
+          'skip',
+          '⊘ Skipped - no active game instance',
+          'Start a game to test video callbacks',
+          { hasGame: false }
+        );
+        testResults.push({
+          name: 'Video Callbacks',
+          status: 'skip',
+          reason: 'Start a game to test video callbacks'
+        });
+      }
 
-      // Test 10: Check VideoPopup component integration
-      // This is indirect - we check if the video system is ready
-      const videoSystemReady = hasVideos && hasShipSunkVideos && hasGameOverVideos;
+      // Test 10: Video system readiness
+      const allVideosConfigured = hasSunkPlayer && hasSunkOpponent && hasVictory && hasDefeat && hasAchievement;
+      const readinessReason = allVideosConfigured ? null :
+        'One or more required video paths missing - check previous test failures for details';
       addResult(
         'Video System Ready',
-        videoSystemReady ? 'pass' : 'fail',
-        videoSystemReady
-          ? 'Video system fully configured and ready'
+        allVideosConfigured ? 'pass' : 'fail',
+        allVideosConfigured
+          ? 'All required video paths configured'
           : 'Video system incomplete',
+        readinessReason,
         {
-          hasVideos,
-          hasShipSunkVideos,
-          hasGameOverVideos,
-          hasVictoryVideos,
-          hasDefeatVideos
+          sunkplayer: hasSunkPlayer,
+          sunkopponent: hasSunkOpponent,
+          victory: hasVictory,
+          defeat: hasDefeat,
+          new_achievement: hasAchievement
         }
       );
+      testResults.push({
+        name: 'Video System Ready',
+        status: allVideosConfigured ? 'pass' : 'fail',
+        reason: readinessReason
+      });
 
     } catch (error) {
+      const errorReason = `Unexpected error: ${error.message}\nStack: ${error.stack}`;
       addResult(
         'Test Suite Error',
         'fail',
         `Unexpected error: ${error.message}`,
+        errorReason,
         { error: error.message, stack: error.stack }
       );
+      testResults.push({
+        name: 'Test Suite Error',
+        status: 'fail',
+        reason: errorReason
+      });
     }
 
     // Calculate summary
-    const passed = results.filter(r => r.status === 'pass').length;
-    const failed = results.filter(r => r.status === 'fail').length;
-    const skipped = results.filter(r => r.status === 'skip').length;
+    const passed = testResults.filter(r => r.status === 'pass').length;
+    const failed = testResults.filter(r => r.status === 'fail').length;
+    const skipped = testResults.filter(r => r.status === 'skip').length;
 
     const summary = {
-      total: results.length,
+      total: testResults.length,
       passed,
       failed,
       skipped,
-      details: results.map(r => ({ name: r.name, status: r.status }))
+      details: testResults
     };
 
     onComplete(summary);
@@ -235,6 +370,11 @@ const VideoTest = ({ userId, onComplete }) => {
               </span>
             </div>
             <div className="test-result-message">{result.message}</div>
+            {result.reason && (
+              <div className="test-result-reason">
+                <strong>Reason:</strong> {result.reason}
+              </div>
+            )}
             {result.data && (
               <details className="test-result-data">
                 <summary>View Data</summary>

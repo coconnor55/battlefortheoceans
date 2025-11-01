@@ -4,7 +4,7 @@
 // v0.2.0: Achievement system tests with real database operations
 // v0.1.0: Initial version
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import AchievementService from '../services/AchievementService';
 
@@ -20,6 +20,15 @@ const TEST_USER = {
 const AchievementTest = ({ userId, onComplete }) => {
   const [results, setResults] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
+  const hasRun = useRef(false);  // <-- ADD THIS
+
+  useEffect(() => {
+    // Prevent double-run in StrictMode
+    if (hasRun.current) return;  // <-- ADD THIS
+    hasRun.current = true;        // <-- ADD THIS
+    
+    runTests();
+  }, []);
 
   const log = (message, type = 'info') => {
     const timestamp = new Date().toISOString();
@@ -185,7 +194,7 @@ const AchievementTest = ({ userId, onComplete }) => {
     }
   };
 
-  const runAllTests = async () => {
+  const runTests = async () => {
     setIsRunning(true);
     setResults([]);
 
@@ -237,10 +246,6 @@ const AchievementTest = ({ userId, onComplete }) => {
       onComplete({ passed, failed, total: passed + failed });
     }
   };
-
-  useEffect(() => {
-    runAllTests();
-  }, []);
 
   return (
     <div className="test-output">

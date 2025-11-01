@@ -2,16 +2,21 @@
 // Copyright(c) 2025, Clint H. O'Connor
 // v0.1.0: VoucherService test suite
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import VoucherService from '../services/VoucherService';
 
 const VoucherServiceTest = ({ userId, onComplete }) => {
   const [tests, setTests] = useState([]);
   const [running, setRunning] = useState(false);
+    const hasRun = useRef(false);  // <-- ADD THIS
 
-  useEffect(() => {
-    runTests();
-  }, []);
+    useEffect(() => {
+      // Prevent double-run in StrictMode
+      if (hasRun.current) return;  // <-- ADD THIS
+      hasRun.current = true;        // <-- ADD THIS
+      
+      runTests();
+    }, []);
 
   const addTest = (name, status, message, data = null) => {
     setTests(prev => [...prev, { 

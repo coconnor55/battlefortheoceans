@@ -1,5 +1,5 @@
 {
-  "version": "0.2.7",
+  "version": "0.2.8",
   "era": "pirates",
   "name": "Pirates of the Gulf",
   "era_description": "Caribbean Sea, 1822-1825. The US Navy's West Indies Squadron hunts the last generation of Caribbean pirates in the warm waters of the Gulf of Mexico. Choose your fleet size and face legendary pirates like Cofresí, Lafitte, and Diabolito in this irregular battlefield.",
@@ -10,6 +10,9 @@
   "cols": 30,
   "boundary": [],
   "max_players": 5,
+  "passes_required": 2,     // NEW: Pass cost per game
+  "exclusive": true,       // NEW: Blocks pass usage
+  "exclusive_label": "EXCLUSIVE",     // NEW: Badge text for exclusives
   "munitions": {
     "star_shells": 4,
     "star_shells_boost": 2,

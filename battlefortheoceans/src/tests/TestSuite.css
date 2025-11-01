@@ -1,4 +1,5 @@
 /* src/tests/TestSuite.css */
+/* v0.1.3: Added .test-stat-warning for skipped count display */
 /* v0.1.2: Added skip status styling
             - test-result-skip for skipped tests (gray/muted)
             - test-status-skip indicator (gray)
@@ -188,6 +189,10 @@
 
 .test-stat-error {
   color: #ef4444;
+}
+
+.test-stat-warning {
+  color: #fbbf24;
 }
 
 /* Test List */

@@ -1,12 +1,16 @@
 // src/tests/UIComponentsTest.jsx
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.1: Add detailed reasons with file paths for skips and failures
+//         - Include component path in skip messages
+//         - Add reason field to details array
+//         - Show expected vs actual for failures
 // v0.3.0: Fixed - converted from class to React functional component
 // v0.2.0: UI component instantiation tests with real test user
 // v0.1.0: Initial version
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
-const version = 'v0.3.0';
+const version = 'v0.3.1';
 
 // Test user credentials
 const TEST_USER = {
@@ -23,6 +27,15 @@ const TEST_USER = {
 const UIComponentsTest = ({ userId, onComplete }) => {
   const [results, setResults] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    // Prevent double-run in StrictMode
+    if (hasRun.current) return;
+    hasRun.current = true;
+    
+    runTests();
+  }, []);
 
   const log = (message, type = 'info') => {
     const timestamp = new Date().toISOString();
@@ -31,23 +44,23 @@ const UIComponentsTest = ({ userId, onComplete }) => {
     console.log(`[TESTS] ${type.toUpperCase()} ${message}`);
   };
 
-  const testComponentExists = async (componentName, ComponentClass) => {
+  const testComponentExists = async (componentName, ComponentClass, componentPath) => {
     try {
       if (!ComponentClass) {
-        log(`❌ ${componentName} - Component not found`, 'error');
-        return false;
+        log(`❌ ${componentName} - Component not found at ${componentPath}`, 'error');
+        return { success: false, reason: `File not found: ${componentPath}` };
       }
 
       if (typeof ComponentClass !== 'function') {
         log(`❌ ${componentName} - Not a valid React component`, 'error');
-        return false;
+        return { success: false, reason: 'Not a valid React component' };
       }
 
       log(`✅ ${componentName} - Component exists and is valid`, 'success');
-      return true;
+      return { success: true };
     } catch (error) {
       log(`❌ ${componentName} - Error: ${error.message}`, 'error');
-      return false;
+      return { success: false, reason: error.message };
     }
   };
 
@@ -57,18 +70,18 @@ const UIComponentsTest = ({ userId, onComplete }) => {
 
       if (!element) {
         log(`❌ ${componentName} - Failed to create element with props`, 'error');
-        return false;
+        return { success: false, reason: 'Failed to create element with props' };
       }
 
       log(`✅ ${componentName} - Accepts props correctly`, 'success');
-      return true;
+      return { success: true };
     } catch (error) {
       log(`❌ ${componentName} - Props error: ${error.message}`, 'error');
-      return false;
+      return { success: false, reason: `Props error: ${error.message}` };
     }
   };
 
-  const runAllTests = async () => {
+  const runTests = async () => {
     setIsRunning(true);
     setResults([]);
 
@@ -125,6 +138,7 @@ const UIComponentsTest = ({ userId, onComplete }) => {
     let passed = 0;
     let failed = 0;
     let skipped = 0;
+    const details = [];
 
     for (const testCase of testComponents) {
       log(`\nTesting: ${testCase.name}`, 'info');
@@ -134,29 +148,55 @@ const UIComponentsTest = ({ userId, onComplete }) => {
         const ComponentModule = await import(componentPath).catch(() => null);
 
         if (!ComponentModule) {
-          log(`⚠️ ${testCase.name} - Component file not found (skipping)`, 'warn');
+          const skipReason = `Component file not found: src/components/${testCase.name}.js`;
+          log(`⚠️ ${testCase.name} - ${skipReason}`, 'warn');
           skipped++;
+          details.push({
+            name: testCase.name,
+            status: 'skip',
+            reason: skipReason
+          });
           continue;
         }
 
         const ComponentClass = ComponentModule.default;
 
-        const existsResult = await testComponentExists(testCase.name, ComponentClass);
-        if (!existsResult) {
+        const existsResult = await testComponentExists(testCase.name, ComponentClass, componentPath);
+        if (!existsResult.success) {
           failed++;
+          details.push({
+            name: `${testCase.name} - Exists`,
+            status: 'fail',
+            reason: existsResult.reason
+          });
           continue;
         }
 
         const propsResult = await testComponentProps(testCase.name, ComponentClass, testCase.props);
-        if (propsResult) {
+        if (propsResult.success) {
           passed++;
+          details.push({
+            name: testCase.name,
+            status: 'pass'
+          });
         } else {
           failed++;
+          details.push({
+            name: `${testCase.name} - Props`,
+            status: 'fail',
+            reason: propsResult.reason
+          });
         }
 
       } catch (error) {
-        log(`❌ ${testCase.name} - Unexpected error: ${error.message}`, 'error');
+        const errorReason = `Unexpected error: ${error.message}`;
+        log(`❌ ${testCase.name} - ${errorReason}`, 'error');
         failed++;
+        details.push({
+          name: testCase.name,
+          status: 'fail',
+          reason: errorReason
+        });
       }
     }
 
@@ -169,13 +209,15 @@ const UIComponentsTest = ({ userId, onComplete }) => {
     setIsRunning(false);
 
     if (onComplete) {
-      onComplete({ passed, failed, skipped, total: passed + failed + skipped });
+      onComplete({
+        passed,
+        failed,
+        skipped,
+        total: passed + failed + skipped,
+        details
+      });
     }
   };
-
-  useEffect(() => {
-    runAllTests();
-  }, []);
 
   return (
     <div className="test-output">

@@ -1,5 +1,6 @@
 // src/tests/TestSuite.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.6: Add skipped count to summary (minimal change - 6 lines modified)
 // v0.1.5: Added UIComponentsTest, AchievementTest, and GameStatsTest (path corrected to ../tests/)
 // v0.1.4: Keep original test output visible on collapse/expand
 // v0.1.3: Added MunitionsTest, NavigationTest, and VideoTest
@@ -19,7 +20,7 @@ import AchievementTest from './AchievementTest';
 import GameStatsTest from './GameStatsTest';
 import './TestSuite.css';
 
-const version = 'v0.1.5';
+const version = 'v0.1.6';
 
 const TestSuite = ({ onClose }) => {
   const { userProfile } = useGame();
@@ -164,16 +165,18 @@ const TestSuite = ({ onClose }) => {
     let total = 0;
     let passed = 0;
     let failed = 0;
+    let skipped = 0;  // ← CHANGE 1: Added skipped variable
 
     Object.values(results).forEach(result => {
       if (result) {
-        total += result.total || (result.passed + result.failed);
+        total += result.total || (result.passed + result.failed + (result.skipped || 0));  // ← CHANGE 2: Include skipped in total
         passed += result.passed;
         failed += result.failed;
+        skipped += result.skipped || 0;  // ← CHANGE 3: Track skipped count
       }
     });
 
-    return { total, passed, failed };
+    return { total, passed, failed, skipped };  // ← CHANGE 4: Return skipped
   };
 
   const stats = getTotalStats();
@@ -215,6 +218,12 @@ const TestSuite = ({ onClose }) => {
               <span className="test-stat-label">Failed:</span>
               <span className="test-stat-value test-stat-error">{stats.failed}</span>
             </div>
+            {stats.skipped > 0 && (  // ← CHANGE 5: Show skipped stat if > 0
+              <div className="test-stat">
+                <span className="test-stat-label">Skipped:</span>
+                <span className="test-stat-value test-stat-warning">{stats.skipped}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -237,6 +246,7 @@ const TestSuite = ({ onClose }) => {
                         <p className="test-quick-stats">
                           ✓ {results[test.id].passed} passed,
                           {results[test.id].failed > 0 ? ` ✗ ${results[test.id].failed} failed` : ' ✗ 0 failed'}
+                          {results[test.id].skipped > 0 && `, ⊘ ${results[test.id].skipped} skipped`}  {/* ← CHANGE 6: Show skipped in quick stats */}
                         </p>
                       )}
                     </div>

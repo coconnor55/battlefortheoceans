@@ -43,10 +43,10 @@
   "videos": {
     "new_achievement": "/assets/videos/new-achievement.mp4",
     "generic_fallbacks": {
-      "sunkplayer": "/assets/videos/traditional/my-ship-sunk.mp4",
-      "sunkopponent": "/assets/videos/traditional/opp-ship-sunk.mp4",
-      "victory": "/assets/videos/traditional/victory.mp4",
-      "defeat": "/assets/videos/traditional/defeat.mp4"
+        "sunkplayer": "assets/eras/traditional/videos/playersunk.mp4",
+        "sunkopponent": "assets/eras/traditional/videos/opponentsunk.mp4",
+        "victory": "assets/eras/traditional/videos/victory.mp4",
+        "defeat": "assets/eras/traditional/videos/defeat.mp4"
     }
   },
   "inactivity": {
