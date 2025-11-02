@@ -1,6 +1,8 @@
 // database_cleanup_manual.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v1.0.0: Manual cleanup script for expired/exhausted user_rights
+// v1.0.1: Manual cleanup script for expired/exhausted user_rights
+//         - Updated to use .env file configuration
+// v1.0.0: Initial cleanup script
 //
 // PURPOSE:
 // Removes old, exhausted, non-purchased rights to keep database clean.
@@ -12,17 +14,36 @@
 // - NEVER deletes purchased eras (stripe_payment_intent_id present)
 // - NEVER deletes active rights (uses_remaining > 0 or -1)
 //
+// SETUP:
+// 1. Ensure .env file exists in project root with:
+//    REACT_APP_SUPABASE_URL=https://your-project.supabase.co
+//    SUPABASE_SECRET_KEY=your-secret-key
+// 2. Install dependencies: npm install dotenv @supabase/supabase-js
+//
 // USAGE:
 // node database_cleanup_manual.js --preview
 // node database_cleanup_manual.js --execute
 
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 
-const version = 'v1.0.0';
+// Load environment variables from .env
+dotenv.config();
 
-// Configuration
-const SUPABASE_URL = process.env.SUPABASE_URL || 'YOUR_SUPABASE_URL';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'YOUR_SERVICE_KEY';
+const version = 'v1.0.1';
+
+// Configuration from .env
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SECRET_KEY;
+
+// Validate configuration
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error('ERROR: Missing required environment variables!');
+  console.error('Please ensure .env file contains:');
+  console.error('  REACT_APP_SUPABASE_URL=...');
+  console.error('  SUPABASE_SECRET_KEY=...');
+  process.exit(1);
+}
 
 // Initialize Supabase client with service role key
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);

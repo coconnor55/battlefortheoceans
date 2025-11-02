@@ -441,6 +441,33 @@ class Player {
       damagePerShot: parseFloat(this.damagePerShot)
     };
   }
+    
+    /**
+     * Check if user ID represents a guest user
+     * @param {string} userId - User ID to check
+     * @returns {boolean} True if guest user
+     */
+    static isGuest(userId) {
+      return !userId || userId.startsWith('guest-');
+    }
+
+    /**
+     * Check if user ID represents an AI player
+     * @param {string} userId - User ID to check
+     * @returns {boolean} True if AI player
+     */
+    static isAI(userId) {
+      return userId && userId.startsWith('ai-');
+    }
+
+    /**
+     * Check if user ID represents a human player (authenticated)
+     * @param {string} userId - User ID to check
+     * @returns {boolean} True if human player
+     */
+    static isHuman(userId) {
+      return userId && !Player.isGuest(userId) && !Player.isAI(userId);
+    }
 }
 
 export default Player;

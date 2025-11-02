@@ -17,7 +17,7 @@ const control = {
   NETWORK: false,
   STATS: true,
   PAYMENT: false,
-  OPPONENT: false,
+  OPPONENT: true,
   OVERLAY: false,
   TARGETING: false,
   GAME: true,
@@ -33,6 +33,7 @@ const control = {
     AUTOPLAY: true,
     MUNITIONS: true,
     TESTS: true,
+    RIGHTS: true,
   DEBUG: true
 };
 

@@ -18,27 +18,53 @@ import VideoTest from './VideoTest';
 import UIComponentsTest from './UIComponentsTest';
 import AchievementTest from './AchievementTest';
 import GameStatsTest from './GameStatsTest';
+import UserProfileServiceTest from './UserProfileServiceTest';
 import './TestSuite.css';
 
 const version = 'v0.1.6';
+// Test user configuration
 
 const TestSuite = ({ onClose }) => {
   const { userProfile } = useGame();
-  const [activeTest, setActiveTest] = useState(null);
-  const [expandedTests, setExpandedTests] = useState(new Set());
-  const [completedTests, setCompletedTests] = useState(new Set());
-  const [results, setResults] = useState({
-    voucherService: null,
-    rightsService: null,
-    munitions: null,
-    navigation: null,
-    video: null,
-    uiComponents: null,
-    achievements: null,
-    gameStats: null
-  });
+    const userId = userProfile?.id;
+    const [activeTest, setActiveTest] = useState(null);
+    const [expandedTests, setExpandedTests] = useState(new Set());
+    const [completedTests, setCompletedTests] = useState(new Set());
+    const [results, setResults] = useState({
+      voucherService: null,
+      rightsService: null,
+      munitions: null,
+      navigation: null,
+      video: null,
+      uiComponents: null,
+      achievements: null,
+      gameStats: null,
+        userProfile: null  // ← ADD THIS
+    });
 
-  const userId = userProfile?.id;
+    // Admin check - only allow admins to run tests
+    if (userProfile?.role !== 'admin') {
+      return (
+        <div className="test-suite-overlay">
+          <div className="test-suite-container">
+            <div className="test-suite-header">
+              <h1>🧪 Test Suite</h1>
+              <button onClick={onClose} className="test-suite-close">✕</button>
+            </div>
+            <div className="test-suite-info">
+              <p className="test-warning">⚠️ Admin access required</p>
+              <p>Tests are only available to administrators.</p>
+            </div>
+            <div className="test-suite-actions">
+              <button onClick={onClose} className="btn-primary">Close</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+
+    const loggedInUserId = userProfile?.id
 
   const tests = [
     {
@@ -74,6 +100,13 @@ const TestSuite = ({ onClose }) => {
       name: 'Video System',
       description: 'Video popup configuration and integration',
       component: VideoTest,
+      version: 'v0.1.0'
+    },
+    {
+      id: 'userProfile',
+      name: 'User Profile Service',
+      description: 'Profile management and incomplete games tracking',
+      component: UserProfileServiceTest,
       version: 'v0.1.0'
     },
     {
@@ -129,7 +162,8 @@ const TestSuite = ({ onClose }) => {
       video: null,
       uiComponents: null,
       achievements: null,
-      gameStats: null
+      gameStats: null,
+        userProfile: null  // ← ADD THIS
     });
     setCompletedTests(new Set());
     
@@ -191,12 +225,13 @@ const TestSuite = ({ onClose }) => {
 
         <div className="test-suite-info">
           <p>Battle for the Oceans - System Tests</p>
+          <div className="test-user-info">
           {userId ? (
-            <p className="test-user-id">Testing as: <code>{userId.substring(0, 8)}...</code></p>
+            <p className="test-user-id">Testing as: <code>${userId?.substring(0, 8)}...</code></p>
           ) : (
-            <p className="test-warning">⚠️ Not logged in - some tests will be skipped</p>
-          )}
-        </div>
+            <p className="test-warning">⚠️ Not logged in - tests will be skipped</p>
+          )}          </div>
+          </div>
 
         <div className="test-suite-actions">
           <button onClick={runAllTests} className="btn-primary">

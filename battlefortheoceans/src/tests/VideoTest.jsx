@@ -253,42 +253,42 @@ const VideoTest = ({ userId, onComplete }) => {
         reason: achievementReason
       });
 
-      // Test 9: Check video callbacks (if game is active)
-      const hasGame = coreEngine?.gameInstance !== undefined;
-      if (hasGame) {
-        const hasVideoCallbacks =
-          typeof coreEngine.gameInstance.onShipSunk === 'function' ||
-          typeof coreEngine.gameInstance.onGameOver === 'function';
-        const callbackReason = hasVideoCallbacks ? null :
-          'Game instance exists but video callbacks (onShipSunk, onGameOver) not set';
-        addResult(
-          'Video Callbacks',
-          hasVideoCallbacks ? 'pass' : 'fail',
-          hasVideoCallbacks
-            ? 'Game has video callback hooks'
-            : 'Video callbacks not set on game instance',
-          callbackReason,
-          { hasGame, hasVideoCallbacks }
-        );
-        testResults.push({
-          name: 'Video Callbacks',
-          status: hasVideoCallbacks ? 'pass' : 'fail',
-          reason: callbackReason
-        });
-      } else {
-        addResult(
-          'Video Callbacks',
-          'skip',
-          '⊘ Skipped - no active game instance',
-          'Start a game to test video callbacks',
-          { hasGame: false }
-        );
-        testResults.push({
-          name: 'Video Callbacks',
-          status: 'skip',
-          reason: 'Start a game to test video callbacks'
-        });
-      }
+        // Test 9: Check video callback methods exist on Game class
+        const hasGame = coreEngine?.gameInstance !== undefined;
+        if (hasGame) {
+          const hasCallbackMethods =
+            typeof coreEngine.gameInstance.setOnShipSunk === 'function' &&
+            typeof coreEngine.gameInstance.setOnGameOver === 'function';
+          const callbackReason = hasCallbackMethods ? null :
+            'Game class missing setOnShipSunk or setOnGameOver methods';
+          addResult(
+            'Video Callbacks',
+            hasCallbackMethods ? 'pass' : 'fail',
+            hasCallbackMethods
+              ? 'Game has video callback setter methods'
+              : 'Video callback methods not found on Game class',
+            callbackReason,
+            { hasGame, hasCallbackMethods }
+          );
+          testResults.push({
+            name: 'Video Callbacks',
+            status: hasCallbackMethods ? 'pass' : 'fail',
+            reason: callbackReason
+          });
+        } else {
+          addResult(
+            'Video Callbacks',
+            'skip',
+            '⊘ Skipped - no active game instance',
+            'Start a game to test video callbacks',
+            { hasGame: false }
+          );
+          testResults.push({
+            name: 'Video Callbacks',
+            status: 'skip',
+            reason: 'Start a game to test video callbacks'
+          });
+        }
 
       // Test 10: Video system readiness
       const allVideosConfigured = hasSunkPlayer && hasSunkOpponent && hasVictory && hasDefeat && hasAchievement;

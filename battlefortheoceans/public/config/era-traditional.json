@@ -9,8 +9,8 @@
   "cols": 10,
   "boundary": [],
   "max_players": 2,
-  "passes_required": 0,     // NEW: Pass cost per game
-  "exclusive": false,       // NEW: Blocks pass usage
+  "passes_required": 0,
+  "exclusive": false,
   "era_assets": {
     "ship_silhouettes_path": "assets/eras/traditional/ships"
   },

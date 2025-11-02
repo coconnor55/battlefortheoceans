@@ -52,6 +52,48 @@
   animation: pulse 2s infinite;
 }
 
+/* Badge color variations */
+.badge-info { /* For X PLAYS badges */
+  background: var(--accent-secondary, #4A90E2);
+  color: white;
+}
+
+.badge-danger { /* For locked eras */
+  background: var(--error, #FF3366);
+  color: white;
+}
+
+.badge-owned {
+  background: var(--success, #00FF88);
+  color: var(--bg-dark, #0A1628);
+  font-weight: bold;
+}
+
+/* Pass balance display in header */
+.pass-balance-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 217, 255, 0.1);
+  border-radius: 2rem;
+  font-size: 0.9rem;
+}
+
+.pass-icon {
+  font-size: 1.2rem;
+}
+
+.pass-count {
+  font-weight: bold;
+  color: var(--primary, #00D9FF);
+}
+
+.pass-label {
+  color: var(--text-secondary, #B8E6F0);
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }

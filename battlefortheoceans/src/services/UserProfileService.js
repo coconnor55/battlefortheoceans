@@ -1,5 +1,6 @@
 // src/services/UserProfileService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.5: Added increment/decrement incomplete game counter
 // v0.1.4: Added disableGameGuide method
 // v0.1.3: Export singleton instance instead of class
 //         - Fixes "getUserProfile is not a function" error in LoginDialog
@@ -9,7 +10,7 @@
 import { supabase } from '../utils/supabaseClient';
 import { Filter } from 'bad-words';
 
-const version = "v0.1.4";
+const version = "v0.1.5";
 
 class UserProfileService {
     constructor() {
@@ -202,6 +203,92 @@ class UserProfileService {
         }
         
         console.log('[GUIDE] UserProfileService:', this.version, 'Game guide disabled successfully');
+    }
+    
+    /**
+     * Increment incomplete_games counter when game starts
+     * Called by GameLifecycleManager.startGame()
+     *
+     * @param {string} userId - User ID
+     */
+    async incrementIncompleteGames(userId) {
+      if (!userId || userId.startsWith('guest-')) {
+        this.log('Guest user - skipping incomplete games increment');
+        return;
+      }
+
+      try {
+        // First get current value
+        const { data: profile, error: fetchError } = await supabase
+          .from('user_profiles')
+          .select('incomplete_games')
+          .eq('id', userId)
+          .single();
+
+        if (fetchError) {
+          console.error(`[SERVICE] UserProfileService: ${this.version} Error fetching incomplete_games:`, fetchError);
+          return;
+        }
+
+        // Increment by 1
+        const newValue = (profile?.incomplete_games || 0) + 1;
+
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({ incomplete_games: newValue })
+          .eq('id', userId);
+
+        if (updateError) {
+          console.error(`[SERVICE] UserProfileService: ${this.version} Error incrementing incomplete_games:`, updateError);
+        } else {
+          this.log(`Incremented incomplete_games to ${newValue} for user ${userId}`);
+        }
+      } catch (error) {
+        console.error(`[SERVICE] UserProfileService: ${this.version} Exception incrementing incomplete_games:`, error);
+      }
+    }
+
+    /**
+     * Decrement incomplete_games counter when game ends
+     * Called by GameLifecycleManager.endGame()
+     *
+     * @param {string} userId - User ID
+     */
+    async decrementIncompleteGames(userId) {
+      if (!userId || userId.startsWith('guest-')) {
+        this.log('Guest user - skipping incomplete games decrement');
+        return;
+      }
+
+      try {
+        // First get current value
+        const { data: profile, error: fetchError } = await supabase
+          .from('user_profiles')
+          .select('incomplete_games')
+          .eq('id', userId)
+          .single();
+
+        if (fetchError) {
+          console.error(`[SERVICE] UserProfileService: ${this.version} Error fetching incomplete_games:`, fetchError);
+          return;
+        }
+
+        // Decrement by 1 (don't go below 0)
+        const newValue = Math.max((profile?.incomplete_games || 0) - 1, 0);
+
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({ incomplete_games: newValue })
+          .eq('id', userId);
+
+        if (updateError) {
+          console.error(`[SERVICE] UserProfileService: ${this.version} Error decrementing incomplete_games:`, updateError);
+        } else {
+          this.log(`Decremented incomplete_games to ${newValue} for user ${userId}`);
+        }
+      } catch (error) {
+        console.error(`[SERVICE] UserProfileService: ${this.version} Exception decrementing incomplete_games:`, error);
+      }
     }
 }
 

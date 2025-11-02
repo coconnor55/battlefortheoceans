@@ -1,5 +1,6 @@
 // src/classes/GameLifecycleManager.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.7: Added startGame and endGame to control lifecycle and manage the incomplete user profile counter and consume the game
 // v0.2.5: FIXED munitions initialization - Game owns munitions, not CoreEngine
 //         - Removed coreEngine.munitions assignment
 //         - Now calls game.initializeMunitions() directly
@@ -9,8 +10,11 @@ import Game from './Game.js';
 import Board from './Board.js';
 import HumanPlayer from './HumanPlayer.js';
 import AiPlayer from './AiPlayer.js';
+import { supabase } from '../utils/supabaseClient';
+import UserProfileService from '../services/UserProfileService.js';
+import RightsService from '../services/RightsService.js';
 
-const version = "v0.2.5";
+const version = "v0.2.7";
 /**
  * v0.2.4: BUGFIX - Removed .catch() from dispatch call
  *         - CoreEngine.dispatch() is now synchronous (returns undefined, not Promise)
@@ -118,7 +122,7 @@ class GameLifecycleManager {
       throw new Error(`Cannot initialize placement - missing: ${missing.join(', ')}`);
     }
     
-    this.coreEngine.selectedEra = this.coreEngine.eraConfig.id;
+    this.coreEngine.selectedEra = this.coreEngine.eraConfig.era;
     
     // Create Game instance
     this.game = new Game(
@@ -298,6 +302,26 @@ class GameLifecycleManager {
     return false;
   }
 
+    /**
+     * game start
+     * - Increments incomplete_games counter
+     * Called when CoreEngine transitions to 'play' state
+     *
+     * @param {string} userId - Player's user ID
+     * @param {string} eraId - Era identifier
+     */
+    async startGame(userId, eraId) {
+        if (HumanPlayer.isGuest(userId)) { return }   // no guests
+
+      try {
+        await UserProfileService.incrementIncompleteGames(userId);
+        console.log(`[LIFECYCLE] GameLifecycleManager|${version} Game start tracked for user ${userId}, era ${eraId}`);
+      } catch (error) {
+        console.error(`[LIFECYCLE] GameLifecycleManager|${version} Exception tracking game start:`, error);
+      }
+    }
+    
+    
   /**
    * End the game
    *
@@ -318,13 +342,15 @@ class GameLifecycleManager {
    * - 2s for fire to clear (before board capture)
    * - 4s total before page transition (let user see final state)
    */
-  endGame() {
+  async endGame() {
     this.game.state = 'finished';
     this.game.endTime = new Date();
     
     const humanPlayer = this.game.players.find(p => p.id === this.game.humanPlayerId);
     const humanWon = this.game.winner && humanPlayer && this.game.winner.id === humanPlayer.id;
-    
+    const userId = humanPlayer?.id;
+      const eraId = this.game.eraConfig.era;
+      
     // v0.8.3: Call onGameOver callback IMMEDIATELY (synchronous)
     // This allows video to start while animations play
     if (this.game.onGameOver) {
@@ -356,6 +382,17 @@ class GameLifecycleManager {
       this.game.battleLog('Game ended: Draw', 'draw');
     }
 
+      // Decrement incomplete_games counter and consume rights
+      if (HumanPlayer.isHuman(userId)) {
+        try {
+          await UserProfileService.decrementIncompleteGames(userId);
+          await RightsService.consumeRights(userId, eraId);
+          console.log(`[LIFECYCLE] GameLifecycleManager|${version} Incomplete decrement and rights consumed for user ${userId}, era ${eraId}`);
+        } catch (error) {
+          console.error(`[LIFECYCLE] GameLifecycleManager|${version} Failed to process game end:`, error);
+        }
+      }
+      
     this.cleanupTemporaryAlliances();
     
     // Wait for fire to clear, THEN capture winner's board, THEN notify

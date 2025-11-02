@@ -331,6 +331,14 @@ class CoreEngine {
   handleEvent_play() {
     console.log('[CORE] Play state');
     if (this.gameInstance) {
+        // Track game start (increment incomplete_games counter)
+        this.lifecycleManager.startGame(
+          this.humanPlayer.id,
+          this.eraConfig.era
+        ).catch(error => {
+            console.error('[CORE] Failed to track game start:', error);
+        });
+
         this.gameInstance.startGame();
         this.notifySubscribers();  // ADD THIS LINE
     }
@@ -508,7 +516,7 @@ class CoreEngine {
     }
 
     try {
-      return await leaderboardService.getLeaderboard(this.eraConfig.id, limit);
+      return await leaderboardService.getLeaderboard(this.eraConfig.era, limit);
     } catch (error) {
       console.error('[CORE] Error fetching leaderboard:', error);
       return [];

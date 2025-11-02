@@ -1,19 +1,23 @@
 // src/services/RightsService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.4: renamed canPlayEra -> checkRights, consumePlay -> consumeRights
+// v0.2.3: use ConfigLoader to get eraConfig
+// v0.2.2: Fixed access priority logic
+//         - PRIORITY 1: Check purchases first (stripe_payment_intent_id)
+//         - PRIORITY 2: Check vouchers (voucher_used)
+//         - PRIORITY 3: Check exclusive flag
+//         - PRIORITY 4: Check passes
+//         - Updated grantEraAccess() to set 2-year expiry (not null)
+//         - Badge shows OWNED for purchases, X EXCLUSIVE for vouchers
+// v0.2.1: Added batch badge fetching
 // v0.2.0: Complete pass management and access control
-//         - Added getPassBalance() - sum all active pass rights
-//         - Added canPlayEra() - complex access logic (voucher priority, exclusive, passes)
-//         - Added consumePlay() - decrement voucher/passes with FIFO
-//         - Added creditPasses() - create pass rights entries
-//         - Added getEraBadgeInfo() - badge display logic
-//         - Updated grantEraAccess() - permanent access (expires_at = null)
-//         - Deprecated redeemVoucher() - use VoucherService instead
 // v0.1.2: Return empty rights for guest users
 // v0.1.1: Export singleton instance instead of class
 
 import { supabase } from '../utils/supabaseClient';
+import ConfigLoader from '../utils/ConfigLoader';
 
-const version = "v0.2.0";
+const version = "v0.2.4";
 
 class RightsService {
   constructor() {
@@ -34,7 +38,7 @@ class RightsService {
    */
   async getPassBalance(userId) {
     if (!userId || userId.startsWith('guest-')) {
-      console.log(`[RightsService ${version}] Guest user - returning 0 pass balance`);
+      console.log(`[RIGHTS] RightsService|${version} Guest user - returning 0 pass balance`);
       return 0;
     }
 
@@ -48,7 +52,7 @@ class RightsService {
         .or('expires_at.is.null,expires_at.gt.now()'); // Not expired
 
       if (error) {
-        console.error(`[RightsService ${version}] Error fetching pass balance:`, error);
+        console.error(`[RIGHTS] RightsService|${version} Error fetching pass balance:`, error);
         return 0;
       }
 
@@ -56,32 +60,40 @@ class RightsService {
         return sum + right.uses_remaining;
       }, 0) || 0;
 
-      console.log(`[RightsService ${version}] Pass balance for user ${userId}: ${total}`);
+      console.log(`[RIGHTS] RightsService|${version} Pass balance for user ${userId}: ${total}`);
       return total;
 
     } catch (error) {
-      console.error(`[RightsService ${version}] Failed to get pass balance:`, error);
+      console.error(`[RIGHTS] RightsService|${version} Failed to get pass balance:`, error);
       return 0;
     }
   }
 
   /**
    * Check if user can play an era
-   * Implements priority system: vouchers > exclusive check > passes > free
+   * Implements priority system: purchases > vouchers > exclusive check > passes > free
    *
    * @param {string} userId - User ID
    * @param {string} eraId - Era ID
    * @param {object} eraConfig - Era configuration (must include passes_required, exclusive)
    * @returns {Promise<object>} Access information
    */
-  async canPlayEra(userId, eraId, eraConfig) {
-    if (!userId || !eraId || !eraConfig) {
-      console.error(`[RightsService ${version}] Missing required parameters for canPlayEra`);
+  async checkRights(userId, eraId) {
+    if (!userId || !eraId) {
+      console.error(`[RIGHTS] RightsService|${version} Missing required parameters for checkRights - userId ${userId} eraId ${eraId}`);
       return { canPlay: false, method: 'error', reason: 'Missing parameters' };
     }
 
+      // Load era config (uses cache)
+        const eraConfig = await ConfigLoader.loadEraConfig(eraId);
+        
+        if (!eraConfig) {
+          console.error(`[RIGHTS] RightsService|Could not load era config for ${eraId}`);
+          return { canPlay: false, reason: 'Era not found' };
+        }
+
     try {
-      // PRIORITY 1: Check for era-specific vouchers
+      // Fetch all era rights for this user/era combo
       const { data: eraRights, error: eraError } = await supabase
         .from('user_rights')
         .select('*')
@@ -89,29 +101,46 @@ class RightsService {
         .eq('rights_type', 'era')
         .eq('rights_value', eraId)
         .or('uses_remaining.gt.0,uses_remaining.eq.-1') // Has plays or unlimited
-        .or('expires_at.is.null,expires_at.gt.now()') // Not expired
-        .order('uses_remaining', { ascending: false }); // Prefer unlimited first
+        .or('expires_at.is.null,expires_at.gt.now()'); // Not expired
 
       if (eraError) {
-        console.error(`[RightsService ${version}] Error checking era rights:`, eraError);
+        console.error(`[RIGHTS] RightsService|${version} Error checking era rights:`, eraError);
       }
 
       if (eraRights && eraRights.length > 0) {
-        const right = eraRights[0]; // Use first (best) voucher
-        console.log(`[RightsService ${version}] User has era voucher for ${eraId}`);
-        return {
-          canPlay: true,
-          method: 'voucher',
-          usesRemaining: right.uses_remaining,
-          rightsId: right.id,
-          voucherCode: right.voucher_used,
-          expiresAt: right.expires_at
-        };
+        // PRIORITY 1: Check for PURCHASES (stripe_payment_intent_id present)
+        const purchase = eraRights.find(right => right.stripe_payment_intent_id !== null);
+        
+        if (purchase) {
+          console.log(`[RIGHTS] RightsService|${version} User has purchased ${eraId}`);
+          return {
+            canPlay: true,
+            method: 'purchase',
+            usesRemaining: -1, // Unlimited
+            rightsId: purchase.id,
+            expiresAt: purchase.expires_at
+          };
+        }
+
+        // PRIORITY 2: Check for VOUCHERS (voucher_used present)
+        const voucher = eraRights.find(right => right.voucher_used !== null);
+        
+        if (voucher) {
+          console.log(`[RIGHTS] RightsService|${version} User has era voucher for ${eraId}`);
+          return {
+            canPlay: true,
+            method: 'voucher',
+            usesRemaining: voucher.uses_remaining,
+            rightsId: voucher.id,
+            voucherCode: voucher.voucher_used,
+            expiresAt: voucher.expires_at
+          };
+        }
       }
 
-      // PRIORITY 2: Check if exclusive (blocks passes)
+      // PRIORITY 3: Check if exclusive (blocks passes)
       if (eraConfig.exclusive === true) {
-        console.log(`[RightsService ${version}] Era ${eraId} is exclusive, requires voucher`);
+        console.log(`[RIGHTS] RightsService|${version} Era ${eraId} is exclusive, requires voucher`);
         return {
           canPlay: false,
           method: 'exclusive',
@@ -119,12 +148,17 @@ class RightsService {
         };
       }
 
-      // PRIORITY 3: Check generic passes
+      // PRIORITY 4: Check generic passes
+        console.log(`[RIGHTS] RightsService|${version} Checking passes for ${eraId}:`, {
+          passes_required: eraConfig.passes_required,
+          exclusive: eraConfig.exclusive,
+          full_config: eraConfig
+        });
       if (eraConfig.passes_required > 0) {
         const passBalance = await this.getPassBalance(userId);
         const canPlay = passBalance >= eraConfig.passes_required;
 
-        console.log(`[RightsService ${version}] Era ${eraId} requires ${eraConfig.passes_required} passes, user has ${passBalance}`);
+        console.log(`[RIGHTS] RightsService|${version} Era ${eraId} requires ${eraConfig.passes_required} passes, user has ${passBalance}`);
 
         return {
           canPlay,
@@ -135,15 +169,15 @@ class RightsService {
         };
       }
 
-      // PRIORITY 4: Free era
-      console.log(`[RightsService ${version}] Era ${eraId} is free`);
+      // PRIORITY 5: Free era
+      console.log(`[RIGHTS] RightsService|${version} Era ${eraId} is free`);
       return {
         canPlay: true,
         method: 'free'
       };
 
     } catch (error) {
-      console.error(`[RightsService ${version}] Failed to check era access:`, error);
+      console.error(`[RIGHTS] RightsService|${version} Failed to check era access:`, error);
       return { canPlay: false, method: 'error', reason: error.message };
     }
   }
@@ -156,19 +190,25 @@ class RightsService {
    * @param {object} eraConfig - Era configuration
    * @returns {Promise<object>} Consumption result
    */
-  async consumePlay(userId, eraId, eraConfig) {
-    if (!userId || !eraId || !eraConfig) {
+  async consumeRights(userId, eraId) {
+    if (!userId || !eraId) {
       throw new Error('Missing required parameters');
     }
 
     try {
-      const access = await this.canPlayEra(userId, eraId, eraConfig);
+      const access = await this.checkRights(userId, eraId);
 
       if (!access.canPlay) {
         throw new Error('No access to era');
       }
 
-      // METHOD 1: Consume voucher play
+      // METHOD 1: Purchased - no consumption needed
+      if (access.method === 'purchase') {
+        console.log(`[RIGHTS] RightsService|${version} Using purchased access for ${eraId}`);
+        return { method: 'purchase', remaining: -1 };
+      }
+
+      // METHOD 2: Consume voucher play
       if (access.method === 'voucher') {
         const { data: right, error: fetchError } = await supabase
           .from('user_rights')
@@ -180,7 +220,7 @@ class RightsService {
 
         if (right.uses_remaining === -1) {
           // Unlimited - no decrement needed
-          console.log(`[RightsService ${version}] Using unlimited voucher for ${eraId}`);
+          console.log(`[RIGHTS] RightsService|${version} Using unlimited voucher for ${eraId}`);
           return { method: 'voucher', remaining: -1 };
         }
 
@@ -196,11 +236,11 @@ class RightsService {
 
         if (updateError) throw updateError;
 
-        console.log(`[RightsService ${version}] Consumed voucher play for ${eraId}, ${newUses} remaining`);
+        console.log(`[RIGHTS] RightsService|${version} Consumed voucher play for ${eraId}, ${newUses} remaining`);
         return { method: 'voucher', remaining: newUses };
       }
 
-      // METHOD 2: Consume passes (FIFO - oldest first)
+      // METHOD 3: Consume passes (FIFO - oldest first)
       if (access.method === 'passes') {
         const { data: passRights, error: fetchError } = await supabase
           .from('user_rights')
@@ -216,9 +256,12 @@ class RightsService {
         let remaining = access.passesRequired;
 
         for (const right of passRights) {
-          if (remaining <= 0) break;
+            if (remaining <= 0) break;
+
+            console.log(`[RIGHTS] RightsService|${version} Examining pass entry: id=${right.id}, uses=${right.uses_remaining}, created=${right.created_at}`);
 
           if (right.uses_remaining >= remaining) {
+              console.log(`[RIGHTS] RightsService|${version} Consuming ${remaining} from entry ${right.id}`);
             // This entry has enough passes
             const { error: updateError } = await supabase
               .from('user_rights')
@@ -228,12 +271,19 @@ class RightsService {
               })
               .eq('id', right.id);
 
-            if (updateError) throw updateError;
+            if (updateError) {
+                console.error(`[RIGHTS] RightsService|${version} UPDATE FAILED:`, updateError);
+                throw updateError;
+            }
 
-            remaining = 0;
+              console.log(`[RIGHTS] RightsService|${version} Successfully updated entry ${right.id} to ${right.uses_remaining - remaining}`);
+
+              remaining = 0;
           } else {
             // Exhaust this entry, continue to next
-            const { error: updateError } = await supabase
+              console.log(`[RIGHTS] RightsService|${version} Exhausting entry ${right.id} (has ${right.uses_remaining}, need ${remaining})`);
+
+              const { error: updateError } = await supabase
               .from('user_rights')
               .update({
                 uses_remaining: 0,
@@ -241,8 +291,12 @@ class RightsService {
               })
               .eq('id', right.id);
 
-            if (updateError) throw updateError;
+              if (updateError) {
+                  console.error(`[RIGHTS] RightsService|${version} UPDATE FAILED:`, updateError);
+                  throw updateError;
+              }
 
+              console.log(`[RIGHTS] RightsService|${version} Successfully exhausted entry ${right.id}`);
             remaining -= right.uses_remaining;
           }
         }
@@ -251,17 +305,20 @@ class RightsService {
           throw new Error('Insufficient passes');
         }
 
+          // Give database a moment to commit the update
+          await new Promise(resolve => setTimeout(resolve, 100));
+
         const newBalance = await this.getPassBalance(userId);
-        console.log(`[RightsService ${version}] Consumed ${access.passesRequired} passes for ${eraId}, ${newBalance} remaining`);
+        console.log(`[RIGHTS] RightsService|${version} Consumed ${access.passesRequired} passes for ${eraId}, ${newBalance} remaining`);
         return { method: 'passes', remaining: newBalance };
       }
 
-      // METHOD 3: Free era - nothing to consume
-      console.log(`[RightsService ${version}] Free era ${eraId}, no consumption needed`);
+      // METHOD 4: Free era - nothing to consume
+      console.log(`[RIGHTS] RightsService|${version} Free era ${eraId}, no consumption needed`);
       return { method: 'free' };
 
     } catch (error) {
-      console.error(`[RightsService ${version}] Failed to consume play:`, error);
+      console.error(`[RIGHTS] RightsService|${version} Failed to consume play:`, error);
       throw error;
     }
   }
@@ -314,12 +371,12 @@ class RightsService {
 
       if (error) throw error;
 
-      console.log(`[RightsService ${version}] Credited ${amount} passes (${source}) to user ${userId}`);
+      console.log(`[RIGHTS] RightsService|${version} Credited ${amount} passes (${source}) to user ${userId}`);
 
       return data;
 
     } catch (error) {
-      console.error(`[RightsService ${version}] Failed to credit passes:`, error);
+      console.error(`[RIGHTS] RightsService|${version} Failed to credit passes:`, error);
       throw error;
     }
   }
@@ -334,7 +391,18 @@ class RightsService {
    */
   async getEraBadgeInfo(userId, eraConfig) {
     try {
-      const access = await this.canPlayEra(userId, eraConfig.id, eraConfig);
+        const access = await this.checkRights(userId, eraConfig.era);
+        
+      // PURCHASED ACCESS
+      if (access.method === 'purchase' && access.canPlay) {
+        return {
+          badge: 'OWNED',
+          button: 'Play',
+          style: 'badge-owned',
+          canPlay: true,
+          method: 'purchase'
+        };
+      }
 
       // VOUCHER ACCESS
       if (access.method === 'voucher' && access.canPlay) {
@@ -408,7 +476,7 @@ class RightsService {
       };
 
     } catch (error) {
-      console.error(`[RightsService ${version}] Failed to get badge info:`, error);
+      console.error(`[RIGHTS] RightsService|${version} Failed to get badge info:`, error);
       return {
         badge: 'ERROR',
         button: 'Try Again',
@@ -419,6 +487,59 @@ class RightsService {
     }
   }
 
+  /**
+   * Get badges for multiple eras (batch operation)
+   * More efficient than calling getEraBadgeInfo() in a loop
+   *
+   * @param {string} userId - User ID
+   * @param {Array} eraConfigs - Array of era configurations
+   * @returns {Promise<Map>} Map of eraId -> badgeInfo
+   */
+    async getBadgesForUser(userId, eraConfigs) {
+      if (!userId || !eraConfigs || eraConfigs.length === 0) {
+        console.warn(`[RIGHTS] RightsService|${version} Invalid parameters for getBadgesForUser`);
+        return new Map();
+      }
+
+      try {
+        console.log(`[RIGHTS] RightsService|${version} Fetching badges for ${eraConfigs.length} eras`);
+        
+        const badgeMap = new Map();
+                
+        // Fetch all badges in parallel
+        await Promise.all(
+          eraConfigs.map(async (era) => {
+            try {
+              // Load FULL era config (has passes_required, exclusive, etc.)
+                console.log(`[RIGHTS] ${version} Loading config for era:`, era);
+                const fullEraConfig = await ConfigLoader.loadEraConfig(era.id);
+                console.log(`[RIGHTS] ${version} Loaded config:`, fullEraConfig);
+                
+                const badgeInfo = await this.getEraBadgeInfo(userId, fullEraConfig);
+              badgeMap.set(era.id, badgeInfo);
+            } catch (error) {
+              console.error(`[RIGHTS] RightsService|${version} Error fetching badge for ${era.id}:`, error);
+              // Set error badge on failure
+              badgeMap.set(era.id, {
+                badge: 'ERROR',
+                button: 'Try Again',
+                style: 'badge-error',
+                canPlay: false,
+                method: 'error'
+              });
+            }
+          })
+        );
+        
+        console.log(`[RIGHTS] RightsService|${version} Loaded badges for ${badgeMap.size} eras`);
+        return badgeMap;
+
+      } catch (error) {
+        console.error(`[RIGHTS] RightsService|${version} Failed to fetch badges:`, error);
+        return new Map();
+      }
+    }
+    
   // ============================================================================
   // EXISTING METHODS (Preserved for backward compatibility)
   // ============================================================================
@@ -433,12 +554,12 @@ class RightsService {
    */
   async hasEraAccess(userId, eraId) {
     if (!userId || !eraId) {
-      console.error(version, 'Cannot check era access without userId and eraId');
+      console.error('[RIGHTS] RightsService|', version, 'Cannot check era access without userId and eraId');
       return false;
     }
 
     try {
-      console.log(version, `Checking era access for user ${userId}, era ${eraId}`);
+       console.log('[RIGHTS]', version, `Checking era access for user ${userId}, era ${eraId}`);
       
       const { data, error } = await supabase
         .from('user_rights')
@@ -449,7 +570,7 @@ class RightsService {
         .single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = not found
-        console.error(version, 'Error checking era access:', error);
+        console.error('[RIGHTS] RightsService|', version, 'Error checking era access:', error);
         return false;
       }
 
@@ -460,24 +581,24 @@ class RightsService {
         const usesRemaining = data.uses_remaining;
 
         if (expiresAt && now > expiresAt) {
-          console.log(version, `Era access expired for ${eraId}`);
+           console.log('[RIGHTS]', version, `Era access expired for ${eraId}`);
           return false;
         }
 
         if (usesRemaining !== null && usesRemaining !== -1 && usesRemaining <= 0) {
-          console.log(version, `No uses remaining for ${eraId}`);
+           console.log('[RIGHTS]', version, `No uses remaining for ${eraId}`);
           return false;
         }
 
-        console.log(version, `Era access confirmed for ${eraId}`);
+         console.log('[RIGHTS]', version, `Era access confirmed for ${eraId}`);
         return true;
       }
 
-      console.log(version, `No era access found for ${eraId}`);
+       console.log('[RIGHTS]', version, `No era access found for ${eraId}`);
       return false;
 
     } catch (error) {
-      console.error(version, 'Failed to check era access:', error);
+      console.error('[RIGHTS] RightsService|', version, 'Failed to check era access:', error);
       return false;
     }
   }
@@ -492,14 +613,17 @@ class RightsService {
    */
   async grantEraAccess(userId, eraId, paymentData = {}) {
     if (!userId || !eraId) {
-      console.error(version, 'Cannot grant era access without userId and eraId');
+      console.error('[RIGHTS] RightsService|', version, 'Cannot grant era access without userId and eraId');
       return false;
     }
 
     try {
-      console.log(version, `Granting era access for user ${userId}, era ${eraId}`);
+       console.log('[RIGHTS]', version, `Granting era access for user ${userId}, era ${eraId}`);
 
-      // UPDATED v0.2.0: Permanent access (expires_at = null)
+      // UPDATED v0.2.2: Set 2-year expiry (not null)
+      const expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 2);
+
       const { data, error } = await supabase
         .from('user_rights')
         .insert({
@@ -507,7 +631,7 @@ class RightsService {
           rights_type: 'era',
           rights_value: eraId,
           uses_remaining: -1, // Unlimited uses
-          expires_at: null, // Never expires (permanent)
+          expires_at: expiresAt.toISOString(), // 2 years from now
           stripe_payment_intent_id: paymentData.stripe_payment_intent_id || null,
           voucher_used: paymentData.voucher_used || null,
           created_at: new Date().toISOString(),
@@ -517,15 +641,15 @@ class RightsService {
         .single();
 
       if (error) {
-        console.error(version, 'Error granting era access:', error);
+        console.error('[RIGHTS] RightsService|', version, 'Error granting era access:', error);
         return false;
       }
 
-      console.log(version, `Era access granted successfully for ${eraId}`);
+       console.log('[RIGHTS] RightsService|', version, `Era access granted successfully for ${eraId}`);
       return data;
 
     } catch (error) {
-      console.error(version, 'Failed to grant era access:', error);
+      console.error('[RIGHTS] RightsService|', version, 'Failed to grant era access:', error);
       return false;
     }
   }
@@ -539,15 +663,15 @@ class RightsService {
    * @returns {Promise<object>} Redemption result
    */
   async redeemVoucher(userId, voucherCode) {
-    console.warn(`[RightsService ${version}] redeemVoucher() is deprecated. Use VoucherService.redeemVoucher() instead.`);
+    console.warn(`[RIGHTS] RightsService|${version} redeemVoucher() is deprecated. Use VoucherService.redeemVoucher() instead.`);
     
     if (!userId || !voucherCode) {
-      console.error(version, 'Cannot redeem voucher without userId and voucherCode');
+      console.error('[RIGHTS] RightsService|', version, 'Cannot redeem voucher without userId and voucherCode');
       throw new Error('Invalid parameters');
     }
 
     try {
-      console.log(version, `Redeeming voucher ${voucherCode} for user ${userId}`);
+       console.log('[RIGHTS]', version, `Redeeming voucher ${voucherCode} for user ${userId}`);
 
       // Call the Supabase function to redeem voucher
       const { data, error } = await supabase.rpc('redeem_voucher', {
@@ -556,7 +680,7 @@ class RightsService {
       });
 
       if (error) {
-        console.error(version, 'Error redeeming voucher:', error);
+        console.error('[RIGHTS] RightsService|', version, 'Error redeeming voucher:', error);
         
         // Provide user-friendly error messages
         if (error.message.includes('Invalid voucher code')) {
@@ -570,11 +694,11 @@ class RightsService {
         }
       }
 
-      console.log(version, `Voucher redeemed successfully: ${voucherCode}`);
+       console.log('[RIGHTS]', version, `Voucher redeemed successfully: ${voucherCode}`);
       return data;
 
     } catch (error) {
-      console.error(version, 'Failed to redeem voucher:', error);
+      console.error('[RIGHTS] RightsService|', version, 'Failed to redeem voucher:', error);
       throw error; // Re-throw to maintain error message
     }
   }
@@ -587,13 +711,13 @@ class RightsService {
    */
   async getUserRights(userId) {
     if (!userId) {
-      console.error(version, 'Cannot get user rights without userId');
+      console.error('[RIGHTS] RightsService|', version, 'Cannot get user rights without userId');
       return [];
     }
 
     // Skip database query for guest users
     if (!userId || userId.startsWith('guest-')) {
-      console.log('[RightsService]', this.version, 'Guest user - returning empty rights');
+      console.log('[RIGHTS]', this.version, 'Guest user - returning empty rights');
       return [];
     }
 
@@ -604,14 +728,14 @@ class RightsService {
         .eq('user_id', userId);
 
       if (error) {
-        console.error(version, 'Error fetching user rights:', error);
+        console.error('[RIGHTS] RightsService|', version, 'Error fetching user rights:', error);
         return [];
       }
 
       return data || [];
 
     } catch (error) {
-      console.error(version, 'Failed to fetch user rights:', error);
+      console.error('[RIGHTS] RightsService|', version, 'Failed to fetch user rights:', error);
       return [];
     }
   }
@@ -620,7 +744,7 @@ class RightsService {
    * Logging utility
    */
   log(message) {
-    console.log(`[RightsService ${version}] ${message}`);
+    console.log(`[RIGHTS] RightsService|${version} ${message}`);
   }
 }
 

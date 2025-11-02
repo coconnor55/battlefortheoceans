@@ -1,5 +1,6 @@
 // src/tests/AchievementTest.jsx
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.1: Removed test user
 // v0.3.0: Fixed - converted from class to React functional component
 // v0.2.0: Achievement system tests with real database operations
 // v0.1.0: Initial version
@@ -8,14 +9,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import AchievementService from '../services/AchievementService';
 
-const version = 'v0.3.0';
-
-// Test user credentials
-const TEST_USER = {
-  id: '7f6c17c1-5c54-4a8a-ba4b-3870fca7b004',
-  game_name: 'TestUser',
-  email: 'testuser@battlefortheoceans.com'
-};
+const version = 'v0.3.1';
 
 const AchievementTest = ({ userId, onComplete }) => {
   const [results, setResults] = useState([]);
@@ -51,14 +45,14 @@ const AchievementTest = ({ userId, onComplete }) => {
           eras_played: [],
           eras_won: []
         })
-        .eq('id', TEST_USER.id);
+        .eq('id', userId);
 
       if (profileError) throw profileError;
 
       const { error: achievementError } = await supabase
         .from('user_achievements')
         .delete()
-        .eq('user_id', TEST_USER.id);
+        .eq('user_id', userId);
 
       if (achievementError && achievementError.code !== 'PGRST116') {
         throw achievementError;
@@ -77,7 +71,7 @@ const AchievementTest = ({ userId, onComplete }) => {
       const { error } = await supabase
         .from('user_profiles')
         .update(stats)
-        .eq('id', TEST_USER.id);
+        .eq('id', userId);
 
       if (error) throw error;
 
@@ -89,72 +83,95 @@ const AchievementTest = ({ userId, onComplete }) => {
     }
   };
 
-  const testAchievementChecking = async () => {
-    log('Testing real achievement checking', 'info');
+    const testAchievementChecking = async () => {
+      log('Testing real achievement checking', 'info');
 
-    try {
-      await updateTestUserStats({
-        total_games: 1,
-        total_wins: 0,
-        total_ships_sunk: 0,
-        total_damage: 0
-      });
-
-      const gameResults = {
-        userId: TEST_USER.id,
-        won: false,
-        total_games: 1,
-        total_wins: 0,
-        total_ships_sunk: 0,
-        total_damage: 0
-      };
-
-      const newAchievements = await AchievementService.checkAchievements(TEST_USER.id, gameResults);
-
-      if (newAchievements && newAchievements.length > 0) {
-        log(`✅ Earned ${newAchievements.length} achievements:`, 'success');
-        newAchievements.forEach(a => {
-          log(`   - ${a.name}`, 'info');
+      try {
+        await updateTestUserStats({
+          total_games: 1,
+          total_wins: 0,
+          total_ships_sunk: 0,
+          total_damage: 0
         });
-        return true;
-      } else {
-        log(`⚠️ No achievements earned (might already be unlocked)`, 'warn');
-        return true;
+
+        const gameResults = {
+          userId: userId,
+          won: false,
+          total_games: 1,
+          total_wins: 0,
+          total_ships_sunk: 0,
+          total_damage: 0
+        };
+
+        const newAchievements = await AchievementService.checkAchievements(userId, gameResults);
+
+        if (newAchievements && newAchievements.length > 0) {
+          log(`✅ Earned ${newAchievements.length} achievements:`, 'success');
+          newAchievements.forEach(a => {
+            log(`   - ${a.name}`, 'info');
+          });
+          return true;
+        } else {
+          // Check if user already has achievements
+          const { data: existingAchievements } = await supabase
+            .from('user_achievements')
+            .select('achievement_id')
+            .eq('user_id', userId)
+            .eq('unlocked', true);
+          
+          if (existingAchievements && existingAchievements.length > 0) {
+            log(`✅ No new achievements (user already has ${existingAchievements.length} unlocked)`, 'success');
+            return true;
+          } else {
+            log(`⚠️ No achievements earned and none previously unlocked`, 'warn');
+            return true; // Not a failure, just unexpected
+          }
+        }
+      } catch (error) {
+        log(`❌ Achievement checking failed: ${error.message}`, 'error');
+        return false;
       }
-    } catch (error) {
-      log(`❌ Achievement checking failed: ${error.message}`, 'error');
-      return false;
-    }
-  };
+    };
 
-  const testProgressiveAchievements = async () => {
-    log('Testing progressive achievement unlocking', 'info');
+    const testProgressiveAchievements = async () => {
+      log('Testing progressive achievement unlocking', 'info');
 
-    try {
-      await resetTestUser();
+      try {
+        await resetTestUser();
 
-      await updateTestUserStats({ total_games: 10 });
-      let achievements = await AchievementService.checkAchievements(TEST_USER.id, { total_games: 10 });
-      
-      const bronzeEarned = achievements && achievements.some(a => a.id === 'recruit');
-      if (bronzeEarned) {
-        log(`✅ Bronze tier "Recruit" earned`, 'success');
+        // Test Bronze tier (10 games)
+        await updateTestUserStats({ total_games: 10 });
+        let achievements = await AchievementService.checkAchievements(userId, { total_games: 10 });
+        
+        const bronzeEarned = achievements && achievements.some(a => a.id === 'recruit');
+        if (bronzeEarned) {
+          log(`✅ Bronze tier "Recruit" earned`, 'success');
+        } else {
+          log(`❌ Bronze tier "Recruit" NOT earned (expected at 10 games)`, 'error');
+        }
+
+        // Test Silver tier (50 games)
+        await updateTestUserStats({ total_games: 50 });
+        achievements = await AchievementService.checkAchievements(userId, { total_games: 50 });
+        
+        const silverEarned = achievements && achievements.some(a => a.id === 'veteran');
+        if (silverEarned) {
+          log(`✅ Silver tier "Veteran" earned`, 'success');
+        } else {
+          log(`❌ Silver tier "Veteran" NOT earned (expected at 50 games)`, 'error');
+        }
+
+        const passed = bronzeEarned || silverEarned;
+        if (!passed) {
+          log(`❌ Progressive achievements failed: Neither bronze nor silver tiers earned`, 'error');
+        }
+        return passed;
+      } catch (error) {
+        log(`❌ Progressive achievements failed: ${error.message}`, 'error');
+        return false;
       }
+    };
 
-      await updateTestUserStats({ total_games: 50 });
-      achievements = await AchievementService.checkAchievements(TEST_USER.id, { total_games: 50 });
-      
-      const silverEarned = achievements && achievements.some(a => a.id === 'veteran');
-      if (silverEarned) {
-        log(`✅ Silver tier "Veteran" earned`, 'success');
-      }
-
-      return bronzeEarned || silverEarned;
-    } catch (error) {
-      log(`❌ Progressive achievements failed: ${error.message}`, 'error');
-      return false;
-    }
-  };
 
   const testAchievementDefinitions = async () => {
     log('Testing achievement definitions in database', 'info');
@@ -200,7 +217,7 @@ const AchievementTest = ({ userId, onComplete }) => {
 
     log('Starting Achievement Test Suite', 'info');
     log(`Version: ${version}`, 'info');
-    log(`Test User: ${TEST_USER.game_name} (${TEST_USER.id})`, 'info');
+    log('Testing as user: ${userId?.substring(0, 8)}...', 'info');
 
     const resetSuccess = await resetTestUser();
     if (!resetSuccess) {

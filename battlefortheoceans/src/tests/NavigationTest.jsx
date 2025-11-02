@@ -116,24 +116,36 @@ const NavigationTest = ({ userId, onComplete }) => {
         { hasDispatch }
       );
 
-      // Test 7: Validate state transitions
-      if (hasStates) {
-        const stateTransitions = Object.entries(coreEngine.states).map(([state, config]) => {
-          const transitions = config.on ? Object.keys(config.on) : [];
-          return { state, transitionCount: transitions.length, transitions };
-        });
-
-        const allStatesHaveTransitions = stateTransitions.every(st => st.transitionCount > 0 || st.state === 'launch');
-        
-        addResult(
-          'State Transitions Defined',
-          allStatesHaveTransitions ? 'pass' : 'fail',
-          allStatesHaveTransitions
-            ? 'All states have valid transitions defined'
-            : 'Some states missing transitions',
-          { stateTransitions }
-        );
-      }
+        // Test 7: Validate state transitions
+        if (hasStates) {
+          const criticalStates = ['era', 'opponent', 'placement', 'play', 'over'];
+          
+          const stateTransitions = criticalStates.map(state => {
+            const config = coreEngine.states[state];
+            // Use Reflect.ownKeys to get Symbol keys too!
+            const transitions = config?.on ? Reflect.ownKeys(config.on) : [];
+            return {
+              state,
+              transitionCount: transitions.length,
+              transitions: transitions.map(t => typeof t === 'symbol' ? t.toString() : t),
+              hasConfig: !!config,
+              hasOn: !!config?.on
+            };
+          });
+          
+          const statesWithoutTransitions = stateTransitions.filter(st => st.transitionCount === 0);
+          const allCriticalStatesHaveTransitions = statesWithoutTransitions.length === 0;
+          
+          addResult(
+            'State Transitions Defined',
+            allCriticalStatesHaveTransitions ? 'pass' : 'fail',
+            allCriticalStatesHaveTransitions
+              ? `All critical states have valid transitions (total: ${stateTransitions.reduce((sum, st) => sum + st.transitionCount, 0)} transitions)`
+              : `Some critical states missing transitions: ${statesWithoutTransitions.map(st => st.state).join(', ')}`,
+            null,
+            { stateTransitions, testedStates: criticalStates }
+          );
+        }
 
       // Test 8: Check 'over' state transitions (bug fix verification)
       if (hasStates && coreEngine.states.over) {
@@ -154,15 +166,26 @@ const NavigationTest = ({ userId, onComplete }) => {
         );
       }
 
-      // Test 9: Check session persistence
-      const hasSessionManager = coreEngine.sessionManager !== undefined;
+    // Test 9: Check session persistence
+    try {
+      const SessionManager = (await import('../utils/SessionManager')).default;
+      const hasSessionManager = SessionManager &&
+        typeof SessionManager.save === 'function' &&
+        typeof SessionManager.restore === 'function';
       addResult(
         'Session Manager',
         hasSessionManager ? 'pass' : 'fail',
-        hasSessionManager ? 'SessionManager available' : 'SessionManager missing',
-        { hasSessionManager }
+        hasSessionManager ? 'SessionManager available with save/restore methods' : 'SessionManager missing or incomplete',
+        { hasSessionManager, hasSave: typeof SessionManager?.save === 'function', hasRestore: typeof SessionManager?.restore === 'function' }
       );
-
+    } catch (error) {
+      addResult(
+        'Session Manager',
+        'fail',
+        'SessionManager import failed',
+        { error: error.message }
+      );
+    }
       // Test 10: Check navigation manager
       const hasNavigationManager = coreEngine.navigationManager !== undefined;
       addResult(

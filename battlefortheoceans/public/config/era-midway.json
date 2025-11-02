@@ -9,8 +9,8 @@
   "cols": 13,
   "boundary": [],
   "max_players": 2,
-  "passes_required": 0,     // NEW: Pass cost per game
-  "exclusive": false,       // NEW: Blocks pass usage
+  "passes_required": 1,
+  "exclusive": false,
   "munitions": {
     "star_shells": 3,
     "star_shell_pattern": "3x3"

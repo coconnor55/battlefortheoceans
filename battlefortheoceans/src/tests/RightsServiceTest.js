@@ -1,30 +1,33 @@
 // src/tests/RightsServiceTest.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.1: Added purchase method handling to exclusive era test
 // v0.1.0: RightsService test suite
 
 import React, { useState, useEffect, useRef } from 'react';
 import RightsService from '../services/RightsService';
 
+const version = 'v0.1.1';
+
 const RightsServiceTest = ({ userId, onComplete }) => {
   const [tests, setTests] = useState([]);
   const [running, setRunning] = useState(false);
-    const hasRun = useRef(false);  // <-- ADD THIS
+  const hasRun = useRef(false);
 
-    useEffect(() => {
-      // Prevent double-run in StrictMode
-      if (hasRun.current) return;  // <-- ADD THIS
-      hasRun.current = true;        // <-- ADD THIS
-      
-      runTests();
-    }, []);
+  useEffect(() => {
+    // Prevent double-run in StrictMode
+    if (hasRun.current) return;
+    hasRun.current = true;
+    
+    runTests();
+  }, []);
 
   const addTest = (name, status, message, data = null) => {
-    setTests(prev => [...prev, { 
-      name, 
-      status, 
-      message, 
-      data, 
-      timestamp: new Date().toISOString() 
+    setTests(prev => [...prev, {
+      name,
+      status,
+      message,
+      data,
+      timestamp: new Date().toISOString()
     }]);
   };
 
@@ -61,7 +64,7 @@ const RightsServiceTest = ({ userId, onComplete }) => {
       addTest('Check free era', 'running', 'Testing Traditional Battleship...');
       try {
         const eraConfig = { id: 'traditional', passes_required: 0, exclusive: false };
-        const access = await RightsService.canPlayEra(userId, 'traditional', eraConfig);
+        const access = await RightsService.checkRights(userId, 'traditional');
         if (access.canPlay && access.method === 'free') {
           addTest('Check free era', 'success', '✅ Free era access works', access);
           passed++;
@@ -73,20 +76,23 @@ const RightsServiceTest = ({ userId, onComplete }) => {
         failed++;
       }
 
-      // TEST 3: Check exclusive era (no voucher)
+      // TEST 3: Check exclusive era (handles purchase, voucher, or locked)
       addTest('Check exclusive era', 'running', 'Testing Pirates (exclusive)...');
       try {
         const eraConfig = { id: 'pirates', passes_required: 2, exclusive: true };
-        const access = await RightsService.canPlayEra(userId, 'pirates', eraConfig);
+        const access = await RightsService.checkRights(userId, 'pirates');
         
-        if (access.method === 'voucher' && access.canPlay) {
+        if (access.method === 'purchase' && access.canPlay) {
+          addTest('Check exclusive era', 'success', '✅ Has purchase (OWNED)', access);
+          passed++;
+        } else if (access.method === 'voucher' && access.canPlay) {
           addTest('Check exclusive era', 'success', `✅ Has voucher with ${access.usesRemaining} plays`, access);
           passed++;
         } else if (access.method === 'exclusive' && !access.canPlay) {
           addTest('Check exclusive era', 'success', '✅ Correctly blocked (no voucher)', access);
           passed++;
         } else {
-          throw new Error(`Unexpected result: ${access.method}`);
+          throw new Error(`Unexpected result: ${access.method}, canPlay: ${access.canPlay}`);
         }
       } catch (error) {
         addTest('Check exclusive era', 'error', `❌ ${error.message}`);
@@ -109,19 +115,19 @@ const RightsServiceTest = ({ userId, onComplete }) => {
         failed++;
       }
 
-      // TEST 5: Get badge info (exclusive)
+      // TEST 5: Get badge info (exclusive/purchased)
       addTest('Badge info (exclusive)', 'running', 'Testing badge display...');
       try {
-        const eraConfig = { 
-          id: 'pirates', 
-          name: 'Pirates', 
-          passes_required: 2, 
+        const eraConfig = {
+          id: 'pirates',
+          name: 'Pirates',
+          passes_required: 2,
           exclusive: true,
           exclusive_label: 'EXCLUSIVE'
         };
         const badge = await RightsService.getEraBadgeInfo(userId, eraConfig);
         if (badge.badge && badge.button) {
-          addTest('Badge info (exclusive)', 'success', `✅ Badge: "${badge.badge}", Button: "${badge.button}"`, badge);
+          addTest('Badge info (exclusive)', 'success', `✅ Badge: "${badge.badge}", Button: "${badge.button}", Method: ${badge.method}`, badge);
           passed++;
         } else {
           throw new Error('Missing badge properties');
@@ -162,20 +168,60 @@ const RightsServiceTest = ({ userId, onComplete }) => {
       addTest('Test suite error', 'error', `❌ ${error.message}`);
       failed++;
     }
+      
+      // TEST 8: Credit and consume rights (full cycle)
+      addTest('Credit & consume cycle', 'running', 'Testing full pass lifecycle...');
+      try {
+        // Get initial balance
+        const initialBalance = await RightsService.getPassBalance(userId);
+        
+        // Credit 1 pass for testing
+        await RightsService.creditPasses(userId, 1, 'admin', { test: true });
+        
+        // Verify balance increased
+        const afterCredit = await RightsService.getPassBalance(userId);
+        if (afterCredit !== initialBalance + 1) {
+          throw new Error(`Expected ${initialBalance + 1} passes, got ${afterCredit}`);
+        }
+        
+        // Check rights for Midway (requires 1 pass)
+        const access = await RightsService.checkRights(userId, 'midway');
+        if (!access.canPlay || access.method !== 'passes') {
+          throw new Error(`Cannot play Midway with passes: ${access.method}`);
+        }
+        
+        // Consume the right
+        const consumeResult = await RightsService.consumeRights(userId, 'midway');
+        
+        // Verify balance returned to initial
+        const finalBalance = await RightsService.getPassBalance(userId);
+        if (finalBalance !== initialBalance) {
+          throw new Error(`Expected ${initialBalance} passes, got ${finalBalance}`);
+        }
+        
+        addTest('Credit & consume cycle', 'success',
+          `âœ… Full cycle: ${initialBalance} â†' ${afterCredit} â†' ${finalBalance} passes`,
+          { initialBalance, afterCredit, finalBalance, consumeResult });
+        passed++;
+      } catch (error) {
+        addTest('Credit & consume cycle', 'error', `âŒ ${error.message}`);
+        failed++;
+      }
 
     setRunning(false);
     
     if (onComplete) {
-      onComplete({ 
-        total: passed + failed, 
-        passed, 
-        failed 
+      onComplete({
+        total: passed + failed,
+        passed,
+        failed
       });
     }
   };
 
   return (
     <div className="test-component">
+          {running && <div className="test-running">Running rights service tests...</div>}
       <div className="test-results">
         {tests.map((test, index) => (
           <div key={index} className={`test-result test-result-${test.status}`}>

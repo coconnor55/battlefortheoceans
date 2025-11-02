@@ -1,5 +1,6 @@
 // src/tests/UIComponentsTest.jsx
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.2: Removed the test user
 // v0.3.1: Add detailed reasons with file paths for skips and failures
 //         - Include component path in skip messages
 //         - Add reason field to details array
@@ -10,14 +11,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 
-const version = 'v0.3.1';
-
-// Test user credentials
-const TEST_USER = {
-  id: '7f6c17c1-5c54-4a8a-ba4b-3870fca7b004',
-  game_name: 'TestUser',
-  email: 'testuser@battlefortheoceans.com'
-};
+const version = 'v0.3.2';
 
 /**
  * UIComponentsTest
@@ -87,12 +81,12 @@ const UIComponentsTest = ({ userId, onComplete }) => {
 
     log('Starting UI Components Test Suite', 'info');
     log(`Version: ${version}`, 'info');
-    log(`Test User: ${TEST_USER.game_name} (${TEST_USER.id})`, 'info');
-
+    log(`Testing as user: ${userId?.substring(0, 8)}...`, 'info');
+    
     const testComponents = [
       {
         name: 'PassBalanceDisplay',
-        props: { userId: userId || TEST_USER.id }
+        props: { userId: userId }
       },
       {
         name: 'PlayConfirmModal',
@@ -143,25 +137,46 @@ const UIComponentsTest = ({ userId, onComplete }) => {
     for (const testCase of testComponents) {
       log(`\nTesting: ${testCase.name}`, 'info');
 
-      try {
-        const componentPath = `../components/${testCase.name}`;
-        const ComponentModule = await import(componentPath).catch(() => null);
+try {
+  // Import components statically (Webpack requirement)
+  let ComponentModule = null;
 
-        if (!ComponentModule) {
-          const skipReason = `Component file not found: src/components/${testCase.name}.js`;
-          log(`⚠️ ${testCase.name} - ${skipReason}`, 'warn');
-          skipped++;
-          details.push({
-            name: testCase.name,
-            status: 'skip',
-            reason: skipReason
-          });
-          continue;
-        }
+  switch(testCase.name) {
+    case 'AchievementNotification':
+      ComponentModule = await import('../components/AchievementNotification.js').catch(() => null);
+      break;
+    case 'FleetStatusSidebar':
+      ComponentModule = await import('../components/FleetStatusSidebar.js').catch(() => null);
+      break;
+    case 'VideoPopup':
+      ComponentModule = await import('../components/VideoPopup.js').catch(() => null);
+      break;
+    case 'PassBalanceDisplay':
+      ComponentModule = await import('../components/PassBalanceDisplay.js').catch(() => null);
+      break;
+    case 'PlayConfirmModal':
+      ComponentModule = await import('../components/PlayConfirmModal.js').catch(() => null);
+      break;
+    default:
+      ComponentModule = null;
+  }
 
+  if (!ComponentModule) {
+    const skipReason = `Component file not found: src/components/${testCase.name}.js`;
+    log(`⚠️ ${testCase.name} - ${skipReason}`, 'warn');
+    skipped++;
+    details.push({
+      name: testCase.name,
+      status: 'skip',
+      reason: skipReason
+    });
+    continue;
+  }
+  
         const ComponentClass = ComponentModule.default;
 
-        const existsResult = await testComponentExists(testCase.name, ComponentClass, componentPath);
+        const existsResult = await testComponentExists(testCase.name, ComponentClass, testCase.name);
+
         if (!existsResult.success) {
           failed++;
           details.push({

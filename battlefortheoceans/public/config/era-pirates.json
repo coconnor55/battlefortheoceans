@@ -10,9 +10,9 @@
   "cols": 30,
   "boundary": [],
   "max_players": 5,
-  "passes_required": 2,     // NEW: Pass cost per game
-  "exclusive": true,       // NEW: Blocks pass usage
-  "exclusive_label": "EXCLUSIVE",     // NEW: Badge text for exclusives
+  "passes_required": 2,
+  "exclusive": true,
+  "exclusive_label": "EXCLUSIVE",
   "munitions": {
     "star_shells": 4,
     "star_shells_boost": 2,

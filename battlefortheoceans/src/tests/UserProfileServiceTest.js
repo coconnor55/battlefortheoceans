@@ -195,14 +195,6 @@ const UserProfileServiceTest = ({ userId, onComplete }) => {
   return (
     <div className="test-component">
       <div className="test-header">
-        <h3>UserProfileService Tests {version}</h3>
-        {!running && tests.length > 0 && (
-          <div className="test-summary">
-            Total: {tests.filter(t => t.status !== 'running').length} |
-            Passed: {tests.filter(t => t.status === 'success').length} |
-            Failed: {tests.filter(t => t.status === 'error').length}
-          </div>
-        )}
       </div>
       <div className="test-results">
         {tests.map((test, index) => (
