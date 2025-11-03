@@ -1,5 +1,6 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.12: fixed createUserProfile to call UserProfileService directly
 // v0.4.11: Complete munitions refactoring - remove backward compatibility wrapper
 //          - Removed handleStarShellFired - no longer needed
 //          - All components now use fireMunition(munitionType, row, col) directly
@@ -99,8 +100,9 @@ export const GameProvider = ({ children }) => {
       // User profile functions
       // v0.4.6: Use service singletons directly
       getUserProfile: (userId) => UserProfileService.getUserProfile(userId),
-      createUserProfile: (userId, gameName) => coreEngine.createUserProfile(userId, gameName), // Keep - has business logic
-      updateGameStats: (gameResults) => coreEngine.updateGameStats(gameResults), // Keep - has business logic
+        createUserProfile: (userId, gameName) => UserProfileService.createUserProfile(userId, gameName),
+        
+        updateGameStats: (gameResults) => coreEngine.updateGameStats(gameResults), // Keep - has business logic
       getLeaderboard: (limit) => leaderboardService.getLeaderboard(limit),
       getRecentChampions: (limit) => leaderboardService.getRecentChampions(limit),
       getPlayerGameName: (playerId) => coreEngine.getPlayerGameName(playerId), // Keep - still in CoreEngine

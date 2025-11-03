@@ -1,5 +1,7 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.35: Added Supabase signOut to logout method
+// v0.6.34: Fixed logout to properly clear humanPlayer
 // v0.6.33: FIXED munitions ownership - Game owns munitions, not CoreEngine
 //          - Removed CoreEngine.munitions references
 //          - getUIState now reads from gameInstance.munitions
@@ -48,16 +50,15 @@
 import SessionManager from '../utils/SessionManager.js';
 import NavigationManager from '../utils/NavigationManager.js';
 import GameLifecycleManager from '../classes/GameLifecycleManager.js';
-
 import userProfileService from '../services/UserProfileService.js';
 import gameStatsService from '../services/GameStatsService.js';
 import leaderboardService from '../services/LeaderboardService.js';
 import rightsService from '../services/RightsService.js';
 import achievementService from '../services/AchievementService.js';
-
+import { supabase } from '../utils/supabaseClient';
 import ConfigLoader from '../utils/ConfigLoader.js';
 
-const version = 'v0.6.33';
+const version = 'v0.6.35';
 
 /**
  * CoreEngine - Orchestrates game state machine and coordinates services
@@ -549,24 +550,37 @@ class CoreEngine {
     }
   }
 
-  /**
-   * Logout user and clear state
-   */
-  logout() {
-    console.log('[CORE] Logging out user');
+    /**
+       * Logout user and clear state
+       * v0.6.29: Added Supabase signOut to clear auth session
+       */
+      async logout() {
+        console.log('[CORE] Logging out user');
+        
+        // Sign out from Supabase (clears auth session)
+        try {
+          await supabase.auth.signOut();
+          console.log('[CORE] Supabase session cleared');
+        } catch (error) {
+          console.error('[CORE] Error signing out from Supabase:', error);
+          // Continue with local cleanup even if signOut fails
+        }
+        
+        // Clear local state
+        this.humanPlayer = null;  // v0.6.15: Clear humanPlayer too
+        this.eraConfig = null;
+        this.selectedOpponents = [];
+        this.selectedGameMode = null;
+        this.selectedAlliance = null;
+        this.gameInstance = null;
+        
+        // Clear session storage
+        SessionManager.clear();
+        
+        // Return to launch
+        this.transition('launch');
+      }
     
-//    this.userProfile = null;
-    this.humanPlayer = null;  // v0.6.15: Clear humanPlayer too
-    this.eraConfig = null;
-    this.selectedOpponents = [];
-    this.selectedGameMode = null;
-    this.selectedAlliance = null;
-    this.gameInstance = null;
-    
-    this.clearSession();
-    this.transition('launch');
-  }
-
   // =================================================================
   // UI STATE AGGREGATION
   // =================================================================
