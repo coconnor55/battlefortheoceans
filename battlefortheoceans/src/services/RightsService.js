@@ -36,6 +36,8 @@ const tag = "RIGHTS";
 const module = "RightsService";
 let method = "";
 
+// =================
+// Logging utilities
 const log = (message) => {
   console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
 };
@@ -47,6 +49,7 @@ const logerror = (message, error = null) => {
     console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
   }
 };
+// =================
 
 class RightsService {
   constructor() {

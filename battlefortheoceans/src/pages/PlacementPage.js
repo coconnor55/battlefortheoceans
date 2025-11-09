@@ -1,5 +1,11 @@
 // src/pages/PlacementPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.17: Use coreEngine singleton directly - remove useGame() passthrough
+//          - Get gameInstance, board from coreEngine (not context)
+//          - Call coreEngine.registerShipPlacement() directly
+//          - Subscribe to coreEngine updates directly
+//          - Fixes ship rendering - ensures CanvasBoard gets same references as placement logic
+//          - Keep dispatch/events from useGame() as shortcuts only
 // v0.4.16: Moved GameGuide to App.js, removed setShowInfo and InfoButton
 // v0.4.15: Changed ERA to SELECTERA (Claude error)
 // v0.4.14: Get selectedOpponent from CoreEngine.selectedOpponents array
@@ -20,7 +26,7 @@ import { coreEngine, useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.4.16';
+const version = 'v0.4.17';
 const tag = "PLACEMENT";
 const module = "PlacementPage";
 let method = "";
@@ -43,30 +49,28 @@ const PlacementPage = () => {
       }
     };
 
-  const {
-    dispatch,
-    events,
-    gameInstance,
-    board,
-    registerShipPlacement,
-    subscribeToUpdates
-  } = useGame();
-  
-    //key data - see CoreEngine handle{state}
+    // v0.4.17: Get dispatch/events shortcuts from useGame (only thing we need from context)
+    const { dispatch, events } = useGame();
+
+    // v0.4.17: Key data from coreEngine singleton (NOT from context)
     const eras = coreEngine.eras;
-    const player = coreEngine.player
+    const player = coreEngine.player;
     const playerProfile = coreEngine.playerProfile;
-    const playerId = playerProfile.id;
+    const playerId = playerProfile?.id;
     const isGuest = player != null && player.isGuest;
-    const playerRole = playerProfile.role;
-    const isAdmin = player != null && playerProfile.isAdmin;
-    const isDeveloper = player != null && playerProfile.isDeveloper;
-    const isTester = player != null && playerProfile.isTester;
+    const playerRole = playerProfile?.role;
+    const isAdmin = player != null && playerProfile?.isAdmin;
+    const isDeveloper = player != null && playerProfile?.isDeveloper;
+    const isTester = player != null && playerProfile?.isTester;
     const selectedEraId = coreEngine.selectedEraId;
     const selectedEraConfig = coreEngine.selectedEraConfig;
     const selectedAlliance = coreEngine.selectedAlliance;
     const selectedOpponent = coreEngine.selectedOpponent;
     const selectedOpponents = coreEngine.selectedOpponents;
+    
+    // v0.4.17: Game instances from coreEngine (NOT from context)
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
     
     // stop game if key data is missing (selectedAlliance is allowed to be null)
     const required = { eras, player, playerProfile, playerId, playerRole, selectedEraId, selectedEraConfig, selectedOpponent, selectedOpponents };
@@ -74,15 +78,17 @@ const PlacementPage = () => {
         logerror('key data missing', required);
         throw new Error('PlacementPage: key data missing');
     }
-    const undefined = { selectedAlliance };
-    if (Object.values(required).some(v => v === undefined)) {
-        logerror('key data missing', undefined);
-        throw new Error('PlacementPage: key data missing');
+    const undefinedCheck = { selectedAlliance };
+    if (Object.values(undefinedCheck).some(v => v === undefined)) {
+        logerror('key data undefined', undefinedCheck);
+        throw new Error('PlacementPage: key data undefined');
     }
 
-  console.log('[PLACEMENT]', version, 'player=', player);
-  console.log('[PLACEMENT]', version, 'playerProfile=', playerProfile);
-  console.log('[PLACEMENT]', version, 'selectedOpponent=', selectedOpponent);
+    log('player=' + player?.name);
+    log('playerProfile=' + playerProfile?.game_name);
+    log('selectedOpponent=' + selectedOpponent?.name);
+    log('gameInstance=' + (gameInstance ? 'present' : 'MISSING'));
+    log('board=' + (board ? 'present' : 'MISSING'));
   
   const {
     currentPlayer,
@@ -107,57 +113,56 @@ const PlacementPage = () => {
     };
   }, []);
   
-  useEffect(() => {
-    if (!player) {
-      logwarn('No player detected - redirecting to login');
-      dispatch(events.LOGIN);
-    }
-  }, [player, dispatch, events]);
-  
   const [error, setError] = useState(null);
   const [isAutoPlacing, setIsAutoPlacing] = useState(false);
   
   const [, setRenderTrigger] = useState(0);
 
+  // v0.4.17: Subscribe to coreEngine updates directly
   useEffect(() => {
-    const unsubscribe = subscribeToUpdates(() => {
+    const unsubscribe = coreEngine.subscribe(() => {
       setRenderTrigger(prev => prev + 1);
     });
     return unsubscribe;
-  }, [subscribeToUpdates]);
+  }, []);
 
   const handleShipPlaced = (ship, shipCells, orientation) => {
       method = 'handleShipPlaced';
 
       try {
-      console.log(version, `Placing ${ship.name} with ${shipCells.length} cells`);
+      log(`Placing ${ship.name} with ${shipCells.length} cells`);
       
-      const success = registerShipPlacement(ship, shipCells, orientation, player.id);
+      // v0.4.17: Call coreEngine directly (not through context)
+      const success = coreEngine.registerShipPlacement(ship, shipCells, orientation, player.id);
       
       if (success) {
-        console.log(version, `Successfully placed ${ship.name}`);
-        
+        log(`Successfully placed ${ship.name}`);
+
+          // DEBUG: Check what's in shipPlacements
+          console.log('[PLACEMENT] DEBUG player.shipPlacements:', player.shipPlacements);
+          console.log('[PLACEMENT] DEBUG ship.cells:', ship.cells);
+
         // Phase 4: Access fleet directly from player
         const fleet = player?.fleet;
         if (fleet) {
           const placedCount = fleet.ships.filter(ship => ship.isPlaced).length;
           const totalCount = fleet.ships.length;
-          console.log(version, `Placement progress: ${placedCount}/${totalCount} ships placed`);
+          log(`Placement progress: ${placedCount}/${totalCount} ships placed`);
           
           if (placedCount === totalCount) {
-            console.log(version, 'All ships placed - awaiting player confirmation to start battle');
+            log('All ships placed - awaiting player confirmation to start battle');
           }
         }
         
         return true;
       } else {
-        console.log(version, `Failed to register placement for ${ship.name}`);
+        log(`Failed to register placement for ${ship.name}`);
         ship.reset();
         return false;
       }
       
     } catch (err) {
-      console.error(version, 'Error placing ship:', err);
+      logerror('Error placing ship:', err);
       ship.reset();
       return false;
     }
@@ -171,13 +176,13 @@ const PlacementPage = () => {
     }
 
     setIsAutoPlacing(true);
-    console.log(version, 'Starting auto-placement with auto-clear');
+    log('Starting auto-placement with auto-clear');
 
     try {
       // Phase 4: Access fleet directly from player
       const fleet = player.fleet;
       if (fleet) {
-        console.log(version, 'Clearing existing ship placements');
+        log('Clearing existing ship placements');
         
         // Phase 4: Clear player's placement map (the fix!)
         player.clearPlacements();
@@ -187,21 +192,21 @@ const PlacementPage = () => {
           ship.reset();
         });
         
-        console.log(`[BOARD] board === gameInstance.board:`, board === gameInstance.board);
-        console.log(`[BOARD] player.board === board:`, player.board === board);
-        console.log(`[BOARD] player.board === gameInstance.board:`, player.board === gameInstance.board);
+        log(`board === gameInstance.board: ${board === gameInstance.board}`);
+        log(`player.board === board: ${player.board === board}`);
+        log(`player.board === gameInstance.board: ${player.board === gameInstance.board}`);
         
         // Clear the board (terrain only now)
         board.clear();
         
-        console.log(version, 'All ships cleared, ready for fresh auto-placement');
+        log('All ships cleared, ready for fresh auto-placement');
       }
 
       await gameInstance.autoPlaceShips(player);
-      console.log(version, 'Auto-placement completed');
+      log('Auto-placement completed');
       
     } catch (error) {
-      console.error(version, 'Auto-placement failed:', error);
+      logerror('Auto-placement failed:', error);
     } finally {
       setIsAutoPlacing(false);
     }
@@ -210,12 +215,12 @@ const PlacementPage = () => {
   const handleStartBattle = () => {
       method = 'handleStartBattle';
 
-    console.log(version, 'Player confirmed - starting battle');
+    log('Player confirmed - starting battle');
     
     if (dispatch && events) {
       dispatch(events.PLAY);
     } else {
-      console.error(version, 'Cannot transition - missing dispatch or events');
+      logerror('Cannot transition - missing dispatch or events');
     }
   };
 
@@ -253,7 +258,7 @@ const PlacementPage = () => {
   }
 
   if (error) {
-    console.log(version, 'Showing error state:', error);
+    log('Showing error state: ' + error);
     return (
       <div className="container flex flex-column flex-center">
         <div className="content-pane content-pane--narrow">
@@ -282,7 +287,7 @@ const PlacementPage = () => {
     if (!gameInstance) waitingFor.push('game instance');
     if (!player) waitingFor.push('human player');
 
-    console.log(version, 'Showing loading state, waiting for:', waitingFor);
+    log('Showing loading state, waiting for: ' + waitingFor.join(', '));
     
     return (
       <div className="container flex flex-column flex-center">

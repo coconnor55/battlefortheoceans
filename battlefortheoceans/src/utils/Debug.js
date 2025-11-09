@@ -13,7 +13,7 @@ const version = "v0.1.4";
 const extendedDebug = false;  // Set to false to filter DEBUG messages
 
 const control = {
-  HOOK: false,
+  HOOK: true,
   PLACEMENT: true,
   SOUND: false,
   AI: false,

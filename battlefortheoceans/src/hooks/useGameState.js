@@ -1,5 +1,10 @@
 // src/hooks/useGameState.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.8: Clean separation - coreEngine for identity, uiState for computed values only
+//          - Get playerProfile from coreEngine.playerProfile (not uiState passthrough)
+//          - Get humanPlayer from coreEngine.player (not uiState passthrough)
+//          - Get ONLY computed values from uiState (isPlayerTurn, gamePhase, winner, stats, munitions)
+//          - Fixes ship rendering - CanvasBoard now gets correct player reference
 // v0.3.7: Remove GameContext dependency - read directly from coreEngine singleton
 //          - Import coreEngine directly instead of using useGame() hook
 //          - Read coreEngine.player instead of context's humanPlayer
@@ -24,14 +29,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { coreEngine } from '../context/GameContext';
 
-const version = "v0.3.7";
+const version = "v0.3.8";
 
 const useGameState = () => {
-  // v0.3.7: Read directly from CoreEngine singleton
+  // v0.3.8: Read identity/config directly from CoreEngine singleton (NOT from uiState passthroughs)
   const eraConfig = coreEngine.selectedEraConfig;
   const selectedOpponent = coreEngine.selectedOpponents?.[0] || null;
   const selectedGameMode = coreEngine.selectedGameMode;
-  const humanPlayer = coreEngine.player;
+  const player = coreEngine.player;                // v0.3.8: Direct from singleton
+  const playerProfile = coreEngine.playerProfile;  // v0.3.8: Direct from singleton
   const gameInstance = coreEngine.gameInstance;
   const board = coreEngine.board;
   
@@ -73,13 +79,20 @@ const useGameState = () => {
     }
   }, [gameInstance]);
 
-  // v0.3.7: Get computed state directly from CoreEngine
+  // v0.3.8: Get ONLY computed values from UIState (not passthroughs)
   const uiState = coreEngine.getUIState();
+  const isPlayerTurn = uiState.isPlayerTurn;        // Computed
+  const currentPlayer = uiState.currentPlayer;      // Computed
+  const isGameActive = uiState.isGameActive;        // Computed
+  const gamePhase = uiState.gamePhase;              // Computed
+  const winner = uiState.winner;                    // Computed
+  const playerStats = uiState.playerStats;          // Computed/aggregated
+  const munitions = uiState.munitions || { starShells: 0, scatterShot: 0 }; // Computed
 
   // v0.3.7: Compute placement progress from coreEngine.player.fleet (the singleton!)
   const placementProgress = (() => {
-    if (!humanPlayer || !humanPlayer.fleet) {
-      console.log('[HOOK]', version, 'No humanPlayer or fleet available');
+    if (!player || !player.fleet) {
+      console.log('[HOOK]', version, 'No player or fleet available');
       return {
         current: 0,
         total: 0,
@@ -88,7 +101,7 @@ const useGameState = () => {
       };
     }
     
-    const fleet = humanPlayer.fleet;
+    const fleet = player.fleet;
     const ships = fleet.ships || [];
     const totalShips = ships.length;
     const placedShips = ships.filter(ship => ship.isPlaced);
@@ -195,42 +208,27 @@ const useGameState = () => {
   // - player.dontShoot for preventing invalid targeting
   // - ship.health for rendering craters/diagonals
 
-  // Computed properties from game logic - no local state
-  const isPlayerTurn = uiState.isPlayerTurn;
-  const currentPlayer = uiState.currentPlayer;
-  const isGameActive = uiState.isGameActive;
-  const gamePhase = uiState.gamePhase;
-  const winner = uiState.winner;
-  const playerStats = uiState.playerStats;
-  
-  // v0.3.4: Extract BOTH player objects from UIState
-  const playerProfile = uiState.playerProfile;      // Database object (display, services)
-  const humanPlayerFromState = uiState.humanPlayer;  // Player instance (game logic)
-  
-  // v0.3.2: Munitions from CoreEngine (renamed from resources)
-  const munitions = uiState.munitions || { starShells: 0, scatterShot: 0 };
-
   // Determine appropriate battle message
   const battleMessage = messages.console || 'Awaiting battle action...';
   
   // Determine appropriate UI message - prioritize turn messages, fallback to UI messages
   const uiMessage = messages.turn || messages.ui || 'Preparing for battle...';
 
-  console.log('[HOOK]', version, 'useGameState render', {
-    hasGameInstance: !!gameInstance,
-    hasBoard: !!board,
-    hasPlayerProfile: !!playerProfile,
-    hasHumanPlayer: !!humanPlayerFromState,
-    gamePhase: gamePhase,
-    isPlayerTurn: isPlayerTurn,
-    isGameActive: isGameActive,
-    currentPlayerType: currentPlayer?.type,
-    hasMessages: !!gameInstance?.message,
-    battleMessage: battleMessage.substring(0, 50) + '...',
-    uiMessage: uiMessage.substring(0, 50) + '...',
-    munitions: munitions,
-    placementProgress: placementProgress
-  });
+//  console.log('[HOOK]', version, 'useGameState render', {
+//    hasGameInstance: !!gameInstance,
+//    hasBoard: !!board,
+//    hasPlayerProfile: !!playerProfile,
+//    hasPlayer: !!player,
+//    gamePhase: gamePhase,
+//    isPlayerTurn: isPlayerTurn,
+//    isGameActive: isGameActive,
+//    currentPlayerType: currentPlayer?.type,
+//    hasMessages: !!gameInstance?.message,
+//    battleMessage: battleMessage.substring(0, 50) + '...',
+//    uiMessage: uiMessage.substring(0, 50) + '...',
+//    munitions: munitions,
+//    placementProgress: placementProgress
+//  });
 
   return {
     // Game state - computed from game logic
@@ -240,11 +238,11 @@ const useGameState = () => {
     gamePhase,
     winner,
     gameMode: selectedGameMode,
-    playerId: humanPlayer?.id,
+    playerId: player?.id,
     
-    // v0.3.4: BOTH player objects for different purposes
+    // v0.3.8: BOTH player objects from coreEngine singleton (not uiState passthroughs)
     playerProfile,        // Database object - for user display, services, leaderboards
-    humanPlayer: humanPlayerFromState,  // Player instance - for game logic, validation
+    humanPlayer: player,  // Player instance - for game logic, validation
     
     // Message state - from Message system with appropriate fallbacks
     battleMessage,           // Battle console message (hits, misses, sunk ships)

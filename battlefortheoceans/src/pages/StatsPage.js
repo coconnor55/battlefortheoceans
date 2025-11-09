@@ -13,16 +13,67 @@
 // v0.1.1: Removed modal-overlay wrapper (now provided by App.js) to match AchievementsPage pattern
 
 import React, { useState, useEffect } from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 import gameStatsService from '../services/GameStatsService';
 import leaderboardService from '../services/LeaderboardService';
 import { supabase } from '../utils/supabaseClient';
 
 const version = "v0.1.5";
+const tag = "STATS";
+const module = "StatsPage";
+let method = "";
+
 const CACHE_DURATION = 300000; // 5 minutes
 
 function StatsPage({ onClose }) {
-  const { playerProfile, dispatch, events } = useGame();
+    // ===============
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
+
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
+    // ===============
+
+    //key data - see CoreEngine handle{state}
+    const eras = coreEngine.eras;
+    const player = coreEngine.player
+    const playerProfile = coreEngine.playerProfile;
+    const playerId = playerProfile.id;
+    const isGuest = player != null && player.isGuest;
+    const playerRole = playerProfile.role;
+    const isAdmin = player != null && playerProfile.isAdmin;
+    const isDeveloper = player != null && playerProfile.isDeveloper;
+    const isTester = player != null && playerProfile.isTester;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedEraConfig = coreEngine.selectedEraConfig;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponent = coreEngine.selectedOpponent;
+    const selectedOpponents = coreEngine.selectedOpponents;
+    
+    // stop game if key data is missing (selectedAlliance is allowed to be null)
+    const required = { player, playerProfile, playerId, playerRole, selectedEraId, selectedEraConfig, selectedOpponent, selectedOpponents };
+    if (Object.values(required).some(v => !v)) {
+        logerror('key data missing', required);
+        throw new Error('StatsPage: key data missing');
+    }
+    const undefined = { selectedAlliance };
+    if (Object.values(required).some(v => v === undefined)) {
+        logerror('key data missing', undefined);
+        throw new Error('StatsPage: key data missing');
+    }
+
+    const { dispatch, events } = useGame();
   const [stats, setStats] = useState(null);
   const [recentGames, setRecentGames] = useState([]);
   const [allGames, setAllGames] = useState([]);
@@ -39,29 +90,29 @@ function StatsPage({ onClose }) {
   const [showAllAI, setShowAllAI] = useState(false);
   const [showAllEra, setShowAllEra] = useState(false);
 
-  const isGuest = playerProfile?.id?.startsWith('guest-');
-
   useEffect(() => {
     loadAllStats();
-  }, [playerProfile]);
+  }, [playerId]);
 
   const loadAllStats = async () => {
+      method = 'loadAllStats';
+
     if (!playerProfile) {
       setLoading(false);
       return;
     }
 
     try {
-      console.log(version, 'Loading stats for user:', playerProfile?.id);
+      log('Loading stats for user:', playerProfile?.id);
       
       // Check cache first
-      const cacheKey = `stats_${playerProfile?.id}`;
+      const cacheKey = `stats_${playerId}`;
       const cached = sessionStorage.getItem(cacheKey);
       
       if (cached) {
         const parsedCache = JSON.parse(cached);
         if (Date.now() - parsedCache.timestamp < CACHE_DURATION) {
-          console.log(version, 'Using cached stats data');
+          log('Using cached stats data');
           setAllGames(parsedCache.allGames);
           setRecentGames(parsedCache.allGames.slice(0, 10));
           processEraStats(parsedCache.allGames, false);
@@ -78,7 +129,8 @@ function StatsPage({ onClose }) {
         leaderboardService.getLeaderboard(100),
         gameStatsService.getTotalGamesPlayed()
       ]);
-
+        console.log('[STATS] Setting stats from playerProfile:', playerProfile);
+        setStats(playerProfile);
       setStats(playerProfile);
       setRanking(rankingData);
       setPercentile(percentileData);
@@ -100,6 +152,8 @@ function StatsPage({ onClose }) {
   };
 
   const loadAllGames = async () => {
+      method = 'loadAllGames';
+
     try {
       // Load last 100 games for "All Time" stats (free-tier safe)
       const { data, error } = await supabase
@@ -129,6 +183,8 @@ function StatsPage({ onClose }) {
   };
 
   const processEraStats = (games, allTime = false) => {
+      method = 'processEraStats';
+
     const dataToProcess = allTime ? games : games.slice(0, 10);
     const eraData = {};
     
@@ -160,6 +216,8 @@ function StatsPage({ onClose }) {
   };
 
   const processOpponentStats = (games, allTime = false) => {
+      method = 'processOpponentStats';
+
     const dataToProcess = allTime ? games : games.slice(0, 10);
     const opponentData = {};
     
@@ -186,6 +244,8 @@ function StatsPage({ onClose }) {
   };
 
   const formatDate = (dateString) => {
+      method = 'formatDate';
+
     const date = new Date(dateString);
     const now = new Date();
     const diffHours = Math.floor((now - date) / (1000 * 60 * 60));
@@ -198,7 +258,9 @@ function StatsPage({ onClose }) {
   };
 
   const handleGuestSignup = () => {
-    console.log(version, 'Guest requesting signup - setting URL parameter');
+    method = 'handleGuestSignup';
+
+      log('Guest requesting signup - setting URL parameter');
     
     const currentUrl = new URL(window.location);
     currentUrl.searchParams.set('signup', 'true');
@@ -221,6 +283,7 @@ function StatsPage({ onClose }) {
   }
 
   if (!stats) {
+      console.log('[STATS] DEBUG stats is null, playerProfile=', playerProfile);
     return (
       <div className="container flex flex-column flex-center">
         <div className="content-pane">

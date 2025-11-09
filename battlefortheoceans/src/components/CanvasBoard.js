@@ -49,8 +49,9 @@ const CanvasBoard = forwardRef(({
   onStarShellFired = null,
   currentShip = null,
   onShipPlaced = null,
-  humanPlayer = null,
+  player = null,
 }, ref) => {
+    const playerId = player?.id;
     const { munitions } = useGameState();
     const canvasRef = useRef(null);
   const { subscribeToUpdates, playerProfile } = useGame();
@@ -103,7 +104,7 @@ const CanvasBoard = forwardRef(({
     gameInstance,
     previewCells,
     isValidPlacement,
-    humanPlayerId: humanPlayer?.id,
+    playerId: player?.id,
     starShellIllumination
   });
 
@@ -116,9 +117,9 @@ const CanvasBoard = forwardRef(({
 
   // Preload ship SVGs
   useEffect(() => {
-    if (mode === 'placement' && humanPlayer?.fleet?.ships && hitOverlayRendererRef.current) {
+    if (mode === 'placement' && player?.fleet?.ships && hitOverlayRendererRef.current) {
       const shipClasses = new Set();
-      humanPlayer.fleet.ships.forEach(ship => {
+      player.fleet.ships.forEach(ship => {
         shipClasses.add(ship.class);
       });
       
@@ -127,7 +128,7 @@ const CanvasBoard = forwardRef(({
         hitOverlayRendererRef.current.loadShipSvg(shipClass, 'blue');
       });
     }
-  }, [mode, humanPlayer?.fleet?.ships]);
+  }, [mode, player?.fleet?.ships]);
 
   useEffect(() => {
     propsRef.current = {
@@ -137,10 +138,10 @@ const CanvasBoard = forwardRef(({
       gameInstance,
       previewCells,
       isValidPlacement,
-      humanPlayerId: humanPlayer?.id,
+      playerId: playerId,
       starShellIllumination
     };
-  }, [mode, viewMode, gameState, gameInstance, previewCells, isValidPlacement, humanPlayer?.id, starShellIllumination]);
+  }, [mode, viewMode, gameState, gameInstance, previewCells, isValidPlacement, playerId, starShellIllumination]);
 
   // Update inputPropsRef with ALL dynamic values
   useEffect(() => {
@@ -243,8 +244,8 @@ const CanvasBoard = forwardRef(({
       );
       
         // Admin debug: Show opponent ships when 'Z' key is held
-        if (window.DEBUG_SHOW_OPPONENT_SHIPS && props.humanPlayerId) {
-          const opponentPlayers = props.gameInstance.players.filter(p => p.id !== props.humanPlayerId);
+        if (window.DEBUG_SHOW_OPPONENT_SHIPS && props.playerId) {
+          const opponentPlayers = props.gameInstance.players.filter(p => p.id !== props.playerId);
           
           opponentPlayers.forEach(opponent => {
             if (opponent.fleet && opponent.fleet.ships) {
@@ -288,7 +289,7 @@ const CanvasBoard = forwardRef(({
         
         props.starShellIllumination.cells.forEach(({ row, col, opacity }) => {
           // Find enemy ships at this cell
-          const opponentPlayers = props.gameInstance.players.filter(p => p.id !== props.humanPlayerId);
+          const opponentPlayers = props.gameInstance.players.filter(p => p.id !== props.playerId);
           
           opponentPlayers.forEach(opponent => {
             const shipPlacement = opponent.getShipAt(row, col);
@@ -343,8 +344,8 @@ const CanvasBoard = forwardRef(({
       }
     } else {
       // Placement mode - draw placed ships
-      if (props.humanPlayerId) {
-        const player = props.gameInstance.players.find(p => p.id === props.humanPlayerId);
+      if (props.playerId) {
+        const player = props.gameInstance.players.find(p => p.id === props.playerId);
         if (player && player.fleet && player.fleet.ships) {
           player.fleet.ships.forEach(ship => {
             if (ship.isPlaced) {
@@ -483,13 +484,13 @@ const CanvasBoard = forwardRef(({
       }
       
       // v0.4.7: Check ship overlap using player.shipPlacements (Board.getShipDataAt removed in Phase 4)
-      if (humanPlayer && humanPlayer.hasShipAt(cell.row, cell.col)) {
+      if (player && player.hasShipAt(cell.row, cell.col)) {
         return false;
       }
     }
     
     return true;
-  }, [eraConfig, gameBoard, humanPlayer]); // v0.4.8: currentShip NOT in deps - read from inputPropsRef!
+  }, [eraConfig, gameBoard, player]); // v0.4.8: currentShip NOT in deps - read from inputPropsRef!
   
   // Update validationCallbackRef whenever callback recreates
   useEffect(() => {
@@ -614,8 +615,8 @@ const CanvasBoard = forwardRef(({
       if (!canvasRef.current || !gameState?.playerId) return null;
       
       try {
-        const humanPlayerId = gameState.playerId;
-        const isPlayerWinner = winnerId === humanPlayerId;
+        const playerId = gameState.playerId;
+        const isPlayerWinner = winnerId === playerId;
         const captureViewMode = isPlayerWinner ? 'attack' : 'fleet';
         
         console.log('[CANVAS]', version, `Capturing ${captureViewMode} view for winner:`, winnerId);

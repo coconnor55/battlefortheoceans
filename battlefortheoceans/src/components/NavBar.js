@@ -82,7 +82,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   const eraConfig = coreEngine.selectedEraConfig;
   const playerGameName = coreEngine.playerGameName;
   
-  log(`DEBUG humanPlayer=${player}, playerId=${playerId}, playerGameName=${playerGameName}, userEmail=${userEmail}, playerProfile=${playerProfile}, `, playerProfile);
+//  log(`DEBUG humanPlayer=${player}, playerId=${playerId}, playerGameName=${playerGameName}, userEmail=${userEmail}, playerProfile=${playerProfile}, `, playerProfile);
   
   const isGuest = player && playerProfile.isGuest;
   const isAdmin = player && playerProfile.isAdmin;
@@ -90,7 +90,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   const isTester = player && playerProfile.isTester;
   const role = playerProfile?.role;
   
-  log(`role=${role}, isGuest=${isGuest}, isAdmin=${isAdmin}, isDeveloper=${isDeveloper}, isTester=${isTester}`);
+//  log(`DEBUG role=${role}, isGuest=${isGuest}, isAdmin=${isAdmin}, isDeveloper=${isDeveloper}, isTester=${isTester}`);
 
   const [, forceUpdate] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -148,7 +148,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   }
   
   method = 'render';
-  log(`Rendering for state: ${currentState}, hasOverlay: ${hasActiveOverlay}`);
+  log(`DEBUG Rendering for state: ${currentState}, hasOverlay: ${hasActiveOverlay}`);
   
   const handleNavigate = (destination) => {
     method = 'handleNavigate';

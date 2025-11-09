@@ -31,7 +31,7 @@
 //         - Video system now reusable across components
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import useVideoTriggers from '../hooks/useVideoTriggers';
 import useAutoPlay from '../hooks/useAutoPlay';
@@ -40,17 +40,61 @@ import FleetStatusSidebar from '../components/FleetStatusSidebar';
 import VideoPopup from '../components/VideoPopup';
 
 const version = 'v0.5.6';
+const tag = "PLAYING";
+const module = "PlayingPage";
+let method = "";
 
 const PlayingPage = () => {
-  const {
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
+
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
+
+    //key data - see CoreEngine handle{state}
+    const eras = coreEngine.eras;
+    const player = coreEngine.player
+    const playerProfile = coreEngine.playerProfile;
+    const playerId = playerProfile.id;
+    const isGuest = player != null && player.isGuest;
+    const playerRole = playerProfile.role;
+    const isAdmin = player != null && playerProfile.isAdmin;
+    const isDeveloper = player != null && playerProfile.isDeveloper;
+    const isTester = player != null && playerProfile.isTester;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedEraConfig = coreEngine.selectedEraConfig;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponent = coreEngine.selectedOpponent;
+    const selectedOpponents = coreEngine.selectedOpponents;
+    
+    // stop game if key data is missing (selectedAlliance is allowed to be null)
+    const required = { eras, player, playerProfile, playerId, playerRole, selectedEraId, selectedEraConfig, selectedOpponent, selectedOpponents };
+    if (Object.values(required).some(v => !v)) {
+        logerror('key data missing', required);
+        throw new Error('PlacementPage: key data missing');
+    }
+    const undefined = { selectedAlliance };
+    if (Object.values(required).some(v => v === undefined)) {
+        logerror('key data missing', undefined);
+        throw new Error('PlacementPage: key data missing');
+    }
+
+    const {
     dispatch,
     events,
     gameInstance,
-    eraConfig,
-    selectedOpponent,
-    humanPlayer,
     board,
-    playerProfile,
     subscribeToUpdates
   } = useGame();
   
@@ -72,7 +116,7 @@ const PlayingPage = () => {
   } = useGameState();
   
   // Video system (v0.5.0)
-  const { showVideo, currentVideo, handleVideoComplete } = useVideoTriggers(gameInstance, eraConfig);
+  const { showVideo, currentVideo, handleVideoComplete } = useVideoTriggers(gameInstance, selectedEraConfig);
   
   const [viewMode, setViewMode] = useState('blended');
   
@@ -90,20 +134,13 @@ const PlayingPage = () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
-  
-  useEffect(() => {
-    if (!playerProfile) {
-      console.log(version, 'No user profile detected - redirecting to login');
-      dispatch(events.LOGIN);
-    }
-  }, [playerProfile, dispatch, events]);
-  
+    
   const canvasBoardRef = useRef(null);
   
   const [, setRenderTrigger] = useState(0);
   
   // Get opponent player(s) for fleet sidebar
-  const opponentPlayers = gameInstance?.players?.filter(p => p.id !== humanPlayer?.id) || [];
+  const opponentPlayers = gameInstance?.players?.filter(p => p.id !== playerId) || [];
   
   // Build opponent fleet data for multi-fleet display
   const opponentFleetData = opponentPlayers.map(player => {
@@ -111,7 +148,7 @@ const PlayingPage = () => {
     let captainName = player.name;
     
     // For Pirates era, extract captain name from AI player
-    if (eraConfig?.id === 'pirates' && selectedOpponent) {
+    if (selectedEraConfig?.id === 'pirates' && selectedOpponent) {
       // selectedOpponent might be an array of opponents
       const opponentsList = Array.isArray(selectedOpponent) ? selectedOpponent : [selectedOpponent];
       const matchingOpponent = opponentsList.find(opp =>
@@ -166,7 +203,7 @@ const PlayingPage = () => {
   // v0.5.1: AutoPlay testing utility extracted to hook
   const { autoPlayEnabled, canUseAutoPlay, handleAutoPlayToggle } = useAutoPlay({
     gameInstance,
-    eraConfig,
+    selectedEraConfig,
     isPlayerTurn,
     isGameActive,
     handleShotFired,
@@ -191,8 +228,8 @@ const PlayingPage = () => {
     isGameActive,
     gamePhase,
     winner,
-    playerId: humanPlayer?.id
-  }), [isPlayerTurn, currentPlayer, battleMessage, uiMessage, playerHits, opponentHits, isGameActive, gamePhase, winner, humanPlayer?.id]);
+    playerId: player?.id
+  }), [isPlayerTurn, currentPlayer, battleMessage, uiMessage, playerHits, opponentHits, isGameActive, gamePhase, winner, player?.id]);
 
   if (!playerProfile) {
     return null;
@@ -204,7 +241,7 @@ const PlayingPage = () => {
         <div className="content-pane content-pane--narrow">
           <div className="loading">
             <div className="spinner spinner--lg"></div>
-            <h2>{eraConfig?.name}</h2>
+            <h2>{selectedEraConfig?.name}</h2>
             <p>Preparing battle boards...</p>
           </div>
         </div>
@@ -218,12 +255,12 @@ const PlayingPage = () => {
 
         <div className="content-pane content-pane--wide">
           <div className="card-header text-center">
-            <h2 className="card-title">{eraConfig?.name}</h2>
+            <h2 className="card-title">{selectedEraConfig?.name}</h2>
           </div>
           
           <div className="battle-board-layout">
             <FleetStatusSidebar
-              fleet={humanPlayer?.fleet}
+              fleet={player?.fleet}
               title="Home"
               munitions={munitions}
             />
@@ -240,13 +277,13 @@ const PlayingPage = () => {
                 ref={canvasBoardRef}
                 mode="battle"
                 viewMode={viewMode}
-                eraConfig={eraConfig}
+                eraConfig={selectedEraConfig}
                 gameBoard={gameBoard}
                 gameInstance={gameInstance}
                 gameState={gameState}
                 onShotFired={handleShotFired}
                 onStarShellFired={onStarShellFired}
-                humanPlayer={humanPlayer}
+                player={player}
               />
             </div>
             

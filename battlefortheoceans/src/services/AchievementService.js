@@ -1,11 +1,12 @@
 // src/services/AchievementService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.2: Change progress value from decimal to integer
 // v0.2.1: Added total_damage, eras_played, eras_won, pirate_fleets_sunk
 
 import Player from '../classes/Player';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.2.1';
+const version = 'v0.2.2';
 
 class AchievementService {
   constructor() {
@@ -145,6 +146,9 @@ class AchievementService {
 
       this.log('Updating progress:', { playerId, achievementId, progress });
 
+        // Round progress to integer for database storage
+        const progressInt = Math.floor(progress);
+
       // Get achievement definition to check if unlocked
       const { data: achievement, error: achievementError } = await supabase
         .from('achievements')
@@ -154,7 +158,7 @@ class AchievementService {
 
       if (achievementError) throw achievementError;
 
-      const unlocked = progress >= achievement.requirement_value;
+      const unlocked = progressInt >= achievement.requirement_value;
 
       // Upsert user achievement record
       const { data, error } = await supabase
@@ -162,7 +166,7 @@ class AchievementService {
         .upsert({
           player_id: playerId,
           achievement_id: achievementId,
-          progress: progress,
+          progress: progressInt,
           unlocked: unlocked,
           unlocked_at: unlocked ? new Date().toISOString() : null
         }, {

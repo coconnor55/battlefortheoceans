@@ -26,7 +26,7 @@ const version = 'v0.1.2';
  *
  * @param {Object} params - Configuration object
  * @param {Game} params.gameInstance - Game instance
- * @param {Object} params.eraConfig - Era configuration (for board dimensions)
+ * @param {Object} params.selectedEraConfig - Era configuration (for board dimensions)
  * @param {boolean} params.isPlayerTurn - Whether it's the player's turn
  * @param {boolean} params.isGameActive - Whether the game is active
  * @param {Function} params.handleShotFired - Callback to fire a shot (row, col)
@@ -38,7 +38,7 @@ const version = 'v0.1.2';
  * @example
  * const { autoPlayEnabled, canUseAutoPlay, handleAutoPlayToggle } = useAutoPlay({
  *   gameInstance,
- *   eraConfig,
+ *   selectedEraConfig,
  *   isPlayerTurn,
  *   isGameActive,
  *   handleShotFired,
@@ -55,7 +55,7 @@ const version = 'v0.1.2';
  */
 const useAutoPlay = ({
   gameInstance,
-  eraConfig,
+  selectedEraConfig,
   isPlayerTurn,
   isGameActive,
   handleShotFired,
@@ -64,12 +64,13 @@ const useAutoPlay = ({
 }) => {
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(false);
   const autoPlayTimerRef = useRef(null);
-  
   // Check if user has permission to use autoplay
   const canUseAutoPlay = ['admin', 'developer', 'tester'].includes(playerProfile?.role);
 
   // Fire random valid shot
   const fireRandomShot = useCallback(() => {
+      console.log("useAutoPlay.fireRandomShot: playerProfile=", playerProfile)
+        console.log("useAutoPlay.fireRandomShot: selectedEraConfig=", selectedEraConfig)
     if (!gameInstance || !isPlayerTurn || !isGameActive) {
       return;
     }
@@ -82,8 +83,8 @@ const useAutoPlay = ({
 
     // Find all valid targets (must pass BOTH checks)
     const validTargets = [];
-    for (let row = 0; row < eraConfig.rows; row++) {
-      for (let col = 0; col < eraConfig.cols; col++) {
+    for (let row = 0; row < selectedEraConfig.rows; row++) {
+      for (let col = 0; col < selectedEraConfig.cols; col++) {
         // Check board validity AND that we haven't shot here before
         if (gameInstance.isValidAttack(row, col, humanPlayerFromGame) &&
             humanPlayerFromGame.canShootAt(row, col)) {
@@ -104,7 +105,7 @@ const useAutoPlay = ({
     
     console.log('[AUTOPLAY]', version, 'Firing at', target, `(${validTargets.length} targets remaining)`);
     handleShotFired(target.row, target.col);
-  }, [gameInstance, isPlayerTurn, isGameActive, eraConfig, handleShotFired]);
+  }, [gameInstance, isPlayerTurn, isGameActive, selectedEraConfig, handleShotFired]);
 
   // Manage autoplay timer
   useEffect(() => {

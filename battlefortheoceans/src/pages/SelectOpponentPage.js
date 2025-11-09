@@ -29,6 +29,7 @@ const module = "SelectOpponentPage";
 let method = "";
 
 const SelectOpponentPage = () => {
+    // ===============
     // Logging utilities
     const log = (message) => {
       console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
@@ -45,7 +46,8 @@ const SelectOpponentPage = () => {
         console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
       }
     };
-
+    // ===============
+    
   const {
     dispatch,
     events,

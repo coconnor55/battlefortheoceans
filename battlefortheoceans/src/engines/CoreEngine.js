@@ -369,7 +369,8 @@ class CoreEngine {
 
   handleEvent_placement() {
     method = 'handleEvent_placement';
-    this.log('Placement state - processing data and delegating to GameLifecycleManager');
+
+      this.log('Placement state - processing data and delegating to GameLifecycleManager');
       
 //    // Process placement data
 //    if (data) {
@@ -398,12 +399,18 @@ class CoreEngine {
 
   handleEvent_play() {
     method = 'handleEvent_play';
-    this.log('Play state');
-    if (this.gameInstance) {
+
+      this.log('Play state');
+    
+      if (!this.gameInstance) {
+          this.logerror("no game instance");
+          throw new Error('handleEvent_play no game instance');
+      }
+      
         // Track game start (increment incomplete_games counter)
         this.lifecycleManager.startGame(
-          this.player.id,
-          this.eraConfig.id
+          this.playerId,
+          this.selectedEraId
         ).catch(error => {
             this.logerror('Failed to track game start:', error);
         });
@@ -411,7 +418,6 @@ class CoreEngine {
         this.gameInstance.startGame();
         this.notifySubscribers();
     }
-  }
 
   handleEvent_over() {
     method = 'handleEvent_over';
