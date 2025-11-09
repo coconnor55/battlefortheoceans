@@ -1,8 +1,12 @@
 // src/components/GameGuide.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.2: Refactored for PlayerProfile architecture
+//         - Fixed playerProfile reference to use coreEngine.playerProfile
+//         - Updated in-memory profile update to use coreEngine.playerProfile
+//         - Updated logging to match new pattern (tag, module, method)
 // v0.2.1: fix AutoShow
 // v0.2.0: Use database flag for game guide preferences
-//         - Reads show_game_guide from userProfile (database)
+//         - Reads show_game_guide from playerProfile (database)
 //         - "Got It!" dismisses for current session only (state)
 //         - "Turn Off Game Guide" sets show_game_guide = false in database
 //         - Works for both authenticated and guest users
@@ -10,62 +14,83 @@
 // v0.1.1: Improved auto-show UX
 // v0.1.0: Initial game guide component
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import InfoPanel from './InfoPanel';
 
-const version = 'v0.2.1';
+const version = 'v0.2.2';
+const tag = "GUIDE";
+const module = "GameGuide";
+let method = "";
+
+const log = (message) => {
+  console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+};
+
+const logerror = (message, error = null) => {
+  if (error) {
+    console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+  } else {
+    console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+  }
+};
 
 const GameGuide = ({ section, manualOpen = false, onClose, forceShow = false, eraName = '' }) => {
-    console.log('[GUIDE]', version, 'Component rendered - section:', section, 'manualOpen:', manualOpen, 'forceShow:', forceShow);
-  const { userProfile, disableGameGuide, coreEngine } = useGame();
+  method = 'render';
+  log(`Component rendered - section: ${section}, manualOpen: ${manualOpen}, forceShow: ${forceShow}`);
+  
+  const { disableGameGuide, coreEngine } = useGame();
+  const playerProfile = coreEngine.playerProfile;
     
-    const shouldAutoShow = () => {
-      if (forceShow) return true;
-      
-      // Check if show_game_guide is explicitly false (user disabled it)
-      // If undefined/null, default to true (show guide)
-      if (userProfile?.show_game_guide === false) {
-        console.log('[GUIDE]', version, 'Auto-show disabled in user profile');
-        return false;
-      }
-      
-      // Always auto-show for new sessions (unless explicitly disabled)
-      console.log('[GUIDE]', version, 'Auto-showing guide for section: ' + section);
-      return true;
-    };
+  const shouldAutoShow = () => {
+    if (forceShow) return true;
+    
+    // Check if show_game_guide is explicitly false (user disabled it)
+    // If undefined/null, default to true (show guide)
+    if (playerProfile?.show_game_guide === false) {
+      method = 'shouldAutoShow';
+      log('Auto-show disabled in user profile');
+      return false;
+    }
+    
+    // Always auto-show for new sessions (unless explicitly disabled)
+    method = 'shouldAutoShow';
+    log(`Auto-showing guide for section: ${section}`);
+    return true;
+  };
     
   const [autoShowFirstTime] = useState(() => shouldAutoShow());
 
-    const handleClose = () => {
-      onClose();
-    };
+  const handleClose = () => {
+    onClose();
+  };
 
-    const handleDontShowAgain = async () => {
-      console.log('[GUIDE]', version, '"Turn Off Game Guide" clicked');
+  const handleDontShowAgain = async () => {
+    method = 'handleDontShowAgain';
+    log('"Turn Off Game Guide" clicked');
+    
+    if (!playerProfile?.id || playerProfile?.id.startsWith('guest-')) {
+      log('Guest user - cannot persist preference');
+      onClose();
+      return;
+    }
+    
+    try {
+      await disableGameGuide(playerProfile.id);
+      log('Game guide disabled in database');
       
-      if (!userProfile?.id || userProfile.id.startsWith('guest-')) {
-        console.log('[GUIDE]', version, 'Guest user - cannot persist preference');
-        onClose();
-        return;
+      // Update the in-memory profile
+      if (coreEngine.playerProfile) {
+        coreEngine.playerProfile.show_game_guide = false;
+        log('Updated in-memory profile: show_game_guide = false');
       }
       
-      try {
-        await disableGameGuide(userProfile.id);
-        console.log('[GUIDE]', version, 'Game guide disabled in database');
-        
-        // Update the in-memory profile
-        if (coreEngine.humanPlayer?.userProfile) {
-          coreEngine.humanPlayer.userProfile.show_game_guide = false;
-          console.log('[GUIDE]', version, 'Updated in-memory profile: show_game_guide = false');
-        }
-        
-        onClose();
-      } catch (error) {
-        console.error('[GUIDE]', version, 'Failed to disable game guide:', error);
-        onClose();
-      }
-    };
+      onClose();
+    } catch (error) {
+      logerror('Failed to disable game guide:', error);
+      onClose();
+    }
+  };
     
   const isOpen = forceShow || manualOpen || autoShowFirstTime;
 

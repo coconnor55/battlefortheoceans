@@ -180,7 +180,7 @@ class ConfigLoader {
    * Scans /public/config/ for era-*.json files
    * @returns {Promise<Array>} Array of era metadata objects
    */
-  async listEras() {
+  async loadEraList() {
     if (this.eraList) {
       console.log(`[CONFIG] ${version} Using cached era list`);
       return this.eraList;
@@ -210,7 +210,7 @@ class ConfigLoader {
    */
   async preloadAllEras() {
     try {
-      const eras = await this.listEras();
+      const eras = await this.loadEraList();
       console.log(`[CONFIG] ${version} Preloading ${eras.length} era configs`);
       
       const promises = eras.map(era => this.loadEraConfig(era.id));

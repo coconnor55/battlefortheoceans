@@ -12,7 +12,7 @@ import ConfigLoader from '../utils/ConfigLoader';
 
 const version = 'v0.3.2';
 
-const GameStatsTest = ({ userId, onComplete }) => {
+const GameStatsTest = ({ playerId, onComplete }) => {
   const [results, setResults] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const hasRun = useRef(false);  // <-- ADD THIS
@@ -34,7 +34,7 @@ const GameStatsTest = ({ userId, onComplete }) => {
 
   const getMockGame = () => {
     const humanPlayer = {
-      id: userId,
+      id: playerId,
       name: 'test player',
       type: 'human',
       hits: 10,
@@ -154,7 +154,7 @@ const GameStatsTest = ({ userId, onComplete }) => {
       const { data: beforeProfile, error: fetchError } = await supabase
         .from('user_profiles')
         .select('id, game_name, total_games, total_wins, total_ships_sunk, total_damage, total_score, best_accuracy')
-        .eq('id', userId)
+        .eq('id', playerId)
         .single();
 
       if (fetchError) {
@@ -185,7 +185,7 @@ const GameStatsTest = ({ userId, onComplete }) => {
       const { data: afterProfile, error: afterError } = await supabase
         .from('user_profiles')
         .select('total_games, total_wins, total_ships_sunk, total_damage')
-        .eq('id', userId)
+        .eq('id', playerId)
         .single();
 
       if (afterError) {
@@ -220,7 +220,7 @@ const GameStatsTest = ({ userId, onComplete }) => {
 
     log('Starting Game Stats Test Suite', 'info');
     log(`Version: ${version}`, 'info');
-    log(`Testing as user: ${userId?.substring(0, 8)}...`, 'info');
+    log(`Testing as user: ${playerId?.substring(0, 8)}...`, 'info');
 
     const tests = [
       { name: 'Accuracy Calculation', fn: () => testAccuracyCalculation() },

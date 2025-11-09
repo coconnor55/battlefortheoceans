@@ -120,7 +120,7 @@ class StripeService {
 }
 
 // Export singleton instance (not class)
-const stripeService = new StripeService();
-export default stripeService;
+const stripeServiceSingleton = new StripeService();
+export default stripeServiceSingleton;
 
 // EOF

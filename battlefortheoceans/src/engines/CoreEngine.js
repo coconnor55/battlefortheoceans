@@ -1,5 +1,21 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.42: Refactored for PlayerProfile architecture
+//          - Added playerProfile as direct property (not getter from humanPlayer)
+//          - Updated get playerProfile() to return this.playerProfile
+//          - Updated get playerId() to use this.playerProfile
+//          - Updated get playerGameName() to use this.playerProfile
+//          - Updated logging to match new pattern (tag, module, method)
+//          - PlayerProfile is now managed separately from HumanPlayer
+// v0.6.41: Change selectedEraConfig to a get/set
+// v0.6.40: Added selectedEra
+// v0.6.39: Load eraList and all eras
+// v0.6.38: Load game configuration
+// v0.6.37: Added userEmail
+// v0.6.36: Removed deprecated methods never called
+//          - Removed getLeaderboard() (replaced by LeaderboardService)
+//          - Removed getUserAchievements() (replaced by AchievementService)
+//          - Removed hasEraAccess() (replaced by RightsService.canPlayEra())
 // v0.6.35: Added Supabase signOut to logout method
 // v0.6.34: Fixed logout to properly clear humanPlayer
 // v0.6.33: FIXED munitions ownership - Game owns munitions, not CoreEngine
@@ -10,7 +26,7 @@
 //          - Added restoreToState(state) method for browser navigation (after transition())
 //          - Handles browser back/forward button state restoration without URL sync
 //          - Changed service imports to lowercase singleton instances (no 'new' needed)
-//          - userProfileService, gameStatsService, leaderboardService, rightsService, achievementService
+//          - playerProfileService, gameStatsService, leaderboardService, rightsService, achievementService
 //          - Removed handleEvent_achievements() (was legacy from removed ACHIEVEMENTS event)
 // v0.6.28: Removed ACHIEVEMENTS event (Claude error)
 // v0.6.27: Changed ERA to SELECTERA (Claude error)
@@ -34,11 +50,11 @@
 //          - Only reset player stats in PLACEMENT event (where game actually starts)
 //          - SELECTERA reset was premature - stats should reset when placement begins, not era selection
 //          - Allows user to navigate back/forth between era/opponent without clearing stats prematurely
-// v0.6.21: Fixed userProfile getter - use humanPlayer.userProfile not humanPlayer.profile
-//          - Line 600: Changed from .profile to .userProfile
-//          - Player class property is userProfile, not profile
-//          - Added DEBUG logging to track userProfile through LOGIN/SELECTERA/PLACEMENT events
-// v0.6.20: Added get userProfile to get humanPlayer profile (guest has null)
+// v0.6.21: Fixed playerProfile getter - use humanPlayer.playerProfile not humanPlayer.profile
+//          - Line 600: Changed from .profile to .playerProfile
+//          - Player class property is playerProfile, not profile
+//          - Added DEBUG logging to track playerProfile through LOGIN/SELECTERA/PLACEMENT events
+// v0.6.20: Added get playerProfile to get humanPlayer profile (guest has null)
 //          - humanPlayer is set directly by LoginPage via CoreEngine.humanPlayer
 // v0.6.19: Fixed humanPlayer initialization - set during LOGIN event
 //          - humanPlayer now set when processEventData receives LOGIN + player
@@ -50,15 +66,13 @@
 import SessionManager from '../utils/SessionManager.js';
 import NavigationManager from '../utils/NavigationManager.js';
 import GameLifecycleManager from '../classes/GameLifecycleManager.js';
-import userProfileService from '../services/UserProfileService.js';
-import gameStatsService from '../services/GameStatsService.js';
-import leaderboardService from '../services/LeaderboardService.js';
-import rightsService from '../services/RightsService.js';
-import achievementService from '../services/AchievementService.js';
+import ConfigLoader from '../utils/ConfigLoader';
 import { supabase } from '../utils/supabaseClient';
-import ConfigLoader from '../utils/ConfigLoader.js';
 
-const version = 'v0.6.35';
+const version = 'v0.6.42';
+const tag = "CORE";
+const module = "CoreEngine";
+let method = "";
 
 /**
  * CoreEngine - Orchestrates game state machine and coordinates services
@@ -80,7 +94,8 @@ const version = 'v0.6.35';
  */
 class CoreEngine {
   constructor() {
-    console.log(`[CORE] CoreEngine v${version} initializing...`);
+    method = 'constructor';
+    this.log('initializing...');
     
     // =================================================================
     // EVENTS - State machine event definitions
@@ -147,8 +162,14 @@ class CoreEngine {
     // CORE STATE
     // =================================================================
     this.currentState = 'launch';
-    this.humanPlayer = null;  // v0.6.15: Added Player instance tracking
+      this.gameConfig = null;       // set during Launch state
+      this.eraList = null;          // set during Launch state
+      this.eras = new Map();        // set during Launch state
+    this.player = null;             // set during Login state, Player instance (per-game)
+    this.playerProfile = null;      // set during Login state, PlayerProfile instance (persistent career stats)
+    this.userEmail = null;          // set during Login state
     this.eraConfig = null;
+    this._selectedEraId = null;     // getter/setter, set during SelectEra state
     this.selectedOpponents = [];
     this.selectedGameMode = null;
     this.selectedAlliance = null;
@@ -169,7 +190,7 @@ class CoreEngine {
         try {
           callback();
         } catch (error) {
-          console.error('[CORE] Error in subscriber callback:', error);
+          console.error(`[${tag}] ${version} ${module}.notifySubscribers: Error in subscriber callback:`, error);
         }
       });
     };
@@ -180,7 +201,42 @@ class CoreEngine {
     // SESSION RESTORATION
     // =================================================================
     this.restoreSession();
+      
+      // Load game config immediately
+      ConfigLoader.loadGameConfig().then(config => {
+        this.gameConfig = config;
+        this.log(`Game config loaded`);
+      });
+
+      // Load era list, then preload all era configs
+      ConfigLoader.loadEraList().then(async (eraList) => {
+        this.log(`Era list loaded: ${eraList.length}`);
+        
+        // Preload all era configs
+        for (const era of eraList) {
+          const fullConfig = await ConfigLoader.loadEraConfig(era.id);
+          this.eras.set(era.id, fullConfig);
+        }
+        this.log(`All era configs preloaded: ${this.eras.size}`);
+      });
   }
+
+    // Logging utilities
+    log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
+
+    logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
 
   // =================================================================
   // STATE MACHINE METHODS
@@ -192,12 +248,13 @@ class CoreEngine {
    * @param {Object} data - Optional data payload
    */
   dispatch(event, data = null) {
-    console.log(`[CORE] Dispatching event:`, event.description, 'with data:', data);
+    method = 'dispatch';
+    this.log(`Dispatching event: ${event.description} with data: ${JSON.stringify(data)}`);
 
     const nextState = this.states[this.currentState]?.on[event];
     
     if (!nextState) {
-      console.warn(`[CORE] No transition for ${this.currentState} + ${event.description}`);
+      this.logwarn(`No transition for ${this.currentState} + ${event.description}`);
       return;
     }
 
@@ -211,9 +268,9 @@ class CoreEngine {
    * @param {Object} data - Optional data for state handler
    */
   transition(newState, data = null) {
-    console.log(`[CORE] Transitioning: ${this.currentState} → ${newState}`);
+    method = 'transition';
+    this.log(`Transitioning: ${this.currentState} → ${newState}`);
     
-    const oldState = this.currentState;
     this.currentState = newState;
 
     // Update URL
@@ -243,11 +300,12 @@ class CoreEngine {
    * @param {string} state - Target state to restore
    */
   async restoreToState(state) {
+    method = 'restoreToState';
     const previousState = this.currentState;
     
     // Set state synchronously
     this.currentState = state;
-    console.log(`[CORE] Restoring to state: ${previousState || 'none'} → ${state}`);
+    this.log(`Restoring to state: ${previousState || 'none'} → ${state}`);
     
     // Run state handler asynchronously (if exists)
     const stateHandler = `handleEvent_${state}`;
@@ -255,7 +313,7 @@ class CoreEngine {
       try {
         await this[stateHandler](null);
       } catch (error) {
-        console.error(`[CORE] ${version} State handler failed during restoration:`, error);
+        this.logerror('State handler failed during restoration:', error);
       }
     }
     
@@ -263,7 +321,7 @@ class CoreEngine {
     this.saveSession();
     this.notifySubscribers();
     
-    console.log(`[CORE] State restoration complete: ${state}`);
+    this.log(`State restoration complete: ${state}`);
   }
 
   // =================================================================
@@ -271,82 +329,93 @@ class CoreEngine {
   // =================================================================
 
   handleEvent_launch() {
-    console.log('[CORE] Launch state');
+    method = 'handleEvent_launch';
+    this.log('Launch state');
+      // Launch prefetches some data, known for the life of the session:
+      // coreEngine.gameConfig
   }
 
-  handleEvent_login(data) {
-    console.log('[CORE] Login state');
-    // Login is handled by LoginPage setting coreEngine.humanPlayer directly
+  handleEvent_login() {
+    method = 'handleEvent_login';
+      // Login determines who the player is:
+      // 1. Authenticated user (has a login)
+      // 2. New user (goes through ProfileCreation)
+      // 3. Guest user
+      // upon dispatch to era state, the following are known for the life of the session:
+      // coreEngine.player
+      // coreEngine.playerProfile
+      // coreEngine.playerId (alias to coreEngine.playerProfile.id)
+      // coreEngine.eras (loads all the available eras into an array)
+    this.log('Login state');
+    // Login is handled by LoginPage setting coreEngine.player and coreEngine.playerProfile directly
   }
 
-  handleEvent_era(data) {
-    console.log('[CORE] Era selection state');
-    if (data?.eraConfig) {
-      this.eraConfig = data.eraConfig;
-    }
+  handleEvent_era() {
+    method = 'handleEvent_era';
+      // SelectEra determines which era the player will be playing.
+      // upon dispatch to era state, the following are known for the rest of the game:
+      // coreEngine.selectedEraId
+      // coreEngine.selectedEraConfig (from eras array)
+    this.log('Era selection state');
   }
 
-  handleEvent_opponent(data) {
-    console.log('[CORE] Opponent selection state');
-    if (data?.eraConfig) {
-      this.eraConfig = data.eraConfig;
-    }
+  handleEvent_opponent() {
+    method = 'handleEvent_opponent';
+      // SelectOpponent determines which opponent(s) the player will be facing.
+      // upon dispatch to placement state, the following are known for the rest of the game:
+      // coreEngine.selectedOpponents
+    this.log('Opponent selection state');
   }
 
-  handleEvent_placement(data) {
-    console.log('[CORE] Placement state - processing data and delegating to GameLifecycleManager');
-    
-    // Process placement data
-    if (data) {
-      if (data.eraConfig) {
-        this.eraConfig = data.eraConfig;
-      }
-      if (data.opponents) {
-        this.selectedOpponents = data.opponents;
-        console.log('[CORE] Stored selectedOpponents:', this.selectedOpponents);
-      }
-      if (data.selectedAlliance !== undefined) {
-        this.selectedAlliance = data.selectedAlliance;
-      }
-    }
+  handleEvent_placement() {
+    method = 'handleEvent_placement';
+    this.log('Placement state - processing data and delegating to GameLifecycleManager');
+      
+//    // Process placement data
+//    if (data) {
+////      if (data.eraConfig) {
+////        this.eraConfig = data.eraConfig;
+////      }
+//      if (data.opponents) {
+//        this.selectedOpponents = data.opponents;
+//        this.log(`Stored selectedOpponents: ${this.selectedOpponents.length}`);
+//      }
+//      if (data.selectedAlliance !== undefined) {
+//        this.selectedAlliance = data.selectedAlliance;
+//      }
+//    }
     
     // Reset player stats for new game
-    if (this.humanPlayer) {
-      console.log('[CORE] DEBUG - humanPlayer.userProfile BEFORE placement reset:', this.humanPlayer.userProfile);
-      this.humanPlayer.reset();
-      console.log('[CORE] Player stats reset for new game');
-      console.log('[CORE] DEBUG - humanPlayer.userProfile AFTER placement reset:', this.humanPlayer.userProfile);
+    if (this.player) {
+      this.player.reset();
+      this.log('Player stats reset for new game');
     }
     
     // Initialize placement (creates game, board, etc.)
     this.lifecycleManager.initializeForPlacement(this);
     
-    // v0.6.19: humanPlayer should already be set from LOGIN
-    // Keep this as fallback only
-    if (!this.humanPlayer && this.gameInstance) {
-      this.humanPlayer = this.gameInstance.players.find(p => p.type === 'human');
-      console.log('[CORE] humanPlayer extracted (fallback):', this.humanPlayer?.name);
-    }
   }
 
   handleEvent_play() {
-    console.log('[CORE] Play state');
+    method = 'handleEvent_play';
+    this.log('Play state');
     if (this.gameInstance) {
         // Track game start (increment incomplete_games counter)
         this.lifecycleManager.startGame(
-          this.humanPlayer.id,
-          this.eraConfig.era
+          this.player.id,
+          this.eraConfig.id
         ).catch(error => {
-            console.error('[CORE] Failed to track game start:', error);
+            this.logerror('Failed to track game start:', error);
         });
 
         this.gameInstance.startGame();
-        this.notifySubscribers();  // ADD THIS LINE
+        this.notifySubscribers();
     }
   }
 
   handleEvent_over() {
-    console.log('[CORE] Game over state');
+    method = 'handleEvent_over';
+    this.log('Game over state');
   }
 
   // =================================================================
@@ -357,22 +426,27 @@ class CoreEngine {
    * Restore state from session storage
    */
   restoreSession() {
+    method = 'restoreSession';
     const sessionData = SessionManager.restore();
     
     if (!sessionData) {
-      console.log('[CORE] No session to restore');
+      this.log('No session to restore');
       return;
     }
 
-    console.log('[CORE] Restoring session:', sessionData);
+    this.log(`Restoring session: ${JSON.stringify(sessionData)}`);
 
-      // Restore humanPlayer (which contains the profile)
-      if (sessionData.humanPlayer) {
-        this.humanPlayer = sessionData.humanPlayer;
-      }
+    // Restore player
+    if (sessionData.player) {
+      this.player = sessionData.player;
+    }
+    
+    // Restore playerProfile (separate from player now)
+    if (sessionData.playerProfile) {
+      this.playerProfile = sessionData.playerProfile;
+    }
 
-      this.currentState = sessionData.currentState;
-//    this.userProfile = sessionData.user;
+    this.currentState = sessionData.currentState;
     this.selectedOpponents = sessionData.selectedOpponents;
     this.selectedGameMode = sessionData.selectedGameMode;
     this.selectedAlliance = sessionData.selectedAlliance;
@@ -382,10 +456,10 @@ class CoreEngine {
       SessionManager.restoreEraAsync(this, sessionData.eraId);
     }
 
-    // Restore user profile
-    if (this.userProfile?.user_id) {
-      SessionManager.refreshProfileAsync(this);
-    }
+//    // Restore user profile
+//    if (this.playerProfile?.id) {
+//      SessionManager.refreshProfileAsync(this);
+//    }
 
     // Initialize from URL (handles browser navigation)
     this.navigationManager.initializeFromURL();
@@ -416,18 +490,19 @@ class CoreEngine {
    * @returns {Object} Attack result
    */
   handleAttack(row, col) {
+    method = 'handleAttack';
     if (!this.gameInstance) {
-      console.warn('[CORE] No game instance for attack');
+      this.logwarn('No game instance for attack');
       return null;
     }
 
-    const humanPlayer = this.gameInstance.players.find(p => p.type === 'human');
-    if (!humanPlayer) {
-      console.warn('[CORE] No human player found');
+    const player = this.gameInstance.players.find(p => p.type === 'human');
+    if (!player) {
+      this.logwarn('No human player found');
       return null;
     }
 
-    return this.gameInstance.receiveAttack(row, col, humanPlayer);
+    return this.gameInstance.receiveAttack(row, col, player);
   }
 
   /**
@@ -437,38 +512,40 @@ class CoreEngine {
    * @param {Number} col - Target column
    * @returns {Boolean} Success
    */
-    fireMunition(munitionType, row, col) {
-      console.log('[MUNITIONS] fireMunition called:', { munitionType, row, col, currentMunitions: this.munitions });
-      
-      if (!this.gameInstance) {
-        console.log('[MUNITIONS] No game instance!');
-        return false;
-      }
-      
-      const result = this.gameInstance.fireMunition(munitionType, row, col);
-      console.log('[MUNITIONS] fireMunition result:', result, 'munitions after:', this.munitions);
-      
-      return result;
+  fireMunition(munitionType, row, col) {
+    method = 'fireMunition';
+    this.log(`called with ${munitionType} at ${row},${col}`);
+    
+    if (!this.gameInstance) {
+      this.log(`No game instance!`);
+      return false;
     }
+    
+    const result = this.gameInstance.fireMunition(munitionType, row, col);
+    this.log(`result=${result}`);
+    
+    return result;
+  }
     
   /**
    * Register ship placement on board
    */
   registerShipPlacement(ship, shipCells, orientation, playerId) {
+    method = 'registerShipPlacement';
     if (!this.gameInstance) {
-      console.warn('[CORE] No game instance for ship placement');
+      this.logwarn(`No game instance for ship placement`);
       return false;
     }
       
-      const success = this.gameInstance.registerShipPlacement(ship, shipCells, orientation, playerId);
-      
-      if (success) {
-        ship.place();              // ⬅️ CRITICAL
-        this.notifySubscribers();  // ⬅️ CRITICAL
-        return true;
-      }
-      
-      return false;
+    const success = this.gameInstance.registerShipPlacement(ship, shipCells, orientation, playerId);
+    
+    if (success) {
+      ship.place();
+      this.notifySubscribers();
+      return true;
+    }
+    
+    return false;
   }
 
   /**
@@ -476,6 +553,7 @@ class CoreEngine {
    * @returns {Object} Game statistics
    */
   getGameStats() {
+    method = 'getGameStats';
     if (!this.gameInstance) {
       return null;
     }
@@ -488,98 +566,36 @@ class CoreEngine {
   // =================================================================
 
   /**
-   * Get user achievements
-   * @returns {Promise<Array>} List of achievements
+   * Logout user and clear state
    */
-  async getUserAchievements() {
-    if (!this.userProfile?.user_id) {
-      console.warn('[CORE] No user profile for achievements');
-      return [];
-    }
-
+  async logout() {
+    method = 'logout';
+    this.log('Logging out user');
+    
+    // Sign out from Supabase (clears auth session)
     try {
-      return await achievementService.getPlayerAchievements(this.userProfile.user_id);
+      await supabase.auth.signOut();
+      this.log('Supabase session cleared');
     } catch (error) {
-      console.error('[CORE] Error fetching achievements:', error);
-      return [];
+      this.logerror('Error signing out from Supabase:', error);
+      // Continue with local cleanup even if signOut fails
     }
+    
+    // Clear local state
+    this.player = null;
+    this.playerProfile = null;
+//    this.eraConfig = null;
+    this.selectedOpponents = [];
+    this.selectedGameMode = null;
+    this.selectedAlliance = null;
+    this.gameInstance = null;
+    
+    // Clear session storage
+    SessionManager.clear();
+    
+    // Return to launch
+    this.transition('launch');
   }
-
-  /**
-   * Get leaderboard for current era
-   * @param {Number} limit - Number of top players
-   * @returns {Promise<Array>} Leaderboard data
-   */
-  async getLeaderboard(limit = 10) {
-    if (!this.eraConfig?.id) {
-      console.warn('[CORE] No era selected for leaderboard');
-      return [];
-    }
-
-    try {
-      return await leaderboardService.getLeaderboard(this.eraConfig.era, limit);
-    } catch (error) {
-      console.error('[CORE] Error fetching leaderboard:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Check if user has access to an era
-   * @param {String} eraId - Era identifier
-   * @returns {Promise<Boolean>} Has access
-   */
-  async hasEraAccess(eraId) {
-    if (!this.userProfile?.user_id) {
-      console.warn('[CORE] No user profile for era access check');
-      return false;
-    }
-
-    try {
-      // Free eras are always accessible
-      const eraConfig = await ConfigLoader.loadEraConfig(eraId);
-      if (eraConfig.price === 0) {
-        return true;
-      }
-
-      // Check rights for premium eras
-      return await rightsService.hasEraAccess(this.userProfile.user_id, eraId);
-    } catch (error) {
-      console.error('[CORE] Error checking era access:', error);
-      return false;
-    }
-  }
-
-    /**
-       * Logout user and clear state
-       * v0.6.29: Added Supabase signOut to clear auth session
-       */
-      async logout() {
-        console.log('[CORE] Logging out user');
-        
-        // Sign out from Supabase (clears auth session)
-        try {
-          await supabase.auth.signOut();
-          console.log('[CORE] Supabase session cleared');
-        } catch (error) {
-          console.error('[CORE] Error signing out from Supabase:', error);
-          // Continue with local cleanup even if signOut fails
-        }
-        
-        // Clear local state
-        this.humanPlayer = null;  // v0.6.15: Clear humanPlayer too
-        this.eraConfig = null;
-        this.selectedOpponents = [];
-        this.selectedGameMode = null;
-        this.selectedAlliance = null;
-        this.gameInstance = null;
-        
-        // Clear session storage
-        SessionManager.clear();
-        
-        // Return to launch
-        this.transition('launch');
-      }
     
   // =================================================================
   // UI STATE AGGREGATION
@@ -590,7 +606,8 @@ class CoreEngine {
    * @returns {Object} Aggregated state
    */
   getUIState() {
-    // v0.6.16: Compute game state properties
+    method = 'getUIState';
+    // Compute game state properties
     const isGameActive = this.gameInstance &&
                         (this.currentState === 'play' || this.currentState === 'placement');
     
@@ -604,13 +621,13 @@ class CoreEngine {
     
     const winner = this.gameInstance?.winner || null;
     
-    // v0.6.16: Get player stats from game instance
+    // Get player stats from game instance
     const playerStats = this.gameInstance?.getPlayerStats() || {
       player: { hits: 0, misses: 0, shots: 0 },
       opponent: { hits: 0, misses: 0, shots: 0 }
     };
     
-    // v0.6.16: Get munitions from game instance
+    // Get munitions from game instance
     const munitions = this.gameInstance?.munitions || {
       starShells: 0,
       scatterShot: 0
@@ -618,15 +635,15 @@ class CoreEngine {
 
     return {
       currentState: this.currentState,
-      userProfile: this.userProfile,
-      humanPlayer: this.humanPlayer,  // v0.6.15: Expose Player instance for components
+      playerProfile: this.playerProfile,
+      player: this.player,
       eraConfig: this.eraConfig,
       selectedOpponents: this.selectedOpponents,
       selectedGameMode: this.selectedGameMode,
       selectedAlliance: this.selectedAlliance,
       gameInstance: this.gameInstance,
       
-      // v0.6.16: Add back computed properties that were accidentally removed
+      // Computed properties
       isPlayerTurn,
       currentPlayer,
       isGameActive,
@@ -658,15 +675,36 @@ class CoreEngine {
   }
 
   // =================================================================
-  // HELPER METHODS (for Player singleton)
+  // HELPER METHODS
   // =================================================================
-    /**
-     * Get user profile from humanPlayer
-     * @returns {Object|null} User profile or null
-     */
-    get userProfile() {
-      return this.humanPlayer?.userProfile || null;
+  
+  get playerId() {
+    return this.playerProfile?.id || null;
+  }
+  
+  get playerGameName() {
+    return this.playerProfile?.game_name || null;
+  }
+  
+  get selectedEraId() {
+    return this._selectedEraId;
+  }
+  
+  set selectedEraId(eraId) {
+    this._selectedEraId = eraId;
+    this.notifySubscribers();
+//      this.log(`Selected era ID set to: ${this.selectedEraId}, config=`, this.selectedEraConfig);
+  }
+    
+    get selectedOpponent() {
+        return this.selectedOpponents[0];
     }
+
+  get selectedEraConfig() {
+    // Returns FULL config from eras Map (with ships, munitions, messages, etc.)
+//      this.log(`getting era for selected eraId ${this.selectedEraId} from {this.eras.size} eras, config=`, this.selectedEraConfig);
+    return this.eras.get(this.selectedEraId);
+  }
     
   // =================================================================
   // HELPER METHODS (for NavigationManager)

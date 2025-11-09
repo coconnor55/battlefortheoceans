@@ -1,5 +1,8 @@
 // src/App.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.5: Refactored for PlayerProfile architecture
+//         - Fixed playerProfile reference to use coreEngine.playerProfile
+//         - Updated logging to match new pattern (tag, module, method)
 // v0.4.4: Added Test overlay for admin/developer testing
 //         - Added onShowTest prop to NavBar
 //         - Renders TestSuite component in modal overlay
@@ -42,10 +45,27 @@ import './App.css';
 
 export const APP_VERSION = 'dev1.3';
 
-const version = 'v0.4.4';
+const version = 'v0.4.5';
+const tag = "APP";
+const module = "App";
+let method = "";
+
 // Detect if we're in production (battlefortheoceans.com) or local development
 const isProduction = window.location.hostname === 'battlefortheoceans.com';
 const gameCDN = process.env.REACT_APP_GAME_CDN || '';
+
+// Logging utilities
+const log = (message) => {
+  console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+};
+
+const logerror = (message, error = null) => {
+  if (error) {
+    console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+  } else {
+    console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+  }
+};
 
 // Map game state to help section
 const getHelpSection = (state) => {
@@ -56,7 +76,8 @@ const getHelpSection = (state) => {
     'play': 'battle'
   };
   const section = sectionMap[state] || 'era';
-  console.log('[GUIDE] App: ', version, 'getHelpSection for state:', state, '→', section);
+  method = 'getHelpSection';
+  log(`getHelpSection for state: ${state} → ${section}`);
   return sectionMap[state] || 'era';
 };
 
@@ -67,20 +88,21 @@ const SceneRenderer = () => {
 
   // Auto-show guide on state change (first time only per session)
   useEffect(() => {
+    method = 'useEffect-autoShowGuide';
     const validStates = ['era', 'opponent', 'placement', 'play'];
     
     // Check if should auto-show for current state
     if (validStates.includes(currentState) && !autoShowedSections.has(currentState)) {
       // Check user preference from CoreEngine
-      const userProfile = coreEngine.humanPlayer?.userProfile;
+      const playerProfile = coreEngine.playerProfile;
       
       // Don't auto-show if user has disabled it
-      if (userProfile?.show_game_guide === false) {
-        console.log('[APP]', version, 'Auto-show disabled by user preference');
+      if (playerProfile?.show_game_guide === false) {
+        log('Auto-show disabled by user preference');
         return;
       }
       
-      console.log('[APP]', version, 'Auto-showing guide for first visit to:', currentState);
+      log(`Auto-showing guide for first visit to: ${currentState}`);
       setOverlayPage('help');
       setAutoShowedSections(prev => new Set([...prev, currentState]));
     }
@@ -108,19 +130,21 @@ const SceneRenderer = () => {
   
   // Load game config for inactivity settings
   useEffect(() => {
+    method = 'useEffect-loadConfig';
     fetch('/config/game-config.json')
       .then(response => response.json())
       .then(config => {
         setGameConfig(config);
-        console.log('[INACTIVITY]', version, 'Game config loaded:', config.version);
+        log(`Game config loaded: ${config.version}`);
       })
       .catch(error => {
-        console.error('[INACTIVITY]', version, 'Failed to load game-config.json:', error);
+        logerror('Failed to load game-config.json:', error);
       });
   }, []);
   
   // Reset inactivity timers
   const resetInactivityTimers = useCallback(() => {
+    method = 'resetInactivityTimers';
     lastActivityTime.current = Date.now();
     
     // Clear existing timers
@@ -137,11 +161,11 @@ const SceneRenderer = () => {
     const warningTimeout = gameConfig.inactivity.warning_timeout || 900000; // 15 minutes
     const logoutTimeout = gameConfig.inactivity.logout_timeout || 180000; // 3 minutes
     
-    console.log('[INACTIVITY]', version, 'Timers reset - warning in', warningTimeout / 1000, 'seconds');
+    log(`Timers reset - warning in ${warningTimeout / 1000} seconds`);
     
     // Set warning timer
     warningTimer.current = setTimeout(() => {
-      console.log('[INACTIVITY]', version, 'Warning timeout reached - showing modal');
+      log('Warning timeout reached - showing modal');
       setShowInactivityWarning(true);
       setRemainingSeconds(logoutTimeout / 1000);
       
@@ -158,7 +182,7 @@ const SceneRenderer = () => {
       
       // Set logout timer
       logoutTimer.current = setTimeout(() => {
-        console.log('[INACTIVITY]', version, 'Logout timeout reached - logging out');
+        log('Logout timeout reached - logging out');
         handleInactivityLogout();
       }, logoutTimeout);
       
@@ -167,7 +191,8 @@ const SceneRenderer = () => {
   
   // Handle inactivity logout
   const handleInactivityLogout = useCallback(() => {
-    console.log('[INACTIVITY]', version, 'Auto-logout due to inactivity');
+    method = 'handleInactivityLogout';
+    log('Auto-logout due to inactivity');
     
     // Clear all timers
     if (warningTimer.current) clearTimeout(warningTimer.current);
@@ -185,12 +210,14 @@ const SceneRenderer = () => {
   
   // Handle "I'm Still Here" button
   const handleDismissWarning = useCallback(() => {
-    console.log('[INACTIVITY]', version, 'User dismissed warning - resetting timers');
+    method = 'handleDismissWarning';
+    log('User dismissed warning - resetting timers');
     resetInactivityTimers();
   }, [resetInactivityTimers]);
   
   // Track user activity
   useEffect(() => {
+    method = 'useEffect-trackActivity';
     if (!gameConfig?.inactivity?.enabled) return;
     
     const handleActivity = () => {
@@ -210,7 +237,7 @@ const SceneRenderer = () => {
     // Initialize timers
     resetInactivityTimers();
     
-    console.log('[INACTIVITY]', version, 'Activity tracking initialized');
+    log('Activity tracking initialized');
     
     return () => {
       // Cleanup
@@ -223,30 +250,31 @@ const SceneRenderer = () => {
       if (logoutTimer.current) clearTimeout(logoutTimer.current);
       if (countdownInterval.current) clearInterval(countdownInterval.current);
       
-      console.log('[INACTIVITY]', version, 'Activity tracking cleaned up');
+      log('Activity tracking cleaned up');
     };
   }, [gameConfig, showInactivityWarning, resetInactivityTimers]);
   
   // Apply dynamic theme from era config
   useEffect(() => {
-    console.log('[DEBUG]', version, 'Applying era theme');
+    method = 'useEffect-applyTheme';
+    log('Applying era theme');
     
     if (eraConfig?.theme) {
-      console.log('[DEBUG]', version, 'Loading theme from era config:', eraConfig.name);
+      log(`Loading theme from era config: ${eraConfig.name}`);
       
       Object.entries(eraConfig.theme).forEach(([key, value]) => {
         const cssVar = `--${key.replace(/_/g, '-')}`;
         document.body.style.setProperty(cssVar, value);
-        console.log('[DEBUG]', version, `Set ${cssVar} = ${value}`);
+        log(`Set ${cssVar} = ${value}`);
       });
       
       if (eraConfig.promotional?.background_image) {
         const backgroundImageUrl = eraConfig.promotional?.background_image
           ? isProduction
-            ? `${gameCDN}/assets/eras/${eraConfig.era}/${eraConfig.promotional.background_image}`
-            : `/assets/eras/${eraConfig.era}/${eraConfig.promotional.background_image}`
+            ? `${gameCDN}/assets/eras/${eraConfig.id}/${eraConfig.promotional.background_image}`
+            : `/assets/eras/${eraConfig.id}/${eraConfig.promotional.background_image}`
           : null;
-        console.log('[DEBUG]', version, 'Setting background image:', backgroundImageUrl);
+        log(`Setting background image: ${backgroundImageUrl}`);
         
         const backgroundValue = `url('${backgroundImageUrl}')`;
         document.body.style.backgroundImage = backgroundValue;
@@ -254,23 +282,23 @@ const SceneRenderer = () => {
         document.body.style.setProperty('--app-background', 'none');
         document.body.style.setProperty('--body-before-opacity', '0');
         
-        console.log('[DEBUG]', version, 'Background image applied');
+        log('Background image applied');
       } else {
-        console.log('[DEBUG]', version, 'No background image, using gradient');
+        log('No background image, using gradient');
         document.body.style.backgroundImage = '';
         document.body.removeAttribute('data-has-background-image');
         document.body.style.removeProperty('--app-background');
         document.body.style.setProperty('--body-before-opacity', '0.3');
       }
       
-      const eraKey = eraConfig.era || 'traditional';
+      const eraKey = eraConfig.id || 'traditional';
       document.body.setAttribute('data-era', eraKey);
-      console.log('[DEBUG]', version, 'Theme applied for:', eraKey);
+      log(`Theme applied for: ${eraKey}`);
       
     } else if (eraConfig?.name) {
-      console.log('[DEBUG]', version, 'No theme object, using fallback mapping');
+      log('No theme object, using fallback mapping');
       
-      const eraKey = eraConfig.era || 'traditional';
+      const eraKey = eraConfig.id || 'traditional';
       document.body.setAttribute('data-era', eraKey);
       
       document.body.style.backgroundImage = '';
@@ -278,10 +306,10 @@ const SceneRenderer = () => {
       document.body.style.removeProperty('--app-background');
       document.body.style.setProperty('--body-before-opacity', '0.3');
       
-      console.log('[DEBUG]', version, 'Fallback theme switched to:', eraKey);
+      log(`Fallback theme switched to: ${eraKey}`);
       
     } else {
-      console.log('[DEBUG]', version, 'No era config, using default theme');
+      log('No era config, using default theme');
       document.body.setAttribute('data-era', 'traditional');
       
       document.body.style.backgroundImage = '';
@@ -298,16 +326,19 @@ const SceneRenderer = () => {
   const isEmailConfirmedRoute = window.location.pathname === '/email-confirmed';
   
   if (isResetPasswordRoute) {
-    console.log('[DEBUG]', version, 'Rendering reset password page');
+    method = 'render-resetPassword';
+    log('Rendering reset password page');
     return <ResetPasswordPage />;
   }
   
   if (isEmailConfirmedRoute) {
-    console.log('[DEBUG]', version, 'Rendering email confirmed page');
+    method = 'render-emailConfirmed';
+    log('Rendering email confirmed page');
     return <EmailConfirmedPage />;
   }
   
-  console.log('[DEBUG]', version, 'Rendering scene for state:', currentState);
+  method = 'render-scene';
+  log(`Rendering scene for state: ${currentState}`);
   
   const closeOverlay = () => setOverlayPage(null);
 
@@ -379,7 +410,8 @@ const SceneRenderer = () => {
 };
 
 const App = () => {
-  console.log('[DEBUG]', version, 'App initialized');
+  method = 'App';
+  log('App initialized');
   
   return (
     <div className="App">

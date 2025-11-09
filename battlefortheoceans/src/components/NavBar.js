@@ -1,7 +1,19 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.17: Added *Add 10 Passes menu item for admins/developers/testers
+//          - Menu item between Help and Test
+//          - Creates 10 admin passes via RightsService
+//          - Refreshes pass balance after creation
+//          - Uses Coins icon from lucide-react
+//          - Only visible to admins, developers, and testers
+// v0.2.16: Fixed pass balance refresh and logging
+//          - Removed passBalance from useEffect dependencies (was causing infinite loop)
+//          - Added currentState to dependencies to refresh on state changes
+//          - Move balance log inside fetchPassBalance for accurate value
+//          - Updated logging to match new pattern (tag, module, method)
+// v0.2.15: Various changes
 // v0.2.14: Restricted Test menu item to admins and developers only
-//          - Check userProfile.role for 'admin' or 'developer'
+//          - Check playerProfile.role for 'admin' or 'developer'
 //          - Test only visible to authorized users
 // v0.2.13: Added Test menu item to user dropdown
 //          - Test appears between Help and Logout
@@ -29,21 +41,90 @@
 // v0.2.6: Only show Return to Game button when overlay is active
 
 import React, { useEffect, useState, useRef } from 'react';
-import { useGame } from '../context/GameContext';
-import { LogOut, HelpCircle, TestTube } from 'lucide-react';
+import RightsService from '../services/RightsService';
+import PlayerProfileService from '../services/PlayerProfileService';
+import { coreEngine, useGame } from '../context/GameContext';
+import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins } from 'lucide-react';
 
-const version = 'v0.2.14';
+const version = 'v0.2.17';
+const tag = "NAVBAR";
+const module = "NavBar";
+let method = "";
+
+const log = (message) => {
+  console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+};
+
+const logerror = (message, error = null) => {
+  if (error) {
+    console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+  } else {
+    console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+  }
+};
 
 const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onShowTest, onCloseOverlay, hasActiveOverlay }) => {
-  const { currentState, userProfile, eraConfig, subscribeToUpdates, logout } = useGame();
+  method = 'NavBar';
+  
+  const {
+    currentState,
+    subscribeToUpdates,
+    logout
+  } = useGame();
+  
+  // key data
+  const player = coreEngine.player;
+  const playerId = coreEngine.playerId;
+  const playerProfile = coreEngine.playerProfile;
+  const gameConfig = coreEngine.gameConfig;
+  const userEmail = coreEngine.userEmail;
+  const selectedEraId = coreEngine.selectedEraId;
+  const eraConfig = coreEngine.selectedEraConfig;
+  const playerGameName = coreEngine.playerGameName;
+  
+  log(`DEBUG humanPlayer=${player}, playerId=${playerId}, playerGameName=${playerGameName}, userEmail=${userEmail}, playerProfile=${playerProfile}, `, playerProfile);
+  
+  const isGuest = player && playerProfile.isGuest;
+  const isAdmin = player && playerProfile.isAdmin;
+  const isDeveloper = player && playerProfile.isDeveloper;
+  const isTester = player && playerProfile.isTester;
+  const role = playerProfile?.role;
+  
+  log(`role=${role}, isGuest=${isGuest}, isAdmin=${isAdmin}, isDeveloper=${isDeveloper}, isTester=${isTester}`);
+
   const [, forceUpdate] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
+  const [passBalance, setPassBalance] = useState(0);
+
+  const fetchPassBalance = async () => {
+    method = 'fetchPassBalance';
+    
+    if (!playerId || isGuest) {
+      setPassBalance(0);
+      log('No playerId or guest user - pass balance set to 0');
+      return;
+    }
+
+    try {
+      const balance = await RightsService.getPassBalance(playerId);
+      setPassBalance(balance);
+      log(`Pass balance fetched: ${balance}`);
+    } catch (err) {
+      logerror('Error fetching pass balance:', err);
+      setPassBalance(0);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch when playerId changes OR when returning to 'era' state (after game)
+    fetchPassBalance();
+  }, [playerId, isGuest, currentState]); // Added currentState, removed passBalance
   
   // Force re-render when game state changes
   useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {
-      forceUpdate(prev => prev + 1);
+      forceUpdate(n => n + 1);
     });
     return unsubscribe;
   }, [subscribeToUpdates]);
@@ -66,10 +147,12 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
     return null;
   }
   
-  console.log('[NAVBAR]', version, 'Rendering for state:', currentState, 'hasOverlay:', hasActiveOverlay);
+  method = 'render';
+  log(`Rendering for state: ${currentState}, hasOverlay: ${hasActiveOverlay}`);
   
   const handleNavigate = (destination) => {
-    console.log('[NAVBAR]', version, 'Navigate to:', destination);
+    method = 'handleNavigate';
+    log(`Navigate to: ${destination}`);
     
     switch (destination) {
       case 'game':
@@ -97,23 +180,25 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
         break;
         
       default:
-        console.warn('[NAVBAR]', version, 'Unknown destination:', destination);
+        console.warn(`[${tag}] ${version} ${module}.${method}: Unknown destination: ${destination}`);
     }
   };
   
   const handleLogout = () => {
-    console.log('[NAVBAR]', version, 'User clicked logout');
+    method = 'handleLogout';
+    log('User clicked logout');
     setShowUserMenu(false);
     
     if (logout) {
       logout();
     } else {
-      console.error('[NAVBAR]', version, 'No logout function available from GameContext');
+      logerror('No logout function available from GameContext');
     }
   };
   
   const handleHelp = () => {
-    console.log('[NAVBAR]', version, 'User clicked help');
+    method = 'handleHelp';
+    log('User clicked help');
     setShowUserMenu(false);
     
     if (onShowHelp) {
@@ -121,8 +206,35 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
     }
   };
   
+  const handleAddPasses = async () => {
+    method = 'handleAddPasses';
+    log('User clicked Add 10 Passes');
+    setShowUserMenu(false);
+    
+    if (!playerId) {
+      logerror('No playerId available');
+      alert('✗ Failed to add passes - no player ID');
+      return;
+    }
+    
+    try {
+      // Create 10 admin passes
+        await RightsService.creditPasses(playerId, 10, 'admin', {});
+      log('10 passes created successfully');
+      
+      // Refresh pass balance
+      await fetchPassBalance();
+      
+      alert('✓ 10 passes added successfully!');
+    } catch (error) {
+      logerror('Failed to add passes:', error);
+      alert('✗ Failed to add passes');
+    }
+  };
+  
   const handleTest = () => {
-    console.log('[NAVBAR]', version, 'User clicked test');
+    method = 'handleTest';
+    log('User clicked test');
     setShowUserMenu(false);
     
     if (onShowTest) {
@@ -130,6 +242,25 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
     }
   };
     
+  // In your admin page/component
+  const handleReset = async () => {
+    method = 'handleReset';
+    
+    if (!window.confirm('⚠️ Reset ALL your scores and achievements? This cannot be undone!')) {
+      return;
+    }
+
+    try {
+      await PlayerProfileService.resetOwnProgress(playerId);
+      alert('✓ Progress reset successfully!');
+      log('Progress reset successfully');
+      // Reload profile or navigate away
+    } catch (error) {
+      logerror('Failed to reset progress:', error);
+      alert('✗ Failed to reset progress');
+    }
+  };
+  
   const toggleUserMenu = () => {
     setShowUserMenu(prev => !prev);
   };
@@ -139,12 +270,6 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   const showAboutButton = ['era', 'opponent', 'placement', 'play', 'over'].includes(currentState) && eraConfig && eraConfig.about;
   const showStatsButton = ['era', 'opponent', 'placement', 'play', 'over'].includes(currentState);
   const showAchievementsButton = ['era', 'opponent', 'placement', 'play', 'over'].includes(currentState);
-  
-  // Don't show stats for guest users (no persistent data)
-  const isGuest = userProfile?.id?.startsWith('guest-');
-  
-  // Check if user has permission to run tests (admin or developer only)
-  const canTest = ['admin', 'developer'].includes(userProfile?.role);
   
   return (
     <nav className="nav-bar">
@@ -197,15 +322,23 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
           )}
         </div>
         
-        {userProfile && (
-          <div className="nav-bar__user" ref={menuRef}>
+        {passBalance > 0 && (
+          <div className="nav-bar__passes">
+            <span className="pass-icon">💎 </span>
+            <span className="pass-count">{passBalance}</span>
+            <span className="pass-label"> Passes</span>
+          </div>
+        )}
+        
+        {true && (
+          <div className="btn btn--secondary btn--xthin" ref={menuRef}>
             <span
-              className="nav-bar__username"
+              className="nav-bar__menu"
               onClick={toggleUserMenu}
               style={{ cursor: 'pointer' }}
               title="Click for user menu"
             >
-              {userProfile.game_name || 'Guest'}
+              <Menu size={22} className="action-menu__emoji" />
             </span>
             
             {showUserMenu && (
@@ -235,7 +368,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                         padding: 'var(--space-xs) var(--space-md)'
                       }}
                     >
-                      <span>{userProfile.game_name || 'Guest'}</span>
+                      <span>{playerProfile?.game_name || 'Guest'}</span>
                     </div>
                     
                     <div
@@ -246,7 +379,17 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                       <span className="action-menu__label">Help</span>
                     </div>
                     
-                    {canTest && (
+                    {(isAdmin || isDeveloper || isTester) && (
+                      <div
+                        className="action-menu__item"
+                        onClick={handleAddPasses}
+                      >
+                        <Coins size={20} className="action-menu__emoji" />
+                        <span className="action-menu__label">*Add 10 Passes</span>
+                      </div>
+                    )}
+                    
+                    {(isAdmin || isDeveloper) && (
                       <div
                         className="action-menu__item"
                         onClick={handleTest}
@@ -256,6 +399,16 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                       </div>
                     )}
                     
+                    {(isAdmin || isDeveloper) && (
+                      <div
+                        className="action-menu__item"
+                        onClick={handleReset}
+                      >
+                        <Recycle size={20} className="action-menu__emoji" />
+                        <span className="action-menu__label">Reset Stats & Achievements</span>
+                      </div>
+                    )}
+                            
                     <div
                       className="action-menu__item"
                       onClick={handleLogout}

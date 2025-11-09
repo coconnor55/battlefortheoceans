@@ -30,7 +30,7 @@ const version = 'v0.1.2';
  * @param {boolean} params.isPlayerTurn - Whether it's the player's turn
  * @param {boolean} params.isGameActive - Whether the game is active
  * @param {Function} params.handleShotFired - Callback to fire a shot (row, col)
- * @param {Object} params.userProfile - User profile (to check role)
+ * @param {Object} params.playerProfile - User profile (to check role)
  * @param {string} params.battleMessage - Battle message (for render trigger)
  *
  * @returns {Object} { autoPlayEnabled, canUseAutoPlay, handleAutoPlayToggle }
@@ -42,7 +42,7 @@ const version = 'v0.1.2';
  *   isPlayerTurn,
  *   isGameActive,
  *   handleShotFired,
- *   userProfile,
+ *   playerProfile,
  *   battleMessage
  * });
  *
@@ -59,14 +59,14 @@ const useAutoPlay = ({
   isPlayerTurn,
   isGameActive,
   handleShotFired,
-  userProfile,
+  playerProfile,
   battleMessage
 }) => {
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(false);
   const autoPlayTimerRef = useRef(null);
   
   // Check if user has permission to use autoplay
-  const canUseAutoPlay = ['admin', 'developer', 'tester'].includes(userProfile?.role);
+  const canUseAutoPlay = ['admin', 'developer', 'tester'].includes(playerProfile?.role);
 
   // Fire random valid shot
   const fireRandomShot = useCallback(() => {

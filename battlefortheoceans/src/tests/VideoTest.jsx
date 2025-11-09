@@ -9,12 +9,11 @@
 // v0.1.0: Video popup system testing
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 
 const version = 'v0.1.4';
 
-const VideoTest = ({ userId, onComplete }) => {
-  const { coreEngine } = useGame();
+const VideoTest = ({ playerId, onComplete }) => {
   const [results, setResults] = useState([]);
   const [running, setRunning] = useState(false);
   const hasRun = useRef(false);
@@ -254,7 +253,7 @@ const VideoTest = ({ userId, onComplete }) => {
       });
 
         // Test 9: Check video callback methods exist on Game class
-        const hasGame = coreEngine?.gameInstance !== undefined;
+        const hasGame = coreEngine?.gameInstance != null;
         if (hasGame) {
           const hasCallbackMethods =
             typeof coreEngine.gameInstance.setOnShipSunk === 'function' &&

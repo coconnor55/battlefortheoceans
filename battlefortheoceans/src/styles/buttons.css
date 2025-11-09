@@ -54,6 +54,10 @@
   font-weight: 500; /* Slightly lighter weight for thin buttons */
 }
 
+.btn--xthin {
+    padding: var(--space-xs) var(--space-md) 0 var(--space-md);
+}
+
 @keyframes pulse-glow {
   0%, 100% {
     box-shadow: 0 0 5px var(--primary),

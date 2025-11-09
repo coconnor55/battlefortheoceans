@@ -1,14 +1,14 @@
-// src/tests/UserProfileServiceTest.js
+// src/tests/PlayerProfileServiceTest.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.1.0: UserProfileService test suite
+// v0.1.0: PlayerProfileService test suite
 
 import React, { useState, useEffect, useRef } from 'react';
-import UserProfileService from '../services/UserProfileService';
+import PlayerProfileService from '../services/PlayerProfileService';
 import { supabase } from '../utils/supabaseClient';
 
 const version = 'v0.1.0';
 
-const UserProfileServiceTest = ({ userId, onComplete }) => {
+const PlayerProfileServiceTest = ({ playerId, onComplete }) => {
   const [tests, setTests] = useState([]);
   const [running, setRunning] = useState(false);
   const hasRun = useRef(false);
@@ -37,8 +37,8 @@ const UserProfileServiceTest = ({ userId, onComplete }) => {
     let passed = 0;
     let failed = 0;
 
-    if (!userId) {
-      addTest('No user ID', 'error', '❌ User ID required for UserProfileService tests');
+    if (!playerId) {
+      addTest('No user ID', 'error', '❌ User ID required for PlayerProfileService tests');
       setRunning(false);
       if (onComplete) onComplete({ total: 1, passed: 0, failed: 1 });
       return;
@@ -52,7 +52,7 @@ const UserProfileServiceTest = ({ userId, onComplete }) => {
         const { data: initialProfile, error: fetchError } = await supabase
           .from('user_profiles')
           .select('incomplete_games')
-          .eq('id', userId)
+          .eq('id', playerId)
           .single();
 
         if (fetchError) throw fetchError;
@@ -60,13 +60,13 @@ const UserProfileServiceTest = ({ userId, onComplete }) => {
         const initialCount = initialProfile?.incomplete_games || 0;
 
         // Increment
-        await UserProfileService.incrementIncompleteGames(userId);
+        await PlayerProfileService.incrementIncompleteGames(playerId);
 
         // Verify increment
         const { data: afterIncrement } = await supabase
           .from('user_profiles')
           .select('incomplete_games')
-          .eq('id', userId)
+          .eq('id', playerId)
           .single();
 
         if (afterIncrement.incomplete_games !== initialCount + 1) {
@@ -74,13 +74,13 @@ const UserProfileServiceTest = ({ userId, onComplete }) => {
         }
 
         // Decrement
-        await UserProfileService.decrementIncompleteGames(userId);
+        await PlayerProfileService.decrementIncompleteGames(playerId);
 
         // Verify decrement
         const { data: afterDecrement } = await supabase
           .from('user_profiles')
           .select('incomplete_games')
-          .eq('id', userId)
+          .eq('id', playerId)
           .single();
 
         if (afterDecrement.incomplete_games !== initialCount) {
@@ -103,16 +103,16 @@ const UserProfileServiceTest = ({ userId, onComplete }) => {
         await supabase
           .from('user_profiles')
           .update({ incomplete_games: 0 })
-          .eq('id', userId);
+          .eq('id', playerId);
 
         // Try to decrement
-        await UserProfileService.decrementIncompleteGames(userId);
+        await PlayerProfileService.decrementIncompleteGames(playerId);
 
         // Verify still 0
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('incomplete_games')
-          .eq('id', userId)
+          .eq('id', playerId)
           .single();
 
         if (profile.incomplete_games !== 0) {
@@ -129,8 +129,8 @@ const UserProfileServiceTest = ({ userId, onComplete }) => {
       // TEST 3: Get user profile
       addTest('Get user profile', 'running', 'Fetching profile...');
       try {
-        const profile = await UserProfileService.getUserProfile(userId);
-        if (profile && profile.id === userId) {
+        const profile = await PlayerProfileService.getPlayerProfile(playerId);
+        if (profile && profile.id === playerId) {
           addTest('Get user profile', 'success', 
             `✅ Profile fetched: ${profile.game_name}`,
             { game_name: profile.game_name, total_games: profile.total_games });
@@ -157,7 +157,7 @@ const UserProfileServiceTest = ({ userId, onComplete }) => {
         const results = [];
 
         for (const test of tests) {
-          const validation = await UserProfileService.validateGameName(test.name);
+          const validation = await PlayerProfileService.validateGameName(test.name);
           const passed = validation.valid === test.expected;
           if (!passed) {
             allPassed = false;
@@ -218,6 +218,6 @@ const UserProfileServiceTest = ({ userId, onComplete }) => {
   );
 };
 
-export default UserProfileServiceTest;
+export default PlayerProfileServiceTest;
 
 // EOF

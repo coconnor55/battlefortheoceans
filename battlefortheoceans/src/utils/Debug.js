@@ -1,14 +1,20 @@
 // src/utils/debug.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.4: Added extendedDebug filter for DEBUG messages
+//         - If extendedDebug is false, filters out messages with "DEBUG" after [TAG]
+//         - Example: "[SELECTERA] DEBUG SelectEra.xyz" is filtered when extendedDebug=false
+//         - Allows toggling verbose debug messages without disabling entire categories
 // v0.1.3: Fixed infinite recursion - removed init log, use originalLog directly
 // Simple console.log filter by category
 
-const version = "v0.1.3";
+const version = "v0.1.4";
 
 // Control which categories are logged
+const extendedDebug = false;  // Set to false to filter DEBUG messages
+
 const control = {
   HOOK: false,
-  PLACEMENT: false,
+  PLACEMENT: true,
   SOUND: false,
   AI: false,
   ATTACK: false,
@@ -21,19 +27,27 @@ const control = {
   OVERLAY: false,
   TARGETING: false,
   GAME: true,
-  NAVBAR: false,
-  ACHIEVEMENT: false,
+  NAVBAR: true,
+  ACHIEVEMENT: true,
   MESSAGE: true,
   FIRE: false,
-    VIDEO: false,
-    LAUNCH: false,
-    LOGIN: true,
-    CORE: true,
-    GUIDE: true,
-    AUTOPLAY: true,
-    MUNITIONS: true,
-    TESTS: true,
-    RIGHTS: true,
+  VIDEO: false,
+  LAUNCH: false,
+  LOGIN: true,
+  CORE: true,
+  GUIDE: true,
+  AUTOPLAY: true,
+  MUNITIONS: true,
+  TESTS: true,
+  RIGHTS: true,
+  INVITE: true,
+  VOUCHER: true,
+  ACCESS: true,
+  SELECTERA: true,
+  LIFECYCLE: true,
+  ABOUT: true,
+  BADGES: true,
+  USERPROFILE: true,
   DEBUG: true
 };
 
@@ -53,12 +67,24 @@ console.log = (...args) => {
     if (categoryMatch) {
       const category = categoryMatch[1];
       
-      // Only log if this category is enabled
-      if (control[category] === true) {
-        const timestamp = new Date().toLocaleTimeString();
-        originalLog(`[${timestamp}]`, ...args);
+      // Check if category is enabled
+      if (control[category] !== true) {
+        return; // Category disabled, don't log
       }
-      return; // Category found, don't fall through
+      
+      // Check for DEBUG keyword after tag (if extendedDebug is false)
+      if (!extendedDebug) {
+        // Match pattern: [TAG] DEBUG or [TAG] v0.x.x Module.method DEBUG
+        const debugMatch = firstArg.match(/^\[[A-Z]+\].*?\bDEBUG\b/i);
+        if (debugMatch) {
+          return; // Contains DEBUG and extendedDebug is off, don't log
+        }
+      }
+      
+      // Category enabled and passes DEBUG filter, log it
+      const timestamp = new Date().toLocaleTimeString();
+      originalLog(`[${timestamp}]`, ...args);
+      return;
     }
   }
   
@@ -98,6 +124,7 @@ export const disableCategory = (category) => {
 // Show current settings
 export const showDebugSettings = () => {
   originalLog('[DEBUG] Current debug settings:', control);
+  originalLog(`[DEBUG] Extended debug (DEBUG messages): ${extendedDebug}`);
 };
 
 // Restore original console
@@ -106,9 +133,5 @@ export const restoreConsole = () => {
   console.error = originalError;
   console.warn = originalWarn;
 };
-
-// Use originalLog directly to avoid recursion on init
-// REMOVED: This line was causing recursion when called repeatedly
-// originalLog('[DEBUG] Debug system initialized', version);
 
 // EOF

@@ -22,7 +22,7 @@ const version = "v0.1.5";
 const CACHE_DURATION = 300000; // 5 minutes
 
 function StatsPage({ onClose }) {
-  const { userProfile, dispatch, events } = useGame();
+  const { playerProfile, dispatch, events } = useGame();
   const [stats, setStats] = useState(null);
   const [recentGames, setRecentGames] = useState([]);
   const [allGames, setAllGames] = useState([]);
@@ -39,23 +39,23 @@ function StatsPage({ onClose }) {
   const [showAllAI, setShowAllAI] = useState(false);
   const [showAllEra, setShowAllEra] = useState(false);
 
-  const isGuest = userProfile?.id?.startsWith('guest-');
+  const isGuest = playerProfile?.id?.startsWith('guest-');
 
   useEffect(() => {
     loadAllStats();
-  }, [userProfile]);
+  }, [playerProfile]);
 
   const loadAllStats = async () => {
-    if (!userProfile) {
+    if (!playerProfile) {
       setLoading(false);
       return;
     }
 
     try {
-      console.log(version, 'Loading stats for user:', userProfile.id);
+      console.log(version, 'Loading stats for user:', playerProfile?.id);
       
       // Check cache first
-      const cacheKey = `stats_${userProfile.id}`;
+      const cacheKey = `stats_${playerProfile?.id}`;
       const cached = sessionStorage.getItem(cacheKey);
       
       if (cached) {
@@ -73,13 +73,13 @@ function StatsPage({ onClose }) {
       
       const [gamesData, rankingData, percentileData, leaderboardData, totalGames] = await Promise.all([
         loadAllGames(),
-        leaderboardService.getPlayerRanking(userProfile.id),
-        leaderboardService.getPlayerPercentile(userProfile.id),
+        leaderboardService.getPlayerRanking(playerProfile?.id),
+        leaderboardService.getPlayerPercentile(playerProfile?.id),
         leaderboardService.getLeaderboard(100),
         gameStatsService.getTotalGamesPlayed()
       ]);
 
-      setStats(userProfile);
+      setStats(playerProfile);
       setRanking(rankingData);
       setPercentile(percentileData);
       setTotalPlayers(leaderboardData.length);
@@ -105,7 +105,7 @@ function StatsPage({ onClose }) {
       const { data, error } = await supabase
         .from('game_results')
         .select('*')
-        .eq('player_id', userProfile.id)
+        .eq('player_id', playerProfile?.id)
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -338,7 +338,7 @@ function StatsPage({ onClose }) {
                   </thead>
                   <tbody>
                     {leaderboard.slice(0, 10).map((entry, index) => {
-                      const isCurrentPlayer = !isGuest && entry.game_name === userProfile?.game_name;
+                      const isCurrentPlayer = !isGuest && entry.game_name === playerProfile?.game_name;
                       return (
                         <tr key={index} className={isCurrentPlayer ? 'player-row' : ''}>
                           <td className="rank-cell">#{index + 1}</td>

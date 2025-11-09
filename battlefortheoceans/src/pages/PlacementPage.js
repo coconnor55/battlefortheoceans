@@ -7,8 +7,8 @@
 //          - Get from coreEngine.selectedOpponents[0] instead
 //          - Matches CoreEngine storage of opponents as array
 // v0.4.13: Updated to use CoreEngine singleton pattern
-//          - Use coreEngine.humanPlayer (Player instance for game logic)
-//          - Use coreEngine.userProfile (database object for display)
+//          - Use coreEngine.player (Player instance for game logic)
+//          - Use coreEngine.playerProfile (database object for display)
 //          - Consistent with SelectOpponentPage v0.6.6 pattern
 // v0.4.12: Replaced InfoPanel with GameGuide component - removed ~60 lines of hardcoded instructions
 // v0.4.11: Positioned InfoButton relative to content pane, kept component reusable
@@ -16,31 +16,72 @@
 // v0.4.9: Add beforeunload warning to prevent accidental refresh during placement
 
 import React, { useState, useEffect } from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
 const version = 'v0.4.16';
+const tag = "PLACEMENT";
+const module = "PlacementPage";
+let method = "";
 
 const PlacementPage = () => {
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
+
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
+
   const {
-    coreEngine,
     dispatch,
     events,
-    eraConfig,
     gameInstance,
     board,
     registerShipPlacement,
     subscribeToUpdates
   } = useGame();
   
-  // v0.4.14: Use CoreEngine singleton pattern
-  const humanPlayer = coreEngine.humanPlayer;              // Player instance (game logic)
-  const userProfile = coreEngine.humanPlayer.userProfile;  // Database object (display)
-  const selectedOpponent = coreEngine.selectedOpponents?.[0]; // First opponent from array
-  
-  console.log('[PLACEMENT]', version, 'humanPlayer=', humanPlayer);
-  console.log('[PLACEMENT]', version, 'userProfile=', userProfile);
+    //key data - see CoreEngine handle{state}
+    const eras = coreEngine.eras;
+    const player = coreEngine.player
+    const playerProfile = coreEngine.playerProfile;
+    const playerId = playerProfile.id;
+    const isGuest = player != null && player.isGuest;
+    const playerRole = playerProfile.role;
+    const isAdmin = player != null && playerProfile.isAdmin;
+    const isDeveloper = player != null && playerProfile.isDeveloper;
+    const isTester = player != null && playerProfile.isTester;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedEraConfig = coreEngine.selectedEraConfig;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponent = coreEngine.selectedOpponent;
+    const selectedOpponents = coreEngine.selectedOpponents;
+    
+    // stop game if key data is missing (selectedAlliance is allowed to be null)
+    const required = { eras, player, playerProfile, playerId, playerRole, selectedEraId, selectedEraConfig, selectedOpponent, selectedOpponents };
+    if (Object.values(required).some(v => !v)) {
+        logerror('key data missing', required);
+        throw new Error('PlacementPage: key data missing');
+    }
+    const undefined = { selectedAlliance };
+    if (Object.values(required).some(v => v === undefined)) {
+        logerror('key data missing', undefined);
+        throw new Error('PlacementPage: key data missing');
+    }
+
+  console.log('[PLACEMENT]', version, 'player=', player);
+  console.log('[PLACEMENT]', version, 'playerProfile=', playerProfile);
   console.log('[PLACEMENT]', version, 'selectedOpponent=', selectedOpponent);
   
   const {
@@ -67,11 +108,11 @@ const PlacementPage = () => {
   }, []);
   
   useEffect(() => {
-    if (!humanPlayer) {
-      console.log(version, 'No player detected - redirecting to login');
+    if (!player) {
+      logwarn('No player detected - redirecting to login');
       dispatch(events.LOGIN);
     }
-  }, [humanPlayer, dispatch, events]);
+  }, [player, dispatch, events]);
   
   const [error, setError] = useState(null);
   const [isAutoPlacing, setIsAutoPlacing] = useState(false);
@@ -85,37 +126,19 @@ const PlacementPage = () => {
     return unsubscribe;
   }, [subscribeToUpdates]);
 
-  useEffect(() => {
-    if (!eraConfig || !humanPlayer || !selectedOpponent) {
-      const missingItems = [];
-      if (!eraConfig) missingItems.push('eraConfig');
-      if (!humanPlayer) missingItems.push('humanPlayer');
-      if (!selectedOpponent) missingItems.push('selectedOpponent');
-      
-      setError(`Missing game configuration: ${missingItems.join(', ')}`);
-      return;
-    }
-
-    setError(null);
-
-    if (!gameInstance || !board) {
-      console.log(version, 'Waiting for game instance or board setup...');
-    } else {
-      console.log(version, 'Game ready for ship placement');
-    }
-  }, [eraConfig, humanPlayer, selectedOpponent, gameInstance, board]);
-
   const handleShipPlaced = (ship, shipCells, orientation) => {
-    try {
+      method = 'handleShipPlaced';
+
+      try {
       console.log(version, `Placing ${ship.name} with ${shipCells.length} cells`);
       
-      const success = registerShipPlacement(ship, shipCells, orientation, humanPlayer.id);
+      const success = registerShipPlacement(ship, shipCells, orientation, player.id);
       
       if (success) {
         console.log(version, `Successfully placed ${ship.name}`);
         
         // Phase 4: Access fleet directly from player
-        const fleet = humanPlayer?.fleet;
+        const fleet = player?.fleet;
         if (fleet) {
           const placedCount = fleet.ships.filter(ship => ship.isPlaced).length;
           const totalCount = fleet.ships.length;
@@ -141,7 +164,9 @@ const PlacementPage = () => {
   };
 
   const handleAutoPlace = async () => {
-    if (!gameInstance || !humanPlayer || !board || isAutoPlacing) {
+      method = 'handleAutoPlace';
+
+    if (!gameInstance || !player || !board || isAutoPlacing) {
       return;
     }
 
@@ -150,12 +175,12 @@ const PlacementPage = () => {
 
     try {
       // Phase 4: Access fleet directly from player
-      const fleet = humanPlayer.fleet;
+      const fleet = player.fleet;
       if (fleet) {
         console.log(version, 'Clearing existing ship placements');
         
         // Phase 4: Clear player's placement map (the fix!)
-        humanPlayer.clearPlacements();
+        player.clearPlacements();
         
         // Reset ship flags
         fleet.ships.forEach(ship => {
@@ -163,8 +188,8 @@ const PlacementPage = () => {
         });
         
         console.log(`[BOARD] board === gameInstance.board:`, board === gameInstance.board);
-        console.log(`[BOARD] humanPlayer.board === board:`, humanPlayer.board === board);
-        console.log(`[BOARD] humanPlayer.board === gameInstance.board:`, humanPlayer.board === gameInstance.board);
+        console.log(`[BOARD] player.board === board:`, player.board === board);
+        console.log(`[BOARD] player.board === gameInstance.board:`, player.board === gameInstance.board);
         
         // Clear the board (terrain only now)
         board.clear();
@@ -172,7 +197,7 @@ const PlacementPage = () => {
         console.log(version, 'All ships cleared, ready for fresh auto-placement');
       }
 
-      await gameInstance.autoPlaceShips(humanPlayer);
+      await gameInstance.autoPlaceShips(player);
       console.log(version, 'Auto-placement completed');
       
     } catch (error) {
@@ -183,6 +208,8 @@ const PlacementPage = () => {
   };
 
   const handleStartBattle = () => {
+      method = 'handleStartBattle';
+
     console.log(version, 'Player confirmed - starting battle');
     
     if (dispatch && events) {
@@ -193,6 +220,8 @@ const PlacementPage = () => {
   };
 
   const getPlacementMessage = () => {
+      method = 'getPlacementMessage';
+
     if (isAutoPlacing) {
       return 'Autoplacing ships...';
     } else if (currentShip) {
@@ -205,6 +234,8 @@ const PlacementPage = () => {
   };
 
   const getUIMessage = () => {
+      method = 'getUIMessage';
+
     if (isAutoPlacing) {
       return 'Autoplacing ships...';
     } else if (currentShip) {
@@ -216,8 +247,8 @@ const PlacementPage = () => {
     }
   };
 
-  // v0.4.13: Check humanPlayer instead of userProfile
-  if (!humanPlayer) {
+  // v0.4.13: Check player instead of playerProfile
+  if (!player) {
     return null;
   }
 
@@ -245,11 +276,11 @@ const PlacementPage = () => {
     );
   }
 
-  if (!board || !gameInstance || !humanPlayer) {
+  if (!board || !gameInstance || !player) {
     const waitingFor = [];
     if (!board) waitingFor.push('board');
     if (!gameInstance) waitingFor.push('game instance');
-    if (!humanPlayer) waitingFor.push('human player');
+    if (!player) waitingFor.push('human player');
 
     console.log(version, 'Showing loading state, waiting for:', waitingFor);
     
@@ -282,12 +313,12 @@ const PlacementPage = () => {
           <div className="game-board-container">
             <CanvasBoard
               mode="placement"
-              eraConfig={eraConfig}
+              eraConfig={selectedEraConfig}
               gameBoard={board}
               gameInstance={gameInstance}
               currentShip={currentShip}
               onShipPlaced={handleShipPlaced}
-              humanPlayer={humanPlayer}
+              player={player}
             />
           </div>
 

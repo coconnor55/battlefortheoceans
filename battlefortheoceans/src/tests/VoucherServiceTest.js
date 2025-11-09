@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import VoucherService from '../services/VoucherService';
 
-const VoucherServiceTest = ({ userId, onComplete }) => {
+const VoucherServiceTest = ({ playerId, onComplete }) => {
   const [tests, setTests] = useState([]);
   const [running, setRunning] = useState(false);
     const hasRun = useRef(false);  // <-- ADD THIS

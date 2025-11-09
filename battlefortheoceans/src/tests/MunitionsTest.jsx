@@ -8,12 +8,11 @@
 // v0.1.0: Munitions system testing
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 
 const version = 'v0.1.1';
 
-const MunitionsTest = ({ userId, onComplete }) => {
-  const { coreEngine } = useGame();
+const MunitionsTest = ({ playerId, onComplete }) => {
   const [results, setResults] = useState([]);
   const [running, setRunning] = useState(false);
   const hasRun = useRef(false);  // <-- ADD THIS
@@ -201,7 +200,7 @@ const MunitionsTest = ({ userId, onComplete }) => {
       );
 
       // Test 10: Check era config munitions
-      const eraConfig = coreEngine.eraConfig;
+      const eraConfig = coreEngine.selectedEraConfig;
       const hasMunitionsConfig = eraConfig?.munitions && typeof eraConfig.munitions === 'object';
       addResult(
         'Era Config Munitions',

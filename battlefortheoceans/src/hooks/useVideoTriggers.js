@@ -1,72 +1,28 @@
 // src/hooks/useVideoTriggers.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.1: BUGFIX - Proper null checks and dependency array fix
+//         - Remove coreEngine from dependency array (it's a singleton)
+//         - Add defensive null check before accessing gameInstance methods
+//         - Prevents "can't access property setOnShipSunk, gameInstance is null" error
+// v0.3.0: Use coreEngine.gameConfig instead of loading separately
+//         - Removed local config loading and caching
+//         - Use gameConfig from GameContext (loaded in CoreEngine)
+//         - Simplified: no useEffect for config, no refs, no async loading
+//         - Cleaner and more consistent with architecture
+// v0.2.2: BUGFIX - Set up callbacks immediately, don't wait for gameConfig
+//         - Callbacks are set when gameInstance exists
+//         - gameConfig is used only when video actually plays
+//         - Fixes issue where videos wouldn't trigger if config loaded slowly
+// v0.2.1: Load generic fallback videos from game-config.json
+//         - No hardcoded video paths
+//         - Reads generic_fallbacks from game-config.json
+//         - Gracefully handles missing config (no videos shown)
+//         - Async config loading on mount
 
-/**
- * v0.2.2: BUGFIX - Set up callbacks immediately, don't wait for gameConfig
- *         - Callbacks are set when gameInstance exists
- *         - gameConfig is used only when video actually plays
- *         - Fixes issue where videos wouldn't trigger if config loaded slowly
- * v0.2.1: Load generic fallback videos from game-config.json
- *         - No hardcoded video paths
- *         - Reads generic_fallbacks from game-config.json
- *         - Gracefully handles missing config (no videos shown)
- *         - Async config loading on mount
- * v0.2.0: Added fallback videos for eras without specific videos
- *         - Falls back to generic videos if era doesn't provide them
- *         - Generic videos: /videos/generic/ship-sunk.mp4, victory.mp4, defeat.mp4
- *         - Ensures video experience even for new eras without custom content
- *         - Simplified logic: getVideoPath() helper determines era vs generic
- * v0.1.0: Initial video triggers hook
- *         - Extracts video logic from PlayingPage
- *         - Sets up Game.onShipSunk callback
- *         - Sets up Game.onGameOver callback
- *         - Manages showVideo and currentVideo state
- *         - Returns state and handler for VideoPopup rendering
- */
+import { useState, useEffect } from 'react';
+import { coreEngine } from '../context/GameContext';
 
-import { useState, useEffect, useRef } from 'react';
-
-const version = 'v0.2.2';
-
-/**
- * Load game config (with caching)
- */
-let cachedGameConfig = null;
-let configLoadPromise = null;
-
-const loadGameConfig = async () => {
-  // Return cached config if available
-  if (cachedGameConfig) {
-    return cachedGameConfig;
-  }
-  
-  // Return existing promise if already loading
-  if (configLoadPromise) {
-    return configLoadPromise;
-  }
-  
-  // Load config
-  configLoadPromise = fetch('/config/game-config.json')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`Failed to load game-config.json: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(config => {
-      cachedGameConfig = config;
-      configLoadPromise = null;
-      console.log('[VIDEO]', version, 'Game config loaded:', config.version);
-      return config;
-    })
-    .catch(error => {
-      console.error('[VIDEO]', version, 'Failed to load game-config.json:', error);
-      configLoadPromise = null;
-      return null;
-    });
-  
-  return configLoadPromise;
-};
+const version = 'v0.3.1';
 
 /**
  * Get video path - era-specific or generic fallback
@@ -98,7 +54,7 @@ const getVideoPath = (eraConfig, videoKey, gameConfig) => {
  * - Ship sunk (player/opponent) - shows era-specific or generic ship sunk video
  * - Game over (victory/defeat) - shows era-specific or generic victory/defeat video
  *
- * Generic fallback videos are loaded from game-config.json:
+ * Generic fallback videos are loaded from game-config.json via CoreEngine:
  * - config.videos.generic_fallbacks.sunkplayer
  * - config.videos.generic_fallbacks.sunkopponent
  * - config.videos.generic_fallbacks.victory
@@ -121,28 +77,20 @@ const getVideoPath = (eraConfig, videoKey, gameConfig) => {
 const useVideoTriggers = (gameInstance, eraConfig) => {
   const [showVideo, setShowVideo] = useState(false);
   const [currentVideo, setCurrentVideo] = useState(null);
-  const [gameConfig, setGameConfig] = useState(null);
-  
-  // Use ref to always have current gameConfig in callbacks
-  const gameConfigRef = useRef(null);
-  
-  useEffect(() => {
-    gameConfigRef.current = gameConfig;
-  }, [gameConfig]);
 
-  // Load game config on mount
+  // Set up callbacks when gameInstance exists
   useEffect(() => {
-    loadGameConfig().then(config => {
-      if (config) {
-        setGameConfig(config);
-      }
-    });
-  }, []);
+    // Defensive null checks
+    if (!gameInstance) {
+      console.log('[VIDEO]', version, 'No gameInstance available, skipping video trigger setup');
+      return;
+    }
 
-  // Set up callbacks as soon as gameInstance exists
-  // Don't wait for gameConfig - it will be available when video plays
-  useEffect(() => {
-    if (!gameInstance) return;
+    if (typeof gameInstance.setOnShipSunk !== 'function' ||
+        typeof gameInstance.setOnGameOver !== 'function') {
+      console.warn('[VIDEO]', version, 'gameInstance missing required callback methods');
+      return;
+    }
 
     console.log('[VIDEO]', version, 'Setting up video triggers');
 
@@ -151,7 +99,7 @@ const useVideoTriggers = (gameInstance, eraConfig) => {
       console.log('[VIDEO]', version, `Ship sunk event: ${eventType}`, details);
 
       const videoKey = eventType === 'player' ? 'sunkplayer' : 'sunkopponent';
-      const videoPath = getVideoPath(eraConfig, videoKey, gameConfigRef.current);
+      const videoPath = getVideoPath(eraConfig, videoKey, coreEngine.gameConfig);
       
       if (videoPath) {
         console.log('[VIDEO]', version, `Playing ${videoKey} video:`, videoPath);
@@ -167,7 +115,7 @@ const useVideoTriggers = (gameInstance, eraConfig) => {
       console.log('[VIDEO]', version, `Game over event: ${eventType}`, details);
 
       const videoKey = eventType; // 'victory' or 'defeat'
-      const videoPath = getVideoPath(eraConfig, videoKey, gameConfigRef.current);
+      const videoPath = getVideoPath(eraConfig, videoKey, coreEngine.gameConfig);
       
       if (videoPath) {
         console.log('[VIDEO]', version, `Playing ${videoKey} video:`, videoPath);
@@ -177,7 +125,12 @@ const useVideoTriggers = (gameInstance, eraConfig) => {
         console.warn('[VIDEO]', version, `No video found for ${videoKey}`);
       }
     });
-  }, [gameInstance, eraConfig]); // Removed gameConfig from dependencies
+
+    // Cleanup function (though Game.js doesn't support unsubscribe yet)
+    return () => {
+      console.log('[VIDEO]', version, 'Cleaning up video triggers');
+    };
+  }, [gameInstance, eraConfig]); // Removed coreEngine - it's a singleton and shouldn't trigger re-runs
 
   const handleVideoComplete = () => {
     setShowVideo(false);

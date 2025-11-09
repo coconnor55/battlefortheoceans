@@ -50,7 +50,7 @@ const PlayingPage = () => {
     selectedOpponent,
     humanPlayer,
     board,
-    userProfile,
+    playerProfile,
     subscribeToUpdates
   } = useGame();
   
@@ -92,11 +92,11 @@ const PlayingPage = () => {
   }, []);
   
   useEffect(() => {
-    if (!userProfile) {
+    if (!playerProfile) {
       console.log(version, 'No user profile detected - redirecting to login');
       dispatch(events.LOGIN);
     }
-  }, [userProfile, dispatch, events]);
+  }, [playerProfile, dispatch, events]);
   
   const canvasBoardRef = useRef(null);
   
@@ -111,7 +111,7 @@ const PlayingPage = () => {
     let captainName = player.name;
     
     // For Pirates era, extract captain name from AI player
-    if (eraConfig?.era === 'pirates' && selectedOpponent) {
+    if (eraConfig?.id === 'pirates' && selectedOpponent) {
       // selectedOpponent might be an array of opponents
       const opponentsList = Array.isArray(selectedOpponent) ? selectedOpponent : [selectedOpponent];
       const matchingOpponent = opponentsList.find(opp =>
@@ -170,7 +170,7 @@ const PlayingPage = () => {
     isPlayerTurn,
     isGameActive,
     handleShotFired,
-    userProfile,
+    playerProfile,
     battleMessage
   });
 
@@ -191,10 +191,10 @@ const PlayingPage = () => {
     isGameActive,
     gamePhase,
     winner,
-    userId: humanPlayer?.id
+    playerId: humanPlayer?.id
   }), [isPlayerTurn, currentPlayer, battleMessage, uiMessage, playerHits, opponentHits, isGameActive, gamePhase, winner, humanPlayer?.id]);
 
-  if (!userProfile) {
+  if (!playerProfile) {
     return null;
   }
 

@@ -1,7 +1,14 @@
-// src/components/LoginDialog.js v0.1.43
+// src/components/LoginDialog.js v0.1.44
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.45: Return playerProfile, guestProfile as well
+// v0.1.44: Refactored for PlayerProfile architecture
+//          - Import PlayerProfile class
+//          - Wrap profile data in PlayerProfile instance (handleLogin, handleGuest)
+//          - Remove profile parameter from HumanPlayer constructor (2 places)
+//          - Attach playerProfile to player for backward compatibility (2 places)
+//          - Updated logging to match new pattern (tag, module, method)
 // v0.1.43: Create and return Player objects instead of user/profile objects
-//          - Import HumanPlayer and UserProfileService
+//          - Import HumanPlayer and PlayerProfileService
 //          - handleGuest: Create guest profile + HumanPlayer, return player
 //          - handleLogin: Fetch profile + create HumanPlayer, return player
 //          - Simplifies downstream flow: Login → Player object → CoreEngine
@@ -16,9 +23,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import HumanPlayer from '../classes/HumanPlayer';
-import UserProfileService from '../services/UserProfileService';
+import PlayerProfile from '../classes/PlayerProfile';
+import PlayerProfileService from '../services/PlayerProfileService';
 
-const version = 'v0.1.43';
+const version = 'v0.1.45';
+const tag = "AUTH";
+const module = "LoginDialog";
+let method = "";
 
 const LoginDialog = ({
   existingUser = null,
@@ -37,6 +48,19 @@ const LoginDialog = ({
   const [loginAttempted, setLoginAttempted] = useState(false);
   const [userAlreadyExists, setUserAlreadyExists] = useState(false);
 
+  // Logging utilities
+  const log = (message) => {
+    console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+  };
+  
+  const logerror = (message, error = null) => {
+    if (error) {
+      console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+    } else {
+      console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    }
+  };
+
   useEffect(() => {
     if (showSignup && !existingProfile) {
       setMode('signup');
@@ -45,7 +69,8 @@ const LoginDialog = ({
 
   // WELCOME BACK MODE - Returning user with profile
   if (existingUser && existingProfile) {
-    console.log(version, 'Rendering welcome-back mode for:', existingProfile.game_name);
+    method = 'render-welcome';
+    log(`Rendering welcome-back mode for: ${existingProfile.game_name}`);
     
     return (
       <div className="content-pane content-pane--narrow">
@@ -82,13 +107,14 @@ const LoginDialog = ({
 
   // NORMAL MODE - New users or explicit login
   const handleLogin = async (e) => {
+    method = 'handleLogin';
     e.preventDefault();
     if (!email || !password) {
       setError('Email and password are required');
       return;
     }
     
-    console.log(`${version} Attempting user login with email:`, email);
+    log(`Attempting user login with email: ${email}`);
     setLoginAttempted(true);
     
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
@@ -102,7 +128,7 @@ const LoginDialog = ({
       return;
     }
     
-    console.log(`${version} Login successful, user:`, data.user);
+    log(`Login successful, user: ${data.user.id}`);
     
     // Check if email is confirmed
     if (!data.user.email_confirmed_at) {
@@ -112,36 +138,40 @@ const LoginDialog = ({
     
     try {
       // Fetch user profile from database
-      console.log(`${version} Fetching profile for user:`, data.user.id);
-      const userProfile = await UserProfileService.getUserProfile(data.user.id);
+      log(`Fetching profile for user: ${data.user.id}`);
+      const profileData = await PlayerProfileService.getPlayerProfile(data.user.id);
       
-      if (!userProfile || !userProfile.game_name) {
+      if (!profileData || !profileData?.game_name) {
         setError('Profile not found. Please contact support.');
         return;
       }
       
-      console.log(`${version} Profile fetched:`, userProfile.game_name);
+      log(`Profile fetched: ${profileData?.game_name}`);
       
-      // Create HumanPlayer with profile
+      // Create PlayerProfile instance
+      const playerProfile = new PlayerProfile(profileData);
+      
+      // Create HumanPlayer without profile parameter
       const player = new HumanPlayer(
         data.user.id,
-        userProfile.game_name,
+        playerProfile.game_name,
         'human',
-        1.0,
-        userProfile
+        1.0
       );
       
-      console.log(`${version} HumanPlayer created:`, player.name);
+      log(`HumanPlayer created: ${player.name}`);
       
       // Return Player object
-      onClose(player);
+      onClose(player, playerProfile);
+        
     } catch (err) {
-      console.error(`${version} Error creating player:`, err);
+      logerror('Error creating player:', err);
       setError('Failed to load profile. Please try again.');
     }
   };
 
   const handleSignUp = async (e) => {
+    method = 'handleSignUp';
     e.preventDefault();
     if (!email || !password) {
       setError('Email and password are required');
@@ -161,8 +191,8 @@ const LoginDialog = ({
       ? 'https://battlefortheoceans.com'
       : window.location.origin; // http://localhost:8888
     
-    console.log(`${version} Attempting user signup with email:`, email);
-    console.log(`${version} Redirect URL for confirmation:`, redirectUrl);
+    log(`Attempting user signup with email: ${email}`);
+    log(`Redirect URL for confirmation: ${redirectUrl}`);
     
     const { error, data } = await supabase.auth.signUp({
       email,
@@ -176,7 +206,7 @@ const LoginDialog = ({
       if (error.message.includes('User already registered') ||
           error.message.includes('already been registered') ||
           error.status === 400) {
-        console.log(`${version} User already exists:`, email);
+        log(`User already exists: ${email}`);
         setError('This email is already registered. Would you like to login instead?');
         setUserAlreadyExists(true);
         return;
@@ -184,10 +214,10 @@ const LoginDialog = ({
       
       setError(error.message);
     } else {
-      console.log(`${version} Sign-up successful, user:`, data.user);
+      log(`Sign-up successful, user: ${data.user.id}`);
       
       if (data.user && !data.user.email_confirmed_at) {
-        console.log(`${version} Email confirmation required for:`, email);
+        log(`Email confirmation required for: ${email}`);
         setPendingConfirmation(true);
         setError(null);
         return;
@@ -200,6 +230,7 @@ const LoginDialog = ({
   };
 
   const handleForgotPassword = async (e) => {
+    method = 'handleForgotPassword';
     e.preventDefault();
     if (!email) {
       setError('Please enter your email address');
@@ -213,7 +244,7 @@ const LoginDialog = ({
       ? 'https://battlefortheoceans.com'
       : window.location.origin;
     
-    console.log(`${version} Forgot password redirect URL:`, redirectUrl);
+    log(`Forgot password redirect URL: ${redirectUrl}`);
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl
@@ -227,12 +258,13 @@ const LoginDialog = ({
   };
 
   const handleGuest = async () => {
+    method = 'handleGuest';
     const guestId = `guest-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     
-    console.log(`${version} Playing as guest with ID:`, guestId);
+    log(`Playing as guest with ID: ${guestId}`);
     
-    // Create guest profile (same structure as v0.6.10 CoreEngine)
-    const guestProfile = {
+    // Create guest profile data
+    const guestProfileData = {
       id: guestId,
       game_name: 'Guest',
       total_games: 0,
@@ -243,24 +275,27 @@ const LoginDialog = ({
       total_damage: 0
     };
     
-    console.log(`${version} Guest profile created:`, guestProfile);
+    // Create PlayerProfile instance
+    const guestProfile = new PlayerProfile(guestProfileData);
     
-    // Create HumanPlayer with guest profile
+    log(`Guest PlayerProfile created: ${guestProfile.game_name}`);
+    
+    // Create HumanPlayer without profile parameter
     const guestPlayer = new HumanPlayer(
       guestId,
       'Guest',
       'human',
-      1.0,
-      guestProfile
+      1.0
     );
-    
-    console.log(`${version} Guest player created:`, guestPlayer.name);
+        
+    log(`Guest player created: ${guestPlayer.name}`);
     
     // Return Player object
-    onClose(guestPlayer);
+    onClose(guestPlayer, guestProfile);
   };
 
   const handleResendConfirmation = async () => {
+    method = 'handleResendConfirmation';
     if (!email) {
       setError('Please enter your email address first');
       return;
@@ -279,6 +314,7 @@ const LoginDialog = ({
   };
 
   const handleBackToLogin = () => {
+    method = 'handleBackToLogin';
     setPendingConfirmation(false);
     setMode('login');
     setError(null);

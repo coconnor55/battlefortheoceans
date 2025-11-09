@@ -234,7 +234,7 @@ class CombatResolver {
         
         // Only trigger video if game won't end (let victory/defeat video play instead)
         if (this.game.onShipSunk && !gameWillEnd) {
-          const eventType = targetPlayer.id === this.game.humanPlayerId ? 'player' : 'opponent';
+          const eventType = targetPlayer.id === this.game.playerId ? 'player' : 'opponent';
           this.game.onShipSunk(eventType, {
             ship: ship,
             attacker: firingPlayer,

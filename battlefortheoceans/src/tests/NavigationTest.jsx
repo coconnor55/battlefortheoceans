@@ -8,12 +8,12 @@
 // v0.1.0: State machine navigation testing
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 
 const version = 'v0.1.1';
 
-const NavigationTest = ({ userId, onComplete }) => {
-  const { coreEngine, currentState, events } = useGame();
+const NavigationTest = ({ playerId, onComplete }) => {
+  const { currentState, events } = useGame();
   const [results, setResults] = useState([]);
   const [running, setRunning] = useState(false);
   const hasRun = useRef(false);  // <-- ADD THIS

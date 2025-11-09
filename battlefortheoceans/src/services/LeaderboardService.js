@@ -1,7 +1,7 @@
 // src/services/LeaderboardService.js v0.1.6
 // Copyright(c) 2025, Clint H. O'Connor
 // v0.1.6: Export singleton instance instead of class
-//         - Matches pattern of UserProfileService, RightsService, AchievementService, GameStatsService
+//         - Matches pattern of PlayerProfileService, RightsService, AchievementService, GameStatsService
 //         - Services are stateless and should be shared singletons
 //         - Simplifies usage in components and CoreEngine
 // v0.1.5: Removed getTotalGamesPlayed() - moved to GameStatsService
@@ -97,9 +97,9 @@ class LeaderboardService {
   /**
    * Get player ranking by total score
    */
-  async getPlayerRanking(userId) {
+  async getPlayerRanking(playerId) {
     // Skip ranking for guests/AI
-    if (userId.startsWith('guest-') || userId.startsWith('ai-')) {
+    if (playerId.startsWith('guest-') || playerId.startsWith('ai-')) {
       return null;
     }
 
@@ -107,7 +107,7 @@ class LeaderboardService {
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('total_score')
-        .eq('id', userId)
+        .eq('id', playerId)
         .single();
 
       if (profileError || !profile) {
@@ -144,14 +144,14 @@ class LeaderboardService {
   /**
    * Get player percentile ranking
    */
-  async getPlayerPercentile(userId) {
+  async getPlayerPercentile(playerId) {
     // Skip percentile for guests/AI
-    if (userId.startsWith('guest-') || userId.startsWith('ai-')) {
+    if (playerId.startsWith('guest-') || playerId.startsWith('ai-')) {
       return null;
     }
 
     try {
-      const ranking = await this.getPlayerRanking(userId);
+      const ranking = await this.getPlayerRanking(playerId);
       if (!ranking) return null;
 
       // Get all profiles, filter in JavaScript
@@ -192,6 +192,6 @@ class LeaderboardService {
 }
 
 // Export singleton instance (not class)
-const leaderboardService = new LeaderboardService();
-export default leaderboardService;
+const leaderboardServiceSingleton = new LeaderboardService();
+export default leaderboardServiceSingleton;
 // EOF

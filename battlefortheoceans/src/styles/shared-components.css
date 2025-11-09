@@ -157,6 +157,10 @@
   font-weight: 500;
 }
 
+.nav-bar__menu {
+  color: var(--text-primary);
+}
+
 /* Add top padding to content to account for fixed nav */
 .page-container {
     padding-top: 60px;

@@ -10,13 +10,13 @@
 // v0.1.0: Initial creation - About {Era} page
 
 import React from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 
 const version = 'v0.1.2';
 
 const AboutPage = ({ onClose }) => {
-  const { eraConfig } = useGame();
-  
+  const eraConfig = coreEngine.selectedEraConfig;
+    
   console.log('[ABOUT]', version, 'Rendering About page for era:', eraConfig?.name);
   
   // If no era config or no about content, show error

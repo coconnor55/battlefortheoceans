@@ -3,46 +3,81 @@
 
 // v0.6.10: Moved GameGuide to App.js, removed setShowInfo and InfoButton
 // v0.6.9: Manually restored lost page formatting
-// v0.6.8: Fixed userProfile access AND opponents property name
-//         - Line 33: Changed from coreEngine.userProfile to coreEngine.humanPlayer.userProfile
+// v0.6.8: Fixed playerProfile access AND opponents property name
+//         - Line 33: Changed from coreEngine.playerProfile to coreEngine.player.playerProfile
 //         - Line 203: Changed selectedOpponents to opponents (matches CoreEngine expectation)
 //         - CoreEngine processEventData expects data.opponents, not data.selectedOpponents
 // v0.6.7: Fixed dispatch to send selectedOpponents array for consistency
 //         - Traditional/Midway now sends [selectedOpponent] array
 //         - Matches multi-fleet pattern and GameLifecycleManager expectations
 // v0.6.6: Merged v0.6.5 property access with v0.5.5 complete UI code
-//         - Use coreEngine.humanPlayer (Player instance for game logic)
-//         - Use coreEngine.userProfile (database object for display)
+//         - Use coreEngine.player (Player instance for game logic)
+//         - Use coreEngine.playerProfile (database object for display)
 //         - Restored all UI components, styling, and multi-fleet support
-// v0.6.5: Fixed property names - use coreEngine.humanPlayer and coreEngine.userProfile
+// v0.6.5: Fixed property names - use coreEngine.player and coreEngine.playerProfile
 // v0.6.1: Replaced InfoPanel with GameGuide component
 // v0.6.0: Multi-fleet combat support (Pirates of the Gulf)
 // v0.5.0: Added avatar display for AI captains
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 
 const version = 'v0.6.10';
+const tag = "OPPONENT";
+const module = "SelectOpponentPage";
+let method = "";
 
 const SelectOpponentPage = () => {
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
+
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
+
   const {
-    coreEngine,
     dispatch,
     events,
-    eraConfig
   } = useGame();
   
-  // v0.6.8: Use CoreEngine properties for Player singleton pattern
-  const player = coreEngine.humanPlayer;              // Player instance (game logic)
-  const profile = coreEngine.humanPlayer.userProfile; // Database object (display)
-  
-  console.log('[OPPONENT]', version, 'Player=', player);
-  console.log('[OPPONENT]', version, 'userProfile=', profile);
-  
+    //key data - see CoreEngine handle{state}
+    const eras = coreEngine.eras;
+    const player = coreEngine.player
+    const playerProfile = coreEngine.playerProfile;
+    const playerId = playerProfile.id;
+    const isGuest = player != null && player.isGuest;
+    const playerRole = playerProfile.role;
+    const isAdmin = player != null && playerProfile.isAdmin;
+    const isDeveloper = player != null && playerProfile.isDeveloper;
+    const isTester = player != null && playerProfile.isTester;
+    const eraId = coreEngine.selectedEraId;
+    const eraConfig = coreEngine.selectedEraConfig;
+    
+    // stop game if key data is missing
+    const required = { eras, player, playerProfile, playerId, playerRole, eraId, eraConfig };
+    if (Object.values(required).some(v => !v)) {
+        logerror('key data missing', required);
+        throw new Error('SelectOpponentPage: key data missing');
+    }
+    
+  log('Player=', player);
+    log('playerProfile=', playerProfile);
+    log('eraConfig=', eraConfig);
+
   useEffect(() => {
     if (!player) {
-      console.log(version, 'No player detected - redirecting to login');
+      log('No player detected - redirecting to login');
       dispatch(events.LOGIN);
     }
   }, [player, dispatch, events]);
@@ -82,6 +117,8 @@ const SelectOpponentPage = () => {
 
   // v0.6.0: Calculate combined difficulty for multi-fleet
   const getCombinedDifficulty = useCallback(() => {
+      method = 'getCombinedDifficulty';
+      
     if (selectedPirateFleets.length === 0) return 0;
     
     const multiplier = eraConfig.game_rules.fleet_difficulty_multipliers[selectedPirateFleets.length] || 1.0;
@@ -92,6 +129,8 @@ const SelectOpponentPage = () => {
 
   // v0.6.0: Toggle pirate fleet selection
   const handleFleetToggle = useCallback((fleet) => {
+      method = 'handleFleetToggle';
+      
     setSelectedPirateFleets(prev => {
       const isSelected = prev.some(f => f.fleet_id === fleet.fleet_id);
       
@@ -102,7 +141,7 @@ const SelectOpponentPage = () => {
         // Select (check max limit)
         const maxFleets = eraConfig.game_rules.fleet_selection_max || 4;
         if (prev.length >= maxFleets) {
-          console.log(version, 'Max fleet limit reached:', maxFleets);
+          log('Max fleet limit reached:', maxFleets);
           return prev;
         }
         return [...prev, fleet];
@@ -111,12 +150,16 @@ const SelectOpponentPage = () => {
   }, [eraConfig]);
 
   const handleAllianceSelect = useCallback((allianceName) => {
-    console.log(version, 'Alliance selected:', allianceName);
+      method = 'handleAllianceSelect';
+      
+    log('Alliance selected:', allianceName);
     setSelectedAlliance(allianceName);
     setSelectedOpponent(null);
   }, []);
 
   const handleAIOpponentSelect = useCallback((opponent) => {
+      method = 'handleAIOpponentSelect';
+      
     const timestamp = Date.now();
     const sanitizedName = opponent.name.toLowerCase().replace(/\s+/g, '-');
     const completeOpponent = {
@@ -125,21 +168,25 @@ const SelectOpponentPage = () => {
       type: 'ai'
     };
     
-    console.log(version, 'AI Opponent selected:', completeOpponent.name, 'difficulty:', completeOpponent.difficulty);
+    log('AI Opponent selected:', completeOpponent.name, 'difficulty:', completeOpponent.difficulty);
     setSelectedOpponent(completeOpponent);
   }, []);
 
   const handleHumanOpponentSelect = useCallback((human) => {
+      method = 'handleHumanOpponentSelect';
+      
     const completeOpponent = {
       ...human,
       type: 'human'
     };
     
-    console.log(version, 'Human Opponent selected:', completeOpponent.name);
+    log('Human Opponent selected:', completeOpponent.name);
     setSelectedOpponent(completeOpponent);
   }, []);
 
   const getAvailableAICaptains = useCallback(() => {
+      method = 'getAvailableAICaptains';
+      
     if (!eraConfig) return [];
     
     const requiresAlliance = eraConfig.game_rules?.choose_alliance;
@@ -155,72 +202,71 @@ const SelectOpponentPage = () => {
     return [];
   }, [eraConfig, selectedAlliance]);
 
-  const handleBeginBattle = useCallback(async () => {
-    // v0.6.0: Multi-fleet handling
-    if (isMultiFleet) {
-      // Pirates - check that at least one fleet is selected
-      if (selectedPirateFleets.length === 0) {
-        console.error(version, 'No pirate fleets selected');
-        return;
+    const handleBeginBattle = useCallback(async () => {
+        method = 'handleBeginBattle';
+        
+      // v0.6.0: Multi-fleet handling
+      if (isMultiFleet) {
+        // Pirates - check that at least one fleet is selected
+        if (selectedPirateFleets.length === 0) {
+          logerror('No pirate fleets selected');
+          return;
+        }
+        const minFleets = eraConfig.game_rules.fleet_selection_min || 1;
+        if (selectedPirateFleets.length < minFleets) {
+          logerror(`At least ${minFleets} fleet(s) required`);
+          return;
+        }
+        log('Proceeding to placement with multi-fleet:');
+        log('Era:', eraConfig.name);
+        log('Selected fleets:', selectedPirateFleets.length);
+        
+        // Build opponents array with captain + ships
+        const opponents = selectedPirateFleets.map(fleet => ({
+          ...fleet.ai_captain,
+          ships: fleet.ships,
+          fleet_id: fleet.fleet_id
+        }));
+        
+          // Set CoreEngine properties directly
+        coreEngine.selectedOpponents = opponents;
+        coreEngine.selectedAlliance = 'US Navy';
+        
+        setIsTransitioning(true);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        dispatch(events.PLACEMENT);
+        
+      } else {
+        // Traditional/Midway - single opponent
+        if (!selectedOpponent) {
+          logerror('No opponent selected');
+          return;
+        }
+        const requiresAlliance = eraConfig?.game_rules?.choose_alliance;
+        if (requiresAlliance && !selectedAlliance) {
+          logerror('Alliance selection required but not selected');
+          return;
+        }
+        log('Proceeding to placement with:');
+        log('Era:', eraConfig.name);
+        log('Opponent:', selectedOpponent.name, selectedOpponent.type);
+        log('Alliance:', selectedAlliance || 'none');
+        
+        // Set CoreEngine properties directly
+        coreEngine.selectedOpponents = [selectedOpponent];  // Array with single opponent
+        coreEngine.selectedAlliance = selectedAlliance || null;
+        
+        setIsTransitioning(true);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        dispatch(events.PLACEMENT);  // No data payload needed anymore
       }
-
-      const minFleets = eraConfig.game_rules.fleet_selection_min || 1;
-      if (selectedPirateFleets.length < minFleets) {
-        console.error(version, `At least ${minFleets} fleet(s) required`);
-        return;
-      }
-
-      console.log(version, 'Proceeding to placement with multi-fleet:');
-      console.log(version, 'Era:', eraConfig.name);
-      console.log(version, 'Selected fleets:', selectedPirateFleets.length);
-      
-      // Build opponents array with captain + ships
-      const opponents = selectedPirateFleets.map(fleet => ({
-        ...fleet.ai_captain,
-        ships: fleet.ships,
-        fleet_id: fleet.fleet_id
-      }));
-      
-      setIsTransitioning(true);
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      dispatch(events.PLACEMENT, {
-        eraConfig: eraConfig,
-        opponents: opponents,  // Array
-        selectedAlliance: 'US Navy'
-      });
-      
-    } else {
-      // Traditional/Midway - single opponent
-      if (!selectedOpponent) {
-        console.error(version, 'No opponent selected');
-        return;
-      }
-
-      const requiresAlliance = eraConfig?.game_rules?.choose_alliance;
-
-      if (requiresAlliance && !selectedAlliance) {
-        console.error(version, 'Alliance selection required but not selected');
-        return;
-      }
-
-      console.log(version, 'Proceeding to placement with:');
-      console.log(version, 'Era:', eraConfig.name);
-      console.log(version, 'Opponent:', selectedOpponent.name, selectedOpponent.type);
-      console.log(version, 'Alliance:', selectedAlliance || 'none');
-      
-      setIsTransitioning(true);
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      dispatch(events.PLACEMENT, {
-        eraConfig: eraConfig,
-        opponents: [selectedOpponent],  // CoreEngine expects 'opponents' property
-        selectedAlliance: selectedAlliance || null
-      });
-    }
-  }, [isMultiFleet, selectedPirateFleets, selectedOpponent, selectedAlliance, eraConfig, dispatch, events]);
-
+    }, [isMultiFleet, selectedPirateFleets, selectedOpponent, selectedAlliance, eraConfig, dispatch, events]);
+    
   const fetchOnlineHumans = useCallback(async () => {
+      method = 'fetchOnlineHumans';
+      
     if (!eraConfig) return;
     
     setLoading(true);
@@ -229,30 +275,30 @@ const SelectOpponentPage = () => {
       
       const { data, error } = await supabase
         .from('player_online_status')
-        .select('user_id, game_name, last_seen')
+        .select('player_id, game_name, last_seen')
         .eq('is_online', true)
         .gte('last_seen', fiveMinutesAgo)
-        .neq('user_id', profile?.id)
+        .neq('player_id', playerProfile?.id)
         .limit(20);
       
       if (error) throw error;
       
       const humansWithIds = data.map(h => ({
-        id: h.user_id,
+        id: h.player_id,
         game_name: h.game_name,
         name: h.game_name,
         last_seen: h.last_seen
       }));
       
       setOnlineHumans(humansWithIds);
-      console.log(version, 'Fetched online humans:', humansWithIds.length);
+      log('Fetched online humans:', humansWithIds.length);
     } catch (error) {
-      console.error(version, 'Error fetching online humans:', error);
+      logerror('Error fetching online humans:', error);
       setOnlineHumans([]);
     } finally {
       setLoading(false);
     }
-  }, [eraConfig, profile]);
+  }, [eraConfig, playerProfile]);
 
   useEffect(() => {
     fetchOnlineHumans();
@@ -284,7 +330,7 @@ const SelectOpponentPage = () => {
       }
   };
 
-  // v0.6.6: Use profile for display, player for game logic checks
+  // v0.6.6: Use playerProfile for display, player for game logic checks
   if (!player) {
     return (
       <div className="content-pane">
@@ -305,7 +351,7 @@ const SelectOpponentPage = () => {
             <div className="card-header__content">
               <h2 className="card-title">Select Your Opponent</h2>
               <p className="card-subtitle">
-                Era: {eraConfig?.name || 'Unknown'}  | Captain: {profile?.game_name || player.name}
+                Era: {eraConfig?.name || 'Unknown'}  | Captain: {playerProfile?.game_name || player.name}
               </p>
             </div>
           </div>

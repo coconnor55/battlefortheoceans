@@ -2,21 +2,22 @@
 // Copyright(c) 2025, Clint H. O'Connor
 // v0.2.1: Added total_damage, eras_played, eras_won, pirate_fleets_sunk
 
+import Player from '../classes/Player';
 import { supabase } from '../utils/supabaseClient';
 
 const version = 'v0.2.1';
 
 class AchievementService {
   constructor() {
-    this.log('[Constructor]', 'AchievementService initialized');
+    this.log('[ACHIEVEMENT]', 'AchievementService initialized');
   }
 
   log(...args) {
-    console.log('[ACHIEVEMENT]', version, ...args);
+    console.log(`[ACHIEVEMENT] ${version}| AchievementService: `, ...args);
   }
 
   error(...args) {
-    console.error('[ACHIEVEMENT]', version, ...args);
+    console.error(`[ACHIEVEMENT] ${version}| AchievementService: `, ...args);
   }
 
   /**
@@ -45,18 +46,19 @@ class AchievementService {
 
   /**
    * Get user's achievement progress
-   * @param {string} userId - User ID
+   * @param {string} playerId - User ID
    * @returns {Promise<Object>} Achievement progress data
    */
-  async getUserAchievements(userId) {
+  async getUserAchievements(playerId) {
     try {
+        // skip if not current user
       // Skip for guest/AI users
-      if (userId.startsWith('guest-') || userId.startsWith('ai-')) {
-        this.log('Skipping achievements for guest/AI:', userId);
+      if (Player.isGuest(playerId) || Player.isAi(playerId)) {
+        this.log('Skipping achievements for guest/AI:', playerId);
         return { unlocked: [], inProgress: [], locked: [], total: 0 };
       }
 
-      this.log('Fetching achievements for user:', userId);
+      this.log('Fetching achievements for user:', playerId);
 
       // Get all achievement definitions
       const allAchievements = await this.getAllAchievements();
@@ -65,7 +67,7 @@ class AchievementService {
       const { data: userRecords, error } = await supabase
         .from('user_achievements')
         .select('*')
-        .eq('user_id', userId);
+        .eq('player_id', playerId);
 
       if (error) throw error;
 
@@ -129,19 +131,19 @@ class AchievementService {
 
   /**
    * Update achievement progress for user
-   * @param {string} userId - User ID
+   * @param {string} playerId - User ID
    * @param {string} achievementId - Achievement ID
    * @param {number} progress - Current progress value
    * @returns {Promise<Object>} Updated or created record
    */
-  async updateProgress(userId, achievementId, progress) {
+  async updateProgress(playerId, achievementId, progress) {
     try {
       // Skip for guest/AI users
-      if (userId.startsWith('guest-') || userId.startsWith('ai-')) {
+        if (Player.isGuest(playerId) || Player.isAi(playerId)) {
         return null;
       }
 
-      this.log('Updating progress:', { userId, achievementId, progress });
+      this.log('Updating progress:', { playerId, achievementId, progress });
 
       // Get achievement definition to check if unlocked
       const { data: achievement, error: achievementError } = await supabase
@@ -158,13 +160,13 @@ class AchievementService {
       const { data, error } = await supabase
         .from('user_achievements')
         .upsert({
-          user_id: userId,
+          player_id: playerId,
           achievement_id: achievementId,
           progress: progress,
           unlocked: unlocked,
           unlocked_at: unlocked ? new Date().toISOString() : null
         }, {
-          onConflict: 'user_id,achievement_id'
+          onConflict: 'player_id,achievement_id'
         })
         .select()
         .single();
@@ -185,25 +187,26 @@ class AchievementService {
 
   /**
    * Check if user earned any achievements after a game
-   * @param {string} userId - User ID
+   * @param {string} playerId - User ID
    * @param {Object} gameResults - Game completion data
    * @returns {Promise<Array>} Newly unlocked achievements
    */
-  async checkAchievements(userId, gameResults) {
+  async checkAchievements(playerId, gameResults) {
+      console.log(`[ACHIEVEMENT] ${version}| AchievementService.checkAchievements parameters playerId=${playerId}, gameResults=${gameResults}`);
     try {
       // Skip for guest/AI users
-      if (userId.startsWith('guest-') || userId.startsWith('ai-')) {
-        this.log('Skipping achievement check for guest/AI:', userId);
+        if (Player.isGuest(playerId) || Player.isAi(playerId)) {
+        this.log('Skipping achievement check for guest/AI:', playerId);
         return [];
       }
 
-      this.log('Checking achievements for user:', userId);
+      this.log('Checking achievements for user:', playerId);
 
       // Get user profile for lifetime stats
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', playerId)
         .single();
 
       if (profileError) throw profileError;
@@ -215,7 +218,7 @@ class AchievementService {
       const { data: currentAchievements, error: currentError } = await supabase
         .from('user_achievements')
         .select('achievement_id, unlocked, progress')
-        .eq('user_id', userId);
+        .eq('player_id', playerId);
 
       if (currentError) throw currentError;
 
@@ -289,9 +292,14 @@ class AchievementService {
             continue;
         }
 
-        // Update progress if changed
+          // DEBUG: Log progress for total_games achievements
+          if (achievement.requirement_type === 'total_games') {
+            this.log(`DEBUG: ${achievement.id} - currentProgress: ${currentProgress}, requirement: ${achievement.requirement_value}, userRecord.progress: ${userRecord?.progress || 0}`);
+          }
+
+          // Update progress if changed
         if (currentProgress > (userRecord?.progress || 0)) {
-          const updated = await this.updateProgress(userId, achievement.id, currentProgress);
+          const updated = await this.updateProgress(playerId, achievement.id, currentProgress);
           
           // If newly unlocked, add to list
           if (updated?.unlocked && !userRecord?.unlocked) {
@@ -311,18 +319,18 @@ class AchievementService {
 
   /**
    * Get recently unlocked achievements (for notifications)
-   * @param {string} userId - User ID
+   * @param {string} playerId - User ID
    * @param {number} limit - Number of achievements to return
    * @returns {Promise<Array>} Recent achievements
    */
-  async getRecentAchievements(userId, limit = 5) {
+  async getRecentAchievements(playerId, limit = 5) {
     try {
       // Skip for guest/AI users
-      if (userId.startsWith('guest-') || userId.startsWith('ai-')) {
+        if (Player.isGuest(playerId) || Player.isAi(playerId)) {
         return [];
       }
 
-      this.log('Fetching recent achievements for user:', userId);
+      this.log('Fetching recent achievements for user:', playerId);
 
       const { data, error } = await supabase
         .from('user_achievements')
@@ -338,7 +346,7 @@ class AchievementService {
             tier
           )
         `)
-        .eq('user_id', userId)
+        .eq('player_id', playerId)
         .eq('unlocked', true)
         .order('unlocked_at', { ascending: false })
         .limit(limit);
@@ -356,13 +364,13 @@ class AchievementService {
 
   /**
    * Get total achievement points for user
-   * @param {string} userId - User ID
+   * @param {string} playerId - User ID
    * @returns {Promise<number>} Total points
    */
-  async getTotalPoints(userId) {
+  async getTotalPoints(playerId) {
     try {
       // Skip for guest/AI users
-      if (userId.startsWith('guest-') || userId.startsWith('ai-')) {
+        if (Player.isGuest(playerId) || Player.isAi(playerId)) {
         return 0;
       }
 
@@ -373,7 +381,7 @@ class AchievementService {
             points
           )
         `)
-        .eq('user_id', userId)
+        .eq('player_id', playerId)
         .eq('unlocked', true);
 
       if (error) throw error;
@@ -392,7 +400,8 @@ class AchievementService {
   }
 }
 
-// Export singleton instance
-export default new AchievementService();
+// Export singleton instance (not class)
+const achievementServiceSingleton = new AchievementService();
+export default achievementServiceSingleton;
 
 // EOF

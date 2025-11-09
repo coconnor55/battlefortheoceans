@@ -35,7 +35,7 @@ const LaunchPage = () => {
         console.error('[LAUNCH]', version, 'Error getting initial session:', error);
       } else {
         console.log('[LAUNCH]', version, 'Initial session:', session ? {
-          userId: session.user.id,
+          playerId: session.user.id,
           email: session.user.email,
           emailConfirmed: session.user.email_confirmed_at,
           userMetadata: session.user.user_metadata
@@ -47,7 +47,7 @@ const LaunchPage = () => {
         console.log('[LAUNCH]', version, '🔔 AUTH STATE CHANGE:', {
           event,
           session: session ? {
-            userId: session.user.id,
+            playerId: session.user.id,
             email: session.user.email,
             emailConfirmed: session.user.email_confirmed_at,
             userMetadata: session.user.user_metadata

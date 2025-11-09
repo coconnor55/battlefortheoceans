@@ -18,7 +18,7 @@ const version = 'v0.3.2';
  * Tests that UI components can be instantiated without crashing
  * Uses real test user for props
  */
-const UIComponentsTest = ({ userId, onComplete }) => {
+const UIComponentsTest = ({ playerId, onComplete }) => {
   const [results, setResults] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const hasRun = useRef(false);
@@ -81,12 +81,12 @@ const UIComponentsTest = ({ userId, onComplete }) => {
 
     log('Starting UI Components Test Suite', 'info');
     log(`Version: ${version}`, 'info');
-    log(`Testing as user: ${userId?.substring(0, 8)}...`, 'info');
+    log(`Testing as user: ${playerId?.substring(0, 8)}...`, 'info');
     
     const testComponents = [
       {
         name: 'PassBalanceDisplay',
-        props: { userId: userId }
+        props: { playerId: playerId }
       },
       {
         name: 'PlayConfirmModal',

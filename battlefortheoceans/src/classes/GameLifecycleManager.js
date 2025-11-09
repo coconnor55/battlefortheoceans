@@ -1,5 +1,11 @@
 // src/classes/GameLifecycleManager.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.8: Refactored for PlayerProfile architecture
+//         - Removed deprecated updateGameStats call
+//         - Added insertGameResult call for game_results table
+//         - PlayerProfile.applyGameResults() now handles stat updates
+//         - PlayerProfileService.save() persists to database
+//         - Clean separation: stats calculation vs database logging
 // v0.2.7: Added startGame and endGame to control lifecycle and manage the incomplete user profile counter and consume the game
 // v0.2.5: FIXED munitions initialization - Game owns munitions, not CoreEngine
 //         - Removed coreEngine.munitions assignment
@@ -11,10 +17,16 @@ import Board from './Board.js';
 import HumanPlayer from './HumanPlayer.js';
 import AiPlayer from './AiPlayer.js';
 import { supabase } from '../utils/supabaseClient';
-import UserProfileService from '../services/UserProfileService.js';
+import PlayerProfileService from '../services/PlayerProfileService.js';
 import RightsService from '../services/RightsService.js';
+import GameStatsService from '../services/GameStatsService';
+import { coreEngine } from '../context/GameContext';
 
-const version = "v0.2.7";
+const version = "v0.2.8";
+const tag = "LIFECYCLE";
+const module = "GameLifecycleManager";
+let method = "";
+
 /**
  * v0.2.4: BUGFIX - Removed .catch() from dispatch call
  *         - CoreEngine.dispatch() is now synchronous (returns undefined, not Promise)
@@ -66,21 +78,40 @@ class GameLifecycleManager {
    * @param {Game|CoreEngine} parent - Reference to parent instance
    */
   constructor(parent) {
-    // Use instanceof for proper type detection
+      method = 'constructor';
+
+      // Use instanceof for proper type detection
     if (parent instanceof Game) {
       // Parent is Game instance
       this.game = parent;
-      this.coreEngine = null;
-      console.log(`[GameLifecycleManager ${version}] Initialized for game ${parent.id}`);
+      this.coreEngine = coreEngine;
+      this.log(`Initialized for game ${parent.id}`);
     } else {
       // Parent is CoreEngine
       this.coreEngine = parent;
       this.game = null; // Will be set during initializeForPlacement
-      console.log(`[GameLifecycleManager ${version}] Initialized for CoreEngine`);
+      this.log(`Initialized for CoreEngine`);
     }
     
     this.version = version;
+      
+      // log creation
+      this.log('initialized');
   }
+
+    
+    //  Logging
+    log(message) {
+        console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    }
+    logerror(message, error = null) {
+        if (error) {
+            console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+        } else {
+            console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+        }
+    }
+
 
   // ============================================================================
   // BIRTH: Game Initialization
@@ -102,6 +133,8 @@ class GameLifecycleManager {
    * @throws {Error} If required data is missing
    */
   async initializeForPlacement() {
+      method = 'initializeForPlacement';
+      
     if (!this.coreEngine) {
       throw new Error('initializeForPlacement() requires CoreEngine reference');
     }
@@ -112,24 +145,41 @@ class GameLifecycleManager {
     this.coreEngine.gameInstance = null;
     this.coreEngine.board = null;
     this.coreEngine.aiPlayers = [];
-    
-    // Validate required data
-    if (!this.coreEngine.eraConfig || !this.coreEngine.humanPlayer || this.coreEngine.selectedOpponents.length === 0) {
-      const missing = [];
-      if (!this.coreEngine.eraConfig) missing.push('eraConfig');
-      if (!this.coreEngine.humanPlayer) missing.push('humanPlayer');
-      if (this.coreEngine.selectedOpponents.length === 0) missing.push('selectedOpponents');
-      throw new Error(`Cannot initialize placement - missing: ${missing.join(', ')}`);
-    }
-    
-    this.coreEngine.selectedEra = this.coreEngine.eraConfig.era;
+      
+      //key data - see CoreEngine handle{state}
+      const eras = this.coreEngine.eras;
+      const player = this.coreEngine.player
+      const playerProfile = this.coreEngine.playerProfile;
+      const playerId = playerProfile.id;
+      const isGuest = player != null && player.isGuest;
+      const playerRole = playerProfile.role;
+      const isAdmin = player != null && playerProfile.isAdmin;
+      const isDeveloper = player != null && playerProfile.isDeveloper;
+      const isTester = player != null && playerProfile.isTester;
+      const eraId = this.coreEngine.selectedEraId;
+      const selectedEraConfig = this.coreEngine.selectedEraConfig;
+      const selectedAlliance = this.coreEngine.selectedAlliance;
+      const selectedOpponent = this.coreEngine.selectedOpponent;
+      const selectedOpponents = this.coreEngine.selectedOpponents;
+
+      // stop game if key data is missing
+      const required = {
+          player,
+          selectedEraConfig,
+          selectedOpponent,
+          selectedOpponents };
+      if (Object.values(required).some(v => !v)) {
+          this.logerror('key data missing', required);
+          throw new Error('GameLifecycleManager.initializeForPlacement: key data missing');
+      }
     
     // Create Game instance
     this.game = new Game(
-      this.coreEngine.eraConfig,
-      this.coreEngine.selectedOpponents[0].gameMode || 'turnBased'
+      selectedEraConfig,
+      selectedOpponent.gameMode || 'turnBased'
     );
     this.coreEngine.gameInstance = this.game;
+      this.log('DEBUG new Game instance', this.game);
     
     // Set up game callbacks
     this.game.setUIUpdateCallback(() => this.coreEngine.notifySubscribers());
@@ -144,19 +194,19 @@ class GameLifecycleManager {
     
     // Create board
     this.coreEngine.board = new Board(
-      this.coreEngine.eraConfig.rows,
-      this.coreEngine.eraConfig.cols,
-      this.coreEngine.eraConfig.terrain
+      selectedEraConfig.rows,
+      selectedEraConfig.cols,
+      selectedEraConfig.terrain
     );
 
     // Determine alliances
     let playerAlliance, opponentAlliance;
-    if (this.coreEngine.eraConfig.game_rules?.choose_alliance && this.coreEngine.selectedAlliance) {
-      playerAlliance = this.coreEngine.selectedAlliance;
-      opponentAlliance = this.getOpposingAlliance(this.coreEngine.selectedAlliance);
+    if (selectedEraConfig.game_rules?.choose_alliance && selectedAlliance) {
+      playerAlliance = selectedAlliance;
+      opponentAlliance = this.getOpposingAlliance(selectedAlliance);
     } else {
-      playerAlliance = this.coreEngine.eraConfig.alliances?.[0]?.name || 'Player';
-      opponentAlliance = this.coreEngine.eraConfig.alliances?.[1]?.name || 'Opponent';
+      playerAlliance = selectedEraConfig.alliances?.[0]?.name || 'Player';
+      opponentAlliance = selectedEraConfig.alliances?.[1]?.name || 'Opponent';
     }
     
     if (!opponentAlliance) {
@@ -164,13 +214,13 @@ class GameLifecycleManager {
     }
     
     // Add human player
-    const humanPlayerAdded = this.game.addPlayer(this.coreEngine.humanPlayer, playerAlliance);
+    const humanPlayerAdded = this.game.addPlayer(player, playerAlliance);
     
     // Add multiple AI opponents
     this.log(`Adding ${this.coreEngine.selectedOpponents.length} AI opponent(s) to ${opponentAlliance}`);
     
-    for (let i = 0; i < this.coreEngine.selectedOpponents.length; i++) {
-      const aiCaptain = this.coreEngine.selectedOpponents[i];
+    for (let i = 0; i < selectedOpponents.length; i++) {
+      const aiCaptain = selectedOpponents[i];
       const aiId = `ai-${aiCaptain.id}-${i}`;
       
       const aiPlayer = new AiPlayer(
@@ -201,13 +251,13 @@ class GameLifecycleManager {
       // Calculate munitions with multi-opponent boost
       const opponentCount = this.coreEngine.selectedOpponents.length;
       const starShells = this.calculateMunitionWithBoost(
-        this.coreEngine.eraConfig.munitions?.star_shells,
-        this.coreEngine.eraConfig.munitions?.star_shells_boost,
+        selectedEraConfig.munitions?.star_shells,
+        selectedEraConfig.munitions?.star_shells_boost,
         opponentCount
       );
       const scatterShot = this.calculateMunitionWithBoost(
-        this.coreEngine.eraConfig.munitions?.scatter_shot,
-        this.coreEngine.eraConfig.munitions?.scatter_shot_boost,
+        selectedEraConfig.munitions?.scatter_shot,
+        selectedEraConfig.munitions?.scatter_shot_boost,
         opponentCount
       );
 
@@ -233,7 +283,9 @@ class GameLifecycleManager {
    * @returns {number} Total munition amount
    */
   calculateMunitionWithBoost(baseAmount, boostPerOpponent, opponentCount) {
-    if (!baseAmount || opponentCount <= 1 || !boostPerOpponent) {
+      method = 'calculateMunitionWithBoost';
+
+      if (!baseAmount || opponentCount <= 1 || !boostPerOpponent) {
       return baseAmount || 0;
     }
     
@@ -252,11 +304,13 @@ class GameLifecycleManager {
    * @returns {string|null} Opposing alliance name
    */
   getOpposingAlliance(selectedAlliance) {
-    if (!this.coreEngine?.eraConfig?.alliances || this.coreEngine.eraConfig.alliances.length < 2) {
+      method = 'getOpposingAlliance';
+      
+    if (!this.coreEngine?.eraConfig?.alliances || this.coreEngine.selectedEraConfig.alliances.length < 2) {
       return null;
     }
     
-    return this.coreEngine.eraConfig.alliances.find(alliance =>
+    return this.coreEngine.selectedEraConfig.alliances.find(alliance =>
       alliance.name !== selectedAlliance
     )?.name;
   }
@@ -275,6 +329,8 @@ class GameLifecycleManager {
    * @returns {boolean} True if game is over
    */
   checkGameEnd() {
+      method = 'checkGameEnd';
+
     const activeAlliances = Array.from(this.game.alliances.values()).filter(alliance => {
       if (alliance.players.length === 0) return false;
       
@@ -307,17 +363,26 @@ class GameLifecycleManager {
      * - Increments incomplete_games counter
      * Called when CoreEngine transitions to 'play' state
      *
-     * @param {string} userId - Player's user ID
+     * @param {string} playerId - Player's user ID
      * @param {string} eraId - Era identifier
      */
-    async startGame(userId, eraId) {
-        if (HumanPlayer.isGuest(userId)) { return }   // no guests
+    async startGame(playerId, eraId) {
+        method = 'startGame';
 
+        this.log(`playerId=${playerId}, eraId=${eraId}, player.id=${coreEngine.player?.id}`);
+        
+        if (coreEngine.player == null ||
+            coreEngine.player.id !== playerId ||
+            coreEngine.player.isGuest)
+        {
+            return;
+        }
+        
       try {
-        await UserProfileService.incrementIncompleteGames(userId);
-        console.log(`[LIFECYCLE] GameLifecycleManager|${version} Game start tracked for user ${userId}, era ${eraId}`);
+        await PlayerProfileService.incrementIncompleteGames(playerId);
+        this.log(`Game start tracked for user ${playerId}, era ${eraId}`);
       } catch (error) {
-        console.error(`[LIFECYCLE] GameLifecycleManager|${version} Exception tracking game start:`, error);
+        this.logerror('Exception tracking game start:', error);
       }
     }
     
@@ -331,11 +396,14 @@ class GameLifecycleManager {
    * 3. Play victory/defeat sound (1s delay)
    * 4. Post game end message
    * 5. Log to battle log
-   * 6. Cleanup temporary alliances
-   * 7. Wait for fire animations to clear (2s)
-   * 8. Capture winner's board (for OverPage display)
-   * 9. Wait for game over delay (4s)
-   * 10. Notify CoreEngine (triggers transition to OverPage)
+   * 6. Update player profile stats (PlayerProfile.applyGameResults)
+   * 7. Persist profile to database (PlayerProfileService.save)
+   * 8. Insert game result record (GameStatsService.insertGameResults)
+   * 9. Cleanup temporary alliances
+   * 10. Wait for fire animations to clear (2s)
+   * 11. Capture winner's board (for OverPage display)
+   * 12. Wait for game over delay (4s)
+   * 13. Notify CoreEngine (triggers transition to OverPage)
    *
    * Uses delays to coordinate animations:
    * - 1s before sound (let attacks settle)
@@ -343,15 +411,24 @@ class GameLifecycleManager {
    * - 4s total before page transition (let user see final state)
    */
   async endGame() {
+      method = 'endGame';
+
+      this.log(`Starting endGame sequence`);
     this.game.state = 'finished';
     this.game.endTime = new Date();
     
-    const humanPlayer = this.game.players.find(p => p.id === this.game.humanPlayerId);
-    const humanWon = this.game.winner && humanPlayer && this.game.winner.id === humanPlayer.id;
-    const userId = humanPlayer?.id;
-      const eraId = this.game.eraConfig.era;
-      
-    // v0.8.3: Call onGameOver callback IMMEDIATELY (synchronous)
+      const playerId = this.coreEngine.playerId;
+      const playerProfile = this.coreEngine.playerProfile;
+      const eraId = this.coreEngine.selectedEraId;
+      this.log(`playerId=${playerId}, playerProfile.id=${playerProfile?.id}, eraId=${eraId}`);
+
+      const humanPlayer = this.coreEngine.player;
+    const humanPlayer2 = this.game.players.find(p => p.id === this.game.humanPlayerId);
+      this.log(`humanPlayer.id=${humanPlayer.id}, humanPlayer2.id=${humanPlayer2.id}`);
+
+      const humanWon = this.game.winner && humanPlayer && this.game.winner.id === humanPlayer.id;
+
+    // Call onGameOver callback IMMEDIATELY (synchronous)
     // This allows video to start while animations play
     if (this.game.onGameOver) {
       const eventType = humanWon ? 'victory' : 'defeat';
@@ -364,10 +441,10 @@ class GameLifecycleManager {
     
     // Play victory/defeat sound
     if (humanWon) {
-      console.log(`[Game ${this.game.id}] Human victory - playing fanfare in 1 second`);
+      this.log(`Human victory - playing fanfare in 1 second`);
       this.game.playSound('victoryFanfare', 1000);
     } else {
-      console.log(`[Game ${this.game.id}] Human defeat - playing funeral march in 1 second`);
+      this.log(`Human defeat - playing funeral march in 1 second`);
       this.game.playSound('funeralMarch', 1000);
     }
     
@@ -383,36 +460,64 @@ class GameLifecycleManager {
     }
 
       // Decrement incomplete_games counter and consume rights
-      if (HumanPlayer.isHuman(userId)) {
+      if (HumanPlayer.isHuman(playerId)) {
         try {
-          await UserProfileService.decrementIncompleteGames(userId);
-          await RightsService.consumeRights(userId, eraId);
-          console.log(`[LIFECYCLE] GameLifecycleManager|${version} Incomplete decrement and rights consumed for user ${userId}, era ${eraId}`);
+          await PlayerProfileService.decrementIncompleteGames(playerId);
+            await RightsService.consumeRights(playerId, this.coreEngine.selectedEraConfig);
+            this.log(`Incomplete game counter decremented and rights consumed`);
         } catch (error) {
-          console.error(`[LIFECYCLE] GameLifecycleManager|${version} Failed to process game end:`, error);
+          this.logerror(`Failed to process game end housekeeping:`, error);
         }
       }
       
     this.cleanupTemporaryAlliances();
     
+      // Calculate game results from player statistics
+      const gameResults = GameStatsService.calculateGameResults(
+        this.game,
+        this.coreEngine.selectedEraConfig,
+        this.coreEngine.selectedOpponents
+      );
+
+      if (!gameResults) {
+        this.logerror('Failed to calculate game results - skipping stats update');
+      } else {
+        try {
+          // Update SSOT (Single Source of Truth) in-memory
+          this.coreEngine.playerProfile.applyGameResults(gameResults);
+          this.log('PlayerProfile stats updated in-memory');
+
+          // Persist PlayerProfile to database
+          await PlayerProfileService.save(this.coreEngine.playerProfile);
+          this.log('PlayerProfile persisted to database');
+
+          // Insert game result record
+          await GameStatsService.insertGameResults(playerId, gameResults);
+          this.log('Game result record inserted');
+
+        } catch (error) {
+          this.logerror('Failed to update game statistics:', error);
+        }
+      }
+      
     // Wait for fire to clear, THEN capture winner's board, THEN notify
-    console.log(`[Game ${this.game.id}] Waiting ${this.game.animationSettings.fireAnimationClearDelay}ms for fire animations to clear`);
+    this.log(`Waiting ${this.game.animationSettings.fireAnimationClearDelay}ms for fire animations to clear`);
     
     setTimeout(() => {
       // Capture winner's board AFTER fire has cleared
       if (this.game.battleBoardRef?.current?.captureWinnerBoard) {
         const winnerId = this.game.winner?.id || humanPlayer?.id;
-        console.log(`[Game ${this.game.id}] Capturing winner's board (fire cleared), winnerId:`, winnerId);
+        this.log(`Capturing winner's board (fire cleared), winnerId: ${winnerId}`);
         this.game.finalBoardImage = this.game.battleBoardRef.current.captureWinnerBoard(winnerId);
         if (this.game.finalBoardImage) {
-          console.log(`[Game ${this.game.id}] Winner's board captured successfully (${this.game.finalBoardImage.length} bytes)`);
+          this.log(`Winner's board captured successfully (${this.game.finalBoardImage.length} bytes)`);
         }
       }
       
       // Now wait before transitioning to OverPage
-      console.log(`[Game ${this.game.id}] Delaying transition to OverPage by ${this.game.animationSettings.gameOverDelay}ms`);
+      this.log(`Delaying transition to OverPage by ${this.game.animationSettings.gameOverDelay}ms`);
       setTimeout(() => {
-        console.log(`[Game ${this.game.id}] Notifying game end to CoreEngine`);
+        this.log(`Notifying game end to CoreEngine`);
         this.game.notifyGameEnd();
       }, this.game.animationSettings.gameOverDelay);
       
@@ -429,6 +534,8 @@ class GameLifecycleManager {
    * Called at end of game to prepare for new game.
    */
   cleanupTemporaryAlliances() {
+      method = 'cleanupTemporaryAlliances';
+
     const temporaryAlliances = Array.from(this.game.alliances.values()).filter(alliance => !alliance.owner);
     
     temporaryAlliances.forEach(alliance => {
@@ -440,6 +547,8 @@ class GameLifecycleManager {
         this.game.playerAlliances.delete(playerId);
       }
     });
+      
+      this.log("Cleaned up temporary alliances");
   }
 
   /**
@@ -458,6 +567,8 @@ class GameLifecycleManager {
    * Prepares for new game without creating new Game instance.
    */
   reset() {
+      method = 'reset';
+
     this.game.state = 'setup';
     this.game.currentTurn = 0;
     this.game.currentPlayerIndex = 0;
@@ -484,22 +595,8 @@ class GameLifecycleManager {
       }
       player.reset();
     });
-  }
-
-  // ============================================================================
-  // UTILITIES
-  // ============================================================================
-
-  /**
-   * Log message (delegates to CoreEngine if available)
-   * @param {string} message - Message to log
-   */
-  log(message) {
-    if (this.coreEngine?.log) {
-      this.coreEngine.log(message);
-    } else {
-      console.log(`[GameLifecycleManager ${version}]`, message);
-    }
+      
+      this.log("Reset game to initial state");
   }
 }
 

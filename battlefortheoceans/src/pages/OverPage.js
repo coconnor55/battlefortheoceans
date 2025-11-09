@@ -1,5 +1,11 @@
 // src/pages/OverPage.js v0.5.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.12: Move promotable eras within OverPage
+// v0.5.11: Use coreEngine for all game data
+//          - Get gameConfig from coreEngine (already loaded)
+//          - Get eraConfig, playerProfile, etc. from coreEngine
+//          - Remove local gameConfig loading
+//          - Consistent with GetAccessPage and SelectEraPage pattern
 // v0.5.10: Added final board snapshot display
 //         - Shows captured board image after game stats
 //         - Reveals all enemy ship positions to player
@@ -40,68 +46,55 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
+import Player from '../classes/Player';
 import VideoPopup from '../components/VideoPopup';
 import AchievementService from '../services/AchievementService';
-import configLoader from '../utils/ConfigLoader';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.5.10';
-// Detect if we're in production (battlefortheoceans.com) or local development
-const isProduction = window.location.hostname === 'battlefortheoceans.com';
+const version = 'v0.5.12';
+
 const SESSION_KEY = 'battleForOceans_gameResults';
 
 const OverPage = () => {
   const {
+      coreEngine,
     dispatch,
     events,
-    gameInstance,
-    eraConfig,
-    humanPlayer,
-    selectedOpponents,
-    userProfile,
-    hasEraAccess,
-    getPromotableEras,
-    appVersion
   } = useGame();
 
-  // State for game results (from CoreEngine or sessionStorage)
+    // key data
+    const player = coreEngine.player;
+    const playerId = coreEngine.playerId;
+    const playerProfile = coreEngine.playerProfile;
+    const gameConfig = coreEngine.gameConfig;
+    const gameInstance = coreEngine.gameInstance;
+    const eraConfig = coreEngine.selectedEraConfig;
+    const humanPlayer = coreEngine.player;
+    const selectedOpponents = coreEngine.selectedOpponents;
+    const isGuest = player != null && player.isGuest;
+
+    // State for game results (from CoreEngine or sessionStorage)
   const [gameResults, setGameResults] = useState(null);
-  
-  // State for game config (fetched from public/)
-  const [gameConfig, setGameConfig] = useState(null);
-  
+    
   // State for achievements
   const [newAchievements, setNewAchievements] = useState([]);
   const [loadingAchievements, setLoadingAchievements] = useState(false);
   const [showAchievementModal, setShowAchievementModal] = useState(false);
  
     // InfoPanel state
-    const [showInfo, setShowInfo] = useState(false);
     const [selectedAchievement, setSelectedAchievement] = useState(null);
 
   // State for achievement video
   const [videoData, setVideoData] = useState(null);
   const [showVideo, setShowVideo] = useState(false);
 
-  // Load game config on mount using ConfigLoader singleton
-  useEffect(() => {
-    configLoader.loadGameConfig()
-      .then(config => {
-        console.log(version, 'Loaded game config:', config.version);
-        setGameConfig(config);
-      })
-      .catch(err => {
-        console.error(version, 'Failed to load game config:', err);
-      });
-  }, []);
-
   // Redirect to login if no user profile
   useEffect(() => {
-    if (!userProfile) {
+    if (!playerProfile) {
       console.log(version, 'No user profile detected - redirecting to login');
       dispatch(events.LOGIN);
     }
-  }, [userProfile, dispatch, events]);
+  }, [playerProfile, dispatch, events]);
 
   // Load game results on mount
   useEffect(() => {
@@ -119,7 +112,7 @@ const OverPage = () => {
       console.log(version, 'Saving game results to sessionStorage');
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(results));
       setGameResults(results);
-    } else if (userProfile) {
+    } else if (playerProfile) {
       // Try to restore from sessionStorage (after refresh)
       const saved = sessionStorage.getItem(SESSION_KEY);
       if (saved) {
@@ -130,12 +123,12 @@ const OverPage = () => {
         dispatch(events.SELECTERA);
       }
     }
-  }, [gameInstance, eraConfig, selectedOpponents, humanPlayer, userProfile, dispatch, events]);
+  }, [gameInstance, eraConfig, selectedOpponents, humanPlayer, playerProfile, dispatch, events]);
 
   // Check for new achievements when game results are available
   useEffect(() => {
     const checkForAchievements = async () => {
-      if (!gameResults || !userProfile || userProfile.id.startsWith('guest-')) {
+      if (!gameResults || !playerProfile || playerProfile?.id.startsWith('guest-')) {
         return;
       }
 
@@ -209,7 +202,7 @@ const OverPage = () => {
 
         console.log(version, 'Achievement check data:', achievementCheckData);
 
-        const unlocked = await AchievementService.checkAchievements(userProfile.id, achievementCheckData);
+        const unlocked = await AchievementService.checkAchievements(playerProfile?.id, achievementCheckData);
         console.log(version, 'New achievements unlocked:', unlocked);
         
         if (unlocked.length > 0) {
@@ -237,7 +230,7 @@ const OverPage = () => {
     };
 
     checkForAchievements();
-  }, [gameResults, userProfile, gameConfig]);
+  }, [gameResults, playerProfile, gameConfig]);
 
   // State for promotional era
   const [showPromotion, setShowPromotion] = useState(false);
@@ -247,18 +240,30 @@ const OverPage = () => {
   const [showPurchasePage, setShowPurchasePage] = useState(false);
   const [purchaseEraId, setPurchaseEraId] = useState(null);
 
-  // Check if user should see promotional content
-  useEffect(() => {
-    if (!userProfile || !eraConfig) return;
+    // Check if user should see promotional content
+    useEffect(() => {
+      if (!playerProfile || !eraConfig || !coreEngine.eras) return;
+      
+      const allEras = Array.from(coreEngine.eras.values());
+      console.log(`[OVER] OverPage.getPromotableEras ${version}| # eras=${allEras.length}`);
+      
+      const promotableEras = allEras.filter(era => {
+        if (era.free) return false;
+        // Check if user owns it
+        // const hasAccess = userRights?.get(era.id);
+        // return !hasAccess;
+        return true;
+      });
+      
+      console.log(`[OVER] OverPage.useEffect ${version}| promotableEras=${promotableEras.length}`);
+      
+      if (promotableEras.length > 0) {
+        setPromotionalEra(promotableEras[0]);
+        setShowPromotion(true);
+      }
+    }, [playerProfile, eraConfig, coreEngine.eras]);
 
-    const promotableEras = getPromotableEras();
-    if (promotableEras.length > 0) {
-      // Show promo for first era user doesn't have access to
-      setPromotionalEra(promotableEras[0]);
-      setShowPromotion(true);
-    }
-  }, [userProfile, eraConfig, getPromotableEras]);
-
+    
   const handlePlayAgain = () => {
     console.log(version, 'User clicked Play Again - returning to opponent selection');
     dispatch(events.SELECTOPPONENT);
@@ -305,7 +310,6 @@ const OverPage = () => {
     const handleAchievementClick = (achievement) => {
       console.log(version, 'Achievement clicked:', achievement.name);
       setSelectedAchievement(achievement);
-      setShowInfo(true);
     };
 
     const handleAchievementModalClose = () => {
@@ -390,7 +394,6 @@ const OverPage = () => {
 
   const { gameStats, gameLog } = gameResults;
   const isWinner = gameStats.winner === gameResults.playerName;
-  const isGuest = userProfile?.id?.startsWith('guest-');
 
   return (
     <div className="over-page">
@@ -541,7 +544,7 @@ const OverPage = () => {
         {showPromotion && promotionalEra && (
           <PromotionalBox
             eraConfig={promotionalEra}
-            userProfile={userProfile}
+            playerProfile={playerProfile}
             onPurchase={handlePurchase}
           />
         )}

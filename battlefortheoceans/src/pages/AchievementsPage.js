@@ -7,16 +7,21 @@
 //         - Reuses existing InfoPanel component and styles
 
 import React, { useState, useEffect } from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 import AchievementService from '../services/AchievementService';
 import InfoPanel from '../components/InfoPanel';
+import Player from '../classes/Player';
 import * as LucideIcons from 'lucide-react';
 
 const version = 'v0.1.2';
 
 const AchievementsPage = ({ onClose }) => {
-  const { userProfile, dispatch, events } = useGame();
-  
+  const { dispatch, events } = useGame();
+  const playerId = coreEngine.playerId;
+    const playerProfile = coreEngine.playerProfile;
+    const player = coreEngine.player;
+    const isGuest = player != null && player.isGuest;
+
   const [achievements, setAchievements] = useState({
     unlocked: [],
     inProgress: [],
@@ -31,27 +36,25 @@ const AchievementsPage = ({ onClose }) => {
   const [showInfo, setShowInfo] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
 
-  const isGuest = userProfile?.id?.startsWith('guest-');
-
   // Redirect to login if no user profile
   useEffect(() => {
-    if (!userProfile) {
+    if (!playerProfile) {
       console.log(version, 'No user profile detected - redirecting to login');
       dispatch(events.LOGIN);
     }
-  }, [userProfile, dispatch, events]);
+  }, [playerProfile, dispatch, events]);
 
   // Load achievements on mount
   useEffect(() => {
     const loadAchievements = async () => {
-      if (!userProfile?.id) return;
+      if (!playerId) return;
 
       setLoading(true);
       setError(null);
 
       try {
-        console.log(version, 'Loading achievements for user:', userProfile.id);
-        const data = await AchievementService.getUserAchievements(userProfile.id);
+        console.log(version, 'Loading achievements for user:', playerId);
+        const data = await AchievementService.getUserAchievements(playerId);
         console.log(version, 'Achievement data received:', data);
         setAchievements(data);
       } catch (err) {
@@ -63,7 +66,7 @@ const AchievementsPage = ({ onClose }) => {
     };
 
     loadAchievements();
-  }, [userProfile]);
+  }, [playerId]);
 
   // Helper function to get Lucide icon component by name
   const getLucideIcon = (iconName) => {
@@ -144,7 +147,7 @@ const AchievementsPage = ({ onClose }) => {
     dispatch(events.LOGIN);
   };
 
-  if (!userProfile) {
+  if (!playerProfile) {
     return null;
   }
 

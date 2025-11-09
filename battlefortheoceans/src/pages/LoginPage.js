@@ -1,26 +1,42 @@
-// src/pages/LoginPage.js v0.3.13
+// src/pages/LoginPage.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.3.13: SINGLETON PATTERN - Set coreEngine.humanPlayer directly
+// v0.3.16: Refactored for PlayerProfile architecture
+//          - Import PlayerProfile class
+//          - Wrap profile data in PlayerProfile instance (3 places)
+//          - Remove profile parameter from HumanPlayer constructor (3 places)
+//          - Set coreEngine.playerProfile separately from humanPlayer (3 places)
+//          - Updated logging to match new pattern (tag, module, method)
+// v0.3.15: Set Player and PlayerProfile separately in CoreEngine
+// v0.3.14: Store user email in CoreEngine on login
+//          - Set coreEngine.userEmail in handleAuthenticatedPlayer
+//          - Set coreEngine.userEmail in handleContinue
+//          - Set coreEngine.userEmail in handleProfileCreationComplete
+//          - Makes email available throughout app without repeated Supabase calls
+// v0.3.13: SINGLETON PATTERN - Set coreEngine.player directly
 //          - Added coreEngine from useGame()
-//          - Set coreEngine.humanPlayer = player before dispatch
+//          - Set coreEngine.player = player before dispatch
 //          - Removed player from all dispatch() calls (4 places)
 //          - Guest flow, registered flow, continue flow, profile creation
-//          - CoreEngine.userProfile getter reads from humanPlayer.userProfile
+//          - CoreEngine.playerProfile getter reads from humanPlayer.playerProfile
 // v0.3.12: FIX - Create Player object in checkExistingAuth for welcome-back flow
 // v0.3.11: Use player singleton pattern correctly
 // v0.3.10: Call coreEngine.logout() on logout to clear all game state
 
 import React, { useState, useEffect } from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 import { supabase } from '../utils/supabaseClient';
 import LoginDialog from '../components/LoginDialog';
 import ProfileCreationDialog from '../components/ProfileCreationDialog';
 import HumanPlayer from '../classes/HumanPlayer';
+import PlayerProfile from '../classes/PlayerProfile';
 
-const version = 'v0.3.13';
+const version = 'v0.3.16';
+const tag = "LOGIN";
+const module = "LoginPage";
+let method = "";
 
 const LoginPage = () => {
-  const { coreEngine, dispatch, events, getUserProfile, logout } = useGame();
+  const { dispatch, events, getPlayerProfile, logout } = useGame();
   
   const [authStep, setAuthStep] = useState('login');
   const [authenticatedUser, setAuthenticatedUser] = useState(null); // Supabase user object
@@ -30,58 +46,72 @@ const LoginPage = () => {
   const [error, setError] = useState(null);
   const [showSignup, setShowSignup] = useState(false);
 
+  // Logging utilities
+  const log = (message) => {
+    console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+  };
+  
+  const logerror = (message, error = null) => {
+    if (error) {
+      console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+    } else {
+      console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    }
+  };
+
   // Check if user already authenticated (from email confirmation or existing session)
   useEffect(() => {
     const checkExistingAuth = async () => {
-      console.log('[LOGIN]', version, 'Checking for existing authentication...');
+      method = 'checkExistingAuth';
+      log('Checking for existing authentication...');
       
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
-          console.log('[LOGIN]', version, 'User authenticated:', session.user.id);
+          log(`User authenticated: ${session.user.id}`);
           
           // Check if user has profile
-          const profile = await getUserProfile(session.user.id);
+          const profileData = await getPlayerProfile(session.user.id);
           
-          if (!profile || !profile.game_name) {
+          if (!profileData || !profileData.game_name) {
             // New user (from signup) - no profile yet
-            console.log('[LOGIN]', version, 'No profile found - routing to ProfileCreation');
+            log('No profile found - routing to ProfileCreation');
             setAuthenticatedUser(session.user);
             setAuthStep('profile-creation');
           } else {
-            // Existing user with profile - CREATE PLAYER OBJECT
-            console.log('[LOGIN]', version, 'Profile found - creating Player for welcome back:', profile.game_name);
+            // Existing user with profile - CREATE PlayerProfile instance
+            log(`Profile found - creating PlayerProfile and Player for welcome back: ${profileData.game_name}`);
+            
+            const playerProfile = new PlayerProfile(profileData);
             
             const player = new HumanPlayer(
               session.user.id,
-              profile.game_name,
+              playerProfile.game_name,
               'human',
-              1.0,
-              profile
+              1.0
             );
             
-            console.log('[LOGIN]', version, 'Player created for welcome-back:', player.name);
-              console.log('[LOGIN] DEBUG - Player set on CoreEngine:', player.name);
-              console.log('[LOGIN] DEBUG - Player.userProfile:', player.userProfile);
+            log(`Player created for welcome-back: ${player.name}`);
+            log(`PlayerProfile instance created: ${playerProfile.game_name}`);
+            
             setAuthenticatedUser(session.user);
-              
             setAuthenticatedPlayer(player);
-            setExistingProfile(profile);
+            setExistingProfile(playerProfile);
             setAuthStep('login'); // LoginDialog will show welcome mode
           }
         } else {
-          console.log('[LOGIN]', version, 'No existing session, showing login dialog');
+          log('No existing session, showing login dialog');
           setAuthStep('login');
         }
       } catch (err) {
-        console.error('[LOGIN]', version, 'Error checking session:', err);
+        logerror('Error checking session:', err);
         setAuthStep('login');
       }
     };
     
     checkExistingAuth();
-  }, [getUserProfile]);
+  }, [getPlayerProfile]);
 
   // Check for showSignup flag in URL
   useEffect(() => {
@@ -91,68 +121,89 @@ const LoginPage = () => {
     }
   }, []);
   
-  const handleAuthenticatedPlayer = async (player) => {
-    console.log('[LOGIN]', version, 'Player authenticated:', player.name, 'ID:', player.id);
+  const handleAuthenticatedPlayer = async (player, playerProfile) => {
+    method = 'handleAuthenticatedPlayer';
+    log(`Player authenticated: ${player.name}, ID: ${player.id}`);
     setAuthenticatedPlayer(player);
     setIsLoading(true);
     
     try {
-      // v0.3.13: Set CoreEngine singleton directly
-      coreEngine.humanPlayer = player;
-      console.log('[LOGIN]', version, 'Set coreEngine.humanPlayer =', player.name);
-        console.log('[LOGIN] DEBUG - Player set on CoreEngine:', player.name);
-        console.log('[LOGIN] DEBUG - Player.userProfile:', player.userProfile);
-        
+      // Set CoreEngine singleton directly
+      coreEngine.player = player;
+      log(`Set coreEngine.player = ${player}`);
+      
+      // Set PlayerProfile separately
+        coreEngine.playerProfile = playerProfile;
+        log(`Set coreEngine.playerProfile = ${playerProfile}`);
+      
+      // Get and store user email
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        coreEngine.userEmail = user.email;
+        log(`Set coreEngine.userEmail = ${user.email}`);
+      }
+      
       // Check if guest user
       if (player.id.startsWith('guest-')) {
-        console.log('[LOGIN]', version, 'Guest player detected, proceeding directly to game');
+        log('Guest player detected, proceeding directly to game');
       } else {
-        console.log('[LOGIN]', version, 'Registered player, proceeding to era selection');
+        log('Registered player, proceeding to era selection');
       }
       
       await new Promise(resolve => setTimeout(resolve, 400));
       
-      // v0.3.13: Dispatch with NO data (player already in CoreEngine)
       dispatch(events.SELECTERA);
       
     } catch (error) {
-      console.error('[LOGIN]', version, 'Error during authentication flow:', error);
+      logerror('Error during authentication flow:', error);
       setError(error.message || 'An unexpected error occurred');
       setAuthStep('login');
       setIsLoading(false);
     }
   };
   
-  const handleLoginComplete = async (player) => {
+  const handleLoginComplete = async (player, playerProfile) => {
+    method = 'handleLoginComplete';
     if (player) {
-      console.log('[LOGIN]', version, 'Player received from LoginDialog:', player.name);
-      await handleAuthenticatedPlayer(player);
+      log(`Player received from LoginDialog: ${player.name}`);
+      await handleAuthenticatedPlayer(player, playerProfile);
     } else {
-      console.log('[LOGIN]', version, 'Login dialog closed without authentication');
+      log('Login dialog closed without authentication');
       handleReset();
     }
   };
 
   const handleContinue = () => {
-    console.log('[LOGIN]', version, 'User continuing with existing profile:', existingProfile.game_name);
+    method = 'handleContinue';
+    log(`User continuing with existing profile: ${existingProfile.game_name}`);
     
     if (authenticatedPlayer) {
-      console.log('[LOGIN]', version, 'Using existing Player object:', authenticatedPlayer.name);
+      log(`Using existing Player object: ${authenticatedPlayer.name}`);
       
-      // v0.3.13: Set CoreEngine singleton directly
-      coreEngine.humanPlayer = authenticatedPlayer;
-      console.log('[LOGIN]', version, 'Set coreEngine.humanPlayer =', authenticatedPlayer.name);
+      // Set CoreEngine singleton directly
+      coreEngine.player = authenticatedPlayer;
+      log(`Set coreEngine.player = player(${authenticatedPlayer.name})`);
       
-      // v0.3.13: Dispatch with NO data
+      // Set PlayerProfile separately (existingProfile is already PlayerProfile instance)
+      coreEngine.playerProfile = existingProfile;
+      log(`Set coreEngine.playerProfile = existingProfile(${existingProfile.game_name})`);
+      
+      // Store email (authenticatedUser already has it from checkExistingAuth)
+      if (authenticatedUser?.email) {
+        coreEngine.userEmail = authenticatedUser.email;
+        log(`Set coreEngine.userEmail = ${authenticatedUser.email}`);
+      }
+      
       dispatch(events.SELECTERA);
     } else {
-      console.error('[LOGIN]', version, 'ERROR: No Player object available for continue');
+      logerror('ERROR: No Player object available for continue');
       setError('Unable to continue. Please try logging in again.');
     }
   };
 
   const handleLogout = async () => {
-    console.log('[LOGIN]', version, 'User logging out - clearing all state');
+    method = 'handleLogout';
+    log('User logging out - clearing all state');
     
     // Clear CoreEngine state and session storage
     logout();
@@ -160,27 +211,39 @@ const LoginPage = () => {
     // Clear Supabase auth session
     await supabase.auth.signOut();
     
-    console.log('[LOGIN]', version, 'Logout complete');
+    log('Logout complete');
     // No need to dispatch LAUNCH - logout() already transitions to 'launch'
   };
 
-  const handleProfileCreationComplete = async (player) => {
-    console.log('[LOGIN]', version, 'Profile creation completed, Player:', player.name);
+  const handleProfileCreationComplete = async (player, playerProfile) => {
+    method = 'handleProfileCreationComplete';
+    log(`Profile creation completed, Player: ${player.name}`);
     setIsLoading(true);
     
-    // v0.3.13: Set CoreEngine singleton directly
-    coreEngine.humanPlayer = player;
-    console.log('[LOGIN]', version, 'Set coreEngine.humanPlayer =', player.name);
+    // Set CoreEngine singleton directly
+    coreEngine.player = player;
+    log(`Set coreEngine.player = ${player.name}`);
+    
+    // Set PlayerProfile separately
+      coreEngine.playerProfile = playerProfile;
+      log(`Set coreEngine.playerProfile = ${playerProfile}`);
+    
+    // Get and store user email
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) {
+      coreEngine.userEmail = user.email;
+      log(`Set coreEngine.userEmail = ${user.email}`);
+    }
     
     await new Promise(resolve => setTimeout(resolve, 400));
     
-    // v0.3.13: Dispatch with NO data
     dispatch(events.SELECTERA);
     setIsLoading(false);
   };
 
   const handleReset = () => {
-    console.log('[LOGIN]', version, 'Resetting authentication flow');
+    method = 'handleReset';
+    log('Resetting authentication flow');
     setAuthStep('login');
     setAuthenticatedUser(null);
     setAuthenticatedPlayer(null);
@@ -190,15 +253,7 @@ const LoginPage = () => {
     setShowSignup(false);
   };
 
-  console.log('[LOGIN]', version, 'Current state:', {
-    authStep,
-    hasUser: !!authenticatedUser,
-    hasPlayer: !!authenticatedPlayer,
-    hasProfile: !!existingProfile,
-    isLoading,
-    hasError: !!error,
-    showSignup
-  });
+  log(`Current state: authStep=${authStep}, hasUser=${!!authenticatedUser}, hasPlayer=${!!authenticatedPlayer}, hasProfile=${!!existingProfile}, isLoading=${isLoading}`);
 
   return (
     <div className="container flex flex-column flex-center">

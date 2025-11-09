@@ -1,6 +1,11 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.4.12: fixed createUserProfile to call UserProfileService directly
+// v0.4.15: Corrected reference to updateGameStats
+// v0.4.14: Removed hasEraAccess - deprecated then deleted
+// v0.4.13: Use VoucherService for voucher redemption
+//          - Changed redeemVoucher to call VoucherService instead of RightsService
+//          - RightsService.redeemVoucher deprecated and removed
+// v0.4.12: fixed createPlayerProfile to call PlayerProfileService directly
 // v0.4.11: Complete munitions refactoring - remove backward compatibility wrapper
 //          - Removed handleStarShellFired - no longer needed
 //          - All components now use fireMunition(munitionType, row, col) directly
@@ -16,14 +21,14 @@
 // v0.4.8: Added disableGameGuide context value
 // v0.4.7: Expose coreEngine directly for Player singleton pattern
 //         - Added `coreEngine` to context value
-//         - Components can now access `coreEngine.player` and `coreEngine.userProfile`
-//         - Removes need for wrapper getters (humanPlayer, userProfile)
+//         - Components can now access `coreEngine.player` and `coreEngine.playerProfile`
+//         - Removes need for wrapper getters (humanPlayer, playerProfile)
 //         - Aligns with Player singleton documentation
-// v0.4.6: Use UserProfileService singleton directly
-//         - UserProfileService now exports singleton instance
-//         - Remove "new UserProfileService()" - use imported instance directly
+// v0.4.6: Use PlayerProfileService singleton directly
+//         - PlayerProfileService now exports singleton instance
+//         - Remove "new PlayerProfileService()" - use imported instance directly
 //         - Same pattern for LeaderboardService and RightsService
-//         - Fixes "UserProfileService is not a constructor" error
+//         - Fixes "PlayerProfileService is not a constructor" error
 // v0.4.5: Munitions terminology rename (resources → munitions)
 //         - Added fireMunition(munitionType, row, col) method
 //         - Kept handleStarShellFired for backward compatibility
@@ -31,12 +36,13 @@
 
 import React, { createContext, useContext } from 'react';
 import CoreEngine from '../engines/CoreEngine';
-import UserProfileService from '../services/UserProfileService';
+import PlayerProfileService from '../services/PlayerProfileService';
 import leaderboardService from '../services/LeaderboardService';
 import rightsService from '../services/RightsService';
-import configLoader from '../utils/ConfigLoader';
+import VoucherService from '../services/VoucherService';
+import GameStatsService from '../services/GameStatsService';
 
-const version = "v0.4.11";
+const version = "v0.4.15";
 
 const GameState = createContext();
 
@@ -67,7 +73,7 @@ export const GameProvider = ({ children }) => {
       updateCounter: coreEngine.updateCounter,
       
       // Game state accessors
-      get eraConfig() { return coreEngine.eraConfig; },
+      get eraConfig() { return coreEngine.selectedEraConfig; },
       
       // v0.4.0: Multi-fleet support
       get selectedOpponents() { return coreEngine.selectedOpponents; },
@@ -76,9 +82,9 @@ export const GameProvider = ({ children }) => {
       get selectedGameMode() { return coreEngine.selectedGameMode; },
       get selectedAlliance() { return coreEngine.selectedAlliance; },
       
-      // v0.4.7: Keep for backward compatibility, but prefer coreEngine.player/profile
-      get humanPlayer() { return coreEngine.humanPlayer; },
-      get userProfile() { return coreEngine.userProfile; },
+//      // v0.4.7: Keep for backward compatibility, but prefer coreEngine.player/profile
+//      get humanPlayer() { return coreEngine.player; },
+//      get playerProfile() { return coreEngine.playerProfile; },
       
       get gameInstance() { return coreEngine.gameInstance; },
       get board() { return coreEngine.board; },
@@ -92,18 +98,17 @@ export const GameProvider = ({ children }) => {
         coreEngine.registerShipPlacement(ship, shipCells, orientation, playerId),
         
         // Game Guide preferences
-        disableGameGuide: (userId) => UserProfileService.disableGameGuide(userId),
+        disableGameGuide: (playerId) => PlayerProfileService.disableGameGuide(playerId),
       
       // v0.4.5: Munitions actions
       fireMunition: (munitionType, row, col) => coreEngine.fireMunition(munitionType, row, col),
       
       // User profile functions
       // v0.4.6: Use service singletons directly
-      getUserProfile: (userId) => UserProfileService.getUserProfile(userId),
-        createUserProfile: (userId, gameName) => UserProfileService.createUserProfile(userId, gameName),
+      getPlayerProfile: (playerId) => PlayerProfileService.getPlayerProfile(playerId),
+        createPlayerProfile: (playerId, gameName) => PlayerProfileService.createPlayerProfile(playerId, gameName),
         
-        updateGameStats: (gameResults) => coreEngine.updateGameStats(gameResults), // Keep - has business logic
-      getLeaderboard: (limit) => leaderboardService.getLeaderboard(limit),
+        getLeaderboard: (limit) => leaderboardService.getLeaderboard(limit),
       getRecentChampions: (limit) => leaderboardService.getRecentChampions(limit),
       getPlayerGameName: (playerId) => coreEngine.getPlayerGameName(playerId), // Keep - still in CoreEngine
       
@@ -112,25 +117,11 @@ export const GameProvider = ({ children }) => {
       
       // Rights functions
       // v0.4.6: Use service singletons directly
-      hasEraAccess: (userId, eraId) => coreEngine.hasEraAccess(userId, eraId), // Keep - has business logic
-      grantEraAccess: (userId, eraId, paymentData) => rightsService.grantEraAccess(userId, eraId, paymentData),
-      redeemVoucher: (userId, voucherCode) => rightsService.redeemVoucher(userId, voucherCode),
-      getUserRights: (userId) => rightsService.getUserRights(userId),
-      
-      // Era functions
-      // v0.4.4: Call configLoader directly (not through CoreEngine)
-      getAllEras: () => configLoader.listEras(),
-      getEraById: (eraId) => configLoader.loadEraConfig(eraId),
-      getPromotableEras: async () => {
-        const eras = await configLoader.listEras();
-        return eras.filter(era => !era.free && era.promotional);
-      },
-      getFreeEras: async () => {
-        const eras = await configLoader.listEras();
-        return eras.filter(era => era.free);
-      },
-      clearEraCache: () => configLoader.clearCache(),
-      
+      grantEraAccess: (playerId, eraId, paymentData) => rightsService.grantEraAccess(playerId, eraId, paymentData),
+        // NEW:
+        redeemVoucher: (playerId, voucherCode) => VoucherService.redeemVoucher(playerId, voucherCode),
+        getUserRights: (playerId) => rightsService.getUserRights(playerId),
+            
     }}>
       {children}
     </GameState.Provider>
@@ -141,5 +132,6 @@ export const useGame = () => useContext(GameState);
 
 // Export context for direct use if needed
 export { GameState as GameContext };
+export { coreEngine };
 
 // EOF

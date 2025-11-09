@@ -1,5 +1,11 @@
 // netlify/functions/send-invite.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.0: Simplified to match GetAccessPage parameters
+//         - Accepts: friendEmail, senderName, senderEmail, voucherCode, eraName
+//         - Removed: voucher generation (handled by frontend)
+//         - Removed: auto-redemption (handled by frontend)
+//         - Removed: senderUserId requirement
+//         - Function now just sends email via Brevo with CC to sender
 // v0.1.1: Support string template IDs (Brevo's new format)
 //         - Handles both numeric IDs (1, 2, 3) and string IDs
 //         - Auto-detects format and uses appropriate type
@@ -9,16 +15,9 @@
 //         - Sends email with guest voucher
 //         - Returns voucher details to frontend
 
-const { createClient } = require('@supabase/supabase-js');
 const SibApiV3Sdk = require('sib-api-v3-sdk');
 
-const version = 'v0.1.1';
-
-// Supabase client
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SECRET_KEY
-);
+const version = 'v0.2.0';
 
 // Brevo client
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
@@ -27,77 +26,10 @@ apiKey.apiKey = process.env.BREVO_API_KEY;
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 /**
- * Generate voucher code: {type}-{value}-{uuid}
- */
-function generateVoucherCode(type, value) {
-  const uuid = crypto.randomUUID();
-  return `${type}-${value}-${uuid}`;
-}
-
-/**
- * Store voucher in database
- */
-async function createVoucher(voucherCode) {
-  const { error } = await supabase
-    .from('vouchers')
-    .insert({
-      voucher_code: voucherCode,
-      created_at: new Date().toISOString()
-    });
-  
-  if (error) {
-    throw new Error(`Failed to create voucher: ${error.message}`);
-  }
-  
-  return voucherCode;
-}
-
-/**
- * Auto-redeem voucher for user
- */
-async function redeemVoucherForUser(userId, voucherCode, type, value) {
-  // Calculate expiration (2 years from now for count-based)
-  const expiresAt = new Date();
-  expiresAt.setFullYear(expiresAt.getFullYear() + 2);
-  
-  const { error } = await supabase
-    .from('user_rights')
-    .insert({
-      user_id: userId,
-      rights_type: type === 'pass' ? 'pass' : 'era',
-      rights_value: type === 'pass' ? 'voucher' : type,
-      uses_remaining: parseInt(value, 10),
-      expires_at: expiresAt.toISOString(),
-      voucher_used: voucherCode
-    });
-  
-  if (error) {
-    throw new Error(`Failed to redeem voucher: ${error.message}`);
-  }
-}
-
-/**
- * Get user profile by ID
- */
-async function getUserProfile(userId) {
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('game_name')
-    .eq('id', userId)
-    .single();
-  
-  if (error) {
-    throw new Error(`Failed to fetch user profile: ${error.message}`);
-  }
-  
-  return data;
-}
-
-/**
  * Main handler
  */
 exports.handler = async (event) => {
-  console.log(`[SEND-INVITE ${version}] Request received`);
+  console.log(`[INVITE ${version}] Request received`);
   
   // Only allow POST
   if (event.httpMethod !== 'POST') {
@@ -109,14 +41,14 @@ exports.handler = async (event) => {
   
   try {
     const body = JSON.parse(event.body);
-    const { friendEmail, senderUserId, eraId } = body;
+    const { friendEmail, senderName, senderEmail, voucherCode, eraName } = body;
     
     // Validate input
-    if (!friendEmail || !senderUserId || !eraId) {
+    if (!friendEmail || !senderName || !senderEmail || !voucherCode || !eraName) {
       return {
         statusCode: 400,
         body: JSON.stringify({
-          error: 'Missing required fields: friendEmail, senderUserId, eraId'
+          error: 'Missing required fields: friendEmail, senderName, senderEmail, voucherCode, eraName'
         })
       };
     }
@@ -124,67 +56,59 @@ exports.handler = async (event) => {
     if (!friendEmail.includes('@')) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid email address' })
+        body: JSON.stringify({ error: 'Invalid friend email address' })
       };
     }
     
-    console.log(`[SEND-INVITE ${version}] Processing invite from ${senderUserId} to ${friendEmail} for era ${eraId}`);
+    if (!senderEmail.includes('@')) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid sender email address' })
+      };
+    }
     
-    // Get sender's profile
-    const senderProfile = await getUserProfile(senderUserId);
-    const senderName = senderProfile.game_name;
-    
-    // Generate vouchers
-    // 1. Guest voucher (1 play for friend)
-    const guestVoucherCode = generateVoucherCode(eraId, '1');
-    await createVoucher(guestVoucherCode);
-    
-    // 2. Reward voucher (1 play for sender - auto-redeemed)
-    const rewardVoucherCode = generateVoucherCode(eraId, '1');
-    await createVoucher(rewardVoucherCode);
-    await redeemVoucherForUser(senderUserId, rewardVoucherCode, eraId, '1');
-    
-    console.log(`[SEND-INVITE ${version}] Vouchers created: guest=${guestVoucherCode}, reward=${rewardVoucherCode}`);
+    console.log(`[INVITE ${version}] Processing invite from ${senderEmail} to ${friendEmail} for ${eraName}`);
     
     // Build voucher link
-    const voucherLink = `https://battlefortheoceans.com/redeem/${guestVoucherCode}`;
-    
-    // Get era name (capitalize first letter)
-    const eraName = eraId.charAt(0).toUpperCase() + eraId.slice(1).replace(/-/g, ' ');
+    const voucherLink = `https://battlefortheoceans.com/redeem/${voucherCode}`;
     
     // Send email via Brevo
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
     sendSmtpEmail.to = [{ email: friendEmail }];
+    sendSmtpEmail.cc = [{ email: senderEmail }]; // CC sender so they get a copy
     
     // Template ID can be numeric or string identifier
     const templateId = process.env.BREVO_INVITE_TEMPLATE_ID;
     // If it's a number, parse it; otherwise use as-is
-    sendSmtpEmail.templateId = isNaN(templateId) ? templateId : parseInt(templateId, 10);
+    const parsedTemplateId = isNaN(templateId) ? templateId : parseInt(templateId, 10);
+    
+    console.log(`[INVITE ${version}] Template ID from env:`, templateId);
+    console.log(`[INVITE ${version}] Parsed template ID:`, parsedTemplateId);
+    console.log(`[INVITE ${version}] Type:`, typeof parsedTemplateId);
+    
+    sendSmtpEmail.templateId = parsedTemplateId;
     
     sendSmtpEmail.params = {
       SENDER_NAME: senderName,
       ERA_NAME: eraName,
-      VOUCHER_CODE: guestVoucherCode,
+      VOUCHER_CODE: voucherCode,
       VOUCHER_LINK: voucherLink
     };
     
     await apiInstance.sendTransacEmail(sendSmtpEmail);
     
-    console.log(`[SEND-INVITE ${version}] Email sent successfully to ${friendEmail}`);
+    console.log(`[INVITE ${version}] Email sent successfully to ${friendEmail} (CC: ${senderEmail})`);
     
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        message: 'Invite sent successfully',
-        guestVoucher: guestVoucherCode,
-        rewardVoucher: rewardVoucherCode,
-        senderRewardRedeemed: true
+        message: 'Invite sent successfully'
       })
     };
     
   } catch (error) {
-    console.error(`[SEND-INVITE ${version}] Error:`, error);
+    console.error(`[INVITE ${version}] Error:`, error);
     
     return {
       statusCode: 500,

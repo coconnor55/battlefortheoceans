@@ -53,7 +53,7 @@ const CanvasBoard = forwardRef(({
 }, ref) => {
     const { munitions } = useGameState();
     const canvasRef = useRef(null);
-  const { subscribeToUpdates, userProfile } = useGame();
+  const { subscribeToUpdates, playerProfile } = useGame();
   
   const boardWidth = eraConfig ? eraConfig.cols * CELL_SIZE + LABEL_SIZE : 0;
   const boardHeight = eraConfig ? eraConfig.rows * CELL_SIZE + LABEL_SIZE : 0;
@@ -82,8 +82,8 @@ const CanvasBoard = forwardRef(({
 
   const hitOverlayRendererRef = useRef(null);
   if (!hitOverlayRendererRef.current && eraConfig && gameBoard) {
-    hitOverlayRendererRef.current = new HitOverlayRenderer(eraConfig.era, gameBoard);
-    console.log('[CANVAS]', version, 'HitOverlayRenderer created with era:', eraConfig.era);
+    hitOverlayRendererRef.current = new HitOverlayRenderer(eraConfig.id, gameBoard);
+    console.log('[CANVAS]', version, 'HitOverlayRenderer created with era:', eraConfig.id);
   }
 
   const uxEngineRef = useRef(null);
@@ -94,7 +94,7 @@ const CanvasBoard = forwardRef(({
   
   const inputHandlerRef = useRef(null);
     
-  const isAdmin = userProfile?.role === 'admin';
+  const isAdmin = playerProfile?.role === 'admin';
 
   const propsRef = useRef({
     mode,
@@ -611,10 +611,10 @@ const CanvasBoard = forwardRef(({
     },
     
     captureWinnerBoard: (winnerId) => {
-      if (!canvasRef.current || !gameState?.userId) return null;
+      if (!canvasRef.current || !gameState?.playerId) return null;
       
       try {
-        const humanPlayerId = gameState.userId;
+        const humanPlayerId = gameState.playerId;
         const isPlayerWinner = winnerId === humanPlayerId;
         const captureViewMode = isPlayerWinner ? 'attack' : 'fleet';
         

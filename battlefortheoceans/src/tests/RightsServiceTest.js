@@ -8,16 +8,21 @@ import RightsService from '../services/RightsService';
 
 const version = 'v0.1.1';
 
-const RightsServiceTest = ({ userId, onComplete }) => {
+const RightsServiceTest = ({ playerId, onComplete }) => {
   const [tests, setTests] = useState([]);
   const [running, setRunning] = useState(false);
   const hasRun = useRef(false);
 
+  console.log('[RIGHTS] RENDER - hasRun:', hasRun.current, 'playerId:', playerId);  // ← ADD THIS LINE
+
   useEffect(() => {
-    // Prevent double-run in StrictMode
-    if (hasRun.current) return;
+    console.log('[RIGHTS] EFFECT - hasRun:', hasRun.current);
+    if (hasRun.current) {
+      console.log('[RIGHTS] BLOCKED');
+      return;
+    }
     hasRun.current = true;
-    
+    console.log('[RIGHTS] RUNNING');
     runTests();
   }, []);
 
@@ -32,12 +37,13 @@ const RightsServiceTest = ({ userId, onComplete }) => {
   };
 
   const runTests = async () => {
-    setRunning(true);
+      console.log('[RIGHTS] ===== runTests() STARTED =====');
+   setRunning(true);
     setTests([]);
     let passed = 0;
     let failed = 0;
 
-    if (!userId) {
+    if (!playerId) {
       addTest('No user ID', 'error', '❌ User ID required for RightsService tests');
       setRunning(false);
       if (onComplete) onComplete({ total: 1, passed: 0, failed: 1 });
@@ -48,7 +54,7 @@ const RightsServiceTest = ({ userId, onComplete }) => {
       // TEST 1: Get pass balance
       addTest('Get pass balance', 'running', 'Fetching from database...');
       try {
-        const balance = await RightsService.getPassBalance(userId);
+        const balance = await RightsService.getPassBalance(playerId);
         if (typeof balance === 'number' && balance >= 0) {
           addTest('Get pass balance', 'success', `✅ Pass balance: ${balance}`, { balance });
           passed++;
@@ -64,7 +70,7 @@ const RightsServiceTest = ({ userId, onComplete }) => {
       addTest('Check free era', 'running', 'Testing Traditional Battleship...');
       try {
         const eraConfig = { id: 'traditional', passes_required: 0, exclusive: false };
-        const access = await RightsService.checkRights(userId, 'traditional');
+        const access = await RightsService.checkRights(playerId, eraConfig);
         if (access.canPlay && access.method === 'free') {
           addTest('Check free era', 'success', '✅ Free era access works', access);
           passed++;
@@ -80,7 +86,7 @@ const RightsServiceTest = ({ userId, onComplete }) => {
       addTest('Check exclusive era', 'running', 'Testing Pirates (exclusive)...');
       try {
         const eraConfig = { id: 'pirates', passes_required: 2, exclusive: true };
-        const access = await RightsService.checkRights(userId, 'pirates');
+        const access = await RightsService.checkRights(playerId, eraConfig);
         
         if (access.method === 'purchase' && access.canPlay) {
           addTest('Check exclusive era', 'success', '✅ Has purchase (OWNED)', access);
@@ -103,7 +109,7 @@ const RightsServiceTest = ({ userId, onComplete }) => {
       addTest('Badge info (free)', 'running', 'Testing badge display...');
       try {
         const eraConfig = { id: 'traditional', name: 'Traditional', passes_required: 0, exclusive: false };
-        const badge = await RightsService.getEraBadgeInfo(userId, eraConfig);
+        const badge = await RightsService.getEraBadgeInfo(playerId, eraConfig);
         if (badge.badge === 'FREE' && badge.canPlay) {
           addTest('Badge info (free)', 'success', `✅ Badge: "${badge.badge}", Button: "${badge.button}"`, badge);
           passed++;
@@ -125,7 +131,7 @@ const RightsServiceTest = ({ userId, onComplete }) => {
           exclusive: true,
           exclusive_label: 'EXCLUSIVE'
         };
-        const badge = await RightsService.getEraBadgeInfo(userId, eraConfig);
+        const badge = await RightsService.getEraBadgeInfo(playerId, eraConfig);
         if (badge.badge && badge.button) {
           addTest('Badge info (exclusive)', 'success', `✅ Badge: "${badge.badge}", Button: "${badge.button}", Method: ${badge.method}`, badge);
           passed++;
@@ -140,7 +146,7 @@ const RightsServiceTest = ({ userId, onComplete }) => {
       // TEST 6: Test backward compatibility (hasEraAccess)
       addTest('Backward compatibility', 'running', 'Testing hasEraAccess()...');
       try {
-        const hasAccess = await RightsService.hasEraAccess(userId, 'traditional');
+        const hasAccess = await RightsService.hasEraAccess(playerId, 'traditional');
         // Traditional is free, so might not have explicit right
         addTest('Backward compatibility', 'success', `✅ hasEraAccess() still works: ${hasAccess}`);
         passed++;
@@ -152,7 +158,7 @@ const RightsServiceTest = ({ userId, onComplete }) => {
       // TEST 7: Get user rights
       addTest('Get user rights', 'running', 'Fetching all rights...');
       try {
-        const rights = await RightsService.getUserRights(userId);
+        const rights = await RightsService.getUserRights(playerId);
         if (Array.isArray(rights)) {
           addTest('Get user rights', 'success', `✅ Found ${rights.length} rights entries`, { count: rights.length });
           passed++;
@@ -169,32 +175,37 @@ const RightsServiceTest = ({ userId, onComplete }) => {
       failed++;
     }
       
+      // Right before TEST 8
+      console.log('[RIGHTS] About to run TEST 8: Credit & consume');
       // TEST 8: Credit and consume rights (full cycle)
       addTest('Credit & consume cycle', 'running', 'Testing full pass lifecycle...');
       try {
         // Get initial balance
-        const initialBalance = await RightsService.getPassBalance(userId);
-        
+        const initialBalance = await RightsService.getPassBalance(playerId);
+          console.log('[RIGHTS] TEST 8: Initial balance:', initialBalance);
+
         // Credit 1 pass for testing
-        await RightsService.creditPasses(userId, 1, 'admin', { test: true });
-        
+          console.log('[RIGHTS] TEST 8: About to credit 1 pass');
+       await RightsService.creditPasses(playerId, 1, 'admin', { test: true });
+          console.log('[RIGHTS] TEST 8: Credited 1 pass');
         // Verify balance increased
-        const afterCredit = await RightsService.getPassBalance(userId);
+        const afterCredit = await RightsService.getPassBalance(playerId);
         if (afterCredit !== initialBalance + 1) {
           throw new Error(`Expected ${initialBalance + 1} passes, got ${afterCredit}`);
         }
         
         // Check rights for Midway (requires 1 pass)
-        const access = await RightsService.checkRights(userId, 'midway');
+          const eraConfig = { id: 'midway', passes_required: 1, exclusive: false };
+        const access = await RightsService.checkRights(playerId, eraConfig);
         if (!access.canPlay || access.method !== 'passes') {
           throw new Error(`Cannot play Midway with passes: ${access.method}`);
         }
         
         // Consume the right
-        const consumeResult = await RightsService.consumeRights(userId, 'midway');
+        const consumeResult = await RightsService.consumeRights(playerId, eraConfig);
         
         // Verify balance returned to initial
-        const finalBalance = await RightsService.getPassBalance(userId);
+        const finalBalance = await RightsService.getPassBalance(playerId);
         if (finalBalance !== initialBalance) {
           throw new Error(`Expected ${initialBalance} passes, got ${finalBalance}`);
         }
@@ -209,7 +220,8 @@ const RightsServiceTest = ({ userId, onComplete }) => {
       }
 
     setRunning(false);
-    
+      console.log('[RightsTest] ===== runTests() COMPLETED =====');
+
     if (onComplete) {
       onComplete({
         total: passed + failed,

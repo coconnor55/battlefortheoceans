@@ -19,18 +19,23 @@
 import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 import stripeService from '../services/StripeService';
+import Player from '../classes/Player';
 
 const version = 'v0.4.4';
 // Detect if we're in production (battlefortheoceans.com) or local development
+
 const isProduction = window.location.hostname === 'battlefortheoceans.com';
 const gameCDN = process.env.REACT_APP_GAME_CDN || '';
+const playerId = coreEngine.playerId;
+const playerProfile = coreEngine.playerProfile;
+const eraConfig = coreEngine.selectedEraConfig;
 
 // Load Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
-const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
+const PaymentForm = ({ eraInfo, playerProfile, onSuccess, onError }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -54,8 +59,8 @@ const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
         },
         body: JSON.stringify({
           priceId: eraInfo.promotional.stripe_price_id,
-          userId: userProfile.id,
-          eraId: eraInfo.era
+          playerId: playerProfile?.id,
+          eraId: eraInfo.id
         }),
       });
 
@@ -71,7 +76,7 @@ const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
         payment_method: {
           card: elements.getElement(CardElement),
           billing_details: {
-            email: userProfile.email,
+            email: playerProfile.email,
           },
         }
       });
@@ -126,7 +131,7 @@ const PaymentForm = ({ eraInfo, userProfile, onSuccess, onError }) => {
 };
 
 const PurchasePage = ({ eraId, onComplete, onCancel }) => {
-  const { userProfile, grantEraAccess, redeemVoucher, getEraById, dispatch, events } = useGame();
+  const { grantEraAccess, redeemVoucher, dispatch, events } = useGame();
   const [purchaseMethod, setPurchaseMethod] = useState('stripe');
   const [voucherCode, setVoucherCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -135,19 +140,17 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
   const [eraInfo, setEraInfo] = useState(null);
   const [priceInfo, setPriceInfo] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // Check if user is guest
-  const isGuest = userProfile?.id?.startsWith('guest-');
-  
+    const isGuest = coreEngine.player != null && coreEngine.player.isGuest;
+    
   // v0.4.2: Check if user is admin or tester (can bypass payment)
-  const canBypassPayment = ['admin', 'tester'].includes(userProfile?.role);
+  const canBypassPayment = ['admin', 'tester'].includes(playerProfile?.role);
 
   useEffect(() => {
     console.log('[PAYMENT]', version, 'PurchasePage mounted for era:', eraId);
     console.log('[PAYMENT]', version, 'User is guest:', isGuest);
     console.log('[PAYMENT]', version, 'User can bypass payment:', canBypassPayment);
     fetchEraInfo();
-  }, [eraId]);
+  }, [playerId, eraId]);
 
   const fetchEraInfo = async () => {
     setLoading(true);
@@ -156,8 +159,6 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     try {
       console.log('[PAYMENT]', version, 'Fetching era info');
       
-      const eraConfig = await getEraById(eraId);
-        
       if (!eraConfig) {
         throw new Error(`Era not found: ${eraId}`);
       }
@@ -194,8 +195,8 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     try {
       console.log('[PAYMENT]', version, `Admin/Tester bypass - granting access directly to ${eraId}`);
       
-      const granted = await grantEraAccess(userProfile.id, eraId, {
-        bypass_reason: `${userProfile.role}_testing`,
+      const granted = await grantEraAccess(playerProfile?.id, eraId, {
+        bypass_reason: `${playerProfile.role}_testing`,
         bypass_timestamp: new Date().toISOString()
       });
 
@@ -219,7 +220,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     try {
       console.log('[PAYMENT]', version, 'Granting era access');
       
-      await grantEraAccess(userProfile.id, eraId, {
+      await grantEraAccess(playerProfile?.id, eraId, {
         stripe_payment_intent_id: paymentIntentId
       });
 
@@ -245,7 +246,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
   };
 
   const handleVoucherRedemption = async () => {
-    if (!userProfile) {
+    if (!playerProfile) {
       setError('You must be logged in to redeem a voucher');
       return;
     }
@@ -262,7 +263,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     try {
       console.log('[PAYMENT]', version, 'Redeeming voucher:', voucherCode);
       
-      const result = await redeemVoucher(userProfile.id, voucherCode);
+      const result = await redeemVoucher(playerProfile?.id, voucherCode);
       
       if (result.success) {
         console.log('[PAYMENT]', version, 'Voucher redeemed successfully');
@@ -333,14 +334,14 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
   // Image URL construction
   const backgroundImageUrl = eraInfo.promotional?.background_image
     ? isProduction
-      ? `${gameCDN}/assets/eras/${eraInfo.era}/${eraInfo.promotional.background_image}`
-      : `/assets/eras/${eraInfo.era}/${eraInfo.promotional.background_image}`
+      ? `${gameCDN}/assets/eras/${eraInfo.id}/${eraInfo.promotional.background_image}`
+      : `/assets/eras/${eraInfo.id}/${eraInfo.promotional.background_image}`
     : null;
 
   const promotionalImageUrl = eraInfo.promotional?.promotional_image
     ? isProduction
-      ? `${gameCDN}/assets/eras/${eraInfo.era}/${eraInfo.promotional.promotional_image}`
-      : `/assets/eras/${eraInfo.era}/${eraInfo.promotional.promotional_image}`
+      ? `${gameCDN}/assets/eras/${eraInfo.id}/${eraInfo.promotional.promotional_image}`
+      : `/assets/eras/${eraInfo.id}/${eraInfo.promotional.promotional_image}`
     : null;
 
   return (
@@ -390,7 +391,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
           <div className="info-card info-card--center mb-lg">
             <h3>Dev/Test Access</h3>
             <p>
-              As a {userProfile.role}, you can grant yourself access to this era for testing without payment.
+              As a {playerProfile.role}, you can grant yourself access to this era for testing without payment.
             </p>
             <button
               onClick={handleDirectAccessGrant}
@@ -464,7 +465,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
             <Elements stripe={stripePromise}>
               <PaymentForm
                 eraInfo={eraInfo}
-                userProfile={userProfile}
+                playerProfile={playerProfile}
                 onSuccess={handleStripeSuccess}
                 onError={handleStripeError}
               />
@@ -482,7 +483,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
             <div className="form-group">
               <input
                 type="text"
-                placeholder={`Enter voucher code (e.g., ${eraInfo.era || 'midway'}-abc123)`}
+                placeholder={`Enter voucher code (e.g., ${eraInfo.id || 'midway'}-abc123)`}
                 value={voucherCode}
                 onChange={(e) => setVoucherCode(e.target.value)}
                 disabled={isProcessing}

@@ -11,6 +11,9 @@
     "preparing": "Preparing game...",
     "game_starting": "Game starting..."
   },
+  "referral_passes": 1,
+  "referral_signup": 10,
+  "signup_bonus_passes": 10,
   "defense_modifiers": {
     "Carrier": 1.0,
     "Battleship": 0.67,

@@ -361,11 +361,11 @@ class HitOverlayRenderer {
 
     drawHitOverlay(ctx, gameInstance, gameState, cellSize, labelSize, offsetX, offsetY, viewMode = 'blended', starShellIllumination = null) {
         
-    if (!gameState?.userId || !gameInstance) {
+    if (!gameState?.playerId || !gameInstance) {
       return;
     }
 
-    const playerId = gameState.userId;
+    const playerId = gameState.playerId;
     const humanPlayer = gameInstance.players.find(p => p.id === playerId);
 
     if (!humanPlayer) {

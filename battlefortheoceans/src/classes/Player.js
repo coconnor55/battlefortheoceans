@@ -3,10 +3,10 @@
 
 const version = "v0.9.5";
 // v0.9.5: Added totalDamage tracking for achievements
-// v0.9.4: Added userProfile parameter to constructor
-//         - Player now holds reference to lifetime statistics (userProfile)
+// v0.9.4: Added playerProfile parameter to constructor
+//         - Player now holds reference to lifetime statistics (playerProfile)
 //         - Per-game stats (hits, misses, etc.) still reset each game
-//         - userProfile contains: total_games, total_wins, total_score, best_accuracy, etc.
+//         - playerProfile contains: total_games, total_wins, total_score, best_accuracy, etc.
 //         - Simplifies architecture: Player is self-contained with both per-game and lifetime stats
 // v0.9.3: Fixed autoPlaceShips to use all four orientations (0/90/180/270)
 //         - Was only using 0° and 90°
@@ -38,7 +38,7 @@ const version = "v0.9.5";
 class Player {
     // A player in the game can be human or AI, with a game handle (unique) and a player id. Players own fleets.  Initially, the game is a human vs. AI.  [FUTURE] Two people will be able to play the game against each other, but this requires shared game play through the database, which has not been added.
     
-  constructor(id, name, playerType = 'human', difficulty = 1.0, userProfile = null) {
+  constructor(id, name, playerType = 'human', difficulty = 1.0, playerProfile = null) {
     // Core identity
     this.id = id;
     this.name = name;
@@ -50,12 +50,12 @@ class Player {
     // 0.8 = Easy (less score), 1.0 = Medium (baseline), 1.2-1.5 = Hard (bonus score)
     this.difficulty = difficulty;
     
-    // USER PROFILE (v0.9.4)
-    // Lifetime statistics for this player (from database)
-    // Contains: id, game_name, total_games, total_wins, total_score, best_accuracy, total_ships_sunk, total_damage
-    // Only used for human players (null for AI players)
-    // Per-game stats (hits, misses, etc.) are separate and reset each game
-    this.userProfile = userProfile;
+//    // USER PROFILE (v0.9.4)
+//    // Lifetime statistics for this player (from database)
+//    // Contains: id, game_name, total_games, total_wins, total_score, best_accuracy, total_ships_sunk, total_damage
+//    // Only used for human players (null for AI players)
+//    // Per-game stats (hits, misses, etc.) are separate and reset each game
+//    this.playerProfile = playerProfile;
     
     // BOARD REFERENCE (v0.6.0 - Phase 1 Refactor)
     // Reference to shared Board instance for coordinate validation
@@ -91,7 +91,7 @@ class Player {
     // Set by Game.receiveAttack() when result is 'miss' or 'destroyed'
     this.dontShoot = new Set(); // "row,col" of cells this player cannot target again
     
-    console.log(`[PLAYER] ${name} created (${playerType}, difficulty: ${difficulty})${userProfile ? ' with profile' : ''}`);
+    console.log(`[PLAYER] ${name} created (${playerType}, difficulty: ${difficulty})${playerProfile ? ' with profile' : ''}`);
   }
 
   /**
@@ -186,6 +186,8 @@ class Player {
             case 270: // DOWN: stern at (row, col), bow extends down
               cellRow = startCell.row + i;
               break;
+            default:
+                break;
           }
           
           cells.push({ row: cellRow, col: cellCol });
@@ -401,7 +403,7 @@ class Player {
 
   /**
    * Reset player statistics for new game
-   * v0.9.4: Does NOT reset userProfile (lifetime stats preserved)
+   * v0.9.4: Does NOT reset playerProfile (lifetime stats preserved)
    * v0.9.0: Also clears dontShoot Set
    */
   reset() {
@@ -414,9 +416,9 @@ class Player {
       this.totalDamage = 0;
     this.shipPlacements.clear();
     this.dontShoot.clear();
-    // Note: fleet, board, and userProfile references are NOT cleared
+    // Note: fleet, board, and playerProfile references are NOT cleared
     // - fleet and board are set by Game
-    // - userProfile contains lifetime stats and should persist
+    // - playerProfile contains lifetime stats and should persist
     console.log(`[PLAYER] ${this.name} reset for new game`);
   }
 
@@ -442,31 +444,46 @@ class Player {
     };
   }
     
+    // helper methods
+    
+    get isGuest() {
+        return this.id != null && this.id.startsWith('guest-');
+    }
+    
+    get isAi() {
+        return this.id != null && this.id.startsWith('ai-');
+    }
+    
+    get isHuman() {
+        return this.id != null && !this.isGuest && !this.isAi;
+    }
+    
+    
     /**
      * Check if user ID represents a guest user
-     * @param {string} userId - User ID to check
+     * @param {string} playerId - User ID to check
      * @returns {boolean} True if guest user
      */
-    static isGuest(userId) {
-      return !userId || userId.startsWith('guest-');
+    static isGuest(playerId) {
+      return playerId && playerId.startsWith('guest-');
     }
 
     /**
      * Check if user ID represents an AI player
-     * @param {string} userId - User ID to check
+     * @param {string} playerId - User ID to check
      * @returns {boolean} True if AI player
      */
-    static isAI(userId) {
-      return userId && userId.startsWith('ai-');
+    static isAi(playerId) {
+      return playerId && playerId.startsWith('ai-');
     }
 
     /**
      * Check if user ID represents a human player (authenticated)
-     * @param {string} userId - User ID to check
+     * @param {string} playerId - User ID to check
      * @returns {boolean} True if human player
      */
-    static isHuman(userId) {
-      return userId && !Player.isGuest(userId) && !Player.isAI(userId);
+    static isHuman(playerId) {
+      return playerId && !Player.isGuest(playerId) && !Player.isAi(playerId);
     }
 }
 

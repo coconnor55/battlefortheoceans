@@ -17,11 +17,11 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import { supabase } from '../utils/supabaseClient';
 import HumanPlayer from '../classes/HumanPlayer';
-
+import VoucherService from '../services/VoucherService';  // ✅ ADD THIS LINE
 const version = 'v0.1.7';
 
 const ProfileCreationDialog = ({ userData, onComplete }) => {
-  const { createUserProfile, getUserProfile } = useGame();
+  const { createPlayerProfile, getPlayerProfile } = useGame();
   
   const [gameName, setGameName] = useState('');
   const [existingProfile, setExistingProfile] = useState(null);
@@ -35,7 +35,7 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
     const checkExistingProfile = async () => {
       try {
         console.log(version, 'Checking for existing profile for user:', userData.id);
-        const profile = await getUserProfile(userData.id);
+        const profile = await getPlayerProfile(userData.id);
         
         if (profile && profile.game_name) {
           console.log(version, 'DEFENSIVE: User already has game_name:', profile.game_name);
@@ -52,7 +52,7 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
     };
     
     checkExistingProfile();
-  }, [userData.id, getUserProfile]);
+  }, [userData.id, getPlayerProfile]);
 
   // Real-time validation
   const validateGameName = (name) => {
@@ -92,10 +92,10 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
   };
 
   // Check if user exists in auth.users
-  const checkUserExists = async (userId) => {
+  const checkUserExists = async (playerId) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      return user && user.id === userId;
+      return user && user.id === playerId;
     } catch (err) {
       console.error(version, 'Error checking user existence:', err);
       return false;
@@ -103,7 +103,7 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
   };
 
   // Retry profile creation with exponential backoff
-  const createProfileWithRetry = async (userId, gameName, maxAttempts = 5) => {
+  const createProfileWithRetry = async (playerId, gameName, maxAttempts = 5) => {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       console.log(version, `Profile creation attempt ${attempt}/${maxAttempts}`);
       
@@ -120,7 +120,7 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
       }
       
       // Check if user exists in auth.users
-      const userExists = await checkUserExists(userId);
+      const userExists = await checkUserExists(playerId);
       if (!userExists) {
         console.log(version, `User not yet in auth.users, attempt ${attempt}`);
         if (attempt === maxAttempts) {
@@ -132,7 +132,7 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
       // Try to create profile
       try {
         console.log(version, 'User exists in auth.users, creating profile...');
-        const profile = await createUserProfile(userId, gameName);
+        const profile = await createPlayerProfile(playerId, gameName);
         console.log(version, 'Profile created successfully:', profile.game_name);
         return profile;
       } catch (err) {
@@ -182,7 +182,17 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
       
       if (profile) {
         console.log(version, 'Profile creation completed successfully');
-        setStatusMessage('Success! Creating player...');
+          // ✅ ADD THESE 8 LINES HERE:
+          // Check for referral reward
+          const rewardResult = await VoucherService.processReferralReward(
+            userData.email,
+            userData.id
+          );
+          if (rewardResult.rewarded) {
+            console.log(version, 'Referrer rewarded:', rewardResult.referrerId);
+          }
+          
+          setStatusMessage('Success! Creating player...');
         
         // Create HumanPlayer with profile
         const player = new HumanPlayer(

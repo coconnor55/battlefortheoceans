@@ -18,15 +18,15 @@ import VideoTest from './VideoTest';
 import UIComponentsTest from './UIComponentsTest';
 import AchievementTest from './AchievementTest';
 import GameStatsTest from './GameStatsTest';
-import UserProfileServiceTest from './UserProfileServiceTest';
+import PlayerProfileServiceTest from './PlayerProfileServiceTest';
 import './TestSuite.css';
 
 const version = 'v0.1.6';
 // Test user configuration
 
 const TestSuite = ({ onClose }) => {
-  const { userProfile } = useGame();
-    const userId = userProfile?.id;
+  const { playerProfile } = useGame();
+    const playerId = playerProfile?.id;
     const [activeTest, setActiveTest] = useState(null);
     const [expandedTests, setExpandedTests] = useState(new Set());
     const [completedTests, setCompletedTests] = useState(new Set());
@@ -39,11 +39,11 @@ const TestSuite = ({ onClose }) => {
       uiComponents: null,
       achievements: null,
       gameStats: null,
-        userProfile: null  // ← ADD THIS
+        playerProfile: null  // ← ADD THIS
     });
 
     // Admin check - only allow admins to run tests
-    if (userProfile?.role !== 'admin') {
+    if (playerProfile?.role !== 'admin') {
       return (
         <div className="test-suite-overlay">
           <div className="test-suite-container">
@@ -64,7 +64,7 @@ const TestSuite = ({ onClose }) => {
     }
 
 
-    const loggedInUserId = userProfile?.id
+    const loggedInUserId = playerProfile?.id
 
   const tests = [
     {
@@ -103,10 +103,10 @@ const TestSuite = ({ onClose }) => {
       version: 'v0.1.0'
     },
     {
-      id: 'userProfile',
+      id: 'playerProfile',
       name: 'User Profile Service',
       description: 'Profile management and incomplete games tracking',
-      component: UserProfileServiceTest,
+      component: PlayerProfileServiceTest,
       version: 'v0.1.0'
     },
     {
@@ -142,7 +142,13 @@ const TestSuite = ({ onClose }) => {
   };
 
   const runTest = (testId) => {
-    console.log('[TestSuite] Running test:', testId);
+      // Don't re-run if already running or completed
+      if (activeTest === testId || completedTests.has(testId)) {
+        console.log('[TestSuite] Blocked re-run of', testId);
+        return;
+      }
+
+      console.log('[TestSuite] Running test:', testId);
     setActiveTest(testId);
     setExpandedTests(prev => new Set([...prev, testId]));
     setCompletedTests(prev => {
@@ -152,29 +158,30 @@ const TestSuite = ({ onClose }) => {
     });
   };
 
-  const runAllTests = async () => {
-    console.log('[TestSuite] Running all tests');
-    setResults({
-      voucherService: null,
-      rightsService: null,
-      munitions: null,
-      navigation: null,
-      video: null,
-      uiComponents: null,
-      achievements: null,
-      gameStats: null,
-        userProfile: null  // ← ADD THIS
-    });
-    setCompletedTests(new Set());
+    const runAllTests = async () => {
+      console.log('[TestSuite] Running all tests');
+      
+      // Don't reset results or unmount components
+      setExpandedTests(new Set(tests.map(t => t.id)));
+      
+      // Run tests sequentially, waiting for each to complete
+      for (const test of tests) {
+        setActiveTest(test.id);
+        
+        // Wait for the test to actually complete before moving to next
+        await new Promise(resolve => {
+          const checkInterval = setInterval(() => {
+            if (completedTests.has(test.id)) {
+              clearInterval(checkInterval);
+              resolve();
+            }
+          }, 100);
+        });
+      }
+      
+      setActiveTest(null);
+    };
     
-    setExpandedTests(new Set(tests.map(t => t.id)));
-    
-    for (const test of tests) {
-      setActiveTest(test.id);
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-  };
-
   const toggleExpanded = (testId) => {
     setExpandedTests(prev => {
       const newSet = new Set(prev);
@@ -226,8 +233,8 @@ const TestSuite = ({ onClose }) => {
         <div className="test-suite-info">
           <p>Battle for the Oceans - System Tests</p>
           <div className="test-user-info">
-          {userId ? (
-            <p className="test-user-id">Testing as: <code>${userId?.substring(0, 8)}...</code></p>
+          {playerId ? (
+            <p className="test-user-id">Testing as: <code>${playerId?.substring(0, 8)}...</code></p>
           ) : (
             <p className="test-warning">⚠️ Not logged in - tests will be skipped</p>
           )}          </div>
@@ -313,7 +320,7 @@ const TestSuite = ({ onClose }) => {
                   >
                     <test.component
                       key={test.id}
-                      userId={userId}
+                      playerId={playerId}
                       onComplete={(result) => handleTestComplete(test.id, result)}
                     />
                   </div>
