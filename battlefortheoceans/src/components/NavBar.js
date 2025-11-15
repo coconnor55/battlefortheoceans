@@ -84,10 +84,10 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   
 //  log(`DEBUG humanPlayer=${player}, playerId=${playerId}, playerGameName=${playerGameName}, userEmail=${userEmail}, playerProfile=${playerProfile}, `, playerProfile);
   
-  const isGuest = player && playerProfile.isGuest;
-  const isAdmin = player && playerProfile.isAdmin;
-  const isDeveloper = player && playerProfile.isDeveloper;
-  const isTester = player && playerProfile.isTester;
+  const isGuest = !!(player && playerProfile?.isGuest);
+  const isAdmin = !!(player && playerProfile?.isAdmin);
+  const isDeveloper = !!(player && playerProfile?.isDeveloper);
+  const isTester = !!(player && playerProfile?.isTester);
   const role = playerProfile?.role;
   
 //  log(`DEBUG role=${role}, isGuest=${isGuest}, isAdmin=${isAdmin}, isDeveloper=${isDeveloper}, isTester=${isTester}`);
