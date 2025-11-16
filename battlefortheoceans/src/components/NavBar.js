@@ -1,9 +1,9 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
 // v0.2.18: Pass location to App for help positioning
-// v0.2.17: Added *Add 10 Passes menu item for admins/developers/testers
+// v0.2.17: Added *Add 3 Passes menu item for admins/developers/testers
 //          - Menu item between Help and Test
-//          - Creates 10 admin passes via RightsService
+//          - Creates 3 admin passes via RightsService
 //          - Refreshes pass balance after creation
 //          - Uses Coins icon from lucide-react
 //          - Only visible to admins, developers, and testers
@@ -210,7 +210,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   
   const handleAddPasses = async () => {
     method = 'handleAddPasses';
-    log('User clicked Add 10 Passes');
+    log('User clicked Add 3 Passes');
     setShowUserMenu(false);
     
     if (!playerId) {
@@ -220,14 +220,14 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
     }
     
     try {
-      // Create 10 admin passes
-        await RightsService.creditPasses(playerId, 10, 'admin', {});
-      log('10 passes created successfully');
+      // Create 3 admin passes
+        await RightsService.creditPasses(playerId, 3, 'admin', {});
+      log('3 passes created successfully');
       
       // Refresh pass balance
       await fetchPassBalance();
       
-      alert('✓ 10 passes added successfully!');
+      alert('✓ 3 passes added successfully!');
     } catch (error) {
       logerror('Failed to add passes:', error);
       alert('✗ Failed to add passes');
@@ -388,7 +388,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                         onClick={handleAddPasses}
                       >
                         <Coins size={20} className="action-menu__emoji" />
-                        <span className="action-menu__label">*Add 10 Passes</span>
+                        <span className="action-menu__label">*Add 3 Passes</span>
                       </div>
                     )}
                     
