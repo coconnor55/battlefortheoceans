@@ -1,5 +1,9 @@
 // src/hooks/useGameState.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.9: Graceful loading state + readiness flag
+//          - Removed fatal dependency throw in favor of readiness checks
+//          - Uses optional chaining for profile flags when core data still loading
+//          - Exposes isDataReady for components to gate rendering
 // v0.3.8: Clean separation - coreEngine for identity, uiState for computed values only
 //          - Get playerProfile from coreEngine.playerProfile (not uiState passthrough)
 //          - Get humanPlayer from coreEngine.player (not uiState passthrough)
@@ -29,7 +33,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { coreEngine } from '../context/GameContext';
 
-const version = "v0.3.8";
+const version = "v0.3.9";
 const tag = "GAME";
 const module = "useGameState";
 let method = "";
@@ -67,9 +71,9 @@ const useGameState = () => {
     const playerRole = coreEngine.playerRole;
     const playerGameName = coreEngine.playerGameName;
     const isGuest = player != null && player.isGuest;
-    const isAdmin = player != null && playerProfile.isAdmin;
-    const isDeveloper = player != null && playerProfile.isDeveloper;
-    const isTester = player != null && playerProfile.isTester;
+      const isAdmin = !!playerProfile?.isAdmin;
+      const isDeveloper = !!playerProfile?.isDeveloper;
+      const isTester = !!playerProfile?.isTester;
     const selectedOpponent = coreEngine.selectedOpponents[0];
 
     const selectedGameMode = coreEngine.selectedGameMode;
@@ -78,13 +82,13 @@ const useGameState = () => {
 
     // stop game if key data is missing (selectedAlliance is allowed to be null)
     const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
-    const missing = Object.entries(required)
-        .filter(([key, value]) => !value)
-        .map(([key, value]) => `${key}=${value}`);
-    if (missing.length > 0) {
-        logerror(`key data missing: ${missing.join(', ')}`, required);
-        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
-    }
+      const missing = Object.entries(required)
+          .filter(([key, value]) => !value)
+          .map(([key, value]) => `${key}=${value}`);
+      const hasMissingData = missing.length > 0;
+      if (hasMissingData) {
+          logwarn(`Game data still initializing: ${missing.join(', ')}`);
+      }
 
     const selectedEraConfig = coreEngine.selectedEraConfig;
 
@@ -333,8 +337,9 @@ const useGameState = () => {
     selectedOpponent,
     
     // Computed accuracy - FIXED: Use correct nested properties
-    accuracy: playerStats.player?.shots > 0 ?
-      (playerStats.player.hits / playerStats.player.shots * 100).toFixed(1) : 0
+      accuracy: playerStats.player?.shots > 0 ?
+        (playerStats.player.hits / playerStats.player.shots * 100).toFixed(1) : 0,
+      isDataReady: !hasMissingData
   };
 };
 
