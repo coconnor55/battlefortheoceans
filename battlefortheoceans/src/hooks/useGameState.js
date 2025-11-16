@@ -1,5 +1,8 @@
 // src/hooks/useGameState.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.0: CoreEngine subscription for synchronous store updates
+//          - Added coreEngine.subscribe() integration that bumps render trigger on mutations
+//          - Ensures components re-render when CoreEngine advances turns or updates player state
 // v0.3.9: Graceful loading state + readiness flag
 //          - Removed fatal dependency throw in favor of readiness checks
 //          - Uses optional chaining for profile flags when core data still loading
@@ -33,7 +36,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { coreEngine } from '../context/GameContext';
 
-const version = "v0.3.9";
+const version = "v0.4.0";
 const tag = "GAME";
 const module = "useGameState";
 let method = "";
@@ -100,9 +103,24 @@ const useGameState = () => {
     turn: ''
   });
   
-  // Force re-render trigger for observer pattern
+  // Force re-render trigger for observer pattern (bumped by coreEngine.subscribe)
   const [, setRenderTrigger] = useState(0);
   const forceUpdate = useCallback(() => setRenderTrigger(prev => prev + 1), []);
+
+  // Subscribe to CoreEngine updates so React sees synchronous store changes
+  useEffect(() => {
+    console.log('[HOOK]', version, 'Subscribing to CoreEngine updates');
+    const unsubscribe = coreEngine.subscribe(() => {
+      forceUpdate();
+    });
+
+    return () => {
+      console.log('[HOOK]', version, 'Unsubscribing from CoreEngine updates');
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [forceUpdate]);
 
   // Subscribe to Message system updates
   useEffect(() => {
