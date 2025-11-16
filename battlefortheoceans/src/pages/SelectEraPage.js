@@ -69,6 +69,7 @@ const SelectEraPage = () => {
     const selectedEraId = coreEngine.selectedEraId;
     const selectedAlliance = coreEngine.selectedAlliance;
     const selectedOpponents = coreEngine.selectedOpponents;
+    const selectedEraConfig = coreEngine.selectedEraConfig;
 
     // derived data
     const playerId = coreEngine.playerId;
@@ -98,9 +99,34 @@ const SelectEraPage = () => {
     
     // Pass System state (via custom hook)
     const {
+        passBalance,
         eraBadges,
         refresh: refreshBadges
     } = useEraBadges(playerId);
+    
+    const selectedEraBadgeInfo = selectedEraConfig ? eraBadges.get(selectedEraConfig.id) : null;
+    const isPrivilegedRole = ['admin', 'developer', 'tester'].includes(playerRole);
+    const selectedEraCanPlay = (() => {
+        if (!selectedEraConfig) return false;
+        
+        const passesRequired = selectedEraConfig.passes_required || 0;
+        const isExclusiveEra = selectedEraConfig.exclusive === true;
+        const isDevelopmentEra = selectedEraConfig.status === 'development';
+        const devGateSatisfied = !isDevelopmentEra || isPrivilegedRole;
+        
+        const passesAvailable = selectedEraBadgeInfo?.method === 'purchase'
+            ? true
+            : passesRequired === 0
+                ? true
+                : passBalance >= passesRequired;
+        
+        const hasVoucherAccess = ['voucher', 'purchase'].includes(selectedEraBadgeInfo?.method);
+        
+        return devGateSatisfied && (
+            (!isExclusiveEra && passesAvailable) ||
+            (isExclusiveEra && hasVoucherAccess)
+        );
+    })();
     
     // Rights and GetAccessPage state
     const [showGetAccessPage, setShowGetAccessPage] = useState(false);
@@ -237,8 +263,8 @@ const SelectEraPage = () => {
     }, [eraBadges]);
     
     const playButton = () => {
-        const name = coreEngine.selectedEraConfig?.name
-        const passes = coreEngine.selectedEraConfig?.passes_required || 0
+        const name = selectedEraConfig?.name
+        const passes = selectedEraConfig?.passes_required || 0
         if (passes === 0) return name;
         if (passes === 1) return `${name} - 1 Pass`;
         return `${name} - ${passes} Passes`;
@@ -286,25 +312,29 @@ const SelectEraPage = () => {
                 </div>
               );
             })}
-          </div>
+            </div>
 
-          {/* Action Section - Always Visible */}
-          <div className="action-section">
-            {!coreEngine.selectedEraId ? (
-              <p className="text-dim text-center">
-                Select an era above to continue
-              </p>
-            ) : (
-              <div className="card-footer">
-                <button
-                  className="btn btn--primary btn--lg"
-                  onClick={handlePlayEra}
-                >
-                 Play {playButton()}
-                 </button>
-              </div>
-            )}
-          </div>
+            {/* Action Section - Always Visible */}
+            <div className="action-section">
+              {!selectedEraId || !selectedEraConfig ? (
+                <p className="text-dim text-center">
+                  Select an era above to continue
+                </p>
+              ) : !selectedEraCanPlay ? (
+                <p className="text-dim text-center">
+                  Access required to play {selectedEraConfig.name}
+                </p>
+              ) : (
+                <div className="card-footer">
+                  <button
+                    className="btn btn--primary btn--lg"
+                    onClick={handlePlayEra}
+                  >
+                    Play {playButton()}
+                  </button>
+                </div>
+              )}
+            </div>
         </div>
       </div>
 
