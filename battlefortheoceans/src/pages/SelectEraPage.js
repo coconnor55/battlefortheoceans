@@ -99,14 +99,34 @@ const SelectEraPage = () => {
     
     // Pass System state (via custom hook)
     const {
+        passBalance,
         eraBadges,
         refresh: refreshBadges
     } = useEraBadges(playerId);
     
     const selectedEraBadgeInfo = selectedEraConfig ? eraBadges.get(selectedEraConfig.id) : null;
-    const selectedEraCanPlay = selectedEraConfig?.status === 'development'
-        ? true
-        : Boolean(selectedEraBadgeInfo?.canPlay);
+    const isPrivilegedRole = ['admin', 'developer', 'tester'].includes(playerRole);
+    const selectedEraCanPlay = (() => {
+        if (!selectedEraConfig) return false;
+        
+        const passesRequired = selectedEraConfig.passes_required || 0;
+        const isExclusiveEra = selectedEraConfig.exclusive === true;
+        const isDevelopmentEra = selectedEraConfig.status === 'development';
+        const devGateSatisfied = !isDevelopmentEra || isPrivilegedRole;
+        
+        const passesAvailable = selectedEraBadgeInfo?.method === 'purchase'
+            ? true
+            : passesRequired === 0
+                ? true
+                : passBalance >= passesRequired;
+        
+        const hasVoucherAccess = ['voucher', 'purchase'].includes(selectedEraBadgeInfo?.method);
+        
+        return devGateSatisfied && (
+            (!isExclusiveEra && passesAvailable) ||
+            (isExclusiveEra && hasVoucherAccess)
+        );
+    })();
     
     // Rights and GetAccessPage state
     const [showGetAccessPage, setShowGetAccessPage] = useState(false);
