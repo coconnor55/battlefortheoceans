@@ -1,5 +1,8 @@
 // src/pages/PlacementPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.18: Graceful loading state while CoreEngine finishes initialization
+//          - Replaced fatal dependency throw with loading UI
+//          - Prevents placement page crash during CoreEngine warmup
 // v0.4.17: Use coreEngine singleton directly - remove useGame() passthrough
 //          - Get gameInstance, board from coreEngine (not context)
 //          - Call coreEngine.registerShipPlacement() directly
@@ -26,7 +29,7 @@ import { coreEngine, useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.4.17';
+const version = 'v0.4.18';
 const tag = "PLACEMENT";
 const module = "PlacementPage";
 let method = "";
@@ -64,26 +67,28 @@ const PlacementPage = () => {
     const playerRole = coreEngine.playerRole;
     const playerGameName = coreEngine.playerGameName;
     const isGuest = player != null && player.isGuest;
-    const isAdmin = player != null && playerProfile.isAdmin;
-    const isDeveloper = player != null && playerProfile.isDeveloper;
-    const isTester = player != null && playerProfile.isTester;
+      const isAdmin = !!playerProfile?.isAdmin;
+      const isDeveloper = !!playerProfile?.isDeveloper;
+      const isTester = !!playerProfile?.isTester;
     const selectedOpponent = coreEngine.selectedOpponents[0];
 
     const selectedGameMode = coreEngine.selectedGameMode;
     const gameInstance = coreEngine.gameInstance;
     const board = coreEngine.board;
 
-    // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
-    const missing = Object.entries(required)
-        .filter(([key, value]) => !value)
-        .map(([key, value]) => `${key}=${value}`);
-    if (missing.length > 0) {
-        logerror(`key data missing: ${missing.join(', ')}`, required);
-        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
-    }
+      // stop game if key data is missing (selectedAlliance is allowed to be null)
+      const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
+      const missing = Object.entries(required)
+          .filter(([key, value]) => !value)
+          .map(([key, value]) => `${key}=${value}`);
+      const hasMissingData = missing.length > 0;
+      if (hasMissingData) {
+          logwarn(`Waiting on placement data: ${missing.join(', ')}`);
+      }
 
-    log('PlacementPage: passed CoreEngine data checks');
+    if (!hasMissingData) {
+      log('PlacementPage: passed CoreEngine data checks');
+    }
 
     const selectedEraConfig = coreEngine.selectedEraConfig;
 
@@ -284,11 +289,12 @@ const PlacementPage = () => {
     );
   }
 
-  if (!board || !gameInstance || !player) {
+    if (hasMissingData || !board || !gameInstance || !player) {
     const waitingFor = [];
-    if (!board) waitingFor.push('board');
-    if (!gameInstance) waitingFor.push('game instance');
-    if (!player) waitingFor.push('human player');
+      if (hasMissingData) waitingFor.push('core data');
+      if (!board) waitingFor.push('board');
+      if (!gameInstance) waitingFor.push('game instance');
+      if (!player) waitingFor.push('human player');
 
     log('Showing loading state, waiting for: ' + waitingFor.join(', '));
     
@@ -297,8 +303,8 @@ const PlacementPage = () => {
         <div className="content-pane content-pane--narrow">
           <div className="loading">
             <div className="spinner spinner--lg"></div>
-            <h2>Setting Up</h2>
-            <p>Preparing your ships and battle board...</p>
+              <h2>{selectedEraConfig?.name || 'Setting Up'}</h2>
+              <p>Preparing your ships and battle board...</p>
           </div>
         </div>
       </div>

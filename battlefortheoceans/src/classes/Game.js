@@ -9,8 +9,12 @@ import CombatResolver from './CombatResolver.js';
 import SoundManager from '../utils/SoundManager.js';
 import GameLifecycleManager from './GameLifecycleManager.js';
 
-const version = "v0.8.8";
+const version = "v0.8.9";
 /**
+ * v0.8.9: Added animation speed factor safety
+ * - animationSettings now default speedFactor to 1.0
+ * - executeActionWithTiming guards against undefined/invalid speed factors
+ * - updateAnimationSettings normalizes speedFactor overrides
  * v0.8.8: Renamed resources to munitions for better semantics
  * - Renamed this.resources → this.munitions (star shells, scatter shot are munitions, not resources)
  * - Renamed initializeResources() → initializeMunitions()
@@ -101,7 +105,8 @@ class Game {
       resultAnimation: 300,
       soundDelay: 200,
       fireAnimationClearDelay: 3000, // Wait for fire to clear
-      gameOverDelay: 2000 // After snapshot, shorter delay
+      gameOverDelay: 2000, // After snapshot, shorter delay
+      speedFactor: 1
     };
     
     this.gameLog = [];
@@ -174,18 +179,21 @@ class Game {
     setTimeout(() => this.processNextAction(), 0);
   }
 
-  async executeActionWithTiming(action) {
+    async executeActionWithTiming(action) {
     const { type, player, target } = action;
+      const speedFactor = Number.isFinite(this.animationSettings.speedFactor) && this.animationSettings.speedFactor > 0
+        ? this.animationSettings.speedFactor
+        : 1;
     
     if (type === 'ai_attack') {
       this.playSound('cannonBlast');
       this.notifyOpponentShot(target.row, target.col, 'firing');
-      await this.delay(this.animationSettings.shotAnimation * this.animationSettings.speedFactor);
+        await this.delay(this.animationSettings.shotAnimation * speedFactor);
       
       const result = this.receiveAttack(target.row, target.col, player);
       
       this.notifyOpponentShot(target.row, target.col, result.result);
-      await this.delay(this.animationSettings.resultAnimation * this.animationSettings.speedFactor);
+        await this.delay(this.animationSettings.resultAnimation * speedFactor);
       
       if (player.processAttackResult) {
         player.processAttackResult(target, result, this);
@@ -199,8 +207,14 @@ class Game {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  updateAnimationSettings(settings) {
-    this.animationSettings = { ...this.animationSettings, ...settings };
+    updateAnimationSettings(settings) {
+      const normalizedSettings = { ...settings };
+      if (Object.prototype.hasOwnProperty.call(normalizedSettings, 'speedFactor')) {
+        const parsed = Number(normalizedSettings.speedFactor);
+        normalizedSettings.speedFactor =
+          Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+      }
+      this.animationSettings = { ...this.animationSettings, ...normalizedSettings };
   }
 
   setUIUpdateCallback(callback) {

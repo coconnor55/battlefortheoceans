@@ -1,5 +1,8 @@
 // src/pages/PlayingPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.7: Graceful loading state while CoreEngine finishes initialization
+//         - Replaced fatal dependency throw with loading UI
+//         - Prevents crash while synchronous engine hydrates data
 // v0.5.6: Complete munitions refactoring - remove backward compatibility wrapper
 //         - Changed onStarShellFired to use fireMunition('starShell', row, col)
 //         - Removed dependency on handleStarShellFired
@@ -39,7 +42,7 @@ import CanvasBoard from '../components/CanvasBoard';
 import FleetStatusSidebar from '../components/FleetStatusSidebar';
 import VideoPopup from '../components/VideoPopup';
 
-const version = 'v0.5.6';
+const version = 'v0.5.7';
 const tag = "PLAYING";
 const module = "PlayingPage";
 let method = "";
@@ -77,24 +80,24 @@ const PlayingPage = () => {
     const playerRole = coreEngine.playerRole;
     const playerGameName = coreEngine.playerGameName;
     const isGuest = player != null && player.isGuest;
-    const isAdmin = player != null && playerProfile.isAdmin;
-    const isDeveloper = player != null && playerProfile.isDeveloper;
-    const isTester = player != null && playerProfile.isTester;
+      const isAdmin = !!playerProfile?.isAdmin;
+      const isDeveloper = !!playerProfile?.isDeveloper;
+      const isTester = !!playerProfile?.isTester;
     const selectedOpponent = coreEngine.selectedOpponents[0];
 
-    const selectedGameMode = coreEngine.selectedGameMode;
-    const gameInstance = coreEngine.gameInstance;
-    const board = coreEngine.board;
+      const selectedGameMode = coreEngine.selectedGameMode;
+      const gameInstance = coreEngine.gameInstance;
+      const board = coreEngine.board;
 
-    // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
-    const missing = Object.entries(required)
-        .filter(([key, value]) => !value)
-        .map(([key, value]) => `${key}=${value}`);
-    if (missing.length > 0) {
-        logerror(`key data missing: ${missing.join(', ')}`, required);
-        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
-    }
+      // stop game if key data is missing (selectedAlliance is allowed to be null)
+      const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
+      const missing = Object.entries(required)
+          .filter(([key, value]) => !value)
+          .map(([key, value]) => `${key}=${value}`);
+      const hasMissingData = missing.length > 0;
+      if (hasMissingData) {
+          logwarn(`Waiting on game data: ${missing.join(', ')}`);
+      }
 
     const selectedEraConfig = coreEngine.selectedEraConfig;
     
@@ -237,9 +240,23 @@ const PlayingPage = () => {
     playerId: player?.id
   }), [isPlayerTurn, currentPlayer, battleMessage, uiMessage, playerHits, opponentHits, isGameActive, gamePhase, winner, player?.id]);
 
-  if (!playerProfile) {
+    if (!playerProfile) {
     return null;
   }
+
+    if (hasMissingData) {
+      return (
+        <div className="container flex flex-column flex-center">
+          <div className="content-pane content-pane--narrow">
+            <div className="loading">
+              <div className="spinner spinner--lg"></div>
+              <h2>{selectedEraConfig?.name || 'Battle for the Oceans'}</h2>
+              <p>Initializing battle data...</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
   if (!gameInstance || !gameBoard) {
     return (
