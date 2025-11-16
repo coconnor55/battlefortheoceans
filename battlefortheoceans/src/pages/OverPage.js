@@ -154,34 +154,36 @@ const OverPage = () => {
     const [purchaseEraId, setPurchaseEraId] = useState(null);
 
   // Check for missing key data and handle snapshot fallback
-  useEffect(() => {
-        
-        // Check if we have a saved snapshot to show
-        const snapshotData = sessionStorage.getItem(SNAPSHOT_KEY);
-        
-        if (snapshotData) {
-          try {
-            const snapshot = JSON.parse(snapshotData);
-            log('Session expired - showing saved snapshot');
-            setShowSnapshot(true);
-            // Don't throw error - we'll show the snapshot instead
-            return;
-          } catch (error) {
-            logerror('Failed to parse snapshot data:', error);
-          }
-        }
-        
-        // No snapshot available - redirect based on what data we have
-        if (gameConfig && eras) {
-          log('No snapshot but core data valid - redirecting to launch');
-          dispatch(events.LAUNCH);
-        } else {
-          log('No snapshot and core data missing - redirecting to login');
-          dispatch(events.LOGIN);
-        }
+    useEffect(() => {
+      // Only run snapshot recovery if required data is actually missing
+      if (missing.length === 0) {
         return;
-    
-  }, [dispatch, events]);
+      }
+      
+      // Check if we have a saved snapshot to show
+      const snapshotData = sessionStorage.getItem(SNAPSHOT_KEY);
+      
+      if (snapshotData) {
+        try {
+          JSON.parse(snapshotData); // validate JSON
+          log('Session expired - showing saved snapshot');
+          setShowSnapshot(true);
+          // Don't throw error - we'll show the snapshot instead
+          return;
+        } catch (error) {
+          logerror('Failed to parse snapshot data:', error);
+        }
+      }
+      
+      // No snapshot available - redirect based on what data we have
+      if (gameConfig && eras) {
+        log('No snapshot but core data valid - redirecting to launch');
+        dispatch(events.LAUNCH);
+      } else {
+        log('No snapshot and core data missing - redirecting to login');
+        dispatch(events.LOGIN);
+      }
+    }, [missing.length, gameConfig, eras, dispatch, events]);
 
   const selectedEraConfig = coreEngine.selectedEraConfig;
 
