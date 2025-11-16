@@ -1,5 +1,15 @@
-// src/pages/OverPage.js v0.5.5
+// src/pages/OverPage.js v0.5.14
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.14: Improved session recovery navigation
+//          - Navigate to Launch page instead of Login when session expires
+//          - Only if gameConfig and eras are valid (core app data intact)
+//          - Better UX: User sees launch page, can re-login smoothly
+//          - Falls back to Login if core data missing
+// v0.5.13: Add snapshot recovery with working navigation
+//          - Capture page DOM + inline styles to sessionStorage after 2s delay
+//          - Show frozen snapshot with warning banner when session data missing
+//          - Add working navigation buttons to snapshot (checks playerProfile)
+//          - Clear snapshot on logout
 // v0.5.12: Move promotable eras within OverPage
 // v0.5.11: Use coreEngine for all game data
 //          - Get gameConfig from coreEngine (already loaded)
@@ -42,8 +52,8 @@
 //         - Reuses existing modal-overlay CSS
 // v0.4.9: Removed leaderboard section (now in Stats page)
 
-import React, { useState, useEffect } from 'react';
-import { useGame } from '../context/GameContext';
+import React, { useState, useEffect, useRef } from 'react';
+import { coreEngine, useGame } from '../context/GameContext';
 import PromotionalBox from '../components/PromotionalBox';
 import PurchasePage from './PurchasePage';
 import Player from '../classes/Player';
@@ -51,79 +61,213 @@ import VideoPopup from '../components/VideoPopup';
 import AchievementService from '../services/AchievementService';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.5.12';
+const version = 'v0.5.14';
+const tag = "OVER";
+const module = "OverPage";
+let method = "";
 
 const SESSION_KEY = 'battleForOceans_gameResults';
+const SNAPSHOT_KEY = 'battleForOceans_resultsSnapshot';
 
 const OverPage = () => {
-  const {
-      coreEngine,
-    dispatch,
-    events,
-  } = useGame();
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
 
-    // key data
-    const player = coreEngine.player;
-    const playerId = coreEngine.playerId;
-    const playerProfile = coreEngine.playerProfile;
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
+
+    // Ref for capturing page content
+    const pageRef = useRef(null);
+
+    //key data - see CoreEngine handle{state}
     const gameConfig = coreEngine.gameConfig;
-    const gameInstance = coreEngine.gameInstance;
-    const eraConfig = coreEngine.selectedEraConfig;
-    const humanPlayer = coreEngine.player;
+    const eras = coreEngine.eras;
+    const player = coreEngine.player
+    const playerProfile = coreEngine.playerProfile;
+    const playerEmail = coreEngine.playerEmail;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedAlliance = coreEngine.selectedAlliance;
     const selectedOpponents = coreEngine.selectedOpponents;
+
+    // derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
     const isGuest = player != null && player.isGuest;
+    const isAdmin = player != null && playerProfile.isAdmin;
+    const isDeveloper = player != null && playerProfile.isDeveloper;
+    const isTester = player != null && playerProfile.isTester;
+    const selectedOpponent = coreEngine.selectedOpponents[0];
+
+    const selectedGameMode = coreEngine.selectedGameMode;
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
+
+    // stop game if key data is missing (selectedAlliance is allowed to be null)
+    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    
+    if (missing.length > 0) {
+        logerror(`key data missing: ${missing.join(', ')}`, required);
+    }
+
+    const {
+        dispatch,
+        events,
+      } = useGame();
 
     // State for game results (from CoreEngine or sessionStorage)
-  const [gameResults, setGameResults] = useState(null);
+    const [gameResults, setGameResults] = useState(null);
+    const [showSnapshot, setShowSnapshot] = useState(false);
     
-  // State for achievements
-  const [newAchievements, setNewAchievements] = useState([]);
-  const [loadingAchievements, setLoadingAchievements] = useState(false);
-  const [showAchievementModal, setShowAchievementModal] = useState(false);
+    // State for achievements
+    const [newAchievements, setNewAchievements] = useState([]);
+    const [loadingAchievements, setLoadingAchievements] = useState(false);
+    const [showAchievementModal, setShowAchievementModal] = useState(false);
  
     // InfoPanel state
     const [selectedAchievement, setSelectedAchievement] = useState(null);
 
-  // State for achievement video
-  const [videoData, setVideoData] = useState(null);
-  const [showVideo, setShowVideo] = useState(false);
+    // State for achievement video
+    const [videoData, setVideoData] = useState(null);
+    const [showVideo, setShowVideo] = useState(false);
 
-  // Redirect to login if no user profile
+    // State for promotional era
+    const [showPromotion, setShowPromotion] = useState(false);
+    const [promotionalEra, setPromotionalEra] = useState(null);
+
+    // State for purchase page
+    const [showPurchasePage, setShowPurchasePage] = useState(false);
+    const [purchaseEraId, setPurchaseEraId] = useState(null);
+
+  // Check for missing key data and handle snapshot fallback
   useEffect(() => {
-    if (!playerProfile) {
-      console.log(version, 'No user profile detected - redirecting to login');
-      dispatch(events.LOGIN);
-    }
-  }, [playerProfile, dispatch, events]);
+        
+        // Check if we have a saved snapshot to show
+        const snapshotData = sessionStorage.getItem(SNAPSHOT_KEY);
+        
+        if (snapshotData) {
+          try {
+            const snapshot = JSON.parse(snapshotData);
+            log('Session expired - showing saved snapshot');
+            setShowSnapshot(true);
+            // Don't throw error - we'll show the snapshot instead
+            return;
+          } catch (error) {
+            logerror('Failed to parse snapshot data:', error);
+          }
+        }
+        
+        // No snapshot available - redirect based on what data we have
+        if (gameConfig && eras) {
+          log('No snapshot but core data valid - redirecting to launch');
+          dispatch(events.LAUNCH);
+        } else {
+          log('No snapshot and core data missing - redirecting to login');
+          dispatch(events.LOGIN);
+        }
+        return;
+    
+  }, [dispatch, events]);
+
+  const selectedEraConfig = coreEngine.selectedEraConfig;
+
+
 
   // Load game results on mount
   useEffect(() => {
     // Try to get from CoreEngine first (normal flow)
-    if (gameInstance && eraConfig && selectedOpponents && humanPlayer) {
+    if (gameInstance && selectedEraConfig && selectedOpponents && player) {
       const results = {
         gameStats: gameInstance.getGameStats(),
         gameLog: gameInstance.gameLog || [],
         finalBoardImage: gameInstance.finalBoardImage,
-        eraName: eraConfig.name,
-        playerName: humanPlayer.name,
+        eraName: selectedEraConfig.name,
+        playerName: player.name,
         opponents: selectedOpponents || [],
       };
       
-      console.log(version, 'Saving game results to sessionStorage');
+      log('Saving game results to sessionStorage');
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(results));
       setGameResults(results);
-    } else if (playerProfile) {
+    } else if (playerProfile && !showSnapshot) {
       // Try to restore from sessionStorage (after refresh)
       const saved = sessionStorage.getItem(SESSION_KEY);
       if (saved) {
-        console.log(version, 'Restoring game results from sessionStorage');
+        log('Restoring game results from sessionStorage');
         setGameResults(JSON.parse(saved));
       } else {
-        console.log(version, 'No game results available - redirecting to era selection');
+        log('No game results available - redirecting to era selection');
         dispatch(events.SELECTERA);
       }
     }
-  }, [gameInstance, eraConfig, selectedOpponents, humanPlayer, playerProfile, dispatch, events]);
+  }, [gameInstance, selectedEraConfig, selectedOpponents, player, playerProfile, showSnapshot, dispatch, events]);
+
+  // Capture page snapshot after results render
+  useEffect(() => {
+    if (!gameResults || !pageRef.current) return;
+    
+    // Wait 2 seconds for all content to render
+    const captureTimer = setTimeout(() => {
+      try {
+        log('Capturing page snapshot');
+        
+        // Get all computed styles
+        const allElements = pageRef.current.querySelectorAll('*');
+        const styleMap = new Map();
+        
+        allElements.forEach(element => {
+          const computed = window.getComputedStyle(element);
+          const inlineStyle = Array.from(computed).reduce((acc, prop) => {
+            acc[prop] = computed.getPropertyValue(prop);
+            return acc;
+          }, {});
+          styleMap.set(element, inlineStyle);
+        });
+        
+        // Clone the DOM
+        const clone = pageRef.current.cloneNode(true);
+        
+        // Apply inline styles to cloned elements
+        const clonedElements = clone.querySelectorAll('*');
+        Array.from(allElements).forEach((original, index) => {
+          const cloned = clonedElements[index];
+          const styles = styleMap.get(original);
+          if (cloned && styles) {
+            Object.entries(styles).forEach(([prop, value]) => {
+              cloned.style[prop] = value;
+            });
+          }
+        });
+        
+        // Save snapshot
+        const snapshot = {
+          html: clone.outerHTML,
+          timestamp: new Date().toISOString()
+        };
+        
+        sessionStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
+        log('Snapshot saved to sessionStorage');
+      } catch (error) {
+        logerror('Failed to capture snapshot:', error);
+      }
+    }, 2000);
+    
+    return () => clearTimeout(captureTimer);
+  }, [gameResults]);
 
   // Check for new achievements when game results are available
   useEffect(() => {
@@ -136,7 +280,7 @@ const OverPage = () => {
       const ENABLE_MOCK_ACHIEVEMENTS = false;
       
       if (ENABLE_MOCK_ACHIEVEMENTS) {
-        console.log(version, 'Loading mock achievements for testing');
+        log('Loading mock achievements for testing');
         const mockAchievements = [
           {
             id: 'first-victory',
@@ -162,13 +306,13 @@ const OverPage = () => {
           // Check if achievement video exists
           const videoPath = gameConfig?.videos?.new_achievement;
           if (videoPath) {
-            console.log(version, 'Playing achievement video before modal:', videoPath);
+            log('Playing achievement video before modal:', videoPath);
             // Show video first
             setVideoData({ type: 'new_achievement', url: videoPath });
             setShowVideo(true);
             // Don't show modal yet - will show after video closes
           } else {
-            console.log(version, 'No achievement video configured - showing modal immediately');
+            log('No achievement video configured - showing modal immediately');
             // No video - show modal immediately
             setShowAchievementModal(true);
           }
@@ -178,32 +322,32 @@ const OverPage = () => {
 
       setLoadingAchievements(true);
       try {
-        console.log(version, 'Checking for new achievements');
+        log('Checking for new achievements');
         
         // Get human player stats from game results
-        const humanPlayerStats = gameResults.gameStats.players?.find(p => p.name === gameResults.playerName);
+        const playerStats = gameResults.gameStats.players?.find(p => p.name === gameResults.playerName);
         
-        if (!humanPlayerStats) {
-          console.log(version, 'No human player stats found');
+        if (!playerStats) {
+          log('No human player stats found');
           return;
         }
 
         // Prepare game results for achievement checking
         const achievementCheckData = {
           won: gameResults.gameStats.winner === gameResults.playerName,
-          accuracy: parseFloat(humanPlayerStats.accuracy) || 0,
+          accuracy: parseFloat(playerStats.accuracy) || 0,
           turns: gameResults.gameStats.totalTurns || 0,
-          ships_sunk: humanPlayerStats.sunk || 0,
-          hits: humanPlayerStats.hits || 0,
-          misses: humanPlayerStats.misses || 0,
-          damage: humanPlayerStats.hitsDamage || 0,
-          score: humanPlayerStats.score || 0
+          ships_sunk: playerStats.sunk || 0,
+          hits: playerStats.hits || 0,
+          misses: playerStats.misses || 0,
+          damage: playerStats.hitsDamage || 0,
+          score: playerStats.score || 0
         };
 
-        console.log(version, 'Achievement check data:', achievementCheckData);
+        log('Achievement check data:', achievementCheckData);
 
         const unlocked = await AchievementService.checkAchievements(playerProfile?.id, achievementCheckData);
-        console.log(version, 'New achievements unlocked:', unlocked);
+        log('New achievements unlocked:', unlocked);
         
         if (unlocked.length > 0) {
           setNewAchievements(unlocked);
@@ -211,19 +355,19 @@ const OverPage = () => {
           // Check if achievement video exists
           const videoPath = gameConfig?.videos?.new_achievement;
           if (videoPath) {
-            console.log(version, 'Playing achievement video before modal:', videoPath);
+            log('Playing achievement video before modal:', videoPath);
             // Show video first
             setVideoData({ type: 'new_achievement', url: videoPath });
             setShowVideo(true);
             // Don't show modal yet - will show after video closes
           } else {
-            console.log(version, 'No achievement video configured - showing modal immediately');
+            log('No achievement video configured - showing modal immediately');
             // No video - show modal immediately
             setShowAchievementModal(true);
           }
         }
       } catch (error) {
-        console.error(version, 'Error checking achievements:', error);
+        logerror('Error checking achievements:', error);
       } finally {
         setLoadingAchievements(false);
       }
@@ -232,73 +376,82 @@ const OverPage = () => {
     checkForAchievements();
   }, [gameResults, playerProfile, gameConfig]);
 
-  // State for promotional era
-  const [showPromotion, setShowPromotion] = useState(false);
-  const [promotionalEra, setPromotionalEra] = useState(null);
-
-  // State for purchase page
-  const [showPurchasePage, setShowPurchasePage] = useState(false);
-  const [purchaseEraId, setPurchaseEraId] = useState(null);
-
-    // Check if user should see promotional content
-    useEffect(() => {
-      if (!playerProfile || !eraConfig || !coreEngine.eras) return;
-      
-      const allEras = Array.from(coreEngine.eras.values());
-      console.log(`[OVER] OverPage.getPromotableEras ${version}| # eras=${allEras.length}`);
-      
-      const promotableEras = allEras.filter(era => {
-        if (era.free) return false;
-        // Check if user owns it
-        // const hasAccess = userRights?.get(era.id);
-        // return !hasAccess;
-        return true;
-      });
-      
-      console.log(`[OVER] OverPage.useEffect ${version}| promotableEras=${promotableEras.length}`);
-      
-      if (promotableEras.length > 0) {
-        setPromotionalEra(promotableEras[0]);
-        setShowPromotion(true);
-      }
-    }, [playerProfile, eraConfig, coreEngine.eras]);
+  // Check if user should see promotional content
+  useEffect(() => {
+    if (!playerProfile || !selectedEraConfig || !coreEngine.eras) return;
+    
+    const allEras = Array.from(coreEngine.eras.values());
+    log(`# eras=${allEras.length}`);
+    
+    const promotableEras = allEras.filter(era => {
+      if (era.free) return false;
+      // Check if user owns it
+      // const hasAccess = userRights?.get(era.id);
+      // return !hasAccess;
+      return true;
+    });
+    
+    log(`promotableEras=${promotableEras.length}`);
+    
+    if (promotableEras.length > 0) {
+      setPromotionalEra(promotableEras[0]);
+      setShowPromotion(true);
+    }
+  }, [playerProfile, selectedEraConfig, coreEngine.eras]);
 
     
   const handlePlayAgain = () => {
-    console.log(version, 'User clicked Play Again - returning to opponent selection');
+    log('User clicked Play Again - returning to opponent selection');
     dispatch(events.SELECTOPPONENT);
   };
 
   const handleChangeEra = () => {
-    console.log(version, 'User clicked Change Era - returning to era selection');
+    log('User clicked Change Era - returning to era selection');
     dispatch(events.SELECTERA);
   };
 
   const handleLogOut = () => {
-    console.log(version, 'User clicked Log Out - clearing session and returning to launch');
+    log('User clicked Log Out - clearing session and returning to launch');
     sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SNAPSHOT_KEY);
     dispatch(events.LAUNCH);
   };
 
+  const handleSnapshotNavigate = () => {
+    log('User clicked navigation from snapshot');
+    sessionStorage.removeItem(SNAPSHOT_KEY);
+    
+    // Smart navigation based on available core data
+    // If gameConfig and eras are valid, go to Launch page (best UX)
+    // Otherwise fall back to Login
+    if (coreEngine.gameConfig && coreEngine.eras) {
+      log('Core data valid - navigating to Launch page');
+      dispatch(events.LAUNCH);
+    } else {
+      log('Core data missing - navigating to Login');
+      dispatch(events.LOGIN);
+    }
+  };
+
   const handlePurchase = (eraId) => {
-    console.log(version, 'User initiated purchase for era:', eraId);
+    log('User initiated purchase for era:', eraId);
     setPurchaseEraId(eraId);
     setShowPurchasePage(true);
   };
 
   const handlePurchaseComplete = () => {
-    console.log(version, 'Purchase complete - closing purchase page');
+    log('Purchase complete - closing purchase page');
     setShowPurchasePage(false);
     setShowPromotion(false);
   };
 
   const handlePurchaseCancel = () => {
-    console.log(version, 'Purchase cancelled - closing purchase page');
+    log('Purchase cancelled - closing purchase page');
     setShowPurchasePage(false);
   };
 
   const handleVideoClose = () => {
-    console.log(version, 'Achievement video closed - showing modal');
+    log('Achievement video closed - showing modal');
     setShowVideo(false);
     // After video closes, show the achievement modal
     if (newAchievements.length > 0) {
@@ -306,14 +459,14 @@ const OverPage = () => {
     }
   };
 
-    // Handle achievement card click
-    const handleAchievementClick = (achievement) => {
-      console.log(version, 'Achievement clicked:', achievement.name);
-      setSelectedAchievement(achievement);
-    };
+  // Handle achievement card click
+  const handleAchievementClick = (achievement) => {
+    log('Achievement clicked:', achievement.name);
+    setSelectedAchievement(achievement);
+  };
 
-    const handleAchievementModalClose = () => {
-    console.log(version, 'Achievement modal closed');
+  const handleAchievementModalClose = () => {
+    log('Achievement modal closed');
     setShowAchievementModal(false);
   };
 
@@ -333,16 +486,16 @@ const OverPage = () => {
     }
   };
 
-    // Format opponent fleet names for victory message
-    const formatOpponentFleets = (opponents) => {
-      if (!opponents || opponents.length === 0) return "the enemy fleet";
-      if (opponents.length === 1) return `${opponents[0].name}'s fleet`;
-      if (opponents.length === 2) return `${opponents[0].name}'s fleet and ${opponents[1].name}'s fleet`;
-      const lastOpponent = opponents[opponents.length - 1];
-      const otherOpponents = opponents.slice(0, -1);
-      const otherNames = otherOpponents.map(opp => `${opp.name}'s fleet`).join(', ');
-      return `${otherNames}, and ${lastOpponent.name}'s fleet`;
-    };
+  // Format opponent fleet names for victory message
+  const formatOpponentFleets = (opponents) => {
+    if (!opponents || opponents.length === 0) return "the enemy fleet";
+    if (opponents.length === 1) return `${opponents[0].name}'s fleet`;
+    if (opponents.length === 2) return `${opponents[0].name}'s fleet and ${opponents[1].name}'s fleet`;
+    const lastOpponent = opponents[opponents.length - 1];
+    const otherOpponents = opponents.slice(0, -1);
+    const otherNames = otherOpponents.map(opp => `${opp.name}'s fleet`).join(', ');
+    return `${otherNames}, and ${lastOpponent.name}'s fleet`;
+  };
 
   const copyGameLog = () => {
     if (!gameResults?.gameLog) return;
@@ -357,8 +510,8 @@ const OverPage = () => {
       .join('\n');
     
     navigator.clipboard.writeText(logText)
-      .then(() => console.log(version, 'Game log copied to clipboard'))
-      .catch(err => console.error(version, 'Failed to copy log:', err));
+      .then(() => log('Game log copied to clipboard'))
+      .catch(err => logerror('Failed to copy log:', err));
   };
 
   const emailGameLog = () => {
@@ -379,6 +532,46 @@ const OverPage = () => {
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
+  // Show snapshot fallback if session expired
+  if (showSnapshot) {
+    const snapshotData = sessionStorage.getItem(SNAPSHOT_KEY);
+    if (snapshotData) {
+      try {
+        const snapshot = JSON.parse(snapshotData);
+        const canNavigateToLaunch = coreEngine.gameConfig && coreEngine.eras;
+        
+        return (
+          <div className="over-page">
+            <div className="content-pane content-pane--wide">
+              <div className="alert alert--warning" style={{ marginBottom: '1rem' }}>
+                <strong>⚠️ Session Expired</strong>
+                <p>Your session has expired, but here are your saved results. Navigation and interactive features are disabled.</p>
+                <button
+                  className="btn btn--primary btn--sm"
+                  onClick={handleSnapshotNavigate}
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  {canNavigateToLaunch ? 'Return to Launch Page' : 'Return to Login'}
+                </button>
+              </div>
+              <div dangerouslySetInnerHTML={{ __html: snapshot.html }} />
+            </div>
+          </div>
+        );
+      } catch (error) {
+        logerror('Failed to render snapshot:', error);
+      }
+    }
+    
+    // Snapshot failed - redirect based on available data
+    if (gameConfig && eras) {
+      dispatch(events.LAUNCH);
+    } else {
+      dispatch(events.LOGIN);
+    }
+    return null;
+  }
+
   if (!gameResults) {
     return (
       <div className="over-page">
@@ -397,7 +590,7 @@ const OverPage = () => {
 
   return (
     <div className="over-page">
-      <div className="content-pane content-pane--wide">
+      <div className="content-pane content-pane--wide" ref={pageRef}>
         <div className="over-header">
           <h1 className={`over-title ${isWinner ? 'over-title--victory' : 'over-title--defeat'}`}>
             {isWinner ? '🎉 Victory!' : '💥 Defeat'}
@@ -445,6 +638,48 @@ const OverPage = () => {
                 <div className="spinner spinner--sm"></div>
                 <p>Checking achievements...</p>
               </div>
+            </div>
+          )}
+          
+          {/* NEW v0.5.7: Inline Achievement Display (Belt and Braces) */}
+          {newAchievements.length > 0 && !isGuest && (
+            <div className="achievements-section">
+              <h4 className="achievements-title">
+                🏆 New Achievements Unlocked!
+              </h4>
+              <div className="achievements-grid">
+                {newAchievements.map((achievement) => {
+                  const Icon = getLucideIcon(achievement.badge_icon);
+                  return (
+                    <div
+                      key={achievement.id}
+                      className={`achievement-card achievement-card--${achievement.tier} achievement-card--clickable`}
+                          onClick={() => handleAchievementClick(achievement)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAchievementClick(achievement)}
+                    >
+                      <div className="achievement-card__icon">
+                        <Icon size={48} />
+                      </div>
+                          <div className="achievement-card__text">
+                            <div className="achievement-card__name">{achievement.name}</div>
+                          <div className="achievement-card__description">
+                            {achievement.description}
+                          </div>
+                            <div className="achievement-card__points">
+                              <span className={`badge ${getTierBadgeClass(achievement.tier)}`}>
+                                +{achievement.points} pts
+                              </span>
+                            </div>
+                          </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-secondary text-center mb-md">
+                <br />Check your stats and achievements in the menu bar above!
+              </p>
             </div>
           )}
           
@@ -496,54 +731,13 @@ const OverPage = () => {
                 </div>
               )}
 
-              {/* NEW v0.5.7: Inline Achievement Display (Belt and Braces) */}
-              {newAchievements.length > 0 && !isGuest && (
-                <div className="achievements-section">
-                  <h4 className="achievements-title">
-                    🏆 New Achievements Unlocked!
-                  </h4>
-                  <div className="achievements-grid">
-                    {newAchievements.map((achievement) => {
-                      const Icon = getLucideIcon(achievement.badge_icon);
-                      return (
-                        <div
-                          key={achievement.id}
-                          className={`achievement-card achievement-card--${achievement.tier} achievement-card--clickable`}
-                              onClick={() => handleAchievementClick(achievement)}
-                              role="button"
-                              tabIndex={0}
-                              onKeyPress={(e) => e.key === 'Enter' && handleAchievementClick(achievement)}
-                        >
-                          <div className="achievement-card__icon">
-                            <Icon size={48} />
-                          </div>
-                              <div className="achievement-card__text">
-                                <div className="achievement-card__name">{achievement.name}</div>
-                              <div className="achievement-card__description">
-                                {achievement.description}
-                              </div>
-                                <div className="achievement-card__points">
-                                  <span className={`badge ${getTierBadgeClass(achievement.tier)}`}>
-                                    +{achievement.points} pts
-                                  </span>
-                                </div>
-                              </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <p className="text-secondary text-center mb-md">
-                    <br />Check your stats and achievements in the menu bar above!
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>
 
         {showPromotion && promotionalEra && (
           <PromotionalBox
-            eraConfig={promotionalEra}
+            selectedEraConfig={promotionalEra}
             playerProfile={playerProfile}
             onPurchase={handlePurchase}
           />

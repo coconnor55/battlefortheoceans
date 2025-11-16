@@ -30,17 +30,64 @@ import { useState, useEffect, useCallback } from 'react';
 import { coreEngine } from '../context/GameContext';
 
 const version = "v0.3.8";
+const tag = "GAME";
+const module = "useGameState";
+let method = "";
 
 const useGameState = () => {
-  // v0.3.8: Read identity/config directly from CoreEngine singleton (NOT from uiState passthroughs)
-  const eraConfig = coreEngine.selectedEraConfig;
-  const selectedOpponent = coreEngine.selectedOpponents?.[0] || null;
-  const selectedGameMode = coreEngine.selectedGameMode;
-  const player = coreEngine.player;                // v0.3.8: Direct from singleton
-  const playerProfile = coreEngine.playerProfile;  // v0.3.8: Direct from singleton
-  const gameInstance = coreEngine.gameInstance;
-  const board = coreEngine.board;
-  
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
+
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
+
+    //key data - see CoreEngine handle{state}
+    const gameConfig = coreEngine.gameConfig;
+    const eras = coreEngine.eras;
+    const player = coreEngine.player
+    const playerProfile = coreEngine.playerProfile;
+    const playerEmail = coreEngine.playerEmail;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponents = coreEngine.selectedOpponents;
+
+    // derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
+    const isGuest = player != null && player.isGuest;
+    const isAdmin = player != null && playerProfile.isAdmin;
+    const isDeveloper = player != null && playerProfile.isDeveloper;
+    const isTester = player != null && playerProfile.isTester;
+    const selectedOpponent = coreEngine.selectedOpponents[0];
+
+    const selectedGameMode = coreEngine.selectedGameMode;
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
+
+    // stop game if key data is missing (selectedAlliance is allowed to be null)
+    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    if (missing.length > 0) {
+        logerror(`key data missing: ${missing.join(', ')}`, required);
+        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
+    }
+
+    const selectedEraConfig = coreEngine.selectedEraConfig;
+
   // Message state from Game's Message system
   const [messages, setMessages] = useState({
     console: '',
@@ -282,7 +329,7 @@ const useGameState = () => {
     game: gameInstance,
     
     // Context data - v0.3.7: Now from coreEngine directly
-    eraConfig,
+    selectedEraConfig,
     selectedOpponent,
     
     // Computed accuracy - FIXED: Use correct nested properties

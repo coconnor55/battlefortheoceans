@@ -2,6 +2,7 @@
 // Copyright(c) 2025, Clint H. O'Connor
 //
 // PURPOSE:
+// v0.1.2: use erasMap size instead to fix React rendering issue
 // v0.1.1: Accept erasMap instead of eras array
 //         - Prevents render loop by using stable string dependency
 //         - erasMapString = Array.from(erasMap.keys()).sort().join(',')
@@ -17,7 +18,10 @@ import RightsService from '../services/RightsService';
 import Player from '../classes/Player';
 import { coreEngine } from '../context/GameContext';
 
-const version = 'v0.1.1';
+const version = 'v0.1.2';
+const tag = "BADGES";
+const module = "useEraBadges";
+let method = "";
 
 /**
  * Custom hook for managing era badges and pass balance
@@ -27,12 +31,27 @@ const version = 'v0.1.1';
  * @returns {object} Badge state and refresh function
  */
 export function useEraBadges(playerId, erasMap) {
-    // erasMap = coreEngine.eras (Map)
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
 
-    const erasMapString = Array.from(erasMap.keys()).join(',');  // Stable string
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
 
-    console.log(`[BADGES] ${version}| useEraBadges: playerId=${playerId}, # eras=${erasMap.size}`);
-  const [passBalance, setPassBalance] = useState(0);
+    const eraCount = coreEngine.eras?.size || 0;
+    log(`useEraBadges: playerId=${playerId}, # eras=${eraCount}`);
+
+    const [passBalance, setPassBalance] = useState(0);
   const [eraBadges, setEraBadges] = useState(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -47,17 +66,17 @@ export function useEraBadges(playerId, erasMap) {
     try {
       const balance = await RightsService.getPassBalance(playerId);
       setPassBalance(balance);
-      console.log(`[BADGES] ${version}| useEraBadges: Pass balance:`, balance);
+      log(`useEraBadges: Pass balance:`, balance);
     } catch (err) {
-      console.error(`[BADGES] ${version}| useEraBadges: Error fetching pass balance:`, err);
+      logerror(`useEraBadges: Error fetching pass balance:`, err);
       setPassBalance(0);
     }
   }, [playerId]);
 
   // Fetch badges for all eras
     const fetchBadges = useCallback(async () => {
-      if (!playerId || !erasMap || erasMap.size === 0) {
-        setEraBadges(new Map());
+      if (!playerId || !coreEngine.eras || coreEngine.eras.size === 0) {
+          setEraBadges(new Map());
         setLoading(false);
         return;
       }
@@ -65,21 +84,19 @@ export function useEraBadges(playerId, erasMap) {
       try {
         setLoading(true);
         setError(null);
-        console.log(`[BADGES] ${version}| useEraBadges: Fetching badges for ${erasMap.size} eras`);
-        
-        const badgeMap = await RightsService.getBadgesForUser(playerId, erasMap);
-
+        log(`useEraBadges: Fetching badges for ${coreEngine.eras.size} eras`);
+          const badgeMap = await RightsService.getBadgesForUser(playerId, coreEngine.eras);
+          
       setEraBadges(badgeMap);
-      console.log(`[BADGES] ${version}| useEraBadges: Loaded ${badgeMap.size} badges`);
-      
+          log(`Loaded ${badgeMap.size} badges`);
     } catch (err) {
-      console.error(`[BADGES] ${version}| useEraBadges: Error fetching badges:`, err);
+      logerror(`useEraBadges: Error fetching badges:`, err);
       setError(err.message || 'Failed to load badges');
     } finally {
       setLoading(false);
     }
-  }, [playerId, erasMapString]);
-
+    }, [playerId, eraCount]);
+    
   // Refresh both pass balance and badges
   const refresh = useCallback(async () => {
     await Promise.all([

@@ -1,6 +1,7 @@
-/* src/styles/theme.css (v0.1.6) */
+/* src/styles/theme.css */
 /* Copyright(c) 2025, Clint H. O'Connor */
-/* v0.1.6: Added tier color custom properties for achievement/badge consistency */
+/* v0.1.7: added flex-center-scrollable */
+ /* v0.1.6: Added tier color custom properties for achievement/badge consistency */
 
 /* ============================================
    BASE CONFIGURATION
@@ -339,6 +340,17 @@ code, pre {
 
 .flex-wrap {
   flex-wrap: wrap;
+}
+
+/* ✅ ADD THIS NEW CLASS */
+.flex-center-scrollable {
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 1200px;
 }
 
 /* Grid utilities */

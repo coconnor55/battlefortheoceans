@@ -36,6 +36,19 @@ const module = "LoginPage";
 let method = "";
 
 const LoginPage = () => {
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
+
   const { dispatch, events, getPlayerProfile, logout } = useGame();
   
   const [authStep, setAuthStep] = useState('login');
@@ -45,19 +58,6 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showSignup, setShowSignup] = useState(false);
-
-  // Logging utilities
-  const log = (message) => {
-    console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
-  };
-  
-  const logerror = (message, error = null) => {
-    if (error) {
-      console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
-    } else {
-      console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
-    }
-  };
 
   // Check if user already authenticated (from email confirmation or existing session)
   useEffect(() => {
@@ -121,7 +121,7 @@ const LoginPage = () => {
     }
   }, []);
   
-  const handleAuthenticatedPlayer = async (player, playerProfile) => {
+  const handleAuthenticatedPlayer = async (player, playerProfile, playerEmail) => {
     method = 'handleAuthenticatedPlayer';
     log(`Player authenticated: ${player.name}, ID: ${player.id}`);
     setAuthenticatedPlayer(player);
@@ -137,13 +137,10 @@ const LoginPage = () => {
         log(`Set coreEngine.playerProfile = ${playerProfile}`);
       
       // Get and store user email
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        coreEngine.userEmail = user.email;
-        log(`Set coreEngine.userEmail = ${user.email}`);
-      }
-      
-      // Check if guest user
+        coreEngine.playerEmail = playerEmail;
+        log(`Set coreEngine.playerEmail = ${playerEmail || 'null (guest)'}`);
+
+        // Check if guest user
       if (player.id.startsWith('guest-')) {
         log('Guest player detected, proceeding directly to game');
       } else {
@@ -152,6 +149,9 @@ const LoginPage = () => {
       
       await new Promise(resolve => setTimeout(resolve, 400));
       
+        log('exit Login: coreEngine.player set: ', coreEngine.player);
+        log('exit Login: coreEngine.playerProfile set: ', coreEngine.playerProfile);
+        log('exit Login: coreEngine.playerEmail set: ', coreEngine.playerEmail);
       dispatch(events.SELECTERA);
       
     } catch (error) {
@@ -162,16 +162,15 @@ const LoginPage = () => {
     }
   };
   
-  const handleLoginComplete = async (player, playerProfile) => {
-    method = 'handleLoginComplete';
-    if (player) {
-      log(`Player received from LoginDialog: ${player.name}`);
-      await handleAuthenticatedPlayer(player, playerProfile);
-    } else {
-      log('Login dialog closed without authentication');
-      handleReset();
-    }
-  };
+    const handleLoginComplete = async (player, playerProfile, playerEmail) => {
+        if (player) {
+          log(`Player received, email: ${playerEmail}`);
+          await handleAuthenticatedPlayer(player, playerProfile, playerEmail);      log(`Player received from LoginDialog: ${player.name}`);
+        } else {
+          log('Login dialog closed without authentication');
+          handleReset();
+        }
+    };
 
   const handleContinue = () => {
     method = 'handleContinue';
@@ -189,11 +188,14 @@ const LoginPage = () => {
       log(`Set coreEngine.playerProfile = existingProfile(${existingProfile.game_name})`);
       
       // Store email (authenticatedUser already has it from checkExistingAuth)
-      if (authenticatedUser?.email) {
-        coreEngine.userEmail = authenticatedUser.email;
-        log(`Set coreEngine.userEmail = ${authenticatedUser.email}`);
-      }
-      
+        if (authenticatedUser?.email) {
+          coreEngine.playerEmail = authenticatedUser.email;
+          log(`Set coreEngine.playerEmail = ${authenticatedUser.email}`);
+        }
+
+        log('exit Login: coreEngine.player set: ', coreEngine.player);
+        log('exit Login: coreEngine.playerProfile set: ', coreEngine.playerProfile);
+        log('exit Login: coreEngine.playerEmail set: ', coreEngine.playerEmail);
       dispatch(events.SELECTERA);
     } else {
       logerror('ERROR: No Player object available for continue');
@@ -215,7 +217,7 @@ const LoginPage = () => {
     // No need to dispatch LAUNCH - logout() already transitions to 'launch'
   };
 
-  const handleProfileCreationComplete = async (player, playerProfile) => {
+  const handleProfileCreationComplete = async (player, playerProfile, playerEmail) => {
     method = 'handleProfileCreationComplete';
     log(`Profile creation completed, Player: ${player.name}`);
     setIsLoading(true);
@@ -229,14 +231,14 @@ const LoginPage = () => {
       log(`Set coreEngine.playerProfile = ${playerProfile}`);
     
     // Get and store user email
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email) {
-      coreEngine.userEmail = user.email;
-      log(`Set coreEngine.userEmail = ${user.email}`);
-    }
-    
+      coreEngine.playerEmail = playerEmail;
+      log(`Set coreEngine.playerEmail = ${playerEmail}`);
+      
     await new Promise(resolve => setTimeout(resolve, 400));
     
+      log('exit Login: coreEngine.player set: ', coreEngine.player);
+      log('exit Login: coreEngine.playerProfile set: ', coreEngine.playerProfile);
+      log('exit Login: coreEngine.playerEmail set: ', coreEngine.playerEmail);
     dispatch(events.SELECTERA);
     setIsLoading(false);
   };

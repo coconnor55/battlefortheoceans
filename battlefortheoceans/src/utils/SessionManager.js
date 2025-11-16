@@ -92,7 +92,8 @@ class SessionManager {
           updated_at: context.playerProfile.updated_at
         } : null,
         
-        eraId: context.eraId || null,
+          playerEmail: context.playerEmail || null,
+          eraId: context.eraId || null,
         
         selectedOpponents: context.selectedOpponents?.map(opp => ({
           id: opp.id,
@@ -107,7 +108,7 @@ class SessionManager {
       };
 
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
-      this.log(`Session saved - Player: ${context.humanPlayer?.name}, Profile: ${context.playerProfile?.game_name}`);
+        this.log(`Session saved - Player: ${context.humanPlayer?.name}, Profile: ${context.playerProfile?.game_name}, Email: ${context.playerEmail || 'null'}`);
       return true;
 
     } catch (error) {
@@ -142,7 +143,7 @@ class SessionManager {
       // Wrap playerProfile data in PlayerProfile instance
       if (sessionData.playerProfile) {
         sessionData.playerProfile = new PlayerProfile(sessionData.playerProfile);
-        this.log(`Session restored - Player: ${sessionData.humanPlayer?.name}, Profile: ${sessionData.playerProfile.game_name}`);
+          this.log(`Session restored - Player: ${sessionData.humanPlayer?.name}, Profile: ${sessionData.playerProfile.game_name}, Email: ${sessionData.playerEmail || 'null'}`);
       } else if (sessionData.humanPlayer) {
         this.log(`Session restored - Player: ${sessionData.humanPlayer.name}, No profile`);
       } else {

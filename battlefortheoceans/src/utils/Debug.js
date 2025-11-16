@@ -7,7 +7,7 @@
 // v0.1.3: Fixed infinite recursion - removed init log, use originalLog directly
 // Simple console.log filter by category
 
-const version = "v0.1.4";
+const version = "v0.1.5";
 
 // Control which categories are logged
 const extendedDebug = false;  // Set to false to filter DEBUG messages
@@ -47,7 +47,8 @@ const control = {
   LIFECYCLE: true,
   ABOUT: true,
   BADGES: true,
-  USERPROFILE: true,
+  PROFILE: true,
+    AUTH: true,
   DEBUG: true
 };
 
@@ -83,7 +84,7 @@ console.log = (...args) => {
       
       // Category enabled and passes DEBUG filter, log it
       const timestamp = new Date().toLocaleTimeString();
-      originalLog(`[${timestamp}]`, ...args);
+      originalLog(`${timestamp}`, ...args);
       return;
     }
   }
@@ -95,12 +96,12 @@ console.log = (...args) => {
 // Keep error and warn unfiltered (always show)
 console.error = (...args) => {
   const timestamp = new Date().toLocaleTimeString();
-  originalError(`[${timestamp}] [ERROR]`, ...args);
+  originalError(`${timestamp} [ERROR]`, ...args);
 };
 
 console.warn = (...args) => {
   const timestamp = new Date().toLocaleTimeString();
-  originalWarn(`[${timestamp}] [WARN]`, ...args);
+  originalWarn(`${timestamp} [WARN]`, ...args);
 };
 
 // Export control object so it can be modified at runtime

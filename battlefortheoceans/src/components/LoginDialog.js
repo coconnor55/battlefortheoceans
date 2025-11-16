@@ -158,11 +158,20 @@ const LoginDialog = ({
         'human',
         1.0
       );
+        
+        const playerEmail = data.user.email;
       
       log(`HumanPlayer created: ${player.name}`);
-      
+        // RIGHT BEFORE onClose
+        log('=== DEBUG EMAIL ===');
+        log('data object:', data);
+        log('data.user:', data.user);
+        log('data.user.email:', data.user?.email);
+        log('playerEmail variable:', playerEmail);
+        log('===================');
+
       // Return Player object
-      onClose(player, playerProfile);
+      onClose(player, playerProfile, playerEmail);
         
     } catch (err) {
       logerror('Error creating player:', err);
@@ -291,7 +300,7 @@ const LoginDialog = ({
     log(`Guest player created: ${guestPlayer.name}`);
     
     // Return Player object
-    onClose(guestPlayer, guestProfile);
+    onClose(guestPlayer, guestProfile, null);
   };
 
   const handleResendConfirmation = async () => {

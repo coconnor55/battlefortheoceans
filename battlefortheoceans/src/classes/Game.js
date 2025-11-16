@@ -223,10 +223,6 @@ class Game {
     this.battleBoardRef = ref;
   }
 
-  setHumanPlayerId(playerId) {
-    this.humanPlayerId = playerId;
-  }
-
   notifyUIUpdate() {
     if (this.uiUpdateCallback) {
       this.uiUpdateCallback();

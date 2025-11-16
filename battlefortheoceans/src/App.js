@@ -1,5 +1,6 @@
 // src/App.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.6: Added code to reposition help for achievements
 // v0.4.5: Refactored for PlayerProfile architecture
 //         - Fixed playerProfile reference to use coreEngine.playerProfile
 //         - Updated logging to match new pattern (tag, module, method)
@@ -45,7 +46,7 @@ import './App.css';
 
 export const APP_VERSION = 'dev1.3';
 
-const version = 'v0.4.5';
+const version = 'v0.4.6';
 const tag = "APP";
 const module = "App";
 let method = "";
@@ -84,6 +85,7 @@ const getHelpSection = (state) => {
 const SceneRenderer = () => {
   const { currentState, eraConfig, subscribeToUpdates, coreEngine } = useGame();
   const [overlayPage, setOverlayPage] = useState(null); // 'stats' | 'achievements' | 'about' | 'help' | 'test' | null
+    const [achievementsPosition, setAchievementsPosition] = useState(null);  // ← ADD THIS LINE
   const [autoShowedSections, setAutoShowedSections] = useState(new Set());
 
   // Auto-show guide on state change (first time only per session)
@@ -347,7 +349,10 @@ const SceneRenderer = () => {
       <NavBar
         onShowAbout={() => setOverlayPage('about')}
         onShowStats={() => setOverlayPage('stats')}
-        onShowAchievements={() => setOverlayPage('achievements')}
+          onShowAchievements={(scrollPos) => {  // ← CHANGE THIS
+            setOverlayPage('achievements');
+            setAchievementsPosition(scrollPos);
+          }}
         onShowHelp={() => setOverlayPage('help')}
         onShowTest={() => setOverlayPage('test')}
         onCloseOverlay={closeOverlay}
@@ -367,12 +372,15 @@ const SceneRenderer = () => {
       </div>
       
       {/* Overlays wrapped in modal-overlay to prevent background scroll */}
-      {overlayPage === 'achievements' && (
-        <div className="modal-overlay">
-          <AchievementsPage onClose={closeOverlay} />
-        </div>
-      )}
-      
+          {overlayPage === 'achievements' && (
+            <div className="modal-overlay">
+              <AchievementsPage
+                onClose={closeOverlay}
+                scrollPosition={achievementsPosition}  // ← ADD THIS LINE
+              />
+            </div>
+          )}
+          
       {overlayPage === 'stats' && (
         <div className="modal-overlay">
           <StatsPage onClose={closeOverlay} />

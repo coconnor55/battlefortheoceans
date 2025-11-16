@@ -1,5 +1,6 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.18: Pass location to App for help positioning
 // v0.2.17: Added *Add 10 Passes menu item for admins/developers/testers
 //          - Menu item between Help and Test
 //          - Creates 10 admin passes via RightsService
@@ -46,7 +47,7 @@ import PlayerProfileService from '../services/PlayerProfileService';
 import { coreEngine, useGame } from '../context/GameContext';
 import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins } from 'lucide-react';
 
-const version = 'v0.2.17';
+const version = 'v0.2.18';
 const tag = "NAVBAR";
 const module = "NavBar";
 let method = "";
@@ -175,7 +176,8 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
         
       case 'achievements':
         if (onShowAchievements) {
-          onShowAchievements();
+            const scrollTop = window.scrollY || document.documentElement.scrollTop;
+            onShowAchievements(scrollTop);  // ← NEW: Pass scroll position + 100px offset
         }
         break;
         
@@ -245,8 +247,9 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   // In your admin page/component
   const handleReset = async () => {
     method = 'handleReset';
-    
-    if (!window.confirm('⚠️ Reset ALL your scores and achievements? This cannot be undone!')) {
+      log('User clicked Reset as New Player');
+
+    if (!window.confirm('⚠️ Reset ALL your rights, scores, and achievements? This cannot be undone!')) {
       return;
     }
 
@@ -405,7 +408,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                         onClick={handleReset}
                       >
                         <Recycle size={20} className="action-menu__emoji" />
-                        <span className="action-menu__label">Reset Stats & Achievements</span>
+                        <span className="action-menu__label">Reset as New Player...</span>
                       </div>
                     )}
                             

@@ -70,7 +70,7 @@ const useAutoPlay = ({
   // Fire random valid shot
   const fireRandomShot = useCallback(() => {
       console.log("useAutoPlay.fireRandomShot: playerProfile=", playerProfile)
-        console.log("useAutoPlay.fireRandomShot: selectedEraConfig=", selectedEraConfig)
+        console.log("useAutoPlay.fireRandomShot: selectedEraConfig.id=", selectedEraConfig.id)
     if (!gameInstance || !isPlayerTurn || !isGameActive) {
       return;
     }

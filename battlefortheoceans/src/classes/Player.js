@@ -38,7 +38,7 @@ const version = "v0.9.5";
 class Player {
     // A player in the game can be human or AI, with a game handle (unique) and a player id. Players own fleets.  Initially, the game is a human vs. AI.  [FUTURE] Two people will be able to play the game against each other, but this requires shared game play through the database, which has not been added.
     
-  constructor(id, name, playerType = 'human', difficulty = 1.0, playerProfile = null) {
+  constructor(id, name, playerType, difficulty = 1.0) {
     // Core identity
     this.id = id;
     this.name = name;
@@ -91,7 +91,7 @@ class Player {
     // Set by Game.receiveAttack() when result is 'miss' or 'destroyed'
     this.dontShoot = new Set(); // "row,col" of cells this player cannot target again
     
-    console.log(`[PLAYER] ${name} created (${playerType}, difficulty: ${difficulty})${playerProfile ? ' with profile' : ''}`);
+    console.log(`[PLAYER] ${name} created (${playerType}, difficulty: ${difficulty})`);
   }
 
   /**

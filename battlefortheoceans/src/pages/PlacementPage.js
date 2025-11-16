@@ -49,46 +49,46 @@ const PlacementPage = () => {
       }
     };
 
-    // v0.4.17: Get dispatch/events shortcuts from useGame (only thing we need from context)
-    const { dispatch, events } = useGame();
-
-    // v0.4.17: Key data from coreEngine singleton (NOT from context)
+    //key data - see CoreEngine handle{state}
+    const gameConfig = coreEngine.gameConfig;
     const eras = coreEngine.eras;
-    const player = coreEngine.player;
+    const player = coreEngine.player
     const playerProfile = coreEngine.playerProfile;
-    const playerId = playerProfile?.id;
-    const isGuest = player != null && player.isGuest;
-    const playerRole = playerProfile?.role;
-    const isAdmin = player != null && playerProfile?.isAdmin;
-    const isDeveloper = player != null && playerProfile?.isDeveloper;
-    const isTester = player != null && playerProfile?.isTester;
+    const playerEmail = coreEngine.playerEmail;
     const selectedEraId = coreEngine.selectedEraId;
-    const selectedEraConfig = coreEngine.selectedEraConfig;
     const selectedAlliance = coreEngine.selectedAlliance;
-    const selectedOpponent = coreEngine.selectedOpponent;
     const selectedOpponents = coreEngine.selectedOpponents;
-    
-    // v0.4.17: Game instances from coreEngine (NOT from context)
+
+    // derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
+    const isGuest = player != null && player.isGuest;
+    const isAdmin = player != null && playerProfile.isAdmin;
+    const isDeveloper = player != null && playerProfile.isDeveloper;
+    const isTester = player != null && playerProfile.isTester;
+    const selectedOpponent = coreEngine.selectedOpponents[0];
+
+    const selectedGameMode = coreEngine.selectedGameMode;
     const gameInstance = coreEngine.gameInstance;
     const board = coreEngine.board;
-    
+
     // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { eras, player, playerProfile, playerId, playerRole, selectedEraId, selectedEraConfig, selectedOpponent, selectedOpponents };
-    if (Object.values(required).some(v => !v)) {
-        logerror('key data missing', required);
-        throw new Error('PlacementPage: key data missing');
-    }
-    const undefinedCheck = { selectedAlliance };
-    if (Object.values(undefinedCheck).some(v => v === undefined)) {
-        logerror('key data undefined', undefinedCheck);
-        throw new Error('PlacementPage: key data undefined');
+    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    if (missing.length > 0) {
+        logerror(`key data missing: ${missing.join(', ')}`, required);
+        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
     }
 
-    log('player=' + player?.name);
-    log('playerProfile=' + playerProfile?.game_name);
-    log('selectedOpponent=' + selectedOpponent?.name);
-    log('gameInstance=' + (gameInstance ? 'present' : 'MISSING'));
-    log('board=' + (board ? 'present' : 'MISSING'));
+    log('PlacementPage: passed CoreEngine data checks');
+
+    const selectedEraConfig = coreEngine.selectedEraConfig;
+
+    // v0.4.17: Get dispatch/events shortcuts from useGame (only thing we need from context)
+    const { dispatch, events } = useGame();
   
   const {
     currentPlayer,
@@ -218,6 +218,9 @@ const PlacementPage = () => {
     log('Player confirmed - starting battle');
     
     if (dispatch && events) {
+        log('exit Placement: events: ', events);
+        log('exit Placement: coreEngine.gameInstance: ', coreEngine.gameInstance);
+        log('exit Placement: coreEngine.board: ', coreEngine.board);
       dispatch(events.PLAY);
     } else {
       logerror('Cannot transition - missing dispatch or events');

@@ -161,19 +161,21 @@ class CoreEngine {
     // =================================================================
     // CORE STATE
     // =================================================================
-    this.currentState = 'launch';
+      this.currentState = 'launch';
+      this.gameInstance = null;
       this.gameConfig = null;       // set during Launch state
       this.eraList = null;          // set during Launch state
       this.eras = new Map();        // set during Launch state
+      
     this.player = null;             // set during Login state, Player instance (per-game)
     this.playerProfile = null;      // set during Login state, PlayerProfile instance (persistent career stats)
-    this.userEmail = null;          // set during Login state
+    this.playerEmail = null;          // set during Login state
+      
     this.eraConfig = null;
     this._selectedEraId = null;     // getter/setter, set during SelectEra state
-    this.selectedOpponents = [];
+    this._selectedOpponents = [];
     this.selectedGameMode = null;
-    this.selectedAlliance = null;
-    this.gameInstance = null;
+    this._selectedAlliance = null;
 
     // =================================================================
     // MANAGERS - Initialize helper classes
@@ -687,6 +689,10 @@ class CoreEngine {
   get playerId() {
     return this.playerProfile?.id || null;
   }
+    
+    get playerRole() {
+        return this.playerProfile?.role || null;
+    }
   
   get playerGameName() {
     return this.playerProfile?.game_name || null;
@@ -696,16 +702,38 @@ class CoreEngine {
     return this._selectedEraId;
   }
   
-  set selectedEraId(eraId) {
-    this._selectedEraId = eraId;
-    this.notifySubscribers();
-//      this.log(`Selected era ID set to: ${this.selectedEraId}, config=`, this.selectedEraConfig);
-  }
+    set selectedEraId(eraId) {
+      this._selectedEraId = eraId;
+      this.notifySubscribers();
+      this.log(`Selected era ID set to: ${this.selectedEraId}, config=`, this.selectedEraConfig);
+    }
     
+    get selectedAlliance() {
+      return this._selectedAlliance;
+    }
+    
+    // Setter for selectedAlliance - triggers React updates
+    set selectedAlliance(name) {
+      this._selectedAlliance = name;
+      this.notifySubscribers();
+      this.log(`Selected era ID set to: ${this.selectedEraId}, config=`, this.selectedEraConfig);
+    }
+
     get selectedOpponent() {
         return this.selectedOpponents[0];
     }
 
+    // Getter for selectedOpponents
+    get selectedOpponents() {
+      return this._selectedOpponents || [];
+    }
+
+    // Setter for selectedOpponents - triggers React updates
+    set selectedOpponents(opponents) {
+      this._selectedOpponents = opponents;
+      this.notifySubscribers();
+    }
+    
   get selectedEraConfig() {
     // Returns FULL config from eras Map (with ships, munitions, messages, etc.)
 //      this.log(`getting era for selected eraId ${this.selectedEraId} from {this.eras.size} eras, config=`, this.selectedEraConfig);

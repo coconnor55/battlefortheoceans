@@ -147,32 +147,41 @@ class GameLifecycleManager {
     this.coreEngine.aiPlayers = [];
       
       //key data - see CoreEngine handle{state}
-      const eras = this.coreEngine.eras;
-      const player = this.coreEngine.player
-      const playerProfile = this.coreEngine.playerProfile;
-      const playerId = playerProfile.id;
+      const gameConfig = coreEngine.gameConfig;
+      const eras = coreEngine.eras;
+      const player = coreEngine.player
+      const playerProfile = coreEngine.playerProfile;
+      const playerEmail = coreEngine.playerEmail;
+      const selectedEraId = coreEngine.selectedEraId;
+      const selectedAlliance = coreEngine.selectedAlliance;
+      const selectedOpponents = coreEngine.selectedOpponents;
+
+      // derived data
+      const playerId = coreEngine.playerId;
+      const playerRole = coreEngine.playerRole;
+      const playerGameName = coreEngine.playerGameName;
       const isGuest = player != null && player.isGuest;
-      const playerRole = playerProfile.role;
       const isAdmin = player != null && playerProfile.isAdmin;
       const isDeveloper = player != null && playerProfile.isDeveloper;
       const isTester = player != null && playerProfile.isTester;
-      const eraId = this.coreEngine.selectedEraId;
-      const selectedEraConfig = this.coreEngine.selectedEraConfig;
-      const selectedAlliance = this.coreEngine.selectedAlliance;
-      const selectedOpponent = this.coreEngine.selectedOpponent;
-      const selectedOpponents = this.coreEngine.selectedOpponents;
+      const selectedOpponent = coreEngine.selectedOpponents[0];
 
-      // stop game if key data is missing
-      const required = {
-          player,
-          selectedEraConfig,
-          selectedOpponent,
-          selectedOpponents };
-      if (Object.values(required).some(v => !v)) {
-          this.logerror('key data missing', required);
-          throw new Error('GameLifecycleManager.initializeForPlacement: key data missing');
+      const selectedGameMode = coreEngine.selectedGameMode;
+      const gameInstance = coreEngine.gameInstance;
+      const board = coreEngine.board;
+
+      // stop game if key data is missing (selectedAlliance is allowed to be null)
+      const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents };
+      const missing = Object.entries(required)
+          .filter(([key, value]) => !value)
+          .map(([key, value]) => `${key}=${value}`);
+      if (missing.length > 0) {
+          this.logerror(`key data missing: ${missing.join(', ')}`, required);
+          throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
       }
-    
+
+      const selectedEraConfig = coreEngine.selectedEraConfig;
+
     // Create Game instance
     this.game = new Game(
       selectedEraConfig,
@@ -306,7 +315,7 @@ class GameLifecycleManager {
   getOpposingAlliance(selectedAlliance) {
       method = 'getOpposingAlliance';
       
-    if (!this.coreEngine?.eraConfig?.alliances || this.coreEngine.selectedEraConfig.alliances.length < 2) {
+    if (!this.coreEngine?.selectedEraConfig?.alliances || this.coreEngine.selectedEraConfig.alliances.length < 2) {
       return null;
     }
     

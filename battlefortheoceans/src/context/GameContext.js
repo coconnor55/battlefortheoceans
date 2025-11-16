@@ -78,17 +78,7 @@ export const GameProvider = ({ children }) => {
       // v0.4.0: Multi-fleet support
       get selectedOpponents() { return coreEngine.selectedOpponents; },
       get selectedOpponent() { return coreEngine.selectedOpponents?.[0] || null; }, // Backward compatibility
-      
-      get selectedGameMode() { return coreEngine.selectedGameMode; },
-      get selectedAlliance() { return coreEngine.selectedAlliance; },
-      
-//      // v0.4.7: Keep for backward compatibility, but prefer coreEngine.player/profile
-//      get humanPlayer() { return coreEngine.player; },
-//      get playerProfile() { return coreEngine.playerProfile; },
-      
-      get gameInstance() { return coreEngine.gameInstance; },
-      get board() { return coreEngine.board; },
-      
+            
       // Computed state
       getUIState: () => coreEngine.getUIState(),
 //      getPlacementProgress: () => coreEngine.getPlacementProgress(),

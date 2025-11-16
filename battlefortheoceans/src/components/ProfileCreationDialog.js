@@ -205,8 +205,9 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
         
         console.log(version, 'HumanPlayer created:', player.name);
         
-        // Return Player object
-        onComplete(player);
+          // Return Player object with profile and email
+          onComplete(player, profile, userData.email);
+
       } else {
         setError('Failed to create profile. Please try again.');
         setStatusMessage('');
@@ -234,8 +235,8 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
     
     console.log(version, 'HumanPlayer created from existing profile:', player.name);
     
-    // Return Player object
-    onComplete(player);
+      // Return Player object with existing profile and email
+      onComplete(player, existingProfile, userData.email);
   };
 
   const canSubmit = gameName.trim().length >= 3 && !validationError && !isLoading;

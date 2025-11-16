@@ -14,13 +14,63 @@ import Player from '../classes/Player';
 import * as LucideIcons from 'lucide-react';
 
 const version = 'v0.1.2';
+const tag = "ACHIEVEMENTS";
+const module = "AchievementsPage";
+let method = "";
 
-const AchievementsPage = ({ onClose }) => {
-  const { dispatch, events } = useGame();
-  const playerId = coreEngine.playerId;
+const AchievementsPage = ({ onClose, scrollPosition }) => {
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
+
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
+
+    //key data - see CoreEngine handle{state}
+    const gameConfig = coreEngine.gameConfig;
+    const eras = coreEngine.eras;
+    const player = coreEngine.player
     const playerProfile = coreEngine.playerProfile;
-    const player = coreEngine.player;
+    const playerEmail = coreEngine.playerEmail;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponents = coreEngine.selectedOpponents;
+
+    // derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
     const isGuest = player != null && player.isGuest;
+    const isAdmin = player != null && playerProfile.isAdmin;
+    const isDeveloper = player != null && playerProfile.isDeveloper;
+    const isTester = player != null && playerProfile.isTester;
+    const selectedOpponent = coreEngine.selectedOpponents[0];
+
+    const selectedGameMode = coreEngine.selectedGameMode;
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
+
+    // stop game if key data is missing (selectedAlliance is allowed to be null)
+    const required = { gameConfig, eras, player, playerProfile, playerEmail };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    if (missing.length > 0) {
+        logerror(`key data missing: ${missing.join(', ')}`, required);
+        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
+    }
+
+  const { dispatch, events } = useGame();
 
   const [achievements, setAchievements] = useState({
     unlocked: [],
@@ -35,14 +85,6 @@ const AchievementsPage = ({ onClose }) => {
   // InfoPanel state
   const [showInfo, setShowInfo] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState(null);
-
-  // Redirect to login if no user profile
-  useEffect(() => {
-    if (!playerProfile) {
-      console.log(version, 'No user profile detected - redirecting to login');
-      dispatch(events.LOGIN);
-    }
-  }, [playerProfile, dispatch, events]);
 
   // Load achievements on mount
   useEffect(() => {
@@ -76,6 +118,8 @@ const AchievementsPage = ({ onClose }) => {
 
   // Helper function to get tier badge class
   const getTierBadgeClass = (tier) => {
+      method = 'getTierBadgeClass';
+
     switch (tier) {
       case 'bronze': return 'badge--bronze';
       case 'silver': return 'badge--silver';
@@ -93,6 +137,8 @@ const AchievementsPage = ({ onClose }) => {
 
   // Get top 5 achievements (highest tier, then highest points, then most recent)
   const getTop5 = () => {
+      method = 'getChallenges';
+
     const tierOrder = { diamond: 5, platinum: 4, gold: 3, silver: 2, bronze: 1 };
     
     return [...achievements.unlocked]
@@ -113,6 +159,8 @@ const AchievementsPage = ({ onClose }) => {
 
   // Get next challenges (sorted by percentage complete)
   const getChallenges = () => {
+      method = 'getChallenges';
+
     return [...achievements.inProgress]
       .sort((a, b) => (b.percentage || 0) - (a.percentage || 0))
       .slice(0, 5);
@@ -120,13 +168,17 @@ const AchievementsPage = ({ onClose }) => {
 
   // Get all earned achievements (most recent first)
   const getAllEarned = () => {
+      method = 'getAllEarned';
+
     return [...achievements.unlocked]
       .sort((a, b) => new Date(b.unlocked_at) - new Date(a.unlocked_at));
   };
   
   // Handle achievement card click
   const handleAchievementClick = (achievement) => {
-    console.log(version, 'Achievement clicked:', achievement.name);
+      method = 'handleAchievementClick';
+
+    log('Achievement clicked:', achievement.name);
     setSelectedAchievement(achievement);
     setShowInfo(true);
   };
@@ -217,9 +269,9 @@ const AchievementsPage = ({ onClose }) => {
   const allEarned = getAllEarned();
 
   return (
-    <div className="container flex flex-column flex-center">
+    <div
+      className="container flex flex-column flex-center-scrollable">
       <div className="content-pane content-pane--wide">
-        
         {/* Header */}
         <div className="card-header card-header--with-close">
           <div>

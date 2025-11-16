@@ -1,6 +1,10 @@
 // src/pages/SelectOpponentPage.js
 // Copyright(c) 2025, Clint H. O'Connor
 
+// v0.6.11: Fixed unnecessary re-renders and selectedOpponents array bug
+//          - Changed fetchOnlineHumans useEffect to run once on mount only
+//          - Fixed 3 places using selectedOpponent[0] → selectedOpponents array
+//          - Lines 157, 178, 199: Proper array assignment
 // v0.6.10: Moved GameGuide to App.js, removed setShowInfo and InfoButton
 // v0.6.9: Manually restored lost page formatting
 // v0.6.8: Fixed playerProfile access AND opponents property name
@@ -23,7 +27,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.6.10';
+const version = 'v0.6.11';
 const tag = "OPPONENT";
 const module = "SelectOpponentPage";
 let method = "";
@@ -54,40 +58,44 @@ const SelectOpponentPage = () => {
   } = useGame();
   
     //key data - see CoreEngine handle{state}
+    const gameConfig = coreEngine.gameConfig;
     const eras = coreEngine.eras;
     const player = coreEngine.player
     const playerProfile = coreEngine.playerProfile;
-    const playerId = playerProfile.id;
+    const playerEmail = coreEngine.playerEmail;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponents = coreEngine.selectedOpponents;
+
+    // derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
     const isGuest = player != null && player.isGuest;
-    const playerRole = playerProfile.role;
     const isAdmin = player != null && playerProfile.isAdmin;
     const isDeveloper = player != null && playerProfile.isDeveloper;
     const isTester = player != null && playerProfile.isTester;
-    const eraId = coreEngine.selectedEraId;
-    const eraConfig = coreEngine.selectedEraConfig;
-    
-    // stop game if key data is missing
-    const required = { eras, player, playerProfile, playerId, playerRole, eraId, eraConfig };
-    if (Object.values(required).some(v => !v)) {
-        logerror('key data missing', required);
-        throw new Error('SelectOpponentPage: key data missing');
-    }
-    
-  log('Player=', player);
-    log('playerProfile=', playerProfile);
-    log('eraConfig=', eraConfig);
+    const selectedOpponent = coreEngine.selectedOpponents[0];
 
-  useEffect(() => {
-    if (!player) {
-      log('No player detected - redirecting to login');
-      dispatch(events.LOGIN);
+    const selectedGameMode = coreEngine.selectedGameMode;
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
+
+    // stop game if key data is missing (selectedAlliance is allowed to be null)
+    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    if (missing.length > 0) {
+        logerror(`key data missing: ${missing.join(', ')}`, required);
+        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
     }
-  }, [player, dispatch, events]);
+
+    log('SelectOpponent: passed CoreEngine data checks');
   
-  const [selectedAlliance, setSelectedAlliance] = useState(null);
-  const [selectedOpponent, setSelectedOpponent] = useState(null);
-  
-  // v0.6.0: Multi-fleet selection state
+    const selectedEraConfig = coreEngine.selectedEraConfig;
+
+    // v0.6.0: Multi-fleet selection state
   const [selectedPirateFleets, setSelectedPirateFleets] = useState([]);
   
   const [onlineHumans, setOnlineHumans] = useState([]);
@@ -99,8 +107,8 @@ const SelectOpponentPage = () => {
   const [humanExpanded, setHumanExpanded] = useState(false);
 
   // v0.6.0: Check if this is multi-fleet combat era
-  const isMultiFleet = eraConfig?.game_rules?.multi_fleet_combat;
-  const pirateFleets = eraConfig?.alliances?.find(a => a.name === 'Pirates')?.pirate_fleets || [];
+  const isMultiFleet = selectedEraConfig?.game_rules?.multi_fleet_combat;
+  const pirateFleets = selectedEraConfig?.alliances?.find(a => a.name === 'Pirates')?.pirate_fleets || [];
 
   const getDifficultyLabel = (difficulty) => {
     if (difficulty < 1.0) return 'Easy';
@@ -123,11 +131,11 @@ const SelectOpponentPage = () => {
       
     if (selectedPirateFleets.length === 0) return 0;
     
-    const multiplier = eraConfig.game_rules.fleet_difficulty_multipliers[selectedPirateFleets.length] || 1.0;
+    const multiplier = selectedEraConfig.game_rules.fleet_difficulty_multipliers[selectedPirateFleets.length] || 1.0;
     const baseDifficulty = selectedPirateFleets.reduce((sum, fleet) => sum + fleet.ai_captain.difficulty, 0);
     
     return (baseDifficulty * multiplier).toFixed(1);
-  }, [selectedPirateFleets, eraConfig]);
+  }, [selectedPirateFleets, selectedEraConfig]);
 
   // v0.6.0: Toggle pirate fleet selection
   const handleFleetToggle = useCallback((fleet) => {
@@ -141,7 +149,7 @@ const SelectOpponentPage = () => {
         return prev.filter(f => f.fleet_id !== fleet.fleet_id);
       } else {
         // Select (check max limit)
-        const maxFleets = eraConfig.game_rules.fleet_selection_max || 4;
+        const maxFleets = selectedEraConfig.game_rules.fleet_selection_max || 4;
         if (prev.length >= maxFleets) {
           log('Max fleet limit reached:', maxFleets);
           return prev;
@@ -149,14 +157,14 @@ const SelectOpponentPage = () => {
         return [...prev, fleet];
       }
     });
-  }, [eraConfig]);
+  }, [selectedEraConfig]);
 
   const handleAllianceSelect = useCallback((allianceName) => {
       method = 'handleAllianceSelect';
       
-    log('Alliance selected:', allianceName);
-    setSelectedAlliance(allianceName);
-    setSelectedOpponent(null);
+    coreEngine.selectedAlliance = allianceName
+      log('Alliance selected:', allianceName);
+      coreEngine.selectedOpponents = [null];
   }, []);
 
   const handleAIOpponentSelect = useCallback((opponent) => {
@@ -171,7 +179,7 @@ const SelectOpponentPage = () => {
     };
     
     log('AI Opponent selected:', completeOpponent.name, 'difficulty:', completeOpponent.difficulty);
-    setSelectedOpponent(completeOpponent);
+      coreEngine.selectedOpponents = [completeOpponent];
   }, []);
 
   const handleHumanOpponentSelect = useCallback((human) => {
@@ -183,26 +191,26 @@ const SelectOpponentPage = () => {
     };
     
     log('Human Opponent selected:', completeOpponent.name);
-    setSelectedOpponent(completeOpponent);
+      coreEngine.selectedOpponents = [completeOpponent];
   }, []);
 
   const getAvailableAICaptains = useCallback(() => {
       method = 'getAvailableAICaptains';
       
-    if (!eraConfig) return [];
+    if (!selectedEraConfig) return [];
     
-    const requiresAlliance = eraConfig.game_rules?.choose_alliance;
+    const requiresAlliance = selectedEraConfig.game_rules?.choose_alliance;
     
     if (requiresAlliance && selectedAlliance) {
-      const opposingAlliance = eraConfig.alliances?.find(a => a.name !== selectedAlliance);
+      const opposingAlliance = selectedEraConfig.alliances?.find(a => a.name !== selectedAlliance);
       return opposingAlliance?.ai_captains || [];
     } else if (!requiresAlliance) {
-      const opponentAlliance = eraConfig.alliances?.find(a => a.name === 'Opponent');
+      const opponentAlliance = selectedEraConfig.alliances?.find(a => a.name === 'Opponent');
       return opponentAlliance?.ai_captains || [];
     }
     
     return [];
-  }, [eraConfig, selectedAlliance]);
+  }, [selectedEraConfig, selectedAlliance]);
 
     const handleBeginBattle = useCallback(async () => {
         method = 'handleBeginBattle';
@@ -214,13 +222,13 @@ const SelectOpponentPage = () => {
           logerror('No pirate fleets selected');
           return;
         }
-        const minFleets = eraConfig.game_rules.fleet_selection_min || 1;
+        const minFleets = selectedEraConfig.game_rules.fleet_selection_min || 1;
         if (selectedPirateFleets.length < minFleets) {
           logerror(`At least ${minFleets} fleet(s) required`);
           return;
         }
         log('Proceeding to placement with multi-fleet:');
-        log('Era:', eraConfig.name);
+        log('Era:', selectedEraConfig.name);
         log('Selected fleets:', selectedPirateFleets.length);
         
         // Build opponents array with captain + ships
@@ -237,6 +245,8 @@ const SelectOpponentPage = () => {
         setIsTransitioning(true);
         await new Promise(resolve => setTimeout(resolve, 50));
         
+          log('exit SelectOpponent: coreEngine.selectedAlliance set: ', coreEngine.selectedAlliance);
+          log('exit SelectOpponent: coreEngine.selectedOpponents set: ', coreEngine.selectedOpponents);
         dispatch(events.PLACEMENT);
         
       } else {
@@ -245,13 +255,13 @@ const SelectOpponentPage = () => {
           logerror('No opponent selected');
           return;
         }
-        const requiresAlliance = eraConfig?.game_rules?.choose_alliance;
+        const requiresAlliance = selectedEraConfig?.game_rules?.choose_alliance;
         if (requiresAlliance && !selectedAlliance) {
           logerror('Alliance selection required but not selected');
           return;
         }
         log('Proceeding to placement with:');
-        log('Era:', eraConfig.name);
+        log('Era:', selectedEraConfig.name);
         log('Opponent:', selectedOpponent.name, selectedOpponent.type);
         log('Alliance:', selectedAlliance || 'none');
         
@@ -264,25 +274,24 @@ const SelectOpponentPage = () => {
         
         dispatch(events.PLACEMENT);  // No data payload needed anymore
       }
-    }, [isMultiFleet, selectedPirateFleets, selectedOpponent, selectedAlliance, eraConfig, dispatch, events]);
+    }, [isMultiFleet, selectedPirateFleets, selectedOpponent, selectedAlliance, selectedEraConfig, dispatch, events]);
     
   const fetchOnlineHumans = useCallback(async () => {
       method = 'fetchOnlineHumans';
       
-    if (!eraConfig) return;
+    if (!selectedEraConfig) return;
     
     setLoading(true);
     try {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       
-      const { data, error } = await supabase
-        .from('player_online_status')
-        .select('player_id, game_name, last_seen')
-        .eq('is_online', true)
-        .gte('last_seen', fiveMinutesAgo)
-        .neq('player_id', playerProfile?.id)
-        .limit(20);
-      
+        const { data, error } = await supabase
+          .from('user_profiles')  // ✅ Use existing table
+          .select('id, game_name, last_seen')
+          .gte('last_seen', fiveMinutesAgo)
+          .neq('id', playerProfile?.id)
+          .limit(20);
+        
       if (error) throw error;
       
       const humansWithIds = data.map(h => ({
@@ -300,14 +309,14 @@ const SelectOpponentPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [eraConfig, playerProfile]);
+  }, [selectedEraConfig, playerProfile]);
 
   useEffect(() => {
     fetchOnlineHumans();
-  }, [fetchOnlineHumans]);
+  }, []);
 
-  const requiresAlliance = eraConfig?.game_rules?.choose_alliance;
-  const availableAlliances = eraConfig?.alliances?.filter(a => a.name !== 'Opponent') || [];
+  const requiresAlliance = selectedEraConfig?.game_rules?.choose_alliance;
+  const availableAlliances = selectedEraConfig?.alliances?.filter(a => a.name !== 'Opponent') || [];
   const availableAICaptains = getAvailableAICaptains();
 
   // v0.6.0: Determine if user can proceed
@@ -353,7 +362,7 @@ const SelectOpponentPage = () => {
             <div className="card-header__content">
               <h2 className="card-title">Select Your Opponent</h2>
               <p className="card-subtitle">
-                Era: {eraConfig?.name || 'Unknown'}  | Captain: {playerProfile?.game_name || player.name}
+                Era: {selectedEraConfig?.name || 'Unknown'}  | Captain: {playerProfile?.game_name || player.name}
               </p>
             </div>
           </div>
@@ -403,7 +412,7 @@ const SelectOpponentPage = () => {
                   Select Pirate Fleets
                 </h3>
                 <p className="section-hint">
-                  Select 1-{eraConfig.game_rules.fleet_selection_max || 4} fleets to battle - &nbsp;
+                  Select 1-{selectedEraConfig.game_rules.fleet_selection_max || 4} fleets to battle - &nbsp;
                  {selectedPirateFleets.length > 0 && (
                    <span className="fleet-count-badge">
                      {selectedPirateFleets.length} selected

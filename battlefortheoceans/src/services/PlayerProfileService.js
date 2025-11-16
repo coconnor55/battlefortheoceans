@@ -18,7 +18,7 @@ import Player from '../classes/Player';
 import { Filter } from 'bad-words';
 
 const version = "v0.1.7";
-const tag = "SERVICE";
+const tag = "PROFILE";
 const module = "PlayerProfileService";
 let method = "";
 
@@ -256,7 +256,7 @@ class PlayerProfileService {
           return [];
         }
 
-        this.log('Disabling game guide for user:', playerId);
+        this.log('Disabling game guide for player:', playerId);
         
         const { error } = await supabase
         .from('user_profiles')
@@ -408,7 +408,17 @@ class PlayerProfileService {
         if (achievementsError) throw achievementsError;
           this.log('Reset user_achievements');
 
-        this.log('Reset progress for user:', playerId);
+          // DELETE all user_rights for this user  ← ADD THIS BLOCK
+          const { error: rightsError } = await supabase
+            .from('user_rights')
+            .delete()
+            .eq('user_id', playerId);
+
+          if (rightsError) throw rightsError;
+            this.log('Reset user_rights');
+
+          this.log('Reset progress for player:', playerId);
+          return true;        this.log('Reset progress for player:', playerId);
         return true;
 
       } catch (error) {

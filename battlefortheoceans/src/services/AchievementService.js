@@ -1,12 +1,14 @@
 // src/services/AchievementService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.3: Actually credit passes for achievements
 // v0.2.2: Change progress value from decimal to integer
 // v0.2.1: Added total_damage, eras_played, eras_won, pirate_fleets_sunk
 
 import Player from '../classes/Player';
 import { supabase } from '../utils/supabaseClient';
+import RightsService from './RightsService';  // ← ADD THIS LINE
 
-const version = 'v0.2.2';
+const version = 'v0.2.3';
 
 class AchievementService {
   constructor() {
@@ -302,15 +304,33 @@ class AchievementService {
           }
 
           // Update progress if changed
-        if (currentProgress > (userRecord?.progress || 0)) {
-          const updated = await this.updateProgress(playerId, achievement.id, currentProgress);
-          
-          // If newly unlocked, add to list
-          if (updated?.unlocked && !userRecord?.unlocked) {
-            newlyUnlocked.push(achievement);
-          }
-        }
-      }
+          if (currentProgress > (userRecord?.progress || 0)) {
+            const updated = await this.updateProgress(playerId, achievement.id, currentProgress);
+            
+            // If newly unlocked, add to list
+            if (updated?.unlocked && !userRecord?.unlocked) {
+              newlyUnlocked.push(achievement);
+              
+              // Credit passes if achievement has reward
+              if (achievement.reward_passes && achievement.reward_passes > 0) {
+                try {
+                  await RightsService.creditPasses(
+                    playerId,
+                    achievement.reward_passes,
+                    'achievement',
+                    {
+                      achievement_id: achievement.id,
+                      achievement_name: achievement.name
+                    }
+                  );
+                  this.log(`Credited ${achievement.reward_passes} passes for achievement: ${achievement.name}`);
+                } catch (passError) {
+                  this.error('Failed to credit passes for achievement:', passError);
+                  // Don't throw - achievement was still unlocked
+                }
+              }
+            }
+          }      }
 
       this.log('New achievements unlocked:', newlyUnlocked.length);
       return newlyUnlocked;

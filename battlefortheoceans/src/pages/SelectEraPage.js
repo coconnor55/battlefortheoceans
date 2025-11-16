@@ -1,6 +1,9 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.6.7: Pass coreEngine.eras Map directly to useEraBadges
+// v0.6.8: Simplified useEraBadges call - no longer pass eras Map
+//         - Hook now reads coreEngine.eras internally
+//         - Fixes render loop issue
+ // v0.6.7: Pass coreEngine.eras Map directly to useEraBadges
 //         - Eliminates array creation on every render
 //         - Fixes render loop issue
 // v0.6.6: Remove usage of eraList, getSelectedEraSummary
@@ -33,7 +36,7 @@ import useEraBadges from '../hooks/useEraBadges';
 import GetAccessPage from './GetAccessPage';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.6.7';
+const version = 'v0.6.8';
 const tag = "SELECTERA";
 const module = "SelectEraPage";
 let method = "";
@@ -57,29 +60,47 @@ const SelectEraPage = () => {
         events
     } = useGame();
     
-    //key data - see CoreEngine handle{state} 
+    //key data - see CoreEngine handle{state}
+    const gameConfig = coreEngine.gameConfig;
     const eras = coreEngine.eras;
     const player = coreEngine.player
     const playerProfile = coreEngine.playerProfile;
-    const playerId = playerProfile.id;
+    const playerEmail = coreEngine.playerEmail;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponents = coreEngine.selectedOpponents;
+
+    // derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
     const isGuest = player != null && player.isGuest;
-    const playerRole = playerProfile.role;
     const isAdmin = player != null && playerProfile.isAdmin;
     const isDeveloper = player != null && playerProfile.isDeveloper;
     const isTester = player != null && playerProfile.isTester;
+    const selectedOpponent = coreEngine.selectedOpponents[0];
 
-    // stop game if key data is missing
-    const required = { eras, player, playerProfile, playerId, playerRole};
-    if (Object.values(required).some(v => !v)) {
-        logerror('key data missing', required);
-        throw new Error('SelectEraPage: key data missing');
+    const selectedGameMode = coreEngine.selectedGameMode;
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
+
+    // stop game if key data is missing (selectedAlliance is allowed to be null)
+    const required = { gameConfig, eras, player, playerProfile, playerEmail };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    if (missing.length > 0) {
+        logerror(`key data missing: ${missing.join(', ')}`, required);
+        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
     }
 
+    log('SelectEra: passed CoreEngine data checks');
+    
     // Pass System state (via custom hook)
     const {
         eraBadges,
         refresh: refreshBadges
-    } = useEraBadges(playerId, coreEngine.eras);
+    } = useEraBadges(playerId);
     
     // Rights and GetAccessPage state
     const [showGetAccessPage, setShowGetAccessPage] = useState(false);
@@ -122,8 +143,7 @@ const SelectEraPage = () => {
         
         // set selected era
         coreEngine.selectedEraId = era.id;
-        const ec = coreEngine.selectedEraConfig;
-        log(`eraId=${era.id}, eraConfig=${ec}`);
+        log(`eraId=${era.id}, eraConfig=${coreEngine.selectedEraConfig}`);
         
         if (!badgeInfo.canPlay) {
             // Era is locked - show GetAccessPage
@@ -168,9 +188,8 @@ const SelectEraPage = () => {
         }
         
         // selectedEraId is known, therefore coreEngine.selectedEraConfig is valid
-        log('DEBUG Selected eraConfig=', coreEngine.selectedEraConfig);
-        log(`Dispatching to opponent selection with era:`, coreEngine.selectedEraConfig.name);
-        
+        log('exit SelectEra: coreEngine.selectedEraId set: ', coreEngine.selectedEraId);
+        log('exit SelectEra: coreEngine.selectedEraConfig set: ', coreEngine.selectedEraConfig);
         dispatch(events.SELECTOPPONENT);
     }, [coreEngine, dispatch, events]);
     

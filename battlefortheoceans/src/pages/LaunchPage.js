@@ -10,13 +10,29 @@
 // [v0.3.25 working logic preserved, imports fixed for v0.5.5 compatibility]
 
 import { useState, useEffect } from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine, useGame } from '../context/GameContext';
 import { events } from '../constants/GameEvents';
 import { APP_VERSION } from '../App.js';
 
 const version = 'v0.3.9';
+const tag = "LAUNCH";
+const module = "LaunchPage";
+let method = "";
 
 const LaunchPage = () => {
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
+
   const { dispatch, events } = useGame();  // ← Fixed: get events from context
   const [showButton, setShowButton] = useState(false);
 
@@ -79,6 +95,8 @@ const LaunchPage = () => {
   const handlePlayGame = () => {
     console.log('[LAUNCH]', version, 'Play Game button clicked - manual login');
     if (dispatch) {
+        log('exit Launch: coreEngine.gameConfig already set', coreEngine.gameConfig);
+        log('exit Launch: coreEngine.eras already set', coreEngine.eras);
       dispatch(events.LOGIN);
     } else {
       console.error('[LAUNCH]', version, 'Dispatch not available');
