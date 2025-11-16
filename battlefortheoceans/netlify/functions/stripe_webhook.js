@@ -71,16 +71,20 @@ exports.handler = async (event, context) => {
 
 // Handle successful payment
 async function handlePaymentSuccess(paymentIntent) {
-  const { userId, eraId } = paymentIntent.metadata;
+  const { userId, eraId } = paymentIntent.metadata || {};
+  if (!userId || !eraId) {
+    console.error('Missing metadata on payment intent, cannot grant access', paymentIntent.id);
+    throw new Error('Payment metadata missing userId or eraId');
+  }
   
   console.log(`Payment succeeded for user ${userId}, era ${eraId}`);
   
   try {
     // Grant era access in user_rights table
-    const { data, error } = await supabase
+      const { data, error } = await supabase
       .from('user_rights')
       .insert({
-        user_id: userId,
+          player_id: userId,
         rights_type: 'era',
         rights_value: eraId,
         uses_remaining: -1, // Unlimited uses

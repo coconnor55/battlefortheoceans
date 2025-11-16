@@ -11,7 +11,8 @@ import stripeService from '../services/StripeService';
 
 const version = 'v0.2.1';
 // Detect if we're in production (battlefortheoceans.com) or local development
-const isProduction = window.location.hostname === 'battlefortheoceans.com';
+const isBrowser = typeof window !== 'undefined';
+const isProduction = isBrowser && window.location.hostname === 'battlefortheoceans.com';
 const gameCDN = process.env.REACT_APP_GAME_CDN || '';
 
 const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) => {
@@ -97,11 +98,12 @@ const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) =
     return null;
   }
 
-    const promotionalImageUrl = promotionalEra.promontional.promotional_image
-      ? isProduction
-        ? `${gameCDN}/assets/eras/${promotionalEra.id}/${promotionalEra.promontional.promotional_image}`
-        : `/assets/eras/${promotionalEra.id}/${promotionalEra.promontional.promotional_image}`
-      : null;
+  const promotionalImagePath = promotionalEra.promotional?.promotional_image || null;
+  const promotionalImageUrl = promotionalImagePath
+    ? isProduction
+      ? `${gameCDN}/assets/eras/${promotionalEra.id}/${promotionalImagePath}`
+      : `/assets/eras/${promotionalEra.id}/${promotionalImagePath}`
+    : null;
     console.log('[DEBUG]', version, 'Setting promotional image:', promotionalImageUrl);
 
   return (
