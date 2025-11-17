@@ -1,5 +1,9 @@
 // src/pages/AchievementsPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.3: Added passes reward badge to challenge cards
+//         - Display "+X Passes" badge in upper right of each challenge card
+//         - Only shows when achievement has reward_passes > 0
+//         - Styled with success color and positioned absolutely
 // v0.1.2: Changed ERA to SELECTERA (Claude error)
 // v0.1.1: Added badge click handler with InfoPanel details
 //         - Click any achievement card to see full details
@@ -13,7 +17,7 @@ import InfoPanel from '../components/InfoPanel';
 import Player from '../classes/Player';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.1.2';
+const version = 'v0.1.3';
 const tag = "ACHIEVEMENTS";
 const module = "AchievementsPage";
 let method = "";
@@ -408,6 +412,11 @@ const AchievementsPage = ({ onClose, scrollPosition }) => {
                     tabIndex={0}
                     onKeyPress={(e) => e.key === 'Enter' && handleAchievementClick(achievement)}
                   >
+                    {achievement.reward_passes > 0 && (
+                      <div className="challenge-passes-badge">
+                        +{achievement.reward_passes} Passes
+                      </div>
+                    )}
                     <div className="challenge-header">
                       <div className="challenge-icon">
                         <Icon size={32} />
