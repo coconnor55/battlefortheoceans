@@ -1,8 +1,5 @@
 // src/services/VoucherService.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.1.6: Fix redeem_voucher_v2 function overload ambiguity
-//         - Add p_ip_address: null parameter to disambiguate between function overloads
-//         - Resolves PostgreSQL error: "Could not choose the best candidate function"
 // v0.1.5: Reward NEW USER with signup bonus on account creation
 //          - processReferralReward: Generate and redeem signup bonus for new user
 //          - Uses signup_bonus from email voucher (was signup_bonus_passes)
@@ -21,7 +18,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.6';
+const version = 'v0.1.5';
 
 class VoucherService {
     constructor() {
@@ -201,11 +198,9 @@ class VoucherService {
             }
             
             // Call secure server-side RPC function
-            // Note: p_ip_address is optional but required to disambiguate function overload
             const { data, error } = await supabase.rpc('redeem_voucher_v2', {
                 p_user_id: playerId,
-                p_voucher_code: voucherCode.trim(),
-                p_ip_address: null
+                p_voucher_code: voucherCode.trim()
             });
             
             if (error) {
