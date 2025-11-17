@@ -1,5 +1,12 @@
 // src/services/VoucherService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.6: Add email and creator validation to prevent voucher theft
+//         - Check voucher email_sent_to matches redeeming user's email (if email provided)
+//         - Check voucher created_by is NOT the redeeming user (prevents self-redemption)
+//         - Prevents users from redeeming vouchers sent to other people
+//         - Prevents voucher creators from redeeming their own vouchers
+//         - Only validates if playerEmail is provided (optional parameter)
+//         - General vouchers (email_sent_to is null) can be redeemed by anyone (except creator)
 // v0.1.5: Reward NEW USER with signup bonus on account creation
 //          - processReferralReward: Generate and redeem signup bonus for new user
 //          - Uses signup_bonus from email voucher (was signup_bonus_passes)
@@ -18,7 +25,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.5';
+const version = 'v0.1.6';
 
 class VoucherService {
     constructor() {
@@ -167,10 +174,11 @@ class VoucherService {
      *
      * @param {string} playerId - Player ID
      * @param {string} voucherCode - Voucher code to redeem
+     * @param {string} playerEmail - Player email (optional, for validation)
      * @returns {Promise<object>} Created user_rights entry
      * @throws {Error} If redemption fails
      */
-    async redeemVoucher(playerId, voucherCode) {
+    async redeemVoucher(playerId, voucherCode, playerEmail = null) {
         if (!playerId) {
             throw new Error('Player ID is required');
         }
@@ -195,6 +203,46 @@ class VoucherService {
             } catch (parseError) {
                 console.warn(`[VOUCHER] VoucherService ${version}| Client-side parse failed:`, parseError.message);
                 // Continue anyway - server will do authoritative validation
+            }
+            
+            // Security check: Validate voucher email_sent_to and created_by if playerEmail provided
+            if (playerEmail) {
+                const { data: voucherData, error: voucherError } = await supabase
+                    .from('vouchers')
+                    .select('email_sent_to, created_by, redeemed_at')
+                    .eq('voucher_code', voucherCode.trim())
+                    .single();
+                
+                if (!voucherError && voucherData) {
+                    // Check if creator is trying to redeem their own voucher
+                    if (voucherData.created_by && voucherData.created_by === playerId) {
+                        console.error(`[VOUCHER] VoucherService ${version}| Voucher creator attempting to redeem own voucher: ${playerId}`);
+                        throw new Error('You cannot redeem a voucher that you created');
+                    }
+                    
+                    // If voucher has email_sent_to, it must match the redeeming user's email
+                    if (voucherData.email_sent_to && voucherData.email_sent_to.toLowerCase() !== playerEmail.toLowerCase()) {
+                        console.error(`[VOUCHER] VoucherService ${version}| Voucher email mismatch: voucher sent to ${voucherData.email_sent_to}, user email is ${playerEmail}`);
+                        throw new Error('This voucher was sent to a different email address and cannot be redeemed by you.');
+                    }
+                    
+                    // Check if already redeemed
+                    if (voucherData.redeemed_at) {
+                        throw new Error('This voucher code has already been used');
+                    }
+                }
+            } else {
+                // Even without email, check if creator is trying to redeem their own voucher
+                const { data: voucherData, error: voucherError } = await supabase
+                    .from('vouchers')
+                    .select('created_by')
+                    .eq('voucher_code', voucherCode.trim())
+                    .single();
+                
+                if (!voucherError && voucherData && voucherData.created_by && voucherData.created_by === playerId) {
+                    console.error(`[VOUCHER] VoucherService ${version}| Voucher creator attempting to redeem own voucher: ${playerId}`);
+                    throw new Error('You cannot redeem a voucher that you created');
+                }
             }
             
             // Call secure server-side RPC function
@@ -454,7 +502,8 @@ class VoucherService {
               );
             
             console.log(`[VOUCHER] VoucherService ${version}| Generated referrer reward:`, referrerRewardCode);
-            await this.redeemVoucher(referrerId, referrerRewardCode);
+            // Referrer reward has email_sent_to as null (general voucher), so no email validation needed
+            await this.redeemVoucher(referrerId, referrerRewardCode, null);
             console.log(`[VOUCHER] VoucherService ${version}| Referrer rewarded with ${signupBonusPasses} passes!`);
             
             // 2. Reward NEW USER with signup bonus
@@ -471,7 +520,8 @@ class VoucherService {
                  );
             
             console.log(`[VOUCHER] VoucherService ${version}| Generated signup bonus:`, newUserRewardCode);
-            await this.redeemVoucher(newUserId, newUserRewardCode);
+            // New user signup bonus has email_sent_to set to newUserEmail, validate it matches
+            await this.redeemVoucher(newUserId, newUserRewardCode, newUserEmail);
             console.log(`[VOUCHER] VoucherService ${version}| New user rewarded with ${signupBonusPasses} passes!`);
             
             // 3. Mark original voucher as processed

@@ -1,5 +1,8 @@
 // src/pages/PlacementPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.19: Allow null playerEmail for guest users in key data check
+//          - Guest users don't have email, so playerEmail check is conditional
+//          - Only require playerEmail for non-guest users
 // v0.4.18: Graceful loading state while CoreEngine finishes initialization
 //          - Replaced fatal dependency throw with loading UI
 //          - Prevents placement page crash during CoreEngine warmup
@@ -29,7 +32,7 @@ import { coreEngine, useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
 
-const version = 'v0.4.18';
+const version = 'v0.4.19';
 const tag = "PLACEMENT";
 const module = "PlacementPage";
 let method = "";
@@ -77,7 +80,10 @@ const PlacementPage = () => {
     const board = coreEngine.board;
 
       // stop game if key data is missing (selectedAlliance is allowed to be null)
-      const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
+      // playerEmail is allowed to be null for guest users
+      const required = isGuest 
+          ? { gameConfig, eras, player, playerProfile, selectedEraId, selectedOpponents, gameInstance, board }
+          : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
       const missing = Object.entries(required)
           .filter(([key, value]) => !value)
           .map(([key, value]) => `${key}=${value}`);

@@ -1,5 +1,8 @@
-// src/pages/StatsPage.js v0.1.5
+// src/pages/StatsPage.js v0.1.6
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.6: Allow null playerEmail for guest users in key data check
+//         - Guest users don't have email, so playerEmail check is conditional
+//         - Only require playerEmail for non-guest users
 // v0.1.5: Use singleton LeaderboardService instance
 //         - Changed import from LeaderboardService (class) to leaderboardService (instance)
 //         - Removed line 38: const leaderboardService = new LeaderboardService()
@@ -18,7 +21,7 @@ import gameStatsService from '../services/GameStatsService';
 import leaderboardService from '../services/LeaderboardService';
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.5";
+const version = "v0.1.6";
 const tag = "STATS";
 const module = "StatsPage";
 let method = "";
@@ -70,7 +73,10 @@ function StatsPage({ onClose }) {
     const board = coreEngine.board;
 
     // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { gameConfig, eras, player, playerProfile, playerEmail };
+    // playerEmail is allowed to be null for guest users
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile }
+        : { gameConfig, eras, player, playerProfile, playerEmail };
     const missing = Object.entries(required)
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);

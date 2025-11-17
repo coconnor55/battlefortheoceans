@@ -1,5 +1,8 @@
 // src/pages/AchievementsPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.4: Allow null playerEmail for guest users in key data check
+//         - Guest users don't have email, so playerEmail check is conditional
+//         - Only require playerEmail for non-guest users
 // v0.1.3: Added passes reward badge to challenge cards
 //         - Display "+X Passes" badge in upper right of each challenge card
 //         - Only shows when achievement has reward_passes > 0
@@ -17,7 +20,7 @@ import InfoPanel from '../components/InfoPanel';
 import Player from '../classes/Player';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.1.3';
+const version = 'v0.1.4';
 const tag = "ACHIEVEMENTS";
 const module = "AchievementsPage";
 let method = "";
@@ -65,7 +68,10 @@ const AchievementsPage = ({ onClose, scrollPosition }) => {
     const board = coreEngine.board;
 
     // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { gameConfig, eras, player, playerProfile, playerEmail };
+    // playerEmail is allowed to be null for guest users
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile }
+        : { gameConfig, eras, player, playerProfile, playerEmail };
     const missing = Object.entries(required)
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);

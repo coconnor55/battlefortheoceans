@@ -1,5 +1,8 @@
 // src/hooks/useInviteFlow.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.3: Pass playerEmail to redeemVoucher for email validation
+//         - Prevents users from redeeming vouchers sent to other people
+//         - Validates voucher email_sent_to matches redeeming user's email
 // v0.1.2: Manually fixed up file after ai wipeout
 // v0.1.0: Initial useInviteFlow hook - voucher invitation and redemption logic
 //         - inviteFriend(friendEmail, selectedEraId) - Find/create voucher, send email
@@ -10,7 +13,7 @@ import { useState } from 'react';
 import VoucherService from '../services/VoucherService';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.1.2';
+const version = 'v0.1.3';
 const tag = "INVITE";
 const module = "useInviteFlow";
 let method = "";
@@ -233,7 +236,7 @@ export function useInviteFlow() {
 
       // Redeem voucher
       log(`Redeeming voucher...`);
-      const result = await VoucherService.redeemVoucher(playerId, voucherCode.trim());
+      const result = await VoucherService.redeemVoucher(playerId, voucherCode.trim(), playerEmail);
 
       log(`Redemption successful:`, result);
 

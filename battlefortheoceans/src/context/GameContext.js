@@ -1,5 +1,8 @@
 // src/context/GameContext.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.16: Pass playerEmail to redeemVoucher for email validation
+//          - Updated redeemVoucher to pass coreEngine.playerEmail for voucher email validation
+//          - Prevents users from redeeming vouchers sent to other people
 // v0.4.15: Corrected reference to updateGameStats
 // v0.4.14: Removed hasEraAccess - deprecated then deleted
 // v0.4.13: Use VoucherService for voucher redemption
@@ -42,7 +45,7 @@ import rightsService from '../services/RightsService';
 import VoucherService from '../services/VoucherService';
 import GameStatsService from '../services/GameStatsService';
 
-const version = "v0.4.15";
+const version = "v0.4.16";
 
 const GameState = createContext();
 
@@ -109,7 +112,7 @@ export const GameProvider = ({ children }) => {
       // v0.4.6: Use service singletons directly
       grantEraAccess: (playerId, eraId, paymentData) => rightsService.grantEraAccess(playerId, eraId, paymentData),
         // NEW:
-        redeemVoucher: (playerId, voucherCode) => VoucherService.redeemVoucher(playerId, voucherCode),
+        redeemVoucher: (playerId, voucherCode) => VoucherService.redeemVoucher(playerId, voucherCode, coreEngine.playerEmail),
         getUserRights: (playerId) => rightsService.getUserRights(playerId),
             
     }}>

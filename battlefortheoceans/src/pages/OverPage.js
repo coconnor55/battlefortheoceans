@@ -1,5 +1,8 @@
-// src/pages/OverPage.js v0.5.14
+// src/pages/OverPage.js v0.5.15
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.15: Allow null playerEmail for guest users in key data check
+//          - Guest users don't have email, so playerEmail check is conditional
+//          - Only require playerEmail for non-guest users
 // v0.5.14: Improved session recovery navigation
 //          - Navigate to Launch page instead of Login when session expires
 //          - Only if gameConfig and eras are valid (core app data intact)
@@ -61,7 +64,7 @@ import VideoPopup from '../components/VideoPopup';
 import AchievementService from '../services/AchievementService';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.5.14';
+const version = 'v0.5.15';
 const tag = "OVER";
 const module = "OverPage";
 let method = "";
@@ -115,7 +118,10 @@ const OverPage = () => {
     const board = coreEngine.board;
 
     // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
+    // playerEmail is allowed to be null for guest users
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile, selectedEraId, selectedOpponents, gameInstance, board }
+        : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
     const missing = Object.entries(required)
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);

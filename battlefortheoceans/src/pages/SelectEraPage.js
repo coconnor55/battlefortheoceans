@@ -1,5 +1,12 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.10: Allow null playerEmail for guest users in key data check
+//          - Guest users don't have email, so playerEmail check is conditional
+//          - Only require playerEmail for non-guest users
+// v0.6.9: Restore play button hiding logic from cursor/hide-play-buttons-for-unavailable-content-aedf
+//         - Restore selectedEraCanPlay logic to check if user has access to play era
+//         - Hide play button and show "Access required" message when user can't play
+//         - Check passes, exclusive eras, development eras, and voucher access
 // v0.6.8: Simplified useEraBadges call - no longer pass eras Map
 //         - Hook now reads coreEngine.eras internally
 //         - Fixes render loop issue
@@ -36,7 +43,7 @@ import useEraBadges from '../hooks/useEraBadges';
 import GetAccessPage from './GetAccessPage';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.6.8';
+const version = 'v0.6.10';
 const tag = "SELECTERA";
 const module = "SelectEraPage";
 let method = "";
@@ -86,7 +93,10 @@ const SelectEraPage = () => {
     const board = coreEngine.board;
 
     // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { gameConfig, eras, player, playerProfile, playerEmail };
+    // playerEmail is allowed to be null for guest users
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile }
+        : { gameConfig, eras, player, playerProfile, playerEmail };
     const missing = Object.entries(required)
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);

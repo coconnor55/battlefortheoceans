@@ -1,6 +1,8 @@
 // src/pages/SelectOpponentPage.js
 // Copyright(c) 2025, Clint H. O'Connor
-
+// v0.6.12: Allow null playerEmail for guest users in key data check
+//          - Guest users don't have email, so playerEmail check is conditional
+//          - Only require playerEmail for non-guest users
 // v0.6.11: Fixed unnecessary re-renders and selectedOpponents array bug
 //          - Changed fetchOnlineHumans useEffect to run once on mount only
 //          - Fixed 3 places using selectedOpponent[0] → selectedOpponents array
@@ -27,7 +29,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.6.11';
+const version = 'v0.6.12';
 const tag = "OPPONENT";
 const module = "SelectOpponentPage";
 let method = "";
@@ -82,7 +84,10 @@ const SelectOpponentPage = () => {
     const board = coreEngine.board;
 
     // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
+    // playerEmail is allowed to be null for guest users
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile, selectedEraId }
+        : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
     const missing = Object.entries(required)
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);

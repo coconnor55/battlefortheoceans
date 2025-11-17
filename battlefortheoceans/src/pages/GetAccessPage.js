@@ -1,5 +1,8 @@
 // src/pages/GetAccessPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.2: Allow null playerEmail for guest users in key data check
+//         - Guest users don't have email, so playerEmail check is conditional
+//         - Only require playerEmail for non-guest users
 // v0.2.1: Fix invite pass count - invite should be 1 pass, not 10
 //         - Changed invitePasses to use referral_passes (1) instead of friend_signup (10)
 //         - Friend gets 1 pass in invite to try the game
@@ -51,7 +54,7 @@ import useInviteFlow from '../hooks/useInviteFlow';
 import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.2.1';
+const version = 'v0.2.2';
 const tag = "ACCESS";
 const module = "GetAccessPage";
 let method = "";
@@ -95,7 +98,10 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
     const board = coreEngine.board;
 
     // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
+    // playerEmail is allowed to be null for guest users
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile, selectedEraId }
+        : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
     const missing = Object.entries(required)
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);
