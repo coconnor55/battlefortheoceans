@@ -1,5 +1,11 @@
 // src/pages/GetAccessPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.0: Replaced feature-item cards with challenge cards in Earn section
+//         - Replaced simple feature-item cards with full challenge cards matching AchievementsPage
+//         - Added challenge cards with icons, progress bars, and passes badge
+//         - Added condensed styling (challenge-item--condensed) for more compact layout
+//         - Added helper functions getLucideIcon and getTierBadgeClass
+//         - Updated achievement data structure to include current, target, percentage for progress bars
 // v0.1.9: Use coreEngine.selectedEraConfig and coreEngine.gameConfig directly
 //         - Remove selectedEraId prop (use coreEngine.selectedEraConfig)
 //         - Remove local config loading (already loaded in CoreEngine)
@@ -39,8 +45,9 @@ import VoucherService from '../services/VoucherService';
 import useInviteFlow from '../hooks/useInviteFlow';
 import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
+import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.1.9';
+const version = 'v0.2.0';
 const tag = "ACCESS";
 const module = "GetAccessPage";
 let method = "";
@@ -221,11 +228,18 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
       // Filter unlocked and calculate progress
       const locked = achievements
         .filter(a => !unlockedIds.has(a.id) && a.reward_passes > 0)
-        .map(a => ({
-          ...a,
-          progress: calculateProgress(a, stats || {}),
-          progressPercent: calculateProgressPercent(a, stats || {})
-        }))
+        .map(a => {
+          const progress = calculateProgress(a, stats || {});
+          const percentage = calculateProgressPercent(a, stats || {});
+          return {
+            ...a,
+            progress,
+            progressPercent: percentage,
+            current: progress,
+            target: a.requirement_value,
+            percentage: Math.min(100, Math.round((progress / a.requirement_value) * 100))
+          };
+        })
         .sort((a, b) => {
           // Calculate remaining needed for each
           const aRemaining = a.requirement_value - a.progress;
@@ -260,6 +274,24 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         return userStats.total_damage || 0;
       default:
         return 0;
+    }
+  };
+
+  // Helper function to get Lucide icon component by name
+  const getLucideIcon = (iconName) => {
+    const Icon = LucideIcons[iconName];
+    return Icon || LucideIcons.Award; // Fallback to Award icon
+  };
+
+  // Helper function to get tier badge class
+  const getTierBadgeClass = (tier) => {
+    switch (tier) {
+      case 'bronze': return 'badge--bronze';
+      case 'silver': return 'badge--silver';
+      case 'gold': return 'badge--gold';
+      case 'platinum': return 'badge--platinum';
+      case 'diamond': return 'badge--diamond';
+      default: return 'badge--primary';
     }
   };
 
@@ -593,25 +625,47 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 <div className="mb-lg">
                   <p>You can play this era when you earn more achievements!</p>
                   
-                  <div className="feature-grid mt-md">
-                    {nearestAchievements.map(achievement => (
-                      <div key={achievement.id} className="feature-item">
-                        <div className="flex flex-between mb-xs">
-                          <strong>{achievement.name}</strong>
-                          <span className="badge badge-info">{achievement.reward_passes} passes</span>
+                  <div className="challenges-section mt-md">
+                    {nearestAchievements.map(achievement => {
+                      const Icon = getLucideIcon(achievement.badge_icon);
+                      return (
+                        <div
+                          key={achievement.id}
+                          className="challenge-item challenge-item--condensed"
+                        >
+                          {achievement.reward_passes > 0 && (
+                            <div className="challenge-passes-badge">
+                              +{achievement.reward_passes} Passes
+                            </div>
+                          )}
+                          <div className="challenge-header">
+                            <div className="challenge-icon">
+                              <Icon size={24} />
+                            </div>
+                            <div className="challenge-info">
+                              <div className="challenge-name">
+                                {achievement.name}
+                                <span className={`badge ${getTierBadgeClass(achievement.tier)} ml-sm`}>
+                                  {achievement.points} pts
+                                </span>
+                              </div>
+                              <div className="challenge-description">{achievement.description}</div>
+                            </div>
+                          </div>
+                          <div className="challenge-progress">
+                            <div className="progress-bar">
+                              <div
+                                className="progress-bar__fill"
+                                style={{ width: `${achievement.percentage || 0}%` }}
+                              ></div>
+                            </div>
+                            <div className="progress-text">
+                              {achievement.current || 0} / {achievement.target} ({achievement.percentage || 0}%)
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-secondary mb-xs">
-                          {achievement.description}
-                        </p>
-                         <div className="text-dim">
-                           {(() => {
-                             const remaining = achievement.requirement_value - achievement.progress;
-                             const unit = achievement.requirement_type.replace('total_', '').replace('_', ' ');
-                             return `${remaining} more ${unit} needed (${achievement.progress}/${achievement.requirement_value})`;
-                           })()}
-                         </div>
-                    </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -626,7 +680,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 </p>
                 <p className="text-secondary mb-md">
                   Email a friend about this game. Earn 10 more passes when your friend signs up for an account
-                  (your friend also gets 10 passes). You'll be copied on the email as well.
+                  (your friend also gets 10 passes). You'll be copied on the email as well so you can follow up with a personal message.
                 </p>
                 
                 {emailSuccess && (
@@ -696,7 +750,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 </p>
                 <p className="text-secondary mb-md">
                   Earn 10 more plays when your friend signs up for an account
-                  (your friend also gets 10 plays). You'll be copied on the email as well.
+                  (your friend also gets 10 plays). You'll be copied on the email as well so you can follow up with a personal message.
                 </p>
                 
                 {emailSuccess && (

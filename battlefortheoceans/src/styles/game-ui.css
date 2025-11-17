@@ -1,5 +1,9 @@
-/* src/styles/game-ui.css v2.2.4 */
+/* src/styles/game-ui.css v2.2.5 */
 /* Copyright(c) 2025, Clint H. O'Connor */
+/* v2.2.5: Added passes badge and condensed challenge card styles */
+/*         - Added .challenge-passes-badge for "+X Passes" display in upper right of challenge cards */
+/*         - Added .challenge-item--condensed for compact challenge cards in GetAccessPage */
+/*         - Made .challenge-item position: relative to support absolute badge positioning */
 /* v2.2.4: Use tier color custom properties for consistent achievement/badge styling */
 /* Game-specific UI components - uses shared-components.css for common patterns */
 
@@ -528,6 +532,7 @@
 
 /* ============================================
    CHALLENGES SECTION
+   v2.2.5: Added passes badge and condensed variant
    v2.2.3: Styled like achievement cards
    ============================================ */
 
@@ -546,6 +551,7 @@
   border-radius: var(--border-radius-md);
   transition: all 0.2s ease;
   margin-bottom: var(--space-md);
+  position: relative;
 }
 
 .challenge-item:hover {
@@ -621,6 +627,45 @@
   color: var(--text-secondary);
   text-align: center;
   display: block;
+}
+
+/* Passes badge in upper right of challenge cards */
+.challenge-passes-badge {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  background: var(--success);
+  color: var(--text-primary);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Condensed challenge cards for GetAccessPage */
+.challenge-item--condensed {
+  padding: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.challenge-item--condensed .challenge-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.challenge-item--condensed .challenge-name {
+  font-size: 0.875rem;
+}
+
+.challenge-item--condensed .challenge-description {
+  font-size: 0.8125rem;
+}
+
+.challenge-item--condensed .challenge-passes-badge {
+  font-size: 0.6875rem;
+  padding: 0.2rem 0.4rem;
 }
 
 /* ============================================
