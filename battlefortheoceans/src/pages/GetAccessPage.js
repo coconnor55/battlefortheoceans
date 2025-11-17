@@ -53,6 +53,7 @@ import VoucherService from '../services/VoucherService';
 import useInviteFlow from '../hooks/useInviteFlow';
 import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
+import * as LucideIcons from 'lucide-react';
 
 const version = 'v0.2.2';
 const tag = "ACCESS";
@@ -147,6 +148,24 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState(null);
 
+  // Helper function to get Lucide icon component by name
+  const getLucideIcon = (iconName) => {
+    const Icon = LucideIcons[iconName];
+    return Icon || LucideIcons.Award; // Fallback to Award icon
+  };
+
+  // Helper function to get tier badge class
+  const getTierBadgeClass = (tier) => {
+    switch (tier) {
+      case 'bronze': return 'badge--bronze';
+      case 'silver': return 'badge--silver';
+      case 'gold': return 'badge--gold';
+      case 'platinum': return 'badge--platinum';
+      case 'diamond': return 'badge--diamond';
+      default: return 'badge--primary';
+    }
+  };
+
     // Load era config and user email
     useEffect(() => {
       const loadData = async () => {
@@ -238,11 +257,18 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
       // Filter unlocked and calculate progress
       const locked = achievements
         .filter(a => !unlockedIds.has(a.id) && a.reward_passes > 0)
-        .map(a => ({
-          ...a,
-          progress: calculateProgress(a, stats || {}),
-          progressPercent: calculateProgressPercent(a, stats || {})
-        }))
+        .map(a => {
+          const progress = calculateProgress(a, stats || {});
+          const percentage = calculateProgressPercent(a, stats || {});
+          return {
+            ...a,
+            progress,
+            progressPercent: percentage,
+            current: progress,
+            target: a.requirement_value,
+            percentage: Math.min(100, Math.round((progress / a.requirement_value) * 100))
+          };
+        })
         .sort((a, b) => {
           // Calculate remaining needed for each
           const aRemaining = a.requirement_value - a.progress;
@@ -608,25 +634,47 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 <div className="mb-lg">
                   <p>You can play this era when you earn more achievements!</p>
                   
-                  <div className="feature-grid mt-md">
-                    {nearestAchievements.map(achievement => (
-                      <div key={achievement.id} className="feature-item">
-                        <div className="flex flex-between mb-xs">
-                          <strong>{achievement.name}</strong>
-                          <span className="badge badge-info">{achievement.reward_passes} passes</span>
+                  <div className="challenges-section mt-md">
+                    {nearestAchievements.map(achievement => {
+                      const Icon = getLucideIcon(achievement.badge_icon);
+                      return (
+                        <div
+                          key={achievement.id}
+                          className="challenge-item challenge-item--condensed"
+                        >
+                          {achievement.reward_passes > 0 && (
+                            <div className="challenge-passes-badge">
+                              +{achievement.reward_passes} Passes
+                            </div>
+                          )}
+                          <div className="challenge-header">
+                            <div className="challenge-icon">
+                              <Icon size={24} />
+                            </div>
+                            <div className="challenge-info">
+                              <div className="challenge-name">
+                                {achievement.name}
+                                <span className={`badge ${getTierBadgeClass(achievement.tier)} ml-sm`}>
+                                  {achievement.points} pts
+                                </span>
+                              </div>
+                              <div className="challenge-description">{achievement.description}</div>
+                            </div>
+                          </div>
+                          <div className="challenge-progress">
+                            <div className="progress-bar">
+                              <div
+                                className="progress-bar__fill"
+                                style={{ width: `${achievement.percentage || 0}%` }}
+                              ></div>
+                            </div>
+                            <div className="progress-text">
+                              {achievement.current || 0} / {achievement.target} ({achievement.percentage || 0}%)
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-secondary mb-xs">
-                          {achievement.description}
-                        </p>
-                         <div className="text-dim">
-                           {(() => {
-                             const remaining = achievement.requirement_value - achievement.progress;
-                             const unit = achievement.requirement_type.replace('total_', '').replace('_', ' ');
-                             return `${remaining} more ${unit} needed (${achievement.progress}/${achievement.requirement_value})`;
-                           })()}
-                         </div>
-                    </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
