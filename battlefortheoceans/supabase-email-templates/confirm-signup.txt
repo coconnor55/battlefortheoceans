@@ -1,0 +1,20 @@
+⚓ BATTLE FOR THE OCEANS
+
+Ahoy there!
+
+Welcome to BATTLE FOR THE OCEANS! We're excited to have you join our fleet of naval commanders.
+
+Battle for the Oceans is a strategic naval combat game where you command fleets across different historical eras. Sink enemy ships, dominate the seas, and prove your tactical prowess!
+
+To confirm your email address and activate your account, please click the link below:
+
+{{ .ConfirmationURL }}
+
+This confirmation link will expire in 24 hours.
+
+If you didn't create an account, you can safely ignore this email.
+
+---
+Battle for the Oceans
+https://battlefortheoceans.com
+

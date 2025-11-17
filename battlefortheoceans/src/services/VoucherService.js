@@ -1,5 +1,8 @@
 // src/services/VoucherService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.6: Fix redeem_voucher_v2 function overload ambiguity
+//         - Add p_ip_address: null parameter to disambiguate between function overloads
+//         - Resolves PostgreSQL error: "Could not choose the best candidate function"
 // v0.1.5: Reward NEW USER with signup bonus on account creation
 //          - processReferralReward: Generate and redeem signup bonus for new user
 //          - Uses signup_bonus from email voucher (was signup_bonus_passes)
@@ -18,7 +21,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.5';
+const version = 'v0.1.6';
 
 class VoucherService {
     constructor() {
@@ -165,14 +168,14 @@ class VoucherService {
      * This is the secure redemption path. All validation and database
      * operations happen server-side.
      *
-     * @param {string} playerId - User ID
+     * @param {string} playerId - Player ID
      * @param {string} voucherCode - Voucher code to redeem
      * @returns {Promise<object>} Created user_rights entry
      * @throws {Error} If redemption fails
      */
     async redeemVoucher(playerId, voucherCode) {
         if (!playerId) {
-            throw new Error('User ID is required');
+            throw new Error('Player ID is required');
         }
         
         if (!voucherCode) {
@@ -198,9 +201,11 @@ class VoucherService {
             }
             
             // Call secure server-side RPC function
+            // Note: p_ip_address is optional but required to disambiguate function overload
             const { data, error } = await supabase.rpc('redeem_voucher_v2', {
                 p_user_id: playerId,
-                p_voucher_code: voucherCode.trim()
+                p_voucher_code: voucherCode.trim(),
+                p_ip_address: null
             });
             
             if (error) {
@@ -215,7 +220,7 @@ class VoucherService {
                     throw new Error('This voucher code has already been used');
                 } else if (errorMessage.includes('expired')) {
                     throw new Error('This voucher code has expired');
-                } else if (errorMessage.includes('User ID is required')) {
+                } else if (errorMessage.includes('Player ID is required')) {
                     throw new Error('You must be logged in to redeem vouchers');
                 } else {
                     throw new Error('Failed to redeem voucher. Please try again.');
@@ -299,7 +304,7 @@ class VoucherService {
      *
      * @param {string} type - 'pass' or era name
      * @param {string|number} value - Count or time value
-     * @param {string} createdBy - User ID creating voucher
+     * @param {string} createdBy - Player ID creating voucher
      * @param {string} emailSentTo - Email address receiving voucher
      * @param {string} purpose - Purpose for logging
      * @returns {Promise<object>} { voucherCode, isExisting, status }
@@ -403,7 +408,7 @@ class VoucherService {
      * Rewards BOTH the referrer AND the new user
      *
      * @param {string} newUserEmail - Email of new user signing up
-     * @param {string} newUserId - User ID of new user
+     * @param {string} newUserId - Player ID of new user
      * @returns {Promise<object>} Result with reward details
      */
     async processReferralReward(newUserEmail, newUserId) {

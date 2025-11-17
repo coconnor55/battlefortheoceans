@@ -1,5 +1,10 @@
 // src/pages/GetAccessPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.1: Fix invite pass count - invite should be 1 pass, not 10
+//         - Changed invitePasses to use referral_passes (1) instead of friend_signup (10)
+//         - Friend gets 1 pass in invite to try the game
+//         - Friend gets 10 more passes when they sign up (signupBonus)
+//         - Updated UI text to reflect correct pass counts
 // v0.2.0: Replaced feature-item cards with challenge cards in Earn section
 //         - Replaced simple feature-item cards with full challenge cards matching AchievementsPage
 //         - Added challenge cards with icons, progress bars, and passes badge
@@ -45,9 +50,8 @@ import VoucherService from '../services/VoucherService';
 import useInviteFlow from '../hooks/useInviteFlow';
 import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
-import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.2.0';
+const version = 'v0.2.1';
 const tag = "ACCESS";
 const module = "GetAccessPage";
 let method = "";
@@ -102,9 +106,9 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
 
     const selectedEraConfig = coreEngine.selectedEraConfig;
 
-    const friendPasses = gameConfig?.friend_signup || 10;  // ✅ What friend gets
-    const rewardPasses = gameConfig?.referral_passes || 1;
-    const signupBonus = gameConfig?.referral_signup || 10;
+    const invitePasses = gameConfig?.referral_passes || 1;  // ✅ What friend gets in invite (1 pass to try the game)
+    const rewardPasses = gameConfig?.referral_passes || 1;  // ✅ What sender gets immediately
+    const signupBonus = gameConfig?.referral_signup || 10;  // ✅ What friend gets when they sign up
 
     console.log(`[ACCESS] GetAccessPage ${version}| playerId ${playerId}, name ${playerGameName}, email ${playerEmail}, gameConfig ${gameConfig}, selectedEraId ${selectedEraId}, selectedEraConfig ${selectedEraConfig}`);
 
@@ -228,18 +232,11 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
       // Filter unlocked and calculate progress
       const locked = achievements
         .filter(a => !unlockedIds.has(a.id) && a.reward_passes > 0)
-        .map(a => {
-          const progress = calculateProgress(a, stats || {});
-          const percentage = calculateProgressPercent(a, stats || {});
-          return {
-            ...a,
-            progress,
-            progressPercent: percentage,
-            current: progress,
-            target: a.requirement_value,
-            percentage: Math.min(100, Math.round((progress / a.requirement_value) * 100))
-          };
-        })
+        .map(a => ({
+          ...a,
+          progress: calculateProgress(a, stats || {}),
+          progressPercent: calculateProgressPercent(a, stats || {})
+        }))
         .sort((a, b) => {
           // Calculate remaining needed for each
           const aRemaining = a.requirement_value - a.progress;
@@ -277,24 +274,6 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
     }
   };
 
-  // Helper function to get Lucide icon component by name
-  const getLucideIcon = (iconName) => {
-    const Icon = LucideIcons[iconName];
-    return Icon || LucideIcons.Award; // Fallback to Award icon
-  };
-
-  // Helper function to get tier badge class
-  const getTierBadgeClass = (tier) => {
-    switch (tier) {
-      case 'bronze': return 'badge--bronze';
-      case 'silver': return 'badge--silver';
-      case 'gold': return 'badge--gold';
-      case 'platinum': return 'badge--platinum';
-      case 'diamond': return 'badge--diamond';
-      default: return 'badge--primary';
-    }
-  };
-
   // Calculate progress percentage
   const calculateProgressPercent = (achievement, userStats) => {
     const progress = calculateProgress(achievement, userStats);
@@ -316,18 +295,16 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
       
       console.log(`[ACCESS] GetAccessPage ${version}| Generating pass voucher for friend`);
       
-      // Generate pass voucher (10 passes)
-        // Find or create voucher with tracking
-        // Find or create voucher with tracking
-
+      // Generate pass voucher (1 pass to try the game)
+      // Friend gets 10 more passes when they sign up (signupBonus)
         const result = await VoucherService.findOrCreateVoucher(
           'pass',
-          friendPasses,
+          invitePasses,  // 1 pass in the invite
           playerId,
           friendEmail.trim(),
           'email_pass',
-          rewardPasses,
-          signupBonus
+          rewardPasses,  // Sender gets 1 pass immediately
+          signupBonus    // Friend gets 10 passes when they sign up
         );
         const voucherCode = result.voucherCode;
 
@@ -377,7 +354,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
     } finally {
       setSendingEmail(false);
     }
-  }, [friendEmail, playerEmail, playerProfile, rewardPasses, signupBonus]);
+  }, [friendEmail, playerEmail, playerProfile, invitePasses, rewardPasses, signupBonus]);
 
   // Handle email friend (voucher section)
   const handleSendVoucherEmail = useCallback(async () => {
@@ -625,47 +602,25 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 <div className="mb-lg">
                   <p>You can play this era when you earn more achievements!</p>
                   
-                  <div className="challenges-section mt-md">
-                    {nearestAchievements.map(achievement => {
-                      const Icon = getLucideIcon(achievement.badge_icon);
-                      return (
-                        <div
-                          key={achievement.id}
-                          className="challenge-item challenge-item--condensed"
-                        >
-                          {achievement.reward_passes > 0 && (
-                            <div className="challenge-passes-badge">
-                              +{achievement.reward_passes} Passes
-                            </div>
-                          )}
-                          <div className="challenge-header">
-                            <div className="challenge-icon">
-                              <Icon size={24} />
-                            </div>
-                            <div className="challenge-info">
-                              <div className="challenge-name">
-                                {achievement.name}
-                                <span className={`badge ${getTierBadgeClass(achievement.tier)} ml-sm`}>
-                                  {achievement.points} pts
-                                </span>
-                              </div>
-                              <div className="challenge-description">{achievement.description}</div>
-                            </div>
-                          </div>
-                          <div className="challenge-progress">
-                            <div className="progress-bar">
-                              <div
-                                className="progress-bar__fill"
-                                style={{ width: `${achievement.percentage || 0}%` }}
-                              ></div>
-                            </div>
-                            <div className="progress-text">
-                              {achievement.current || 0} / {achievement.target} ({achievement.percentage || 0}%)
-                            </div>
-                          </div>
+                  <div className="feature-grid mt-md">
+                    {nearestAchievements.map(achievement => (
+                      <div key={achievement.id} className="feature-item">
+                        <div className="flex flex-between mb-xs">
+                          <strong>{achievement.name}</strong>
+                          <span className="badge badge-info">{achievement.reward_passes} passes</span>
                         </div>
-                      );
-                    })}
+                        <p className="text-secondary mb-xs">
+                          {achievement.description}
+                        </p>
+                         <div className="text-dim">
+                           {(() => {
+                             const remaining = achievement.requirement_value - achievement.progress;
+                             const unit = achievement.requirement_type.replace('total_', '').replace('_', ' ');
+                             return `${remaining} more ${unit} needed (${achievement.progress}/${achievement.requirement_value})`;
+                           })()}
+                         </div>
+                    </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -679,8 +634,8 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                   <strong>Or get a pass immediately!</strong>
                 </p>
                 <p className="text-secondary mb-md">
-                  Email a friend about this game. Earn 10 more passes when your friend signs up for an account
-                  (your friend also gets 10 passes). You'll be copied on the email as well so you can follow up with a personal message.
+                  Email a friend about this game. Earn 1 pass immediately, and earn 10 more passes when your friend signs up for an account
+                  (your friend gets 1 pass to try the game, then 10 more passes when they sign up). You'll be copied on the email as well so you can follow up with a personal message if you choose.
                 </p>
                 
                 {emailSuccess && (
@@ -749,8 +704,8 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                   You can play this era by emailing a friend about this game!
                 </p>
                 <p className="text-secondary mb-md">
-                  Earn 10 more plays when your friend signs up for an account
-                  (your friend also gets 10 plays). You'll be copied on the email as well so you can follow up with a personal message.
+                  Earn 1 play immediately, and earn 10 more plays when your friend signs up for an account
+                  (your friend gets 1 play to try the game, then 10 more plays when they sign up). You'll be copied on the email as well so you can follow up with a personal message if you choose.
                 </p>
                 
                 {emailSuccess && (
