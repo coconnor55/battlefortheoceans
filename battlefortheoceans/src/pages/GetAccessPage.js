@@ -112,6 +112,387 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
     const [purchasing, setPurchasing] = useState(false);
     const [purchaseError, setPurchaseError] = useState(null);
 
+    // All hooks must be called before any conditional returns
+    // Get key data early for use in hooks (using coreEngine directly)
+    const selectedEraIdForHooks = coreEngine.selectedEraId;
+    const selectedEraConfigForHooks = coreEngine.selectedEraConfig;
+    const playerIdForHooks = coreEngine.playerId;
+    const gameConfigForHooks = coreEngine.gameConfig;
+    const playerEmailForHooks = coreEngine.playerEmail;
+    const playerProfileForHooks = coreEngine.playerProfile;
+
+    // Load nearest achievements (copied from OverPage pattern)
+    const loadNearestAchievements = useCallback(async () => {
+        console.log(`[ACCESS] GetAccessPage ${version}| Finding nearest achievements`);
+        try {
+            // Fetch all achievements
+            const { data: achievements, error: achError } = await supabase
+                .from('achievements')
+                .select('*')
+                .order('requirement_value', { ascending: true });
+            
+            if (achError) throw achError;
+            
+            if (!playerIdForHooks) return;
+            
+            // Get user's unlocked achievements
+            const { data: userAchievements } = await supabase
+                .from('user_achievements')
+                .select('achievement_id')
+                .eq('player_id', playerIdForHooks)
+                .eq('unlocked', true);
+            
+            const unlockedIds = new Set(
+                userAchievements?.map(ua => ua.achievement_id) || []
+            );
+            
+            // Get user stats for progress calculation
+            const { data: stats } = await supabase
+                .from('user_profiles')
+                .select('total_games, total_wins, total_ships_sunk, total_damage')
+                .eq('id', playerIdForHooks)
+                .single();
+            
+            // Helper functions for progress calculation
+            const calculateProgress = (achievement, userStats) => {
+                const reqValue = achievement.requirement_value;
+                switch (achievement.requirement_type) {
+                    case 'total_games':
+                        return userStats.total_games || 0;
+                    case 'total_wins':
+                        return userStats.total_wins || 0;
+                    case 'total_ships_sunk':
+                        return userStats.total_ships_sunk || 0;
+                    case 'total_damage':
+                        return userStats.total_damage || 0;
+                    default:
+                        return 0;
+                }
+            };
+            
+            const calculateProgressPercent = (achievement, userStats) => {
+                const progress = calculateProgress(achievement, userStats);
+                const required = achievement.requirement_value;
+                return Math.min(100, Math.round((progress / required) * 100));
+            };
+            
+            // Filter unlocked and calculate progress
+            const locked = achievements
+                .filter(a => !unlockedIds.has(a.id) && a.reward_passes > 0)
+                .map(a => {
+                    const progress = calculateProgress(a, stats || {});
+                    const percentage = calculateProgressPercent(a, stats || {});
+                    return {
+                        ...a,
+                        progress,
+                        progressPercent: percentage,
+                        current: progress,
+                        target: a.requirement_value,
+                        percentage: Math.min(100, Math.round((progress / a.requirement_value) * 100))
+                    };
+                })
+                .sort((a, b) => {
+                    const aRemaining = a.requirement_value - a.progress;
+                    const bRemaining = b.requirement_value - b.progress;
+                    return aRemaining - bRemaining;
+                });
+                
+            // Take top 3
+            const nearest = locked.slice(0, 3);
+            setNearestAchievements(nearest);
+            
+            console.log(`[ACCESS] GetAccessPage ${version}| Loaded ${nearest.length} nearest achievements`);
+            
+        } catch (err) {
+            console.error(`[ACCESS] GetAccessPage ${version}| Error loading achievements:`, err);
+        }
+    }, [playerIdForHooks]);
+
+    // Handle email friend (pass section)
+    const handleSendPassEmail = useCallback(async () => {
+        if (!friendEmail || !friendEmail.includes('@')) {
+            setEmailError('Please enter a valid email address');
+            return;
+        }
+        
+        const invitePasses = gameConfigForHooks?.referral_passes || 1;
+        const rewardPasses = gameConfigForHooks?.referral_passes || 1;
+        const signupBonus = gameConfigForHooks?.referral_signup || 10;
+        
+        try {
+            setSendingEmail(true);
+            setEmailError(null);
+            setEmailSuccess(false);
+            
+            console.log(`[ACCESS] GetAccessPage ${version}| Generating pass voucher for friend`);
+            
+            const result = await VoucherService.findOrCreateVoucher(
+                null, // eraId (null for pass vouchers)
+                invitePasses,
+                playerIdForHooks,
+                friendEmail.trim(),
+                'email_pass',
+                rewardPasses,
+                signupBonus
+            );
+
+            const voucherCode = result.voucherCode;
+
+            if (result.status === 'already_redeemed') {
+                setEmailError('This friend has already redeemed a voucher from you.');
+                return;
+            }
+
+            console.log(`[ACCESS] GetAccessPage ${version}| Voucher ${result.status}: ${voucherCode}`);
+            console.log(`[ACCESS] GetAccessPage ${version}| Sending invite email to:`, friendEmail);
+            
+            const response = await fetch('/.netlify/functions/send-invite', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    friendEmail: friendEmail.trim(),
+                    senderName: playerProfileForHooks?.game_name || 'A friend',
+                    senderEmail: playerEmailForHooks,
+                    voucherCode: voucherCode,
+                    eraName: null // Pass voucher, no era
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Failed to send email');
+            }
+
+            // Generate and auto-redeem reward voucher for sender
+            console.log(`[ACCESS] GetAccessPage ${version}| Generating immediate reward for sender`);
+            const rewardCode = await VoucherService.generateVoucher(
+                'pass',
+                rewardPasses,
+                'email_immediate_reward',
+                playerIdForHooks,
+                null,
+                rewardPasses,
+                0
+            );
+            await VoucherService.redeemVoucher(coreEngine.player?.id, rewardCode);
+            console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with ${rewardPasses} pass(es)`);
+            
+            if (coreEngine && coreEngine.notifySubscribers) {
+                coreEngine.notifySubscribers();
+            }
+            
+            setEmailSuccess(true);
+            setFriendEmail('');
+            
+            console.log(`[ACCESS] GetAccessPage ${version}| Email sent successfully`);
+            
+        } catch (err) {
+            console.error(`[ACCESS] GetAccessPage ${version}| Error sending email:`, err);
+            setEmailError(err.message || 'Failed to send email');
+        } finally {
+            setSendingEmail(false);
+        }
+    }, [friendEmail, playerEmailForHooks, playerProfileForHooks, gameConfigForHooks, playerIdForHooks]);
+
+    // Handle email friend (voucher section)
+    const handleSendVoucherEmail = useCallback(async () => {
+        if (!friendEmail || !friendEmail.includes('@')) {
+            setEmailError('Please enter a valid email address');
+            return;
+        }
+        
+        try {
+            setSendingEmail(true);
+            setEmailError(null);
+            setEmailSuccess(false);
+            
+            console.log(`[ACCESS] GetAccessPage ${version}| Generating ${selectedEraIdForHooks} voucher for friend`);
+            
+            const friendPasses = gameConfigForHooks?.friend_signup || 10;
+            const rewardPasses = gameConfigForHooks?.referral_passes || 1;
+            const signupBonus = gameConfigForHooks?.referral_signup || 10;
+
+            const result = await VoucherService.findOrCreateVoucher(
+                selectedEraIdForHooks,
+                friendPasses,
+                playerIdForHooks,
+                friendEmail.trim(),
+                'email_era',
+                rewardPasses,
+                signupBonus
+            );
+
+            const voucherCode = result.voucherCode;
+
+            if (result.status === 'already_redeemed') {
+                setEmailError('This friend has already redeemed a voucher from you.');
+                return;
+            }
+
+            console.log(`[ACCESS] GetAccessPage ${version}| Voucher ${result.status}: ${voucherCode}`);
+            console.log(`[ACCESS] GetAccessPage ${version}| Sending invite email to:`, friendEmail);
+            
+            const response = await fetch('/.netlify/functions/send-invite', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    friendEmail: friendEmail.trim(),
+                    senderName: playerProfileForHooks?.game_name || 'A friend',
+                    senderEmail: playerEmailForHooks,
+                    voucherCode: voucherCode,
+                    eraName: selectedEraConfigForHooks?.name
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Failed to send email');
+            }
+
+            // Generate and auto-redeem reward voucher for sender
+            console.log(`[ACCESS] GetAccessPage ${version}| Generating immediate reward for sender`);
+            const rewardCode = await VoucherService.generateVoucher(
+                'pass',
+                rewardPasses,
+                'email_immediate_reward',
+                playerIdForHooks,
+                null,
+                rewardPasses,
+                0
+            );
+            await VoucherService.redeemVoucher(coreEngine.player?.id, rewardCode);
+            console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with ${rewardPasses} pass(es)`);
+            
+            if (coreEngine && coreEngine.notifySubscribers) {
+                coreEngine.notifySubscribers();
+            }
+            
+            setEmailSuccess(true);
+            setFriendEmail('');
+            
+            console.log(`[ACCESS] GetAccessPage ${version}| Email sent successfully`);
+            
+        } catch (err) {
+            console.error(`[ACCESS] GetAccessPage ${version}| Error sending email:`, err);
+            setEmailError(err.message || 'Failed to send email');
+        } finally {
+            setSendingEmail(false);
+        }
+    }, [friendEmail, playerEmailForHooks, playerProfileForHooks, selectedEraIdForHooks, selectedEraConfigForHooks, gameConfigForHooks, playerIdForHooks]);
+
+    // Handle purchase (Stripe checkout)
+    const handlePurchase = useCallback(async () => {
+        if (!selectedEraConfigForHooks?.promotional?.stripe_price_id) {
+            setPurchaseError('This era is not available for purchase');
+            return;
+        }
+        
+        if (!playerIdForHooks) {
+            setPurchaseError('You must be logged in to purchase');
+            return;
+        }
+        
+        try {
+            setPurchasing(true);
+            setPurchaseError(null);
+            
+            const response = await fetch('/.netlify/functions/create_checkout_session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    priceId: selectedEraConfigForHooks.promotional.stripe_price_id,
+                    playerId: playerIdForHooks,
+                    eraId: selectedEraIdForHooks
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Failed to create checkout session');
+            }
+            
+            const { sessionId } = await response.json();
+            
+            // Redirect to Stripe Checkout
+            const stripe = await import('@stripe/stripe-js').then(m => m.loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY));
+            const { error: stripeError } = await stripe.redirectToCheckout({ sessionId });
+            
+            if (stripeError) {
+                throw new Error(stripeError.message);
+            }
+            
+        } catch (err) {
+            console.error(`[ACCESS] GetAccessPage ${version}| Error initiating purchase:`, err);
+            setPurchaseError(err.message || 'Failed to initiate purchase');
+        } finally {
+            setPurchasing(false);
+        }
+    }, [selectedEraConfigForHooks, selectedEraIdForHooks, playerIdForHooks]);
+
+    // Load era config and user email
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                // Load nearest achievements (for pass section)
+                if (selectedEraConfigForHooks && !selectedEraConfigForHooks.exclusive && selectedEraConfigForHooks.passes_required > 0) {
+                    await loadNearestAchievements();
+                }
+            } catch (err) {
+                console.error(`[ACCESS] GetAccessPage ${version}| Error loading data:`, err);
+            }
+        };
+        
+        loadData();
+    }, [selectedEraIdForHooks, selectedEraConfigForHooks, loadNearestAchievements]);
+
+    // Fetch price info from Stripe
+    useEffect(() => {
+        const fetchPriceInfo = async () => {
+            if (!selectedEraConfigForHooks?.promotional?.stripe_price_id) {
+                console.log(`[ACCESS] GetAccessPage ${version}| No stripe_price_id for era:`, selectedEraIdForHooks);
+                setPriceInfo(null);
+                return;
+            }
+            
+            try {
+                setFetchingPrice(true);
+                console.log(`[ACCESS] GetAccessPage ${version}| Fetching price info for:`, selectedEraConfigForHooks.promotional.stripe_price_id);
+                
+                const response = await fetch('/.netlify/functions/get_price_info', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        priceId: selectedEraConfigForHooks.promotional.stripe_price_id
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch price information');
+                }
+                
+                const data = await response.json();
+                setPriceInfo(data);
+                console.log(`[ACCESS] GetAccessPage ${version}| Price info loaded:`, data);
+                
+            } catch (err) {
+                console.error(`[ACCESS] GetAccessPage ${version}| Error fetching price:`, err);
+                setPriceInfo(null);
+            } finally {
+                setFetchingPrice(false);
+            }
+        };
+        
+        fetchPriceInfo();
+    }, [selectedEraConfigForHooks, selectedEraIdForHooks]);
+
     //key data - see CoreEngine handle{state}
     const gameConfig = coreEngine.gameConfig;
     const eras = coreEngine.eras;
@@ -177,394 +558,24 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
     }
   };
 
-    // Load era config and user email
-    useEffect(() => {
-      const loadData = async () => {
-        try {
-          // Load nearest achievements (for pass section)
-          if (selectedEraConfig && !selectedEraConfig.exclusive && selectedEraConfig.passes_required > 0) {
-            await loadNearestAchievements();
-          }
-        } catch (err) {
-            console.error(`[ACCESS] GetAccessPage ${version}| Error loading data:`, err);
-        }
-      };
-      
-      loadData();
-    }, [selectedEraId]);
-
-    // Fetch price info from Stripe
-  useEffect(() => {
-    const fetchPriceInfo = async () => {
-      if (!selectedEraConfig?.promotional?.stripe_price_id) {
-        console.log(`[ACCESS] GetAccessPage ${version}| No stripe_price_id for era:`, selectedEraId);
-        setPriceInfo(null);
-        return;
-      }
-      
-      try {
-        setFetchingPrice(true);
-        console.log(`[ACCESS] GetAccessPage ${version}| Fetching price info for:`, selectedEraConfig.promotional.stripe_price_id);
-        
-        const response = await fetch('/.netlify/functions/get_price_info', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            priceId: selectedEraConfig.promotional.stripe_price_id
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch price information');
-        }
-        
-        const data = await response.json();
-        setPriceInfo(data);
-        console.log(`[ACCESS] GetAccessPage ${version}| Price info loaded:`, data);
-        
-      } catch (err) {
-        console.error(`[ACCESS] GetAccessPage ${version}| Error fetching price:`, err);
-        setPriceInfo(null);
-      } finally {
-        setFetchingPrice(false);
-      }
-    };
+    // All hooks are now at the top - no duplicates here
     
-    fetchPriceInfo();
-  }, [selectedEraConfig, selectedEraId]);
-
-  // Load nearest achievements (copied from OverPage pattern)
-  const loadNearestAchievements = useCallback(async () => {
-      console.log(`[ACCESS] GetAccessPage ${version}| Finding nearest achievements`);
-    try {
-      // Fetch all achievements
-      const { data: achievements, error: achError } = await supabase
-        .from('achievements')
-        .select('*')
-        .order('requirement_value', { ascending: true });
-      
-      if (achError) throw achError;
-      
-      // Get user's unlocked achievements
-      const { data: userAchievements } = await supabase
-        .from('user_achievements')
-        .select('achievement_id')
-        .eq('player_id', playerId)
-        .eq('unlocked', true);
-      
-      const unlockedIds = new Set(
-        userAchievements?.map(ua => ua.achievement_id) || []
-      );
-      
-      // Get user stats for progress calculation
-      const { data: stats } = await supabase
-        .from('user_profiles')
-        .select('total_games, total_wins, total_ships_sunk, total_damage')
-        .eq('id', playerId)
-        .single();
-      
-      // Filter unlocked and calculate progress
-      const locked = achievements
-        .filter(a => !unlockedIds.has(a.id) && a.reward_passes > 0)
-        .map(a => {
-          const progress = calculateProgress(a, stats || {});
-          const percentage = calculateProgressPercent(a, stats || {});
-          return {
-            ...a,
-            progress,
-            progressPercent: percentage,
-            current: progress,
-            target: a.requirement_value,
-            percentage: Math.min(100, Math.round((progress / a.requirement_value) * 100))
-          };
-        })
-        .sort((a, b) => {
-          // Calculate remaining needed for each
-          const aRemaining = a.requirement_value - a.progress;
-          const bRemaining = b.requirement_value - b.progress;
-          // Sort by LOWEST remaining (easiest first)
-          return aRemaining - bRemaining;
-        });
-        
-      // Take top 3
-      const nearest = locked.slice(0, 3);
-      setNearestAchievements(nearest);
-      
-      console.log(`[ACCESS] GetAccessPage ${version}| Loaded ${nearest.length} nearest achievements`);
-      
-    } catch (err) {
-      console.error(`[ACCESS] GetAccessPage ${version}| Error loading achievements:`, err);
-    }
-  }, [playerId]);
-
-  // Calculate achievement progress (from OverPage)
-  const calculateProgress = (achievement, userStats) => {
-    const reqValue = achievement.requirement_value;
-    
-    switch (achievement.requirement_type) {
-      case 'total_games':
-        return userStats.total_games || 0;
-      case 'total_wins':
-        return userStats.total_wins || 0;
-      case 'total_ships_sunk':
-        return userStats.total_ships_sunk || 0;
-      case 'total_damage':
-        return userStats.total_damage || 0;
-      default:
-        return 0;
-    }
-  };
-
-  // Calculate progress percentage
-  const calculateProgressPercent = (achievement, userStats) => {
-    const progress = calculateProgress(achievement, userStats);
-    const required = achievement.requirement_value;
-    return Math.min(100, Math.round((progress / required) * 100));
-  };
-
-  // Handle email friend (pass section)
-  const handleSendPassEmail = useCallback(async () => {
-    if (!friendEmail || !friendEmail.includes('@')) {
-      setEmailError('Please enter a valid email address');
-      return;
-    }
-    
-    try {
-      setSendingEmail(true);
-      setEmailError(null);
-      setEmailSuccess(false);
-      
-      console.log(`[ACCESS] GetAccessPage ${version}| Generating pass voucher for friend`);
-      
-      // Generate pass voucher (1 pass to try the game)
-      // Friend gets 10 more passes when they sign up (signupBonus)
-        const result = await VoucherService.findOrCreateVoucher(
-          'pass',
-          invitePasses,  // 1 pass in the invite
-          playerId,
-          friendEmail.trim(),
-          'email_pass',
-          rewardPasses,  // Sender gets 1 pass immediately
-          signupBonus    // Friend gets 10 passes when they sign up
-        );
-        const voucherCode = result.voucherCode;
-
-        // Check result status
-        if (result.status === 'already_redeemed') {
-          setEmailError('This friend has already redeemed a voucher from you.');
-          return;
-        }
-
-        console.log(`[ACCESS] GetAccessPage ${version}| Voucher ${result.status}: ${voucherCode}`);
-
-      // Call Netlify function
-      const response = await fetch('/.netlify/functions/send-invite', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          friendEmail: friendEmail.trim(),
-          senderName: playerProfile?.game_name || 'A friend',
-          senderEmail: playerEmail,
-          voucherCode: voucherCode,
-          eraName: 'Battle for the Oceans' // Generic name for pass vouchers
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to send email');
-      }
-      
-        // ✅ ADD THIS SECTION:
-        // Generate and auto-redeem reward voucher for sender (immediate reward)
-        console.log(`[ACCESS] GetAccessPage ${version}| Generating immediate reward for sender`);
-        const rewardCode = await VoucherService.generateVoucher('pass', rewardPasses, 'email_immediate_reward');
-        await VoucherService.redeemVoucher(coreEngine.player.id, rewardCode);
-        console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with ${rewardPasses} pass(es)`);
-        
-        // Notify CoreEngine subscribers so NavBar can refresh pass balance
-        if (coreEngine && coreEngine.notifySubscribers) {
-          coreEngine.notifySubscribers();
-          console.log(`[ACCESS] GetAccessPage ${version}| Notified CoreEngine subscribers after reward redemption`);
-        }
-
-        setEmailSuccess(true);
-      setFriendEmail('');
-      
-      console.log(`[ACCESS] GetAccessPage ${version}| Email sent successfully`);
-      
-    } catch (err) {
-      console.error(`[ACCESS] GetAccessPage ${version}| Error sending email:`, err);
-      setEmailError(err.message || 'Failed to send email');
-    } finally {
-      setSendingEmail(false);
-    }
-  }, [friendEmail, playerEmail, playerProfile, invitePasses, rewardPasses, signupBonus]);
-
-  // Handle email friend (voucher section)
-  const handleSendVoucherEmail = useCallback(async () => {
-    if (!friendEmail || !friendEmail.includes('@')) {
-      setEmailError('Please enter a valid email address');
-      return;
-    }
-    
-    try {
-      setSendingEmail(true);
-      setEmailError(null);
-      setEmailSuccess(false);
-      
-      console.log(`[ACCESS] GetAccessPage ${version}| Generating ${selectedEraId} voucher for friend`);
-      
-        // Find or create voucher with tracking
-        const friendPasses = gameConfig?.friend_signup || 10;  // ✅ What friend gets
-        const rewardPasses = gameConfig?.referral_passes || 1;
-        const signupBonus = gameConfig?.referral_signup || 10;
-
-        const result = await VoucherService.findOrCreateVoucher(
-          selectedEraId,
-          friendPasses,
-          playerId,
-          friendEmail.trim(),
-          'email_era',
-          rewardPasses,
-          signupBonus
-        );
-
-        const voucherCode = result.voucherCode;
-
-        // Check result status
-        if (result.status === 'already_redeemed') {
-          setEmailError('This friend has already redeemed a voucher from you.');
-          return;
-        }
-
-        console.log(`[ACCESS] GetAccessPage ${version}| Voucher ${result.status}: ${voucherCode}`);
-      console.log(`[ACCESS] GetAccessPage ${version}| Sending invite email to:`, friendEmail);
-      
-      // Call Netlify function
-      const response = await fetch('/.netlify/functions/send-invite', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          friendEmail: friendEmail.trim(),
-          senderName: playerProfile?.game_name || 'A friend',
-          senderEmail: playerEmail,
-          voucherCode: voucherCode,
-          eraName: selectedEraConfig.name // Use actual era name from config
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to send email');
-      }
-
-        // ✅ ADD THIS SECTION:
-        // Generate and auto-redeem reward voucher for sender (immediate reward)
-        console.log(`[ACCESS] GetAccessPage ${version}| Generating immediate reward for sender`);
-        const rewardCode = await VoucherService.generateVoucher(
-          'pass',
-          rewardPasses,
-          'email_immediate_reward',
-          playerId,           // createdBy (the person being rewarded)
-          null,             // emailSentTo (not sent to anyone, auto-redeemed)
-          rewardPasses,     // rewardPasses (same as value)
-          0                 // signupBonusPasses (0 for reward vouchers)
-        );
-        await VoucherService.redeemVoucher(coreEngine.player.id, rewardCode);
-        console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with ${rewardPasses} pass(es)`);
-        
-        // Notify CoreEngine subscribers so NavBar can refresh pass balance
-        if (coreEngine && coreEngine.notifySubscribers) {
-          coreEngine.notifySubscribers();
-          console.log(`[ACCESS] GetAccessPage ${version}| Notified CoreEngine subscribers after reward redemption`);
-        }
-
-        
-      setEmailSuccess(true);
-      setFriendEmail('');
-      
-      console.log(`[ACCESS] GetAccessPage ${version}| Email sent successfully`);
-      
-    } catch (err) {
-      console.error(`[ACCESS] GetAccessPage ${version}| Error sending email:`, err);
-      setEmailError(err.message || 'Failed to send email');
-    } finally {
-      setSendingEmail(false);
-    }
-  }, [friendEmail, playerEmail, playerProfile, selectedEraId, selectedEraConfig]);
-
-    // Handle voucher entry
+    // Handle voucher entry (not a hook, just a regular function)
     const handleEnterVoucher = async (e) => {
-      e.preventDefault();
-      if (!voucherCode.trim()) return;
+        e.preventDefault();
+        if (!voucherCode.trim()) return;
 
-      const result = await consumeVoucher(voucherCode);
+        const result = await consumeVoucher(voucherCode);
 
-      if (result.success) {
-        setVoucherCode('');
-        
-        // Close modal and refresh after short delay
-        setTimeout(() => {
-          onComplete();
-        }, 2000);
-      }
+        if (result.success) {
+            setVoucherCode('');
+            
+            // Close modal and refresh after short delay
+            setTimeout(() => {
+                onComplete();
+            }, 2000);
+        }
     };
-
-  // Handle purchase (Stripe checkout)
-  const handlePurchase = useCallback(async () => {
-    if (!selectedEraConfig?.promotional?.stripe_price_id) {
-      setPurchaseError('This era is not available for purchase');
-      return;
-    }
-    
-    if (!playerId) {
-      setPurchaseError('You must be logged in to purchase');
-      return;
-    }
-    
-    try {
-      setPurchasing(true);
-      setPurchaseError(null);
-      
-      console.log(`[ACCESS] GetAccessPage ${version}| Creating Stripe checkout session`);
-      
-      const response = await fetch('/.netlify/functions/create_payment_intent', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          priceId: selectedEraConfig.promotional.stripe_price_id,
-          playerId: playerId,
-          selectedEraId: selectedEraConfig.id
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to create checkout session');
-      }
-      
-      const { checkoutUrl } = await response.json();
-      
-      console.log(`[ACCESS] GetAccessPage ${version}| Redirecting to Stripe checkout`);
-      
-      // Redirect to Stripe checkout
-      window.location.href = checkoutUrl;
-      
-    } catch (err) {
-      console.error(`[ACCESS] GetAccessPage ${version}| Purchase error:`, err);
-      setPurchaseError(err.message || 'Failed to start checkout');
-      setPurchasing(false);
-    }
-  }, [selectedEraConfig, playerId]);
 
   // Loading state
   if (loading) {
