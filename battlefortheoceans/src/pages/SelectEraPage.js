@@ -1,5 +1,9 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.11: Replace key data error throwing with graceful handling
+//          - Use logwarn instead of logerror and throw
+//          - Call coreEngine.handleKeyDataError() to save error and navigate to Launch
+//          - Return null to prevent rendering when key data is missing
 // v0.6.10: Allow null playerEmail for guest users in key data check
 //          - Guest users don't have email, so playerEmail check is conditional
 //          - Only require playerEmail for non-guest users
@@ -43,7 +47,7 @@ import useEraBadges from '../hooks/useEraBadges';
 import GetAccessPage from './GetAccessPage';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.6.10';
+const version = 'v0.6.11';
 const tag = "SELECTERA";
 const module = "SelectEraPage";
 let method = "";
@@ -66,6 +70,18 @@ const SelectEraPage = () => {
         dispatch,
         events
     } = useGame();
+    
+    const logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
+    
+    // All hooks must be called before any conditional returns
+    // Pass System state (via custom hook) - use coreEngine.playerId directly
+    const {
+        passBalance,
+        eraBadges,
+        refresh: refreshBadges
+    } = useEraBadges(coreEngine.playerId);
     
     //key data - see CoreEngine handle{state}
     const gameConfig = coreEngine.gameConfig;
@@ -101,18 +117,13 @@ const SelectEraPage = () => {
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);
     if (missing.length > 0) {
-        logerror(`key data missing: ${missing.join(', ')}`, required);
-        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
+        const errorMessage = `key data missing: ${missing.join(', ')}`;
+        logwarn(errorMessage);
+        coreEngine.handleKeyDataError('era', errorMessage);
+        return null; // Return null to prevent rendering
     }
 
     log('SelectEra: passed CoreEngine data checks');
-    
-    // Pass System state (via custom hook)
-    const {
-        passBalance,
-        eraBadges,
-        refresh: refreshBadges
-    } = useEraBadges(playerId);
     
     const selectedEraBadgeInfo = selectedEraConfig ? eraBadges.get(selectedEraConfig.id) : null;
     const isPrivilegedRole = ['admin', 'developer', 'tester'].includes(playerRole);

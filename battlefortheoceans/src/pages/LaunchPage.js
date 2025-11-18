@@ -1,5 +1,8 @@
-// src/pages/LaunchPage.js v0.3.9
+// src/pages/LaunchPage.js v0.3.10
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.10: Display key data error message when game restarts due to lost data
+//          - Shows "Lost key data during {state}, restarting game" above version number
+//          - Error message appears below Play button and horizontal line
 // v0.3.9: Rollback-compatible version with working auth detection from v0.3.25
 //         - Fixed: Get events from useGame() context (not GameEvents.js)
 //         - Kept: All working auth logic from v0.3.25
@@ -14,7 +17,7 @@ import { coreEngine, useGame } from '../context/GameContext';
 import { events } from '../constants/GameEvents';
 import { APP_VERSION } from '../App.js';
 
-const version = 'v0.3.9';
+const version = 'v0.3.10';
 const tag = "LAUNCH";
 const module = "LaunchPage";
 let method = "";
@@ -35,6 +38,18 @@ const LaunchPage = () => {
 
   const { dispatch, events } = useGame();  // ← Fixed: get events from context
   const [showButton, setShowButton] = useState(false);
+  const [, forceUpdate] = useState(0);
+  
+  // Subscribe to CoreEngine updates to see keyDataError changes
+  useEffect(() => {
+    const unsubscribe = coreEngine.subscribe(() => {
+      forceUpdate(n => n + 1);
+    });
+    return unsubscribe;
+  }, []);
+  
+  // Get key data error from CoreEngine if it exists
+  const keyDataError = coreEngine.keyDataError;
 
   useEffect(() => {
     console.log('[LAUNCH]', version, 'Setting up auth state listener for debugging');
@@ -126,6 +141,13 @@ const LaunchPage = () => {
             </button>
           )}
         </div>
+        {keyDataError && (
+          <div className="message message--warning" style={{ margin: 0, borderRadius: 0, borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+            <p style={{ margin: 0, textAlign: 'center' }}>
+              Lost key data during {keyDataError.state}, restarting game
+            </p>
+          </div>
+        )}
         <div className="card-footer">
           {APP_VERSION && (
             <p className="game-version">{APP_VERSION}</p>

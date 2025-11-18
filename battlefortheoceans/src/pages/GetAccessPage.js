@@ -1,5 +1,9 @@
 // src/pages/GetAccessPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.3: Replace key data error throwing with graceful handling
+//         - Use logwarn instead of logerror and throw
+//         - Call coreEngine.handleKeyDataError() to save error and navigate to Launch
+//         - Return null to prevent rendering when key data is missing
 // v0.2.2: Allow null playerEmail for guest users in key data check
 //         - Guest users don't have email, so playerEmail check is conditional
 //         - Only require playerEmail for non-guest users
@@ -55,7 +59,7 @@ import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.2.2';
+const version = 'v0.2.3';
 const tag = "ACCESS";
 const module = "GetAccessPage";
 let method = "";
@@ -73,6 +77,40 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
       }
     };
+    
+    const logwarn = (message) => {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    };
+
+    // All hooks must be called before any conditional returns
+    // Hook for invite/voucher logic
+    const {
+        inviteFriend,
+        consumeVoucher,
+        clearMessages,
+        loading,
+        error,
+        success
+    } = useInviteFlow();
+
+    const [voucherCode, setVoucherCode] = useState('');
+    
+    // Price info from Stripe
+    const [priceInfo, setPriceInfo] = useState(null);
+    const [fetchingPrice, setFetchingPrice] = useState(false);
+    
+    // Achievement data (for pass section)
+    const [nearestAchievements, setNearestAchievements] = useState([]);
+    
+    // Email friend form
+    const [friendEmail, setFriendEmail] = useState('');
+    const [sendingEmail, setSendingEmail] = useState(false);
+    const [emailSuccess, setEmailSuccess] = useState(false);
+    const [emailError, setEmailError] = useState(null);
+    
+    // Purchase state
+    const [purchasing, setPurchasing] = useState(false);
+    const [purchaseError, setPurchaseError] = useState(null);
 
     //key data - see CoreEngine handle{state}
     const gameConfig = coreEngine.gameConfig;
@@ -107,8 +145,10 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);
     if (missing.length > 0) {
-        logerror(`key data missing: ${missing.join(', ')}`, required);
-        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
+        const errorMessage = `key data missing: ${missing.join(', ')}`;
+        logwarn(errorMessage);
+        coreEngine.handleKeyDataError('access', errorMessage);
+        return null; // Return null to prevent rendering
     }
 
     const selectedEraConfig = coreEngine.selectedEraConfig;
@@ -118,35 +158,6 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
     const signupBonus = gameConfig?.referral_signup || 10;  // ✅ What friend gets when they sign up
 
     console.log(`[ACCESS] GetAccessPage ${version}| playerId ${playerId}, name ${playerGameName}, email ${playerEmail}, gameConfig ${gameConfig}, selectedEraId ${selectedEraId}, selectedEraConfig ${selectedEraConfig}`);
-
-    // Hook for invite/voucher logic
-    const {
-      inviteFriend,
-      consumeVoucher,
-      clearMessages,
-      loading,
-      error,
-      success
-    } = useInviteFlow();
-
-    const [voucherCode, setVoucherCode] = useState('');
-    
-  // Price info from Stripe
-  const [priceInfo, setPriceInfo] = useState(null);
-  const [fetchingPrice, setFetchingPrice] = useState(false);
-  
-  // Achievement data (for pass section)
-  const [nearestAchievements, setNearestAchievements] = useState([]);
-  
-  // Email friend form
-  const [friendEmail, setFriendEmail] = useState('');
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailSuccess, setEmailSuccess] = useState(false);
-  const [emailError, setEmailError] = useState(null);
-  
-  // Purchase state
-  const [purchasing, setPurchasing] = useState(false);
-  const [purchaseError, setPurchaseError] = useState(null);
 
   // Helper function to get Lucide icon component by name
   const getLucideIcon = (iconName) => {
@@ -701,7 +712,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 </p>
                 <p className="text-secondary mb-md">
                   Email a friend about this game. Earn 1 pass immediately, and earn 10 more passes when your friend signs up for an account
-                  (your friend gets 1 pass to try the game, then 10 more passes when they sign up). You'll be copied on the email as well so you can follow up with a personal message if you choose.
+                  (your friend gets 1 pass to try the game, then 10 more passes when they sign up). You'll be copied on the email so you can follow up with a personal message if you choose.
                 </p>
                 
                 {emailSuccess && (
@@ -767,11 +778,11 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
               
               <div className="info-card">
                 <p className="mb-md">
-                  You can play this era by emailing a friend about this game!
+                  You can play this era by emailing a new friend about this game!
                 </p>
                 <p className="text-secondary mb-md">
                   Earn 1 play immediately, and earn 10 more plays when your friend signs up for an account
-                  (your friend gets 1 play to try the game, then 10 more plays when they sign up). You'll be copied on the email as well so you can follow up with a personal message if you choose.
+                  (your friend gets 1 play to try the game, then 10 more plays when they sign up). You'll be copied on the email so you can follow up with a personal message if you choose.
                 </p>
                 
                 {emailSuccess && (

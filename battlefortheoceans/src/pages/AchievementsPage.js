@@ -1,5 +1,9 @@
 // src/pages/AchievementsPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.5: Replace key data error throwing with graceful handling
+//         - Use logwarn instead of logerror and throw
+//         - Call coreEngine.handleKeyDataError() to save error and navigate to Launch
+//         - Return null to prevent rendering when key data is missing
 // v0.1.4: Allow null playerEmail for guest users in key data check
 //         - Guest users don't have email, so playerEmail check is conditional
 //         - Only require playerEmail for non-guest users
@@ -20,7 +24,7 @@ import InfoPanel from '../components/InfoPanel';
 import Player from '../classes/Player';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.1.4';
+const version = 'v0.1.5';
 const tag = "ACHIEVEMENTS";
 const module = "AchievementsPage";
 let method = "";
@@ -42,6 +46,23 @@ const AchievementsPage = ({ onClose, scrollPosition }) => {
         console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
       }
     };
+
+    // All hooks must be called before any conditional returns
+    const { dispatch, events } = useGame();
+
+    const [achievements, setAchievements] = useState({
+        unlocked: [],
+        inProgress: [],
+        locked: [],
+        total: 0,
+        points: 0
+    });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    
+    // InfoPanel state
+    const [showInfo, setShowInfo] = useState(false);
+    const [selectedAchievement, setSelectedAchievement] = useState(null);
 
     //key data - see CoreEngine handle{state}
     const gameConfig = coreEngine.gameConfig;
@@ -76,25 +97,11 @@ const AchievementsPage = ({ onClose, scrollPosition }) => {
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);
     if (missing.length > 0) {
-        logerror(`key data missing: ${missing.join(', ')}`, required);
-        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
+        const errorMessage = `key data missing: ${missing.join(', ')}`;
+        logwarn(errorMessage);
+        coreEngine.handleKeyDataError('achievements', errorMessage);
+        return null; // Return null to prevent rendering
     }
-
-  const { dispatch, events } = useGame();
-
-  const [achievements, setAchievements] = useState({
-    unlocked: [],
-    inProgress: [],
-    locked: [],
-    total: 0,
-    points: 0
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  // InfoPanel state
-  const [showInfo, setShowInfo] = useState(false);
-  const [selectedAchievement, setSelectedAchievement] = useState(null);
 
   // Load achievements on mount
   useEffect(() => {

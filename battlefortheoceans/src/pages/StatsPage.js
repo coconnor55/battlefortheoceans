@@ -1,5 +1,10 @@
 // src/pages/StatsPage.js v0.1.6
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.7: Replace key data error throwing with graceful handling
+//         - Use logwarn instead of logerror and throw
+//         - Call coreEngine.handleKeyDataError() to save error and navigate to Launch
+//         - Return null to prevent rendering when key data is missing
+//         - Removed duplicate undefined check
 // v0.1.6: Allow null playerEmail for guest users in key data check
 //         - Guest users don't have email, so playerEmail check is conditional
 //         - Only require playerEmail for non-guest users
@@ -21,7 +26,7 @@ import gameStatsService from '../services/GameStatsService';
 import leaderboardService from '../services/LeaderboardService';
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.6";
+const version = "v0.1.7";
 const tag = "STATS";
 const module = "StatsPage";
 let method = "";
@@ -72,6 +77,24 @@ function StatsPage({ onClose }) {
     const gameInstance = coreEngine.gameInstance;
     const board = coreEngine.board;
 
+    // All hooks must be called before any conditional returns
+    const { dispatch, events } = useGame();
+    const [stats, setStats] = useState(null);
+    const [recentGames, setRecentGames] = useState([]);
+    const [allGames, setAllGames] = useState([]);
+    const [eraStats, setEraStats] = useState({});
+    const [opponentStats, setOpponentStats] = useState({});
+    const [ranking, setRanking] = useState(null);
+    const [percentile, setPercentile] = useState(null);
+    const [totalPlayers, setTotalPlayers] = useState(0);
+    const [leaderboard, setLeaderboard] = useState([]);
+    const [totalGamesPlayed, setTotalGamesPlayed] = useState(0);
+    const [loading, setLoading] = useState(true);
+    
+    // Toggle states
+    const [showAllAI, setShowAllAI] = useState(false);
+    const [showAllEra, setShowAllEra] = useState(false);
+    
     // stop game if key data is missing (selectedAlliance is allowed to be null)
     // playerEmail is allowed to be null for guest users
     const required = isGuest 
@@ -81,31 +104,11 @@ function StatsPage({ onClose }) {
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);
     if (missing.length > 0) {
-        logerror(`key data missing: ${missing.join(', ')}`, required);
-        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
+        const errorMessage = `key data missing: ${missing.join(', ')}`;
+        logwarn(errorMessage);
+        coreEngine.handleKeyDataError('stats', errorMessage);
+        return null; // Return null to prevent rendering
     }
-    const undefined = { selectedAlliance };
-    if (Object.values(required).some(v => v === undefined)) {
-        logerror('key data missing', undefined);
-        throw new Error('StatsPage: key data missing');
-    }
-
-    const { dispatch, events } = useGame();
-  const [stats, setStats] = useState(null);
-  const [recentGames, setRecentGames] = useState([]);
-  const [allGames, setAllGames] = useState([]);
-  const [eraStats, setEraStats] = useState({});
-  const [opponentStats, setOpponentStats] = useState({});
-  const [ranking, setRanking] = useState(null);
-  const [percentile, setPercentile] = useState(null);
-  const [totalPlayers, setTotalPlayers] = useState(0);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [totalGamesPlayed, setTotalGamesPlayed] = useState(0);
-  const [loading, setLoading] = useState(true);
-  
-  // Toggle states
-  const [showAllAI, setShowAllAI] = useState(false);
-  const [showAllEra, setShowAllEra] = useState(false);
 
   useEffect(() => {
     loadAllStats();

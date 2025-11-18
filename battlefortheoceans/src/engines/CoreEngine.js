@@ -1,5 +1,9 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.43: Add graceful key data error handling
+//          - Added keyDataError property to store error state
+//          - Added handleKeyDataError() method to logwarn, save error, and navigate to Launch
+//          - Clear keyDataError when transitioning to Launch state
 // v0.6.42: Refactored for PlayerProfile architecture
 //          - Added playerProfile as direct property (not getter from humanPlayer)
 //          - Updated get playerProfile() to return this.playerProfile
@@ -69,7 +73,7 @@ import GameLifecycleManager from '../classes/GameLifecycleManager.js';
 import ConfigLoader from '../utils/ConfigLoader';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.6.42';
+const version = 'v0.6.43';
 const tag = "CORE";
 const module = "CoreEngine";
 let method = "";
@@ -176,6 +180,9 @@ class CoreEngine {
     this._selectedOpponents = [];
     this.selectedGameMode = null;
     this._selectedAlliance = null;
+    
+    // Error state for graceful error handling
+    this.keyDataError = null;       // stores key data error message when data is lost
 
     // =================================================================
     // MANAGERS - Initialize helper classes
@@ -335,6 +342,30 @@ class CoreEngine {
     this.log('Launch state');
       // Launch prefetches some data, known for the life of the session:
       // coreEngine.gameConfig
+      
+    // Clear any key data error when returning to launch
+    this.keyDataError = null;
+    this.notifySubscribers();
+  }
+  
+  /**
+   * Handle key data error gracefully
+   * Logs warning, saves error message, and navigates to Launch state
+   * @param {string} stateName - Name of the state where error occurred
+   * @param {string} errorMessage - Error message to display
+   */
+  handleKeyDataError(stateName, errorMessage) {
+    method = 'handleKeyDataError';
+    this.logwarn(`Key data lost in ${stateName}: ${errorMessage}`);
+    
+    // Save error message
+    this.keyDataError = {
+      state: stateName,
+      message: errorMessage
+    };
+    
+    // Navigate to Launch state
+    this.dispatch(this.events.LAUNCH);
   }
 
   handleEvent_login() {

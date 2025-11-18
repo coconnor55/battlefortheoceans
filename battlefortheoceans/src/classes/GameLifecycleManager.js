@@ -1,5 +1,9 @@
 // src/classes/GameLifecycleManager.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.9: Replace key data error throwing with graceful handling
+//         - Use logwarn instead of logerror and throw
+//         - Call coreEngine.handleKeyDataError() to save error and navigate to Launch
+//         - Return early to prevent initialization when key data is missing
 // v0.2.8: Refactored for PlayerProfile architecture
 //         - Removed deprecated updateGameStats call
 //         - Added insertGameResult call for game_results table
@@ -22,7 +26,7 @@ import RightsService from '../services/RightsService.js';
 import GameStatsService from '../services/GameStatsService';
 import { coreEngine } from '../context/GameContext';
 
-const version = "v0.2.8";
+const version = "v0.2.9";
 const tag = "LIFECYCLE";
 const module = "GameLifecycleManager";
 let method = "";
@@ -176,8 +180,10 @@ class GameLifecycleManager {
           .filter(([key, value]) => !value)
           .map(([key, value]) => `${key}=${value}`);
       if (missing.length > 0) {
-          this.logerror(`key data missing: ${missing.join(', ')}`, required);
-          throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
+          const errorMessage = `key data missing: ${missing.join(', ')}`;
+          this.logwarn(errorMessage);
+          this.coreEngine.handleKeyDataError('placement', errorMessage);
+          return; // Return early to prevent initialization
       }
 
       const selectedEraConfig = coreEngine.selectedEraConfig;
