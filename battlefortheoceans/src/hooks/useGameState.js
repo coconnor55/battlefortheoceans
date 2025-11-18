@@ -84,15 +84,19 @@ const useGameState = () => {
     const board = coreEngine.board;
 
     // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
-      const missing = Object.entries(required)
-          .filter(([key, value]) => !value)
-          .map(([key, value]) => `${key}=${value}`);
-      const hasMissingData = missing.length > 0;
-      if (hasMissingData) {
-          logwarn(`Game data still initializing: ${missing.join(', ')}`);
-      }
-
+    // playerEmail is allowed to be null for guest users
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile, selectedEraId, selectedOpponents, gameInstance, board }
+        : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    if (missing.length > 0) {
+        logerror(`key data missing: ${missing.join(', ')}`, required);
+        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
+    }
+    log('useGameState: passed CoreEngine data checks');
+    
     const selectedEraConfig = coreEngine.selectedEraConfig;
 
   // Message state from Game's Message system
