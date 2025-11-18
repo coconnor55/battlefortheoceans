@@ -1,5 +1,9 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.44: Fix handleKeyDataError to bypass transition validation
+//          - Changed from dispatch(this.events.LAUNCH) to transition('launch')
+//          - Allows recovery from any state, not just states with defined LAUNCH transitions
+//          - Prevents "No transition for X + LAUNCH" warnings
 // v0.6.43: Add graceful key data error handling
 //          - Added keyDataError property to store error state
 //          - Added handleKeyDataError() method to logwarn, save error, and navigate to Launch
@@ -73,7 +77,7 @@ import GameLifecycleManager from '../classes/GameLifecycleManager.js';
 import ConfigLoader from '../utils/ConfigLoader';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.6.43';
+const version = 'v0.6.44';
 const tag = "CORE";
 const module = "CoreEngine";
 let method = "";
@@ -351,6 +355,7 @@ class CoreEngine {
   /**
    * Handle key data error gracefully
    * Logs warning, saves error message, and navigates to Launch state
+   * Bypasses normal state transition validation since this is an error recovery path
    * @param {string} stateName - Name of the state where error occurred
    * @param {string} errorMessage - Error message to display
    */
@@ -364,8 +369,9 @@ class CoreEngine {
       message: errorMessage
     };
     
-    // Navigate to Launch state
-    this.dispatch(this.events.LAUNCH);
+    // Directly transition to Launch state (bypasses dispatch validation)
+    // This allows recovery from any state, not just states with defined LAUNCH transitions
+    this.transition('launch');
   }
 
   handleEvent_login() {
