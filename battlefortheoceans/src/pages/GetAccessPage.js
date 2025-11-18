@@ -1,5 +1,10 @@
 // src/pages/GetAccessPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.4: Fix reward voucher creation - set created_by to null for system rewards
+//         - Changed reward voucher createdBy from playerIdForHooks to null
+//         - Prevents "You cannot redeem a voucher that you created" error
+//         - System-generated reward vouchers should not have created_by set
+//         - Matches fix in VoucherService.processReferralReward
 // v0.2.3: Replace key data error throwing with graceful handling
 //         - Use logwarn instead of logerror and throw
 //         - Call coreEngine.handleKeyDataError() to save error and navigate to Launch
@@ -59,7 +64,7 @@ import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.2.3';
+const version = 'v0.2.4';
 const tag = "ACCESS";
 const module = "GetAccessPage";
 let method = "";
@@ -271,7 +276,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 'pass',
                 rewardPasses,
                 'email_immediate_reward',
-                playerIdForHooks,
+                null,  // created_by = null for system rewards (not user-created)
                 null,
                 rewardPasses,
                 0
@@ -359,7 +364,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 'pass',
                 rewardPasses,
                 'email_immediate_reward',
-                playerIdForHooks,
+                null,  // created_by = null for system rewards (not user-created)
                 null,
                 rewardPasses,
                 0
