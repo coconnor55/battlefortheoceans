@@ -1,5 +1,10 @@
 // src/classes/CombatResolver.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.2: Fixed video event type detection
+//         - Changed to use targetPlayer.isHuman getter instead of ID comparison
+//         - Now correctly identifies when player's ship is sunk vs opponent's ship
+//         - Fixes issue where same video was playing for both events
+//         - Uses Player.isHuman property for consistency with Player class API
 // v0.1.1: added totalDamage calculation
 // v0.1.0: Extracted from Game.js v0.8.3
 //         - receiveAttack() - 214 lines of combat resolution
@@ -9,7 +14,7 @@
 //         - isValidAttack() - coordinate validation
 //         - Reduces Game.js by ~300 lines
 
-const version = "v0.1.1";
+const version = "v0.1.2";
 
 /**
  * CombatResolver
@@ -234,7 +239,8 @@ class CombatResolver {
         
         // Only trigger video if game won't end (let victory/defeat video play instead)
         if (this.game.onShipSunk && !gameWillEnd) {
-          const eventType = targetPlayer.id === this.game.playerId ? 'player' : 'opponent';
+          // Check if the target player is the human player to determine video type
+          const eventType = targetPlayer.isHuman ? 'player' : 'opponent';
           this.game.onShipSunk(eventType, {
             ship: ship,
             attacker: firingPlayer,
