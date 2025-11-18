@@ -1,5 +1,9 @@
 // src/pages/GetAccessPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.5: Only notify subscribers for pass vouchers, not era vouchers
+//         - Check voucherType from redeemVoucher result before notifying
+//         - Prevents NavBar from refreshing pass balance for era vouchers
+//         - Era vouchers don't affect pass balance, only pass vouchers do
 // v0.2.4: Fix reward voucher creation - set created_by to null for system rewards
 //         - Changed reward voucher createdBy from playerIdForHooks to null
 //         - Prevents "You cannot redeem a voucher that you created" error
@@ -64,7 +68,7 @@ import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.2.4';
+const version = 'v0.2.5';
 const tag = "ACCESS";
 const module = "GetAccessPage";
 let method = "";
@@ -281,10 +285,11 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 rewardPasses,
                 0
             );
-            await VoucherService.redeemVoucher(coreEngine.player?.id, rewardCode);
+            const rewardResult = await VoucherService.redeemVoucher(coreEngine.player?.id, rewardCode);
             console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with ${rewardPasses} pass(es)`);
             
-            if (coreEngine && coreEngine.notifySubscribers) {
+            // Only notify for pass vouchers (reward vouchers are always pass vouchers)
+            if (rewardResult.voucherType === 'pass' && coreEngine && coreEngine.notifySubscribers) {
                 coreEngine.notifySubscribers();
             }
             
@@ -369,10 +374,11 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 rewardPasses,
                 0
             );
-            await VoucherService.redeemVoucher(coreEngine.player?.id, rewardCode);
+            const rewardResult = await VoucherService.redeemVoucher(coreEngine.player?.id, rewardCode);
             console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with ${rewardPasses} pass(es)`);
             
-            if (coreEngine && coreEngine.notifySubscribers) {
+            // Only notify for pass vouchers (reward vouchers are always pass vouchers)
+            if (rewardResult.voucherType === 'pass' && coreEngine && coreEngine.notifySubscribers) {
                 coreEngine.notifySubscribers();
             }
             
@@ -724,11 +730,13 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                <h3>Invite</h3>
               <div className="card-section">
                 <p className="mb-lg">
-                  <strong>Or get a pass immediately!</strong>
-                </p>
+                  <strong>Or get a pass immediately! </strong>
+                  You can play this era by inviting a new friend to try!
+                  </p>
                 <p className="text-secondary mb-md">
-                  Email a friend about this game. Earn 1 pass immediately, and earn 10 more passes when your friend signs up for an account
-                  (your friend gets 1 pass to try the game, then 10 more passes when they sign up). You'll be copied on the email so you can follow up with a personal message if you choose.
+                Earn 1 pass immediately, plus 10 more when your friend signs up
+                (your friend gets 1 pass to try the game, then 10 more when they sign up). 
+                You'll be copied on the email so you can follow up with a personal message if you choose.                
                 </p>
                 
                 {emailSuccess && (
@@ -794,11 +802,12 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
               
               <div className="info-card">
                 <p className="mb-md">
-                  You can play this era by emailing a new friend about this game!
+                You can play this era by inviting a new friend to try!
                 </p>
                 <p className="text-secondary mb-md">
-                  Earn 1 play immediately, and earn 10 more plays when your friend signs up for an account
-                  (your friend gets 1 play to try the game, then 10 more plays when they sign up). You'll be copied on the email so you can follow up with a personal message if you choose.
+                Earn 1 play immediately, plus 10 more when your friend signs up
+                (your friend gets 1 play to try the game, then 10 more when they sign up). 
+                You'll be copied on the email so you can follow up with a personal message if you choose.
                 </p>
                 
                 {emailSuccess && (

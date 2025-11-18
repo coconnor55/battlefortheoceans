@@ -1,5 +1,9 @@
 // src/services/VoucherService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.9: Return voucher type from redeemVoucher for selective NavBar updates
+//         - Return voucherType ('pass' or 'era') in redemption result
+//         - Allows callers to only notify subscribers for pass vouchers
+//         - Prevents NavBar from refreshing pass balance for era vouchers
 // v0.1.8: Fix missing original voucher redemption
 //         - Now redeems the original referral voucher (1 pass) when new user signs up
 //         - New user gets: 1 pass from original voucher + 10 passes from signup bonus = 11 total
@@ -33,7 +37,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.8';
+const version = 'v0.1.9';
 
 class VoucherService {
     constructor() {
@@ -280,7 +284,11 @@ class VoucherService {
             
             console.log(`[VOUCHER] VoucherService ${version}| Voucher redeemed successfully:`, data);
             
-            return data;
+            // Return data with voucher type for caller to determine if pass balance should update
+            return {
+                ...data,
+                voucherType: parsed?.voucherType || null  // 'pass' or 'era'
+            };
             
         } catch (error) {
             console.error(`[VOUCHER] VoucherService ${version}| Redemption failed:`, error);

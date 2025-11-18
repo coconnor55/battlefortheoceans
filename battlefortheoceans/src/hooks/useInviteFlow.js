@@ -1,5 +1,9 @@
 // src/hooks/useInviteFlow.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.6: Only notify subscribers for pass vouchers, not era vouchers
+//         - Check voucherType from redeemVoucher result before notifying
+//         - Prevents NavBar from refreshing pass balance for era vouchers
+//         - Era vouchers don't affect pass balance, only pass vouchers do
 // v0.1.5: Optimize hook to reduce re-renders
 //         - Move data validation to useEffect (runs once on mount, not every render)
 //         - Remove logging that runs on every render
@@ -19,7 +23,7 @@ import React, { useState, useEffect } from 'react';
 import VoucherService from '../services/VoucherService';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.1.5';
+const version = 'v0.1.6';
 const tag = "INVITE";
 const module = "useInviteFlow";
 let method = "";
@@ -254,10 +258,13 @@ export function useInviteFlow() {
 
       log(`Redemption successful:`, result);
 
-      // Notify CoreEngine subscribers so NavBar can refresh pass balance
-      if (coreEngine && coreEngine.notifySubscribers) {
+      // Only notify CoreEngine subscribers for pass vouchers (not era vouchers)
+      // Era vouchers don't affect pass balance, so NavBar shouldn't refresh
+      if (result.voucherType === 'pass' && coreEngine && coreEngine.notifySubscribers) {
         coreEngine.notifySubscribers();
-        log('Notified CoreEngine subscribers after voucher redemption');
+        log('Notified CoreEngine subscribers after pass voucher redemption');
+      } else if (result.voucherType === 'era') {
+        log('Era voucher redeemed - skipping pass balance update');
       }
 
       // Success message
