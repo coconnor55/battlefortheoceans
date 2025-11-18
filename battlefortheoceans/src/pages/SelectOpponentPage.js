@@ -58,36 +58,12 @@ const SelectOpponentPage = () => {
     };
     // ===============
     
-  const {
-    dispatch,
-    events,
-  } = useGame();
-  
-    //key data - see CoreEngine handle{state}
-    const gameConfig = coreEngine.gameConfig;
-    const eras = coreEngine.eras;
-    const player = coreEngine.player
-    const playerProfile = coreEngine.playerProfile;
-    const playerEmail = coreEngine.playerEmail;
-    const selectedEraId = coreEngine.selectedEraId;
-    const selectedAlliance = coreEngine.selectedAlliance;
-    const selectedOpponents = coreEngine.selectedOpponents;
-
-    // derived data
-    const playerId = coreEngine.playerId;
-    const playerRole = coreEngine.playerRole;
-    const playerGameName = coreEngine.playerGameName;
-    const isGuest = player != null && player.isGuest;
-    const isAdmin = player != null && playerProfile.isAdmin;
-    const isDeveloper = player != null && playerProfile.isDeveloper;
-    const isTester = player != null && playerProfile.isTester;
-    const selectedOpponent = coreEngine.selectedOpponents[0];
-
-    const selectedGameMode = coreEngine.selectedGameMode;
-    const gameInstance = coreEngine.gameInstance;
-    const board = coreEngine.board;
-
     // All hooks must be called before any conditional returns
+    const {
+        dispatch,
+        events,
+    } = useGame();
+
     // v0.6.0: Multi-fleet selection state
     const [selectedPirateFleets, setSelectedPirateFleets] = useState([]);
     const [onlineHumans, setOnlineHumans] = useState([]);
@@ -96,9 +72,33 @@ const SelectOpponentPage = () => {
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [aiExpanded, setAiExpanded] = useState(true);
     const [humanExpanded, setHumanExpanded] = useState(false);
-    
-    // stop game if key data is missing (selectedAlliance is allowed to be null)
-    // playerEmail is allowed to be null for guest users
+
+    // Key data - see CoreEngine handle{state}
+    const gameConfig = coreEngine.gameConfig;
+    const eras = coreEngine.eras;
+    const player = coreEngine.player;
+    const playerProfile = coreEngine.playerProfile;
+    const playerEmail = coreEngine.playerEmail;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponents = coreEngine.selectedOpponents;
+
+    // Derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
+    const isGuest = player != null && player.isGuest;
+    const isAdmin = player != null && playerProfile?.isAdmin;
+    const isDeveloper = player != null && playerProfile?.isDeveloper;
+    const isTester = player != null && playerProfile?.isTester;
+    const selectedOpponent = selectedOpponents?.[0];
+    const selectedGameMode = coreEngine.selectedGameMode;
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
+
+    // Key data check - stop game if key data is missing
+    // (selectedAlliance is allowed to be null)
+    // (playerEmail is allowed to be null for guest users)
     const required = isGuest 
         ? { gameConfig, eras, player, playerProfile, selectedEraId }
         : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };

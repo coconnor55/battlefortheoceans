@@ -64,48 +64,10 @@ const AchievementsPage = ({ onClose, scrollPosition }) => {
     const [showInfo, setShowInfo] = useState(false);
     const [selectedAchievement, setSelectedAchievement] = useState(null);
 
-    //key data - see CoreEngine handle{state}
-    const gameConfig = coreEngine.gameConfig;
-    const eras = coreEngine.eras;
-    const player = coreEngine.player
-    const playerProfile = coreEngine.playerProfile;
-    const playerEmail = coreEngine.playerEmail;
-    const selectedEraId = coreEngine.selectedEraId;
-    const selectedAlliance = coreEngine.selectedAlliance;
-    const selectedOpponents = coreEngine.selectedOpponents;
-
-    // derived data
-    const playerId = coreEngine.playerId;
-    const playerRole = coreEngine.playerRole;
-    const playerGameName = coreEngine.playerGameName;
-    const isGuest = player != null && player.isGuest;
-    const isAdmin = player != null && playerProfile.isAdmin;
-    const isDeveloper = player != null && playerProfile.isDeveloper;
-    const isTester = player != null && playerProfile.isTester;
-    const selectedOpponent = coreEngine.selectedOpponents[0];
-
-    const selectedGameMode = coreEngine.selectedGameMode;
-    const gameInstance = coreEngine.gameInstance;
-    const board = coreEngine.board;
-
-    // stop game if key data is missing (selectedAlliance is allowed to be null)
-    // playerEmail is allowed to be null for guest users
-    const required = isGuest 
-        ? { gameConfig, eras, player, playerProfile }
-        : { gameConfig, eras, player, playerProfile, playerEmail };
-    const missing = Object.entries(required)
-        .filter(([key, value]) => !value)
-        .map(([key, value]) => `${key}=${value}`);
-    if (missing.length > 0) {
-        const errorMessage = `key data missing: ${missing.join(', ')}`;
-        logwarn(errorMessage);
-        coreEngine.handleKeyDataError('achievements', errorMessage);
-        return null; // Return null to prevent rendering
-    }
-
-  // Load achievements on mount
-  useEffect(() => {
+    // Load achievements on mount
+    useEffect(() => {
     const loadAchievements = async () => {
+      const playerId = coreEngine.playerId;
       if (!playerId) return;
 
       setLoading(true);
@@ -125,7 +87,46 @@ const AchievementsPage = ({ onClose, scrollPosition }) => {
     };
 
     loadAchievements();
-  }, [playerId]);
+  }, []);
+
+    // Key data - see CoreEngine handle{state}
+    const gameConfig = coreEngine.gameConfig;
+    const eras = coreEngine.eras;
+    const player = coreEngine.player;
+    const playerProfile = coreEngine.playerProfile;
+    const playerEmail = coreEngine.playerEmail;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponents = coreEngine.selectedOpponents;
+
+    // Derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
+    const isGuest = player != null && player.isGuest;
+    const isAdmin = player != null && playerProfile?.isAdmin;
+    const isDeveloper = player != null && playerProfile?.isDeveloper;
+    const isTester = player != null && playerProfile?.isTester;
+    const selectedOpponent = selectedOpponents?.[0];
+    const selectedGameMode = coreEngine.selectedGameMode;
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
+
+    // Key data check - stop game if key data is missing
+    // (selectedAlliance is allowed to be null)
+    // (playerEmail is allowed to be null for guest users)
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile }
+        : { gameConfig, eras, player, playerProfile, playerEmail };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    if (missing.length > 0) {
+        const errorMessage = `key data missing: ${missing.join(', ')}`;
+        logwarn(errorMessage);
+        coreEngine.handleKeyDataError('achievements', errorMessage);
+        return null; // Return null to prevent rendering
+    }
 
   // Helper function to get Lucide icon component by name
   const getLucideIcon = (iconName) => {

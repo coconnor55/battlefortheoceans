@@ -20,7 +20,7 @@
 // v0.1.2: Added AI captain performance tracking
 // v0.1.1: Removed modal-overlay wrapper (now provided by App.js) to match AchievementsPage pattern
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { coreEngine, useGame } from '../context/GameContext';
 import gameStatsService from '../services/GameStatsService';
 import leaderboardService from '../services/LeaderboardService';
@@ -53,30 +53,6 @@ function StatsPage({ onClose }) {
     };
     // ===============
 
-    //key data - see CoreEngine handle{state}
-    const gameConfig = coreEngine.gameConfig;
-    const eras = coreEngine.eras;
-    const player = coreEngine.player
-    const playerProfile = coreEngine.playerProfile;
-    const playerEmail = coreEngine.playerEmail;
-    const selectedEraId = coreEngine.selectedEraId;
-    const selectedAlliance = coreEngine.selectedAlliance;
-    const selectedOpponents = coreEngine.selectedOpponents;
-
-    // derived data
-    const playerId = coreEngine.playerId;
-    const playerRole = coreEngine.playerRole;
-    const playerGameName = coreEngine.playerGameName;
-    const isGuest = player != null && player.isGuest;
-    const isAdmin = player != null && playerProfile.isAdmin;
-    const isDeveloper = player != null && playerProfile.isDeveloper;
-    const isTester = player != null && playerProfile.isTester;
-    const selectedOpponent = coreEngine.selectedOpponents[0];
-
-    const selectedGameMode = coreEngine.selectedGameMode;
-    const gameInstance = coreEngine.gameInstance;
-    const board = coreEngine.board;
-
     // All hooks must be called before any conditional returns
     const { dispatch, events } = useGame();
     const [stats, setStats] = useState(null);
@@ -94,9 +70,190 @@ function StatsPage({ onClose }) {
     // Toggle states
     const [showAllAI, setShowAllAI] = useState(false);
     const [showAllEra, setShowAllEra] = useState(false);
-    
-    // stop game if key data is missing (selectedAlliance is allowed to be null)
-    // playerEmail is allowed to be null for guest users
+
+    // Helper functions - defined as function declarations (hoisted) so they're available to hooks
+    async function loadAllGames() {
+        method = 'loadAllGames';
+        const playerProfile = coreEngine.playerProfile;
+
+        try {
+            // Load last 100 games for "All Time" stats (free-tier safe)
+            const { data, error } = await supabase
+                .from('game_results')
+                .select('*')
+                .eq('player_id', playerProfile?.id)
+                .order('created_at', { ascending: false })
+                .limit(100);
+
+            if (error) throw error;
+            
+            const games = data || [];
+            setAllGames(games);
+            setRecentGames(games.slice(0, 10));
+            
+            // Process both Last 10 and All Time stats
+            processEraStats(games, false); // Last 10
+            processEraStats(games, true);  // All Time
+            processOpponentStats(games, false); // Last 10
+            processOpponentStats(games, true);  // All Time
+            
+            return games;
+        } catch (error) {
+            console.error(version, 'Error loading games:', error);
+            return [];
+        }
+    }
+
+    function processEraStats(games, allTime = false) {
+        method = 'processEraStats';
+
+        const dataToProcess = allTime ? games : games.slice(0, 10);
+        const eraData = {};
+        
+        dataToProcess.forEach(game => {
+            if (!eraData[game.era_name]) {
+                eraData[game.era_name] = { games: 0, wins: 0, totalScore: 0, totalAccuracy: 0, shipsSunk: 0 };
+            }
+            
+            const era = eraData[game.era_name];
+            era.games++;
+            if (game.won) era.wins++;
+            era.totalScore += game.score;
+            era.totalAccuracy += game.accuracy;
+            era.shipsSunk += game.sunk;
+        });
+        
+        Object.keys(eraData).forEach(eraName => {
+            const era = eraData[eraName];
+            era.winRate = ((era.wins / era.games) * 100).toFixed(1);
+            era.avgScore = Math.round(era.totalScore / era.games);
+            era.avgAccuracy = (era.totalAccuracy / era.games).toFixed(1);
+        });
+        
+        if (allTime) {
+            setEraStats(prev => ({ ...prev, allTime: eraData }));
+        } else {
+            setEraStats(prev => ({ ...prev, recent: eraData }));
+        }
+    }
+
+    function processOpponentStats(games, allTime = false) {
+        method = 'processOpponentStats';
+
+        const dataToProcess = allTime ? games : games.slice(0, 10);
+        const opponentData = {};
+        
+        dataToProcess.forEach(game => {
+            if (!opponentData[game.opponent_name]) {
+                opponentData[game.opponent_name] = { games: 0, wins: 0 };
+            }
+            
+            const opponent = opponentData[game.opponent_name];
+            opponent.games++;
+            if (game.won) opponent.wins++;
+        });
+        
+        Object.keys(opponentData).forEach(opponentName => {
+            const opponent = opponentData[opponentName];
+            opponent.winRate = ((opponent.wins / opponent.games) * 100).toFixed(1);
+        });
+        
+        if (allTime) {
+            setOpponentStats(prev => ({ ...prev, allTime: opponentData }));
+        } else {
+            setOpponentStats(prev => ({ ...prev, recent: opponentData }));
+        }
+    }
+
+    // Define loadAllStats as useCallback (hook) - must be before early return
+    const loadAllStats = useCallback(async () => {
+        method = 'loadAllStats';
+        const playerProfile = coreEngine.playerProfile;
+        const playerId = coreEngine.playerId;
+
+        if (!playerProfile) {
+            setLoading(false);
+            return;
+        }
+
+        try {
+            log('Loading stats for user:', playerProfile?.id);
+            
+            // Check cache first
+            const cacheKey = `stats_${playerId}`;
+            const cached = sessionStorage.getItem(cacheKey);
+            
+            if (cached) {
+                const parsedCache = JSON.parse(cached);
+                if (Date.now() - parsedCache.timestamp < CACHE_DURATION) {
+                    log('Using cached stats data');
+                    setAllGames(parsedCache.allGames);
+                    setRecentGames(parsedCache.allGames.slice(0, 10));
+                    processEraStats(parsedCache.allGames, false);
+                    processEraStats(parsedCache.allGames, true);
+                    processOpponentStats(parsedCache.allGames, false);
+                    processOpponentStats(parsedCache.allGames, true);
+                }
+            }
+            
+            const [gamesData, rankingData, percentileData, leaderboardData, totalGames] = await Promise.all([
+                loadAllGames(),
+                leaderboardService.getPlayerRanking(playerProfile?.id),
+                leaderboardService.getPlayerPercentile(playerProfile?.id),
+                leaderboardService.getLeaderboard(100),
+                gameStatsService.getTotalGamesPlayed()
+            ]);
+            console.log('[STATS] Setting stats from playerProfile:', playerProfile);
+            setStats(playerProfile);
+            setRanking(rankingData);
+            setPercentile(percentileData);
+            setTotalPlayers(leaderboardData.length);
+            setLeaderboard(leaderboardData);
+            setTotalGamesPlayed(totalGames);
+            
+            // Cache the results
+            sessionStorage.setItem(cacheKey, JSON.stringify({
+                timestamp: Date.now(),
+                allGames: gamesData
+            }));
+            
+            setLoading(false);
+        } catch (error) {
+            console.error(version, 'Error loading stats:', error);
+            setLoading(false);
+        }
+    }, [coreEngine.playerId, coreEngine.playerProfile]);
+
+    useEffect(() => {
+        loadAllStats();
+    }, [loadAllStats]);
+
+    // Key data - see CoreEngine handle{state}
+    const gameConfig = coreEngine.gameConfig;
+    const eras = coreEngine.eras;
+    const player = coreEngine.player;
+    const playerProfile = coreEngine.playerProfile;
+    const playerEmail = coreEngine.playerEmail;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponents = coreEngine.selectedOpponents;
+
+    // Derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
+    const isGuest = player != null && player.isGuest;
+    const isAdmin = player != null && playerProfile?.isAdmin;
+    const isDeveloper = player != null && playerProfile?.isDeveloper;
+    const isTester = player != null && playerProfile?.isTester;
+    const selectedOpponent = selectedOpponents?.[0];
+    const selectedGameMode = coreEngine.selectedGameMode;
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
+
+    // Key data check - stop game if key data is missing
+    // (selectedAlliance is allowed to be null)
+    // (playerEmail is allowed to be null for guest users)
     const required = isGuest 
         ? { gameConfig, eras, player, playerProfile }
         : { gameConfig, eras, player, playerProfile, playerEmail };
@@ -110,158 +267,9 @@ function StatsPage({ onClose }) {
         return null; // Return null to prevent rendering
     }
 
-  useEffect(() => {
-    loadAllStats();
-  }, [playerId]);
-
-  const loadAllStats = async () => {
-      method = 'loadAllStats';
-
-    if (!playerProfile) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      log('Loading stats for user:', playerProfile?.id);
-      
-      // Check cache first
-      const cacheKey = `stats_${playerId}`;
-      const cached = sessionStorage.getItem(cacheKey);
-      
-      if (cached) {
-        const parsedCache = JSON.parse(cached);
-        if (Date.now() - parsedCache.timestamp < CACHE_DURATION) {
-          log('Using cached stats data');
-          setAllGames(parsedCache.allGames);
-          setRecentGames(parsedCache.allGames.slice(0, 10));
-          processEraStats(parsedCache.allGames, false);
-          processEraStats(parsedCache.allGames, true);
-          processOpponentStats(parsedCache.allGames, false);
-          processOpponentStats(parsedCache.allGames, true);
-        }
-      }
-      
-      const [gamesData, rankingData, percentileData, leaderboardData, totalGames] = await Promise.all([
-        loadAllGames(),
-        leaderboardService.getPlayerRanking(playerProfile?.id),
-        leaderboardService.getPlayerPercentile(playerProfile?.id),
-        leaderboardService.getLeaderboard(100),
-        gameStatsService.getTotalGamesPlayed()
-      ]);
-        console.log('[STATS] Setting stats from playerProfile:', playerProfile);
-        setStats(playerProfile);
-      setStats(playerProfile);
-      setRanking(rankingData);
-      setPercentile(percentileData);
-      setTotalPlayers(leaderboardData.length);
-      setLeaderboard(leaderboardData);
-      setTotalGamesPlayed(totalGames);
-      
-      // Cache the results
-      sessionStorage.setItem(cacheKey, JSON.stringify({
-        timestamp: Date.now(),
-        allGames: gamesData
-      }));
-      
-      setLoading(false);
-    } catch (error) {
-      console.error(version, 'Error loading stats:', error);
-      setLoading(false);
-    }
-  };
-
-  const loadAllGames = async () => {
-      method = 'loadAllGames';
-
-    try {
-      // Load last 100 games for "All Time" stats (free-tier safe)
-      const { data, error } = await supabase
-        .from('game_results')
-        .select('*')
-        .eq('player_id', playerProfile?.id)
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-      
-      const games = data || [];
-      setAllGames(games);
-      setRecentGames(games.slice(0, 10));
-      
-      // Process both Last 10 and All Time stats
-      processEraStats(games, false); // Last 10
-      processEraStats(games, true);  // All Time
-      processOpponentStats(games, false); // Last 10
-      processOpponentStats(games, true);  // All Time
-      
-      return games;
-    } catch (error) {
-      console.error(version, 'Error loading games:', error);
-      return [];
-    }
-  };
-
-  const processEraStats = (games, allTime = false) => {
-      method = 'processEraStats';
-
-    const dataToProcess = allTime ? games : games.slice(0, 10);
-    const eraData = {};
-    
-    dataToProcess.forEach(game => {
-      if (!eraData[game.era_name]) {
-        eraData[game.era_name] = { games: 0, wins: 0, totalScore: 0, totalAccuracy: 0, shipsSunk: 0 };
-      }
-      
-      const era = eraData[game.era_name];
-      era.games++;
-      if (game.won) era.wins++;
-      era.totalScore += game.score;
-      era.totalAccuracy += game.accuracy;
-      era.shipsSunk += game.sunk;
-    });
-    
-    Object.keys(eraData).forEach(eraName => {
-      const era = eraData[eraName];
-      era.winRate = ((era.wins / era.games) * 100).toFixed(1);
-      era.avgScore = Math.round(era.totalScore / era.games);
-      era.avgAccuracy = (era.totalAccuracy / era.games).toFixed(1);
-    });
-    
-    if (allTime) {
-      setEraStats(prev => ({ ...prev, allTime: eraData }));
-    } else {
-      setEraStats(prev => ({ ...prev, recent: eraData }));
-    }
-  };
-
-  const processOpponentStats = (games, allTime = false) => {
-      method = 'processOpponentStats';
-
-    const dataToProcess = allTime ? games : games.slice(0, 10);
-    const opponentData = {};
-    
-    dataToProcess.forEach(game => {
-      if (!opponentData[game.opponent_name]) {
-        opponentData[game.opponent_name] = { games: 0, wins: 0 };
-      }
-      
-      const opponent = opponentData[game.opponent_name];
-      opponent.games++;
-      if (game.won) opponent.wins++;
-    });
-    
-    Object.keys(opponentData).forEach(opponentName => {
-      const opponent = opponentData[opponentName];
-      opponent.winRate = ((opponent.wins / opponent.games) * 100).toFixed(1);
-    });
-    
-    if (allTime) {
-      setOpponentStats(prev => ({ ...prev, allTime: opponentData }));
-    } else {
-      setOpponentStats(prev => ({ ...prev, recent: opponentData }));
-    }
-  };
+    useEffect(() => {
+        loadAllStats();
+    }, [loadAllStats]);
 
   const formatDate = (dateString) => {
       method = 'formatDate';

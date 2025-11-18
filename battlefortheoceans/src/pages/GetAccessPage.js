@@ -1,5 +1,19 @@
 // src/pages/GetAccessPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.8: Refactor hooks - remove ForHooks alias variables, move key data check before hooks
+//         - Removed all "ForHooks" alias variables (unnecessary duplication)
+//         - Use main variables directly in hooks and callbacks
+//         - Moved key data check to be right after key data definitions, before all hooks
+//         - Applied same pattern to AchievementsPage, SelectEraPage, SelectOpponentPage, StatsPage
+// v0.2.7: Refactor key data constants - move all to top with ForHooks variables
+//         - Consolidated all key data constants and derivations at the top
+//         - Removed duplicate definitions later in the file
+//         - ForHooks variables are now aliases for the main constants
+//         - Key data check remains in place but uses variables from top
+// v0.2.6: Fix reward voucher for exclusive eras - use era voucher instead of pass voucher
+//         - Changed reward voucher type from 'pass' to selectedEraId (e.g., 'pirates')
+//         - Reward is now era-1 (e.g., pirates-1) instead of pass-1
+//         - Matches the era being invited for (exclusive eras use era vouchers)
 // v0.2.5: Only notify subscribers for pass vouchers, not era vouchers
 //         - Check voucherType from redeemVoucher result before notifying
 //         - Prevents NavBar from refreshing pass balance for era vouchers
@@ -68,7 +82,7 @@ import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.2.5';
+const version = 'v0.2.8';
 const tag = "ACCESS";
 const module = "GetAccessPage";
 let method = "";
@@ -121,14 +135,29 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
     const [purchasing, setPurchasing] = useState(false);
     const [purchaseError, setPurchaseError] = useState(null);
 
-    // All hooks must be called before any conditional returns
-    // Get key data early for use in hooks (using coreEngine directly)
-    const selectedEraIdForHooks = coreEngine.selectedEraId;
-    const selectedEraConfigForHooks = coreEngine.selectedEraConfig;
-    const playerIdForHooks = coreEngine.playerId;
-    const gameConfigForHooks = coreEngine.gameConfig;
-    const playerEmailForHooks = coreEngine.playerEmail;
-    const playerProfileForHooks = coreEngine.playerProfile;
+    // Key data - see CoreEngine handle{state}
+    const gameConfig = coreEngine.gameConfig;
+    const eras = coreEngine.eras;
+    const player = coreEngine.player;
+    const playerProfile = coreEngine.playerProfile;
+    const playerEmail = coreEngine.playerEmail;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedEraConfig = coreEngine.selectedEraConfig;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponents = coreEngine.selectedOpponents;
+    
+    // Derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
+    const isGuest = player != null && player.isGuest;
+    const isAdmin = player != null && playerProfile?.isAdmin;
+    const isDeveloper = player != null && playerProfile?.isDeveloper;
+    const isTester = player != null && playerProfile?.isTester;
+    const selectedOpponent = selectedOpponents?.[0];
+    const selectedGameMode = coreEngine.selectedGameMode;
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
 
     // Load nearest achievements (copied from OverPage pattern)
     const loadNearestAchievements = useCallback(async () => {
@@ -142,13 +171,13 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             
             if (achError) throw achError;
             
-            if (!playerIdForHooks) return;
+            if (!playerId) return;
             
             // Get user's unlocked achievements
             const { data: userAchievements } = await supabase
                 .from('user_achievements')
                 .select('achievement_id')
-                .eq('player_id', playerIdForHooks)
+                .eq('player_id', playerId)
                 .eq('unlocked', true);
             
             const unlockedIds = new Set(
@@ -159,7 +188,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             const { data: stats } = await supabase
                 .from('user_profiles')
                 .select('total_games, total_wins, total_ships_sunk, total_damage')
-                .eq('id', playerIdForHooks)
+                .eq('id', playerId)
                 .single();
             
             // Helper functions for progress calculation
@@ -215,7 +244,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         } catch (err) {
             console.error(`[ACCESS] GetAccessPage ${version}| Error loading achievements:`, err);
         }
-    }, [playerIdForHooks]);
+    }, [playerId]);
 
     // Handle email friend (pass section)
     const handleSendPassEmail = useCallback(async () => {
@@ -224,9 +253,9 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             return;
         }
         
-        const invitePasses = gameConfigForHooks?.referral_passes || 1;
-        const rewardPasses = gameConfigForHooks?.referral_passes || 1;
-        const signupBonus = gameConfigForHooks?.referral_signup || 10;
+        const invitePasses = gameConfig?.referral_passes || 1;
+        const rewardPasses = gameConfig?.referral_passes || 1;
+        const signupBonus = gameConfig?.referral_signup || 10;
         
         try {
             setSendingEmail(true);
@@ -238,7 +267,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             const result = await VoucherService.findOrCreateVoucher(
                 null, // eraId (null for pass vouchers)
                 invitePasses,
-                playerIdForHooks,
+                playerId,
                 friendEmail.trim(),
                 'email_pass',
                 rewardPasses,
@@ -262,8 +291,8 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 },
                 body: JSON.stringify({
                     friendEmail: friendEmail.trim(),
-                    senderName: playerProfileForHooks?.game_name || 'A friend',
-                    senderEmail: playerEmailForHooks,
+                    senderName: playerProfile?.game_name || 'A friend',
+                    senderEmail: playerEmail,
                     voucherCode: voucherCode,
                     eraName: null // Pass voucher, no era
                 })
@@ -304,7 +333,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         } finally {
             setSendingEmail(false);
         }
-    }, [friendEmail, playerEmailForHooks, playerProfileForHooks, gameConfigForHooks, playerIdForHooks]);
+    }, [friendEmail, playerEmail, playerProfile, gameConfig, playerId]);
 
     // Handle email friend (voucher section)
     const handleSendVoucherEmail = useCallback(async () => {
@@ -318,16 +347,16 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             setEmailError(null);
             setEmailSuccess(false);
             
-            console.log(`[ACCESS] GetAccessPage ${version}| Generating ${selectedEraIdForHooks} voucher for friend`);
+            console.log(`[ACCESS] GetAccessPage ${version}| Generating ${selectedEraId} voucher for friend`);
             
-            const friendPasses = gameConfigForHooks?.friend_signup || 10;
-            const rewardPasses = gameConfigForHooks?.referral_passes || 1;
-            const signupBonus = gameConfigForHooks?.referral_signup || 10;
+            const friendPasses = gameConfig?.friend_signup || 10;
+            const rewardPasses = gameConfig?.referral_passes || 1;
+            const signupBonus = gameConfig?.referral_signup || 10;
 
             const result = await VoucherService.findOrCreateVoucher(
-                selectedEraIdForHooks,
+                selectedEraId,
                 friendPasses,
-                playerIdForHooks,
+                playerId,
                 friendEmail.trim(),
                 'email_era',
                 rewardPasses,
@@ -351,10 +380,10 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                 },
                 body: JSON.stringify({
                     friendEmail: friendEmail.trim(),
-                    senderName: playerProfileForHooks?.game_name || 'A friend',
-                    senderEmail: playerEmailForHooks,
+                    senderName: playerProfile?.game_name || 'A friend',
+                    senderEmail: playerEmail,
                     voucherCode: voucherCode,
-                    eraName: selectedEraConfigForHooks?.name
+                    eraName: selectedEraConfig?.name
                 })
             });
             
@@ -364,23 +393,22 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             }
 
             // Generate and auto-redeem reward voucher for sender
+            // For exclusive eras, reward is an era voucher (e.g., pirates-1), not a pass voucher
             console.log(`[ACCESS] GetAccessPage ${version}| Generating immediate reward for sender`);
             const rewardCode = await VoucherService.generateVoucher(
-                'pass',
-                rewardPasses,
+                selectedEraId,  // Era ID (e.g., 'pirates') for exclusive eras
+                1,  // 1 play for this era
                 'email_immediate_reward',
                 null,  // created_by = null for system rewards (not user-created)
                 null,
-                rewardPasses,
-                0
+                0,  // rewardPasses not applicable for era vouchers
+                0   // signupBonus not applicable for era vouchers
             );
             const rewardResult = await VoucherService.redeemVoucher(coreEngine.player?.id, rewardCode);
-            console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with ${rewardPasses} pass(es)`);
+            console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with 1 play for ${selectedEraId}`);
             
-            // Only notify for pass vouchers (reward vouchers are always pass vouchers)
-            if (rewardResult.voucherType === 'pass' && coreEngine && coreEngine.notifySubscribers) {
-                coreEngine.notifySubscribers();
-            }
+            // Era vouchers don't affect pass balance, so don't notify subscribers
+            // (Only pass vouchers should trigger NavBar pass balance updates)
             
             setEmailSuccess(true);
             setFriendEmail('');
@@ -393,16 +421,16 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         } finally {
             setSendingEmail(false);
         }
-    }, [friendEmail, playerEmailForHooks, playerProfileForHooks, selectedEraIdForHooks, selectedEraConfigForHooks, gameConfigForHooks, playerIdForHooks]);
+    }, [friendEmail, playerEmail, playerProfile, selectedEraId, selectedEraConfig, gameConfig, playerId]);
 
     // Handle purchase (Stripe checkout)
     const handlePurchase = useCallback(async () => {
-        if (!selectedEraConfigForHooks?.promotional?.stripe_price_id) {
+        if (!selectedEraConfig?.promotional?.stripe_price_id) {
             setPurchaseError('This era is not available for purchase');
             return;
         }
         
-        if (!playerIdForHooks) {
+        if (!playerId) {
             setPurchaseError('You must be logged in to purchase');
             return;
         }
@@ -417,9 +445,9 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    priceId: selectedEraConfigForHooks.promotional.stripe_price_id,
-                    playerId: playerIdForHooks,
-                    eraId: selectedEraIdForHooks
+                    priceId: selectedEraConfig.promotional.stripe_price_id,
+                    playerId: playerId,
+                    eraId: selectedEraId
                 })
             });
             
@@ -444,14 +472,14 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         } finally {
             setPurchasing(false);
         }
-    }, [selectedEraConfigForHooks, selectedEraIdForHooks, playerIdForHooks]);
+    }, [selectedEraConfig, selectedEraId, playerId]);
 
     // Load era config and user email
     useEffect(() => {
         const loadData = async () => {
             try {
                 // Load nearest achievements (for pass section)
-                if (selectedEraConfigForHooks && !selectedEraConfigForHooks.exclusive && selectedEraConfigForHooks.passes_required > 0) {
+                if (selectedEraConfig && !selectedEraConfig.exclusive && selectedEraConfig.passes_required > 0) {
                     await loadNearestAchievements();
                 }
             } catch (err) {
@@ -460,20 +488,20 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         };
         
         loadData();
-    }, [selectedEraIdForHooks, selectedEraConfigForHooks, loadNearestAchievements]);
+    }, [selectedEraId, selectedEraConfig, loadNearestAchievements]);
 
     // Fetch price info from Stripe
     useEffect(() => {
         const fetchPriceInfo = async () => {
-            if (!selectedEraConfigForHooks?.promotional?.stripe_price_id) {
-                console.log(`[ACCESS] GetAccessPage ${version}| No stripe_price_id for era:`, selectedEraIdForHooks);
+            if (!selectedEraConfig?.promotional?.stripe_price_id) {
+                console.log(`[ACCESS] GetAccessPage ${version}| No stripe_price_id for era:`, selectedEraId);
                 setPriceInfo(null);
                 return;
             }
             
             try {
                 setFetchingPrice(true);
-                console.log(`[ACCESS] GetAccessPage ${version}| Fetching price info for:`, selectedEraConfigForHooks.promotional.stripe_price_id);
+                console.log(`[ACCESS] GetAccessPage ${version}| Fetching price info for:`, selectedEraConfig.promotional.stripe_price_id);
                 
                 const response = await fetch('/.netlify/functions/get_price_info', {
                     method: 'POST',
@@ -481,7 +509,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        priceId: selectedEraConfigForHooks.promotional.stripe_price_id
+                        priceId: selectedEraConfig.promotional.stripe_price_id
                     })
                 });
                 
@@ -502,34 +530,11 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         };
         
         fetchPriceInfo();
-    }, [selectedEraConfigForHooks, selectedEraIdForHooks]);
+    }, [selectedEraConfig, selectedEraId]);
 
-    //key data - see CoreEngine handle{state}
-    const gameConfig = coreEngine.gameConfig;
-    const eras = coreEngine.eras;
-    const player = coreEngine.player
-    const playerProfile = coreEngine.playerProfile;
-    const playerEmail = coreEngine.playerEmail;
-    const selectedEraId = coreEngine.selectedEraId;
-    const selectedAlliance = coreEngine.selectedAlliance;
-    const selectedOpponents = coreEngine.selectedOpponents;
-
-    // derived data
-    const playerId = coreEngine.playerId;
-    const playerRole = coreEngine.playerRole;
-    const playerGameName = coreEngine.playerGameName;
-    const isGuest = player != null && player.isGuest;
-    const isAdmin = player != null && playerProfile.isAdmin;
-    const isDeveloper = player != null && playerProfile.isDeveloper;
-    const isTester = player != null && playerProfile.isTester;
-    const selectedOpponent = coreEngine.selectedOpponents[0];
-
-    const selectedGameMode = coreEngine.selectedGameMode;
-    const gameInstance = coreEngine.gameInstance;
-    const board = coreEngine.board;
-
-    // stop game if key data is missing (selectedAlliance is allowed to be null)
-    // playerEmail is allowed to be null for guest users
+    // Key data check - stop game if key data is missing
+    // (selectedAlliance is allowed to be null)
+    // (playerEmail is allowed to be null for guest users)
     const required = isGuest 
         ? { gameConfig, eras, player, playerProfile, selectedEraId }
         : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
@@ -542,8 +547,6 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         coreEngine.handleKeyDataError('access', errorMessage);
         return null; // Return null to prevent rendering
     }
-
-    const selectedEraConfig = coreEngine.selectedEraConfig;
 
     const invitePasses = gameConfig?.referral_passes || 1;  // ✅ What friend gets in invite (1 pass to try the game)
     const rewardPasses = gameConfig?.referral_passes || 1;  // ✅ What sender gets immediately
@@ -798,7 +801,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
           {/* Voucher Section - shown if era is exclusive */}
           {showVoucherSection && (
             <div className="card-section">
-              <h3>Get Vouchers</h3>
+              <h3>Invite</h3>
               
               <div className="info-card">
                 <p className="mb-md">
