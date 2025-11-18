@@ -1,5 +1,9 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.19: Fix pass balance not updating immediately after credit/consume
+//          - Refresh pass balance when CoreEngine notifies subscribers
+//          - Use useCallback to stabilize fetchPassBalance function
+//          - Ensures passes are reflected immediately in NavBar after operations
 // v0.2.18: Pass location to App for help positioning
 // v0.2.17: Added *Add 3 Passes menu item for admins/developers/testers
 //          - Menu item between Help and Test
@@ -41,13 +45,13 @@
 // v0.2.7: Show Return to Game for all states when overlay is active
 // v0.2.6: Only show Return to Game button when overlay is active
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import RightsService from '../services/RightsService';
 import PlayerProfileService from '../services/PlayerProfileService';
 import { coreEngine, useGame } from '../context/GameContext';
 import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins } from 'lucide-react';
 
-const version = 'v0.2.18';
+const version = 'v0.2.19';
 const tag = "NAVBAR";
 const module = "NavBar";
 let method = "";
@@ -98,7 +102,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   const menuRef = useRef(null);
   const [passBalance, setPassBalance] = useState(0);
 
-  const fetchPassBalance = async () => {
+  const fetchPassBalance = useCallback(async () => {
     method = 'fetchPassBalance';
     
     if (!playerId || isGuest) {
@@ -115,17 +119,20 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
       logerror('Error fetching pass balance:', err);
       setPassBalance(0);
     }
-  };
+  }, [playerId, isGuest]);
 
   useEffect(() => {
     // Fetch when playerId changes OR when returning to 'era' state (after game)
     fetchPassBalance();
-  }, [playerId, isGuest, currentState]); // Added currentState, removed passBalance
+  }, [playerId, isGuest, currentState, fetchPassBalance]); // Added fetchPassBalance to dependencies
   
-  // Force re-render when game state changes
+  // Force re-render and refresh pass balance when game state changes
   useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {
       forceUpdate(n => n + 1);
+      // Refresh pass balance when CoreEngine notifies of updates
+      // This ensures passes are reflected immediately after credit/consume operations
+      fetchPassBalance();
     });
     return unsubscribe;
   }, [subscribeToUpdates]);

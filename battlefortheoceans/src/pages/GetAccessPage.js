@@ -374,6 +374,12 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         const rewardCode = await VoucherService.generateVoucher('pass', rewardPasses, 'email_immediate_reward');
         await VoucherService.redeemVoucher(coreEngine.player.id, rewardCode);
         console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with ${rewardPasses} pass(es)`);
+        
+        // Notify CoreEngine subscribers so NavBar can refresh pass balance
+        if (coreEngine && coreEngine.notifySubscribers) {
+          coreEngine.notifySubscribers();
+          console.log(`[ACCESS] GetAccessPage ${version}| Notified CoreEngine subscribers after reward redemption`);
+        }
 
         setEmailSuccess(true);
       setFriendEmail('');
@@ -462,6 +468,12 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         );
         await VoucherService.redeemVoucher(coreEngine.player.id, rewardCode);
         console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with ${rewardPasses} pass(es)`);
+        
+        // Notify CoreEngine subscribers so NavBar can refresh pass balance
+        if (coreEngine && coreEngine.notifySubscribers) {
+          coreEngine.notifySubscribers();
+          console.log(`[ACCESS] GetAccessPage ${version}| Notified CoreEngine subscribers after reward redemption`);
+        }
 
         
       setEmailSuccess(true);

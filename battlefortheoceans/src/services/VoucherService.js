@@ -1,5 +1,13 @@
 // src/services/VoucherService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.8: Fix missing original voucher redemption
+//         - Now redeems the original referral voucher (1 pass) when new user signs up
+//         - New user gets: 1 pass from original voucher + 10 passes from signup bonus = 11 total
+//         - Previously only marked original voucher as processed without redeeming it
+// v0.1.7: Fix referral reward vouchers - set created_by to null for system rewards
+//         - System-generated reward vouchers should not have created_by set to recipient
+//         - Prevents security check from blocking auto-redeemed reward vouchers
+//         - Both referrer and new user reward vouchers now use created_by = null
 // v0.1.6: Add email and creator validation to prevent voucher theft
 //         - Check voucher email_sent_to matches redeeming user's email (if email provided)
 //         - Check voucher created_by is NOT the redeeming user (prevents self-redemption)
@@ -25,7 +33,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.6';
+const version = 'v0.1.8';
 
 class VoucherService {
     constructor() {
@@ -491,11 +499,12 @@ class VoucherService {
             console.log(`[VOUCHER] VoucherService ${version}| Found referral! Referrer:`, referrerId, 'Signup bonus:', signupBonusPasses);
             
             // 1. Reward REFERRER with referral_signup passes
+            // Set created_by to null for system-generated reward vouchers to avoid security check
             const referrerRewardCode = await this.generateVoucher(
               'pass',
               signupBonusPasses,
               'referral_signup_reward',
-              referrerId,
+              null,  // created_by = null for system rewards (not user-created)
               null,
               signupBonusPasses,
               0
@@ -509,11 +518,12 @@ class VoucherService {
             // 2. Reward NEW USER with signup bonus
             console.log(`[VOUCHER] VoucherService ${version}| Generating signup bonus for new user:`, newUserId);
             
+            // Set created_by to null for system-generated reward vouchers to avoid security check
             const newUserRewardCode = await this.generateVoucher(
                  'pass',
                  signupBonusPasses,
                  'signup_bonus_reward',
-                 null,
+                 null,  // created_by = null for system rewards (not user-created)
                  newUserEmail,
                  0,
                  signupBonusPasses
@@ -524,16 +534,25 @@ class VoucherService {
             await this.redeemVoucher(newUserId, newUserRewardCode, newUserEmail);
             console.log(`[VOUCHER] VoucherService ${version}| New user rewarded with ${signupBonusPasses} passes!`);
             
-            // 3. Mark original voucher as processed
-            await supabase
-            .from('vouchers')
-            .update({
-                redeemed_at: new Date().toISOString(),
-                redeemed_by: newUserId
-            })
-            .eq('voucher_code', referralVoucher.voucher_code);
+            // 3. Redeem the original referral voucher (the 1 pass sent in the email)
+            // This gives the new user the pass from the original invite voucher
+            console.log(`[VOUCHER] VoucherService ${version}| Redeeming original referral voucher:`, referralVoucher.voucher_code);
+            try {
+                await this.redeemVoucher(newUserId, referralVoucher.voucher_code, newUserEmail);
+                console.log(`[VOUCHER] VoucherService ${version}| Original referral voucher redeemed successfully`);
+            } catch (error) {
+                // If redemption fails (e.g., already redeemed), just mark as processed
+                console.warn(`[VOUCHER] VoucherService ${version}| Could not redeem original voucher, marking as processed:`, error.message);
+                await supabase
+                .from('vouchers')
+                .update({
+                    redeemed_at: new Date().toISOString(),
+                    redeemed_by: newUserId
+                })
+                .eq('voucher_code', referralVoucher.voucher_code);
+            }
             
-            console.log(`[VOUCHER] VoucherService ${version}| Original voucher marked as processed`);
+            console.log(`[VOUCHER] VoucherService ${version}| Original voucher processed`);
             
             return {
                 rewarded: true,

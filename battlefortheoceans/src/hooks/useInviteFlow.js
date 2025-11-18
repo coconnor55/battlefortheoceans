@@ -1,5 +1,11 @@
 // src/hooks/useInviteFlow.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.5: Optimize hook to reduce re-renders
+//         - Move data validation to useEffect (runs once on mount, not every render)
+//         - Remove logging that runs on every render
+//         - Prevents unnecessary re-initialization when parent component re-renders
+// v0.1.4: Notify CoreEngine after voucher redemption to refresh NavBar pass balance
+//         - Ensures pass balance updates immediately in NavBar after voucher redemption
 // v0.1.3: Pass playerEmail to redeemVoucher for email validation
 //         - Prevents users from redeeming vouchers sent to other people
 //         - Validates voucher email_sent_to matches redeeming user's email
@@ -9,11 +15,11 @@
 //         - consumeVoucher(voucherCode) - Redeem voucher user entered
 //         - Extracted from GetAccessPage for better separation of concerns
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import VoucherService from '../services/VoucherService';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.1.3';
+const version = 'v0.1.5';
 const tag = "INVITE";
 const module = "useInviteFlow";
 let method = "";
@@ -66,21 +72,29 @@ export function useInviteFlow() {
     const board = coreEngine.board;
 
     // stop game if key data is missing (selectedAlliance is allowed to be null)
-    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
-    const missing = Object.entries(required)
-        .filter(([key, value]) => !value)
-        .map(([key, value]) => `${key}=${value}`);
-    if (missing.length > 0) {
-        logerror(`key data missing: ${missing.join(', ')}`, required);
-        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
-    }
-
+    // playerEmail is allowed to be null for guest users
+    // Only validate once on mount, not on every render
     const selectedEraConfig = coreEngine.selectedEraConfig;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-    log(`Hook initialized`);
+  
+  // Validate key data only once on mount (useEffect)
+  useEffect(() => {
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile }
+        : { gameConfig, eras, player, playerProfile, playerEmail };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    if (missing.length > 0) {
+        logerror(`key data missing: ${missing.join(', ')}`, required);
+        console.error(`${module}: key data missing: ${missing.join(', ')}`);
+    } else {
+        log('useInviteFlow: passed CoreEngine data checks');
+    }
+  }, []); // Only run once on mount
 
   /**
    * Invite friend via email
@@ -239,6 +253,12 @@ export function useInviteFlow() {
       const result = await VoucherService.redeemVoucher(playerId, voucherCode.trim(), playerEmail);
 
       log(`Redemption successful:`, result);
+
+      // Notify CoreEngine subscribers so NavBar can refresh pass balance
+      if (coreEngine && coreEngine.notifySubscribers) {
+        coreEngine.notifySubscribers();
+        log('Notified CoreEngine subscribers after voucher redemption');
+      }
 
       // Success message
       const successMessage = `Voucher redeemed! You received ${displayInfo.displayText} for ${displayInfo.title}`;
