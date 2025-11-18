@@ -91,11 +91,13 @@ const useGameState = () => {
     const missing = Object.entries(required)
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);
-    if (missing.length > 0) {
-        logerror(`key data missing: ${missing.join(', ')}`, required);
-        throw new Error(`${module}: key data missing: ${missing.join(', ')}`);
+        const hasMissingData = missing.length > 0;
+        if (hasMissingData) {
+            logwarn(`Game data still initializing: ${missing.join(', ')}`);
+        }
+    if (!hasMissingData) {
+        log('useGameState: passed CoreEngine data checks');
     }
-    log('useGameState: passed CoreEngine data checks');
     
     const selectedEraConfig = coreEngine.selectedEraConfig;
 
