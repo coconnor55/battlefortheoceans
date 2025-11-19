@@ -1,5 +1,8 @@
 // src/hooks/useAutoPlay.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.4: Reverted delay back to 200ms (5 shots/second is fast enough)
+//         - Kept 200ms delay between shots for reasonable autoplay speed
+//         - Animation delays are skipped via speedFactor=0, so no other delays
 // v0.1.2: Fixed valid target detection to check canShootAt()
 //         - fireRandomShot now checks BOTH isValidAttack() AND canShootAt()
 //         - Prevents AutoPlay from firing at already-shot cells
@@ -16,7 +19,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const version = 'v0.1.2';
+const version = 'v0.1.4';
 
 /**
  * useAutoPlay - Automated testing utility for rapid gameplay
@@ -130,7 +133,7 @@ const useAutoPlay = ({
       autoPlayTimerRef.current = setTimeout(() => {
         console.log('[AUTOPLAY]', version, 'Timer fired, calling fireRandomShot');
         fireRandomShot();
-      }, 200); // 200ms delay between shots
+      }, 200); // 200ms delay between shots (5 shots/second)
     } else {
       console.log('[AUTOPLAY]', version, 'NOT starting timer - conditions not met:', {
         autoPlayEnabled,

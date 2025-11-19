@@ -1,5 +1,10 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.20: Add voucher balance display and fix pass singular/plural
+//          - Added voucher balance fetching and display
+//          - Fixed "Passes" to "Pass" when singular
+//          - Use Coins icon for passes, Diamond icon for vouchers
+//          - Show vouchers to the right of passes
 // v0.2.19: Fix pass balance not updating immediately after credit/consume
 //          - Refresh pass balance when CoreEngine notifies subscribers
 //          - Use useCallback to stabilize fetchPassBalance function
@@ -49,9 +54,9 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import RightsService from '../services/RightsService';
 import PlayerProfileService from '../services/PlayerProfileService';
 import { coreEngine, useGame } from '../context/GameContext';
-import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins } from 'lucide-react';
+import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins, Diamond } from 'lucide-react';
 
-const version = 'v0.2.19';
+const version = 'v0.2.20';
 const tag = "NAVBAR";
 const module = "NavBar";
 let method = "";
@@ -101,6 +106,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
   const [passBalance, setPassBalance] = useState(0);
+  const [voucherBalance, setVoucherBalance] = useState(0);
 
   const fetchPassBalance = useCallback(async () => {
     method = 'fetchPassBalance';
@@ -121,11 +127,31 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
     }
   }, [playerId, isGuest]);
 
+  const fetchVoucherBalance = useCallback(async () => {
+    method = 'fetchVoucherBalance';
+    
+    if (!playerId || isGuest) {
+      setVoucherBalance(0);
+      log('No playerId or guest user - voucher balance set to 0');
+      return;
+    }
+
+    try {
+      const balance = await RightsService.getVoucherBalance(playerId);
+      setVoucherBalance(balance);
+      log(`Voucher balance fetched: ${balance}`);
+    } catch (err) {
+      logerror('Error fetching voucher balance:', err);
+      setVoucherBalance(0);
+    }
+  }, [playerId, isGuest]);
+
   useEffect(() => {
     // Fetch when playerId changes OR when returning to 'era' state (after game)
     fetchPassBalance();
-  }, [playerId, isGuest, currentState, fetchPassBalance]); // Added fetchPassBalance to dependencies
-  
+    fetchVoucherBalance();
+  }, [playerId, isGuest, currentState, fetchPassBalance, fetchVoucherBalance]); // Added fetchPassBalance to dependencies
+
   // Force re-render and refresh pass balance when game state changes
   useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {
@@ -133,9 +159,10 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
       // Refresh pass balance when CoreEngine notifies of updates
       // This ensures passes are reflected immediately after credit/consume operations
       fetchPassBalance();
+      fetchVoucherBalance();
     });
     return unsubscribe;
-  }, [subscribeToUpdates]);
+  }, [subscribeToUpdates, fetchPassBalance, fetchVoucherBalance]);
   
   // Close menu when clicking outside
   useEffect(() => {
@@ -332,11 +359,22 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
           )}
         </div>
         
-        {passBalance > 0 && (
-          <div className="nav-bar__passes">
-            <span className="pass-icon">💎 </span>
-            <span className="pass-count">{passBalance}</span>
-            <span className="pass-label"> Passes</span>
+        {(passBalance > 0 || voucherBalance > 0) && (
+          <div className="nav-bar__passes" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            {passBalance > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Coins size={16} />
+                <span className="pass-count">{passBalance}</span>
+                <span className="pass-label">{passBalance === 1 ? ' Pass' : ' Passes'}</span>
+              </div>
+            )}
+            {voucherBalance > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Diamond size={16} />
+                <span className="voucher-count">{voucherBalance}</span>
+                <span className="voucher-label">{voucherBalance === 1 ? ' Voucher' : ' Vouchers'}</span>
+              </div>
+            )}
           </div>
         )}
         

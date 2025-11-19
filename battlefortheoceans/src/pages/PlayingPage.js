@@ -1,5 +1,8 @@
 // src/pages/PlayingPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.8: Set speedFactor to 0 when autoplay is enabled to skip animation delays
+//         - Autoplay now proceeds instantly without waiting for animations
+//         - Restores speedFactor to 1 when autoplay is disabled
 // v0.5.7: Graceful loading state while CoreEngine finishes initialization
 //         - Replaced fatal dependency throw with loading UI
 //         - Prevents crash while synchronous engine hydrates data
@@ -219,6 +222,15 @@ const PlayingPage = () => {
     playerProfile,
     battleMessage
   });
+
+  // Set speedFactor to 0 when autoplay is enabled (skip animation delays)
+  useEffect(() => {
+    if (gameInstance && gameInstance.updateAnimationSettings) {
+      gameInstance.updateAnimationSettings({
+        speedFactor: autoPlayEnabled ? 0 : 1
+      });
+    }
+  }, [autoPlayEnabled, gameInstance]);
 
   useEffect(() => {
     const unsubscribe = subscribeToUpdates(() => {

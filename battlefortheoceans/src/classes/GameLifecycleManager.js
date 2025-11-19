@@ -1,5 +1,11 @@
 // src/classes/GameLifecycleManager.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.11: Fix consumeRights not being called - use Player.isHuman instead of HumanPlayer.isHuman
+//          - HumanPlayer doesn't have static isHuman method, only Player does
+//          - Added logging to verify isHuman check
+// v0.2.10: Notify subscribers after consuming rights to refresh NavBar
+//          - Added notification after consumeRights to refresh both pass and voucher balances
+//          - Ensures NavBar updates immediately after game ends
 // v0.2.9: Replace key data error throwing with graceful handling
 //         - Use logwarn instead of logerror and throw
 //         - Call coreEngine.handleKeyDataError() to save error and navigate to Launch
@@ -20,13 +26,14 @@ import Game from './Game.js';
 import Board from './Board.js';
 import HumanPlayer from './HumanPlayer.js';
 import AiPlayer from './AiPlayer.js';
+import Player from './Player.js';
 import { supabase } from '../utils/supabaseClient';
 import PlayerProfileService from '../services/PlayerProfileService.js';
 import RightsService from '../services/RightsService.js';
 import GameStatsService from '../services/GameStatsService';
 import { coreEngine } from '../context/GameContext';
 
-const version = "v0.2.9";
+const version = "v0.2.11";
 const tag = "LIFECYCLE";
 const module = "GameLifecycleManager";
 let method = "";
@@ -435,7 +442,7 @@ class GameLifecycleManager {
       const playerId = this.coreEngine.playerId;
       const playerProfile = this.coreEngine.playerProfile;
       const eraId = this.coreEngine.selectedEraId;
-      this.log(`playerId=${playerId}, playerProfile.id=${playerProfile?.id}, eraId=${eraId}`);
+      this.log(`playerId=${playerId}, playerProfile.id=${playerProfile?.id}, eraId=${eraId}, isHuman=${Player.isHuman(playerId)}`);
 
       const humanPlayer = this.coreEngine.player;
     const humanPlayer2 = this.game.players.find(p => p.id === this.game.humanPlayerId);
@@ -475,11 +482,17 @@ class GameLifecycleManager {
     }
 
       // Decrement incomplete_games counter and consume rights
-      if (HumanPlayer.isHuman(playerId)) {
+      if (Player.isHuman(playerId)) {
         try {
           await PlayerProfileService.decrementIncompleteGames(playerId);
-            await RightsService.consumeRights(playerId, this.coreEngine.selectedEraConfig);
-            this.log(`Incomplete game counter decremented and rights consumed`);
+            const consumeResult = await RightsService.consumeRights(playerId, this.coreEngine.selectedEraConfig);
+            this.log(`Incomplete game counter decremented and rights consumed (method: ${consumeResult.method})`);
+            
+            // Notify subscribers to refresh NavBar (for both passes and vouchers)
+            if (this.coreEngine && this.coreEngine.notifySubscribers) {
+                this.coreEngine.notifySubscribers();
+                this.log('Notified subscribers after rights consumption');
+            }
         } catch (error) {
           this.logerror(`Failed to process game end housekeeping:`, error);
         }

@@ -9,8 +9,12 @@ import CombatResolver from './CombatResolver.js';
 import SoundManager from '../utils/SoundManager.js';
 import GameLifecycleManager from './GameLifecycleManager.js';
 
-const version = "v0.8.9";
+const version = "v0.8.10";
 /**
+ * v0.8.10: Skip animation delays when speedFactor is 0 (instant mode for autoplay)
+ *          - When speedFactor === 0, animations are skipped entirely
+ *          - Allows autoplay to proceed without waiting for animations
+ *          - speedFactor can now be 0 (instant) or > 0 (scaled delays)
  * v0.8.9: Added animation speed factor safety
  * - animationSettings now default speedFactor to 1.0
  * - executeActionWithTiming guards against undefined/invalid speed factors
@@ -181,19 +185,30 @@ class Game {
 
     async executeActionWithTiming(action) {
     const { type, player, target } = action;
-      const speedFactor = Number.isFinite(this.animationSettings.speedFactor) && this.animationSettings.speedFactor > 0
+      const speedFactor = Number.isFinite(this.animationSettings.speedFactor) && this.animationSettings.speedFactor >= 0
         ? this.animationSettings.speedFactor
         : 1;
+    
+    // Skip animation delays when speedFactor is 0 (instant mode for autoplay)
+    const skipAnimations = speedFactor === 0;
     
     if (type === 'ai_attack') {
       this.playSound('cannonBlast');
       this.notifyOpponentShot(target.row, target.col, 'firing');
+      
+      // Only delay if not skipping animations
+      if (!skipAnimations) {
         await this.delay(this.animationSettings.shotAnimation * speedFactor);
+      }
       
       const result = this.receiveAttack(target.row, target.col, player);
       
       this.notifyOpponentShot(target.row, target.col, result.result);
+      
+      // Only delay if not skipping animations
+      if (!skipAnimations) {
         await this.delay(this.animationSettings.resultAnimation * speedFactor);
+      }
       
       if (player.processAttackResult) {
         player.processAttackResult(target, result, this);
@@ -211,8 +226,9 @@ class Game {
       const normalizedSettings = { ...settings };
       if (Object.prototype.hasOwnProperty.call(normalizedSettings, 'speedFactor')) {
         const parsed = Number(normalizedSettings.speedFactor);
+        // Allow 0 (instant mode) or any positive number
         normalizedSettings.speedFactor =
-          Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+          Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
       }
       this.animationSettings = { ...this.animationSettings, ...normalizedSettings };
   }

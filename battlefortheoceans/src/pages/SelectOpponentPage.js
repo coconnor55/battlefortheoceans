@@ -1,5 +1,8 @@
 // src/pages/SelectOpponentPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.14: Fix React hooks rule violations - move all hooks before key data check
+//          - Moved all useCallback and useEffect hooks before the key data check
+//          - Moved isMultiFleet computation before hooks for use in dependency arrays
 // v0.6.13: Replace key data error throwing with graceful handling
 //          - Use logwarn instead of logerror and throw
 //          - Call coreEngine.handleKeyDataError() to save error and navigate to Launch
@@ -33,7 +36,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.6.13';
+const version = 'v0.6.14';
 const tag = "OPPONENT";
 const module = "SelectOpponentPage";
 let method = "";
@@ -96,47 +99,30 @@ const SelectOpponentPage = () => {
     const gameInstance = coreEngine.gameInstance;
     const board = coreEngine.board;
 
-    // Key data check - stop game if key data is missing
-    // (selectedAlliance is allowed to be null)
-    // (playerEmail is allowed to be null for guest users)
-    const required = isGuest 
-        ? { gameConfig, eras, player, playerProfile, selectedEraId }
-        : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
-    const missing = Object.entries(required)
-        .filter(([key, value]) => !value)
-        .map(([key, value]) => `${key}=${value}`);
-    if (missing.length > 0) {
-        const errorMessage = `key data missing: ${missing.join(', ')}`;
-        logwarn(errorMessage);
-        coreEngine.handleKeyDataError('opponent', errorMessage);
-        return null; // Return null to prevent rendering
-    }
+    // Helper functions (not hooks, but need to be defined before useCallback hooks that use them)
+    const getDifficultyLabel = (difficulty) => {
+        if (difficulty < 1.0) return 'Easy';
+        if (difficulty === 1.0) return 'Medium';
+        if (difficulty <= 1.4) return 'Hard';
+        if (difficulty <= 1.7) return 'Expert';
+        return 'Master';
+    };
 
-    log('SelectOpponent: passed CoreEngine data checks');
-  
+    const getDifficultyBadgeClass = (difficulty) => {
+        if (difficulty < 1.0) return 'badge--success';
+        if (difficulty === 1.0) return 'badge--primary';
+        if (difficulty <= 1.4) return 'badge--warning';
+        return 'badge--danger';
+    };
+
+    // Get selectedEraConfig for use in hooks (before key data check)
     const selectedEraConfig = coreEngine.selectedEraConfig;
+    
+    // v0.6.0: Check if this is multi-fleet combat era (needed for hooks)
+    const isMultiFleet = selectedEraConfig?.game_rules?.multi_fleet_combat;
 
-  // v0.6.0: Check if this is multi-fleet combat era
-  const isMultiFleet = selectedEraConfig?.game_rules?.multi_fleet_combat;
-  const pirateFleets = selectedEraConfig?.alliances?.find(a => a.name === 'Pirates')?.pirate_fleets || [];
-
-  const getDifficultyLabel = (difficulty) => {
-    if (difficulty < 1.0) return 'Easy';
-    if (difficulty === 1.0) return 'Medium';
-    if (difficulty <= 1.4) return 'Hard';
-    if (difficulty <= 1.7) return 'Expert';
-    return 'Master';
-  };
-
-  const getDifficultyBadgeClass = (difficulty) => {
-    if (difficulty < 1.0) return 'badge--success';
-    if (difficulty === 1.0) return 'badge--primary';
-    if (difficulty <= 1.4) return 'badge--warning';
-    return 'badge--danger';
-  };
-
-  // v0.6.0: Calculate combined difficulty for multi-fleet
-  const getCombinedDifficulty = useCallback(() => {
+    // v0.6.0: Calculate combined difficulty for multi-fleet
+    const getCombinedDifficulty = useCallback(() => {
       method = 'getCombinedDifficulty';
       
     if (selectedPirateFleets.length === 0) return 0;
@@ -167,17 +153,17 @@ const SelectOpponentPage = () => {
         return [...prev, fleet];
       }
     });
-  }, [selectedEraConfig]);
+    }, [selectedEraConfig]);
 
-  const handleAllianceSelect = useCallback((allianceName) => {
+    const handleAllianceSelect = useCallback((allianceName) => {
       method = 'handleAllianceSelect';
       
     coreEngine.selectedAlliance = allianceName
       log('Alliance selected:', allianceName);
       coreEngine.selectedOpponents = [null];
-  }, []);
+    }, []);
 
-  const handleAIOpponentSelect = useCallback((opponent) => {
+    const handleAIOpponentSelect = useCallback((opponent) => {
       method = 'handleAIOpponentSelect';
       
     const timestamp = Date.now();
@@ -190,9 +176,9 @@ const SelectOpponentPage = () => {
     
     log('AI Opponent selected:', completeOpponent.name, 'difficulty:', completeOpponent.difficulty);
       coreEngine.selectedOpponents = [completeOpponent];
-  }, []);
+    }, []);
 
-  const handleHumanOpponentSelect = useCallback((human) => {
+    const handleHumanOpponentSelect = useCallback((human) => {
       method = 'handleHumanOpponentSelect';
       
     const completeOpponent = {
@@ -202,9 +188,9 @@ const SelectOpponentPage = () => {
     
     log('Human Opponent selected:', completeOpponent.name);
       coreEngine.selectedOpponents = [completeOpponent];
-  }, []);
+    }, []);
 
-  const getAvailableAICaptains = useCallback(() => {
+    const getAvailableAICaptains = useCallback(() => {
       method = 'getAvailableAICaptains';
       
     if (!selectedEraConfig) return [];
@@ -220,7 +206,7 @@ const SelectOpponentPage = () => {
     }
     
     return [];
-  }, [selectedEraConfig, selectedAlliance]);
+    }, [selectedEraConfig, selectedAlliance]);
 
     const handleBeginBattle = useCallback(async () => {
         method = 'handleBeginBattle';
@@ -285,8 +271,8 @@ const SelectOpponentPage = () => {
         dispatch(events.PLACEMENT);  // No data payload needed anymore
       }
     }, [isMultiFleet, selectedPirateFleets, selectedOpponent, selectedAlliance, selectedEraConfig, dispatch, events]);
-    
-  const fetchOnlineHumans = useCallback(async () => {
+
+    const fetchOnlineHumans = useCallback(async () => {
       method = 'fetchOnlineHumans';
       
     if (!selectedEraConfig) return;
@@ -319,13 +305,33 @@ const SelectOpponentPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedEraConfig, playerProfile]);
+    }, [selectedEraConfig, playerProfile]);
 
-  useEffect(() => {
-    fetchOnlineHumans();
-  }, []);
+    useEffect(() => {
+        fetchOnlineHumans();
+    }, [fetchOnlineHumans]);
 
-  const requiresAlliance = selectedEraConfig?.game_rules?.choose_alliance;
+    // Key data check - stop game if key data is missing
+    // (selectedAlliance is allowed to be null)
+    // (playerEmail is allowed to be null for guest users)
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile, selectedEraId }
+        : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    if (missing.length > 0) {
+        const errorMessage = `key data missing: ${missing.join(', ')}`;
+        logwarn(errorMessage);
+        coreEngine.handleKeyDataError('opponent', errorMessage);
+        return null; // Return null to prevent rendering
+    }
+
+    log('SelectOpponent: passed CoreEngine data checks');
+
+    const pirateFleets = selectedEraConfig?.alliances?.find(a => a.name === 'Pirates')?.pirate_fleets || [];
+
+    const requiresAlliance = selectedEraConfig?.game_rules?.choose_alliance;
   const availableAlliances = selectedEraConfig?.alliances?.filter(a => a.name !== 'Opponent') || [];
   const availableAICaptains = getAvailableAICaptains();
 

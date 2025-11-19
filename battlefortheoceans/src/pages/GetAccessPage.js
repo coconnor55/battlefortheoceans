@@ -1,5 +1,9 @@
 // src/pages/GetAccessPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.9: Rename referral_passes to referral_email throughout
+//         - Updated all references from referral_passes to referral_email
+//         - referral_email = what each side gets when email invite sent/received (1)
+//         - referral_signup = what each side gets when invitee signs up (10)
 // v0.2.8: Refactor hooks - remove ForHooks alias variables, move key data check before hooks
 //         - Removed all "ForHooks" alias variables (unnecessary duplication)
 //         - Use main variables directly in hooks and callbacks
@@ -31,9 +35,9 @@
 //         - Guest users don't have email, so playerEmail check is conditional
 //         - Only require playerEmail for non-guest users
 // v0.2.1: Fix invite pass count - invite should be 1 pass, not 10
-//         - Changed invitePasses to use referral_passes (1) instead of friend_signup (10)
-//         - Friend gets 1 pass in invite to try the game
-//         - Friend gets 10 more passes when they sign up (signupBonus)
+//         - Changed invitePasses to use referral_email (1) instead of friend_signup (10)
+//         - Friend gets 1 pass/voucher in invite to try the game
+//         - Friend gets 10 more passes/vouchers when they sign up (referral_signup)
 //         - Updated UI text to reflect correct pass counts
 // v0.2.0: Replaced feature-item cards with challenge cards in Earn section
 //         - Replaced simple feature-item cards with full challenge cards matching AchievementsPage
@@ -82,7 +86,7 @@ import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.2.8';
+const version = 'v0.2.9';
 const tag = "ACCESS";
 const module = "GetAccessPage";
 let method = "";
@@ -253,8 +257,8 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             return;
         }
         
-        const invitePasses = gameConfig?.referral_passes || 1;
-        const rewardPasses = gameConfig?.referral_passes || 1;
+        const invitePasses = gameConfig?.referral_email || 1;
+        const rewardPasses = gameConfig?.referral_email || 1;
         const signupBonus = gameConfig?.referral_signup || 10;
         
         try {
@@ -318,7 +322,8 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with ${rewardPasses} pass(es)`);
             
             // Only notify for pass vouchers (reward vouchers are always pass vouchers)
-            if (rewardResult.voucherType === 'pass' && coreEngine && coreEngine.notifySubscribers) {
+            // Notify subscribers for both pass and era vouchers to refresh NavBar
+            if (coreEngine && coreEngine.notifySubscribers) {
                 coreEngine.notifySubscribers();
             }
             
@@ -326,6 +331,13 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             setFriendEmail('');
             
             console.log(`[ACCESS] GetAccessPage ${version}| Email sent successfully`);
+            
+            // Close modal and refresh badges after short delay to show success message
+            setTimeout(() => {
+                if (onComplete) {
+                    onComplete(selectedEraId);
+                }
+            }, 2000);
             
         } catch (err) {
             console.error(`[ACCESS] GetAccessPage ${version}| Error sending email:`, err);
@@ -349,13 +361,13 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             
             console.log(`[ACCESS] GetAccessPage ${version}| Generating ${selectedEraId} voucher for friend`);
             
-            const friendPasses = gameConfig?.friend_signup || 10;
-            const rewardPasses = gameConfig?.referral_passes || 1;
-            const signupBonus = gameConfig?.referral_signup || 10;
+            const inviteVouchers = gameConfig?.referral_email || 1;  // Friend gets 1 voucher in invite
+            const rewardPasses = gameConfig?.referral_email || 1;   // Sender gets 1 voucher immediately
+            const signupBonus = gameConfig?.referral_signup || 10;   // Friend gets 10 when they sign up
 
             const result = await VoucherService.findOrCreateVoucher(
                 selectedEraId,
-                friendPasses,
+                inviteVouchers,
                 playerId,
                 friendEmail.trim(),
                 'email_era',
@@ -395,8 +407,16 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             // Generate and auto-redeem reward voucher for sender
             // For exclusive eras, reward is an era voucher (e.g., pirates-1), not a pass voucher
             console.log(`[ACCESS] GetAccessPage ${version}| Generating immediate reward for sender`);
+            console.log(`[ACCESS] GetAccessPage ${version}| selectedEraId:`, selectedEraId);
+            console.log(`[ACCESS] GetAccessPage ${version}| selectedEraConfig:`, selectedEraConfig);
+            
+            // Ensure we use the era ID, not 'pass'
+            // Try selectedEraId first, then selectedEraConfig.id, then selectedEraConfig.era, finally 'pass'
+            const voucherType = selectedEraId || selectedEraConfig?.id || selectedEraConfig?.era || 'pass';
+            console.log(`[ACCESS] GetAccessPage ${version}| Using voucher type:`, voucherType);
+            
             const rewardCode = await VoucherService.generateVoucher(
-                selectedEraId,  // Era ID (e.g., 'pirates') for exclusive eras
+                voucherType,  // Era ID (e.g., 'pirates') for exclusive eras
                 1,  // 1 play for this era
                 'email_immediate_reward',
                 null,  // created_by = null for system rewards (not user-created)
@@ -407,13 +427,22 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             const rewardResult = await VoucherService.redeemVoucher(coreEngine.player?.id, rewardCode);
             console.log(`[ACCESS] GetAccessPage ${version}| Sender rewarded with 1 play for ${selectedEraId}`);
             
-            // Era vouchers don't affect pass balance, so don't notify subscribers
-            // (Only pass vouchers should trigger NavBar pass balance updates)
+            // Notify subscribers for era vouchers to refresh NavBar voucher balance
+            if (coreEngine && coreEngine.notifySubscribers) {
+                coreEngine.notifySubscribers();
+            }
             
             setEmailSuccess(true);
             setFriendEmail('');
             
             console.log(`[ACCESS] GetAccessPage ${version}| Email sent successfully`);
+            
+            // Close modal and refresh badges after short delay to show success message
+            setTimeout(() => {
+                if (onComplete) {
+                    onComplete(selectedEraId);
+                }
+            }, 2000);
             
         } catch (err) {
             console.error(`[ACCESS] GetAccessPage ${version}| Error sending email:`, err);
@@ -548,8 +577,8 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         return null; // Return null to prevent rendering
     }
 
-    const invitePasses = gameConfig?.referral_passes || 1;  // ✅ What friend gets in invite (1 pass to try the game)
-    const rewardPasses = gameConfig?.referral_passes || 1;  // ✅ What sender gets immediately
+    const invitePasses = gameConfig?.referral_email || 1;  // ✅ What friend gets in invite (1 pass/voucher to try the game)
+    const rewardPasses = gameConfig?.referral_email || 1;  // ✅ What sender gets immediately
     const signupBonus = gameConfig?.referral_signup || 10;  // ✅ What friend gets when they sign up
 
     console.log(`[ACCESS] GetAccessPage ${version}| playerId ${playerId}, name ${playerGameName}, email ${playerEmail}, gameConfig ${gameConfig}, selectedEraId ${selectedEraId}, selectedEraConfig ${selectedEraConfig}`);

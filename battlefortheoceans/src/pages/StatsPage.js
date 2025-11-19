@@ -1,5 +1,7 @@
 // src/pages/StatsPage.js v0.1.6
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.8: Fix React hooks rule violations - remove duplicate useEffect after key data check
+//         - Removed duplicate useEffect that was after the key data check
 // v0.1.7: Replace key data error throwing with graceful handling
 //         - Use logwarn instead of logerror and throw
 //         - Call coreEngine.handleKeyDataError() to save error and navigate to Launch
@@ -26,7 +28,7 @@ import gameStatsService from '../services/GameStatsService';
 import leaderboardService from '../services/LeaderboardService';
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.7";
+const version = "v0.1.8";
 const tag = "STATS";
 const module = "StatsPage";
 let method = "";
@@ -266,10 +268,6 @@ function StatsPage({ onClose }) {
         coreEngine.handleKeyDataError('stats', errorMessage);
         return null; // Return null to prevent rendering
     }
-
-    useEffect(() => {
-        loadAllStats();
-    }, [loadAllStats]);
 
   const formatDate = (dateString) => {
       method = 'formatDate';

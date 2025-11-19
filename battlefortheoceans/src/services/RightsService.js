@@ -1,5 +1,23 @@
 // src/services/RightsService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.0: Use server-side RPC function for all rights consumption (security)
+//         - Changed voucher and pass consumption to use consume_rights RPC
+//         - Prevents cheating by ensuring server-side validation
+//         - Bypasses RLS policies that block client-side updates
+//         - Validates ownership server-side before allowing consumption
+// v0.2.10: Simplified voucher consumption to match pass consumption pattern
+//         - Log voucher details in getVoucherBalance to see what's being counted
+//         - Log verification details in consumeRights to confirm database state
+//         - Check for mismatches between expected and actual uses_remaining
+// v0.2.8: Fix voucher update query - remove .single() from update to avoid PGRST116 error
+//         - Update query now uses separate verify step instead of .select().single()
+//         - Prevents "The result contains 0 rows" error when updating vouchers
+// v0.2.7: Add detailed logging for voucher consumption debugging
+//         - Added logging in consumeRights and checkRights to trace voucher consumption
+//         - Logs voucher details, fetch results, and update operations
+// v0.2.6: Add getVoucherBalance method
+//         - Counts all active era voucher rights (not expired, not exhausted)
+//         - Similar to getPassBalance but for era vouchers
 // v0.2.5: Updated logging to match new pattern (tag, module, method)
 //         - Added logging constants and utility functions
 //         - Fixed all template literal syntax errors
@@ -31,7 +49,7 @@
 import { supabase } from '../utils/supabaseClient';
 import Player from '../classes/Player';
 
-const version = "v0.2.5";
+const version = "v0.3.0";
 const tag = "RIGHTS";
 const module = "RightsService";
 let method = "";
@@ -105,6 +123,52 @@ class RightsService {
   }
 
   /**
+   * Get user's total voucher balance (era vouchers)
+   * Counts all active era voucher rights (not expired, not exhausted)
+   *
+   * @param {string} playerId - User ID
+   * @returns {Promise<number>} Total vouchers available
+   */
+  async getVoucherBalance(playerId) {
+    method = 'getVoucherBalance';
+    
+    if (!playerId || Player.isGuest(playerId)) {
+      log('Guest user - returning 0 voucher balance');
+      return 0;
+    }
+
+    try {
+      const { data: voucherRights, error } = await supabase
+        .from('user_rights')
+        .select('uses_remaining, expires_at, id, voucher_used')
+        .eq('player_id', playerId)
+        .eq('rights_type', 'era')
+        .not('voucher_used', 'is', null) // Has voucher_used (is a voucher)
+        .gt('uses_remaining', 0) // Not exhausted
+        .or('expires_at.is.null,expires_at.gt.now()'); // Not expired
+
+      if (error) {
+        logerror('Error fetching voucher balance:', error);
+        return 0;
+      }
+
+      log(`getVoucherBalance: Found ${voucherRights?.length || 0} active vouchers:`, 
+        voucherRights?.map(r => `id=${r.id}, uses=${r.uses_remaining}, voucher=${r.voucher_used?.substring(0, 20)}...`) || []);
+
+      const total = voucherRights?.reduce((sum, right) => {
+        return sum + right.uses_remaining;
+      }, 0) || 0;
+
+      log(`Voucher balance for user ${playerId}: ${total}`);
+      return total;
+
+    } catch (error) {
+      logerror('Failed to get voucher balance:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Check if user can play an era
    * Implements priority system: purchases > vouchers > exclusive check > passes > free
    *
@@ -137,6 +201,8 @@ class RightsService {
       if (eraError) {
         logerror('Error checking era rights:', eraError);
       }
+      
+      log(`checkRights for ${eraId}: found ${eraRights?.length || 0} era rights`);
 
       if (eraRights && eraRights.length > 0) {
         // PRIORITY 1: Check for PURCHASES (stripe_payment_intent_id present)
@@ -157,7 +223,7 @@ class RightsService {
         const voucher = eraRights.find(right => right.voucher_used !== null);
         
         if (voucher) {
-          log(`User has era voucher for ${eraId}`);
+          log(`User has era voucher for ${eraId}: id=${voucher.id}, uses_remaining=${voucher.uses_remaining}, voucher_used=${voucher.voucher_used}`);
           return {
             canPlay: true,
             method: 'voucher',
@@ -219,17 +285,21 @@ class RightsService {
    * @returns {Promise<object>} Consumption result
    */
   async consumeRights(playerId, eraConfig) {
-    method = 'consumeRights';
-    
     if (!playerId || !eraConfig) {
       throw new Error('Missing required parameters');
     }
 
+    method = 'consumeRights';
+    const eraId = eraConfig.id;
+    log(`consumeRights called for ${eraId}, playerId=${playerId}`);
+    
     try {
-      const eraId = eraConfig.id;
       const access = await this.checkRights(playerId, eraConfig);
+      method = 'consumeRights'; // Reset after checkRights overwrites it
+      log(`checkRights returned: method=${access.method}, canPlay=${access.canPlay}, rightsId=${access.rightsId || 'N/A'}`);
 
       if (!access.canPlay) {
+        logerror(`No access to era ${eraId}`);
         throw new Error('No access to era');
       }
 
@@ -241,13 +311,20 @@ class RightsService {
 
       // METHOD 2: Consume voucher play
       if (access.method === 'voucher') {
+        log(`Consuming voucher for ${eraId}, rightsId=${access.rightsId}, current uses=${access.usesRemaining}`);
+        
         const { data: right, error: fetchError } = await supabase
           .from('user_rights')
           .select('*')
           .eq('id', access.rightsId)
           .single();
 
-        if (fetchError) throw fetchError;
+        if (fetchError) {
+          logerror(`Failed to fetch voucher right:`, fetchError);
+          throw fetchError;
+        }
+
+        log(`Fetched voucher right: id=${right.id}, uses_remaining=${right.uses_remaining}, voucher_used=${right.voucher_used}`);
 
         if (right.uses_remaining === -1) {
           // Unlimited - no decrement needed
@@ -255,20 +332,39 @@ class RightsService {
           return { method: 'voucher', remaining: -1 };
         }
 
+        if (right.uses_remaining <= 0) {
+          logerror(`Voucher already exhausted: uses_remaining=${right.uses_remaining}`);
+          throw new Error('Voucher already exhausted');
+        }
+
         const newUses = right.uses_remaining - 1;
+        log(`Decrementing voucher: ${right.uses_remaining} -> ${newUses}`);
 
-        const { error: updateError } = await supabase
-          .from('user_rights')
-          .update({
-            uses_remaining: newUses,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', access.rightsId);
+        // Use server-side RPC function to bypass RLS and prevent cheating
+        const { data: updatedRight, error: rpcError } = await supabase.rpc('consume_rights', {
+          p_rights_id: access.rightsId,
+          p_uses_to_consume: 1
+        });
 
-        if (updateError) throw updateError;
+        if (rpcError) {
+          logerror(`Failed to consume voucher via RPC:`, rpcError);
+          throw rpcError;
+        }
 
-        log(`Consumed voucher play for ${eraId}, ${newUses} remaining`);
-        return { method: 'voucher', remaining: newUses };
+        if (!updatedRight) {
+          logerror(`RPC returned no data for rightsId=${access.rightsId}`);
+          throw new Error('RPC function returned no data');
+        }
+
+        const actualUses = updatedRight.uses_remaining;
+        log(`Voucher consumed via RPC: id=${updatedRight.id}, uses_remaining=${actualUses}`);
+        
+        if (actualUses !== newUses) {
+          logerror(`RPC MISMATCH: Expected uses_remaining=${newUses}, but RPC returned ${actualUses}`);
+        }
+
+        log(`Successfully consumed voucher play for ${eraId}, ${actualUses} remaining`);
+        return { method: 'voucher', remaining: actualUses };
       }
 
       // METHOD 3: Consume passes (FIFO - oldest first)
@@ -293,40 +389,45 @@ class RightsService {
 
           if (right.uses_remaining >= remaining) {
             log(`Consuming ${remaining} from entry ${right.id}`);
-            // This entry has enough passes
-            const { error: updateError } = await supabase
-              .from('user_rights')
-              .update({
-                uses_remaining: right.uses_remaining - remaining,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', right.id);
+            // Use server-side RPC function to bypass RLS and prevent cheating
+            const { data: updatedRight, error: rpcError } = await supabase.rpc('consume_rights', {
+              p_rights_id: right.id,
+              p_uses_to_consume: remaining
+            });
 
-            if (updateError) {
-              logerror('UPDATE FAILED:', updateError);
-              throw updateError;
+            if (rpcError) {
+              logerror('RPC FAILED for pass consumption:', rpcError);
+              throw rpcError;
             }
 
-            log(`Successfully updated entry ${right.id} to ${right.uses_remaining - remaining}`);
+            if (!updatedRight) {
+              logerror(`RPC returned no data for pass entry ${right.id}`);
+              throw new Error('RPC function returned no data');
+            }
+
+            log(`Successfully consumed ${remaining} passes from entry ${right.id}, new uses=${updatedRight.uses_remaining}`);
             remaining = 0;
           } else {
             // Exhaust this entry, continue to next
             log(`Exhausting entry ${right.id} (has ${right.uses_remaining}, need ${remaining})`);
 
-            const { error: updateError } = await supabase
-              .from('user_rights')
-              .update({
-                uses_remaining: 0,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', right.id);
+            // Use server-side RPC function to bypass RLS and prevent cheating
+            const { data: updatedRight, error: rpcError } = await supabase.rpc('consume_rights', {
+              p_rights_id: right.id,
+              p_uses_to_consume: right.uses_remaining
+            });
 
-            if (updateError) {
-              logerror('UPDATE FAILED:', updateError);
-              throw updateError;
+            if (rpcError) {
+              logerror('RPC FAILED for pass exhaustion:', rpcError);
+              throw rpcError;
             }
 
-            log(`Successfully exhausted entry ${right.id}`);
+            if (!updatedRight) {
+              logerror(`RPC returned no data for pass entry ${right.id}`);
+              throw new Error('RPC function returned no data');
+            }
+
+            log(`Successfully exhausted entry ${right.id}, new uses=${updatedRight.uses_remaining}`);
             remaining -= right.uses_remaining;
           }
         }

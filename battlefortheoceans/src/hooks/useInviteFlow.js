@@ -1,5 +1,8 @@
 // src/hooks/useInviteFlow.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.8: Rename referral_passes to referral_email
+//         - Updated to use referral_email from config instead of referral_passes
+//         - referral_email = what each side gets when email invite sent/received
 // v0.1.6: Only notify subscribers for pass vouchers, not era vouchers
 //         - Check voucherType from redeemVoucher result before notifying
 //         - Prevents NavBar from refreshing pass balance for era vouchers
@@ -23,7 +26,7 @@ import React, { useState, useEffect } from 'react';
 import VoucherService from '../services/VoucherService';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.1.6';
+const version = 'v0.1.8';
 const tag = "INVITE";
 const module = "useInviteFlow";
 let method = "";
@@ -120,9 +123,9 @@ export function useInviteFlow() {
 
         console.log(`[INVITE] ${version}|  coreEngine.playerProfile:`, coreEngine.playerProfile);
         
-        const friendPasses = coreEngine.gameConfig.friend_signup || 10;  // ✅ What friend gets
-        const rewardPasses = coreEngine.gameConfig.referral_passes || 1;
-        const signupBonus = coreEngine.gameConfig.referral_signup || 10;
+        const friendPasses = coreEngine.gameConfig.friend_signup || 10;  // ✅ What friend gets (legacy, should use referral_email)
+        const rewardPasses = coreEngine.gameConfig.referral_email || 1;  // ✅ What sender gets immediately
+        const signupBonus = coreEngine.gameConfig.referral_signup || 10;  // ✅ What both get when friend signs up
 
         log(`Inviting friend: ${friendEmail} for era: ${selectedEraId}`);
 
@@ -258,13 +261,11 @@ export function useInviteFlow() {
 
       log(`Redemption successful:`, result);
 
-      // Only notify CoreEngine subscribers for pass vouchers (not era vouchers)
-      // Era vouchers don't affect pass balance, so NavBar shouldn't refresh
-      if (result.voucherType === 'pass' && coreEngine && coreEngine.notifySubscribers) {
+      // Notify subscribers for both pass and era vouchers to refresh NavBar
+      // NavBar will refresh both pass and voucher balances appropriately
+      if (coreEngine && coreEngine.notifySubscribers) {
         coreEngine.notifySubscribers();
-        log('Notified CoreEngine subscribers after pass voucher redemption');
-      } else if (result.voucherType === 'era') {
-        log('Era voucher redeemed - skipping pass balance update');
+        log(`Notified CoreEngine subscribers after ${result.voucherType} voucher redemption`);
       }
 
       // Success message

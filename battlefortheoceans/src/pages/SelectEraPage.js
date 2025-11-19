@@ -1,5 +1,7 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.12: Fix React hooks rule violations - move all hooks before key data check
+//          - Moved useState, useMemo, and useCallback hooks before the key data check
 // v0.6.11: Replace key data error throwing with graceful handling
 //          - Use logwarn instead of logerror and throw
 //          - Call coreEngine.handleKeyDataError() to save error and navigate to Launch
@@ -47,7 +49,7 @@ import useEraBadges from '../hooks/useEraBadges';
 import GetAccessPage from './GetAccessPage';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.6.11';
+const version = 'v0.6.12';
 const tag = "SELECTERA";
 const module = "SelectEraPage";
 let method = "";
@@ -83,6 +85,9 @@ const SelectEraPage = () => {
         refresh: refreshBadges
     } = useEraBadges(coreEngine.playerId);
 
+    // Rights and GetAccessPage state
+    const [showGetAccessPage, setShowGetAccessPage] = useState(false);
+
     // Key data - see CoreEngine handle{state}
     const gameConfig = coreEngine.gameConfig;
     const eras = coreEngine.eras;
@@ -107,51 +112,6 @@ const SelectEraPage = () => {
     const gameInstance = coreEngine.gameInstance;
     const board = coreEngine.board;
 
-    // Key data check - stop game if key data is missing
-    // (selectedAlliance is allowed to be null)
-    // (playerEmail is allowed to be null for guest users)
-    const required = isGuest 
-        ? { gameConfig, eras, player, playerProfile }
-        : { gameConfig, eras, player, playerProfile, playerEmail };
-    const missing = Object.entries(required)
-        .filter(([key, value]) => !value)
-        .map(([key, value]) => `${key}=${value}`);
-    if (missing.length > 0) {
-        const errorMessage = `key data missing: ${missing.join(', ')}`;
-        logwarn(errorMessage);
-        coreEngine.handleKeyDataError('era', errorMessage);
-        return null; // Return null to prevent rendering
-    }
-
-    log('SelectEra: passed CoreEngine data checks');
-    
-    const selectedEraBadgeInfo = selectedEraConfig ? eraBadges.get(selectedEraConfig.id) : null;
-    const isPrivilegedRole = ['admin', 'developer', 'tester'].includes(playerRole);
-    const selectedEraCanPlay = (() => {
-        if (!selectedEraConfig) return false;
-        
-        const passesRequired = selectedEraConfig.passes_required || 0;
-        const isExclusiveEra = selectedEraConfig.exclusive === true;
-        const isDevelopmentEra = selectedEraConfig.status === 'development';
-        const devGateSatisfied = !isDevelopmentEra || isPrivilegedRole;
-        
-        const passesAvailable = selectedEraBadgeInfo?.method === 'purchase'
-            ? true
-            : passesRequired === 0
-                ? true
-                : passBalance >= passesRequired;
-        
-        const hasVoucherAccess = ['voucher', 'purchase'].includes(selectedEraBadgeInfo?.method);
-        
-        return devGateSatisfied && (
-            (!isExclusiveEra && passesAvailable) ||
-            (isExclusiveEra && hasVoucherAccess)
-        );
-    })();
-    
-    // Rights and GetAccessPage state
-    const [showGetAccessPage, setShowGetAccessPage] = useState(false);
-    
     // Filter eras by status and user role (admin OR tester)
     const availableEras = useMemo(() => {
         method = 'availableEras';
@@ -173,7 +133,7 @@ const SelectEraPage = () => {
             return false;
         });
     }, [coreEngine.eras, playerRole]);
-    
+
     // Handle era selection - check if user has access
     const handleEraSelect = useCallback((era) => {
         method = 'handleEraSelect';
@@ -197,7 +157,7 @@ const SelectEraPage = () => {
             log(`Era locked, showing GetAccessPage:`, era.id);
             setShowGetAccessPage(true);
         }
-    }, [coreEngine, eraBadges]);
+    }, [coreEngine, eraBadges, setShowGetAccessPage]);
     
     // Handle GetAccessPage completion
     const handleGetAccessComplete = useCallback(async (eraId) => {
@@ -208,22 +168,18 @@ const SelectEraPage = () => {
         
         // Refresh rights and badges
         await refreshBadges();
-        //
-        //    // Auto-select the era if now accessible
-        //    const era = eraList.find(e => e.id === eraId);
-        //    if (era) {
-        //      setSelectedEraId(era);
-        //    }
-    }, [refreshBadges]);
+    }, [refreshBadges, setShowGetAccessPage]);
     
     // Handle GetAccessPage cancellation
-    const handleGetAccessCancel = useCallback(() => {
+    const handleGetAccessCancel = useCallback(async () => {
         method = 'handleGetAccessCancel';
         
         log(`GetAccessPage cancelled`);
         setShowGetAccessPage(false);
         
-    }, []);
+        // Refresh badges in case a voucher was redeemed before cancel
+        await refreshBadges();
+    }, [refreshBadges, setShowGetAccessPage]);
     
     // Transition to opponent selection
     const handlePlayEra = useCallback(async () => {
@@ -282,10 +238,78 @@ const SelectEraPage = () => {
             canPlay: badgeInfo.canPlay
         };
     }, [eraBadges]);
+
+    // Key data check - stop game if key data is missing
+    // (selectedAlliance is allowed to be null)
+    // (playerEmail is allowed to be null for guest users)
+    const required = isGuest 
+        ? { gameConfig, eras, player, playerProfile }
+        : { gameConfig, eras, player, playerProfile, playerEmail };
+    const missing = Object.entries(required)
+        .filter(([key, value]) => !value)
+        .map(([key, value]) => `${key}=${value}`);
+    if (missing.length > 0) {
+        const errorMessage = `key data missing: ${missing.join(', ')}`;
+        logwarn(errorMessage);
+        coreEngine.handleKeyDataError('era', errorMessage);
+        return null; // Return null to prevent rendering
+    }
+
+    log('SelectEra: passed CoreEngine data checks');
+    
+    const selectedEraBadgeInfo = selectedEraConfig ? eraBadges.get(selectedEraConfig.id) : null;
+    const isPrivilegedRole = ['admin', 'developer', 'tester'].includes(playerRole);
+    const selectedEraCanPlay = (() => {
+        if (!selectedEraConfig) return false;
+        
+        const passesRequired = selectedEraConfig.passes_required || 0;
+        const isExclusiveEra = selectedEraConfig.exclusive === true;
+        const isDevelopmentEra = selectedEraConfig.status === 'development';
+        const devGateSatisfied = !isDevelopmentEra || isPrivilegedRole;
+        
+        const passesAvailable = selectedEraBadgeInfo?.method === 'purchase'
+            ? true
+            : passesRequired === 0
+                ? true
+                : passBalance >= passesRequired;
+        
+        const hasVoucherAccess = ['voucher', 'purchase'].includes(selectedEraBadgeInfo?.method);
+        
+        return devGateSatisfied && (
+            (!isExclusiveEra && passesAvailable) ||
+            (isExclusiveEra && hasVoucherAccess)
+        );
+    })();
     
     const playButton = () => {
-        const name = selectedEraConfig?.name
-        const passes = selectedEraConfig?.passes_required || 0
+        const name = selectedEraConfig?.name;
+        const isExclusiveEra = selectedEraConfig?.exclusive === true;
+        
+        // For exclusive eras, show vouchers instead of passes
+        if (isExclusiveEra) {
+            const badgeInfo = selectedEraBadgeInfo;
+            if (badgeInfo?.method === 'voucher') {
+                // Parse voucher count from badge text (e.g., "1 EXCLUSIVE" or "∞ EXCLUSIVE")
+                const badgeText = badgeInfo.badge || '';
+                const match = badgeText.match(/^(\d+|∞)\s+/);
+                if (match) {
+                    const count = match[1];
+                    if (count === '∞') {
+                        return `${name} - Unlimited Vouchers`;
+                    }
+                    const vouchers = parseInt(count, 10);
+                    if (vouchers === 1) return `${name} - 1 Voucher`;
+                    return `${name} - ${vouchers} Vouchers`;
+                }
+                // If badge shows "0 EXCLUSIVE" or no count, just show name
+                return name;
+            }
+            // If no voucher access yet, just show name
+            return name;
+        }
+        
+        // For non-exclusive eras, show passes
+        const passes = selectedEraConfig?.passes_required || 0;
         if (passes === 0) return name;
         if (passes === 1) return `${name} - 1 Pass`;
         return `${name} - ${passes} Passes`;

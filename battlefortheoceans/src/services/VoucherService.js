@@ -1,5 +1,15 @@
 // src/services/VoucherService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.1: Fix signup bonus voucher type - use original invite voucher type instead of hardcoded 'pass'
+//         - Parse original referral voucher to determine its type (pass or era like pirates)
+//         - Use that type for signup bonus vouchers so exclusive eras get era vouchers, not pass vouchers
+//         - If invite was for Pirates, signup bonus is now pirates-10 instead of pass-10
+// v0.2.0: Rename referral_passes to referral_email, signup_bonus_passes to referral_signup
+//         - Updated all code references to use referral_email and referral_signup from config
+//         - Database field signup_bonus_passes kept for compatibility (stores referral_signup value)
+//         - Function parameters renamed: signupBonusPasses -> referralSignup
+//         - Clearer naming: referral_email = what each side gets when email sent/received
+//         - referral_signup = what each side gets when invitee signs up
 // v0.1.9: Return voucher type from redeemVoucher for selective NavBar updates
 //         - Return voucherType ('pass' or 'era') in redemption result
 //         - Allows callers to only notify subscribers for pass vouchers
@@ -19,16 +29,15 @@
 //         - Prevents voucher creators from redeeming their own vouchers
 //         - Only validates if playerEmail is provided (optional parameter)
 //         - General vouchers (email_sent_to is null) can be redeemed by anyone (except creator)
-// v0.1.5: Reward NEW USER with signup bonus on account creation
-//          - processReferralReward: Generate and redeem signup bonus for new user
-//          - Uses signup_bonus from email voucher (was signup_bonus_passes)
-//          - New user gets passes immediately on profile creation
-//          - Consistent terminology: signup_bonus throughout
+// v0.1.5: Reward NEW USER with referral_signup bonus on account creation
+//          - processReferralReward: Generate and redeem referral_signup bonus for new user
+//          - Uses referral_signup from config (stored in signup_bonus_passes database field)
+//          - New user gets passes/vouchers immediately on profile creation
 // v0.1.4: Pass tracking parameters to generate_voucher RPC
-//         - Add createdBy, emailSentTo, rewardPasses, signupBonusPasses to generateVoucher()
-//         - Pass all parameters to RPC function
+//         - Add createdBy, emailSentTo, rewardPasses, referralSignup to generateVoucher()
+//         - Pass all parameters to RPC function (database field name signup_bonus_passes kept for compatibility)
 //         - Remove client-side UPDATE (RPC handles it now)// v0.1.3: Accept reward parameters in findOrCreateVoucher
-//         - Add rewardPasses and signupBonusPasses parameters (default 1, 10)
+//         - Add rewardPasses and referralSignup parameters (default 1, 10)
 //         - Use parameters instead of hardcoding values
 //         - Allows game-config to control referral rewards// v0.1.1: Add findOrCreateVoucher for email invite abuse prevention
 //         - Reuses existing vouchers to same email if not redeemed
@@ -37,7 +46,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.9';
+const version = 'v0.2.1';
 
 class VoucherService {
     constructor() {
@@ -308,7 +317,7 @@ class VoucherService {
      * @returns {Promise<string>} Generated voucher code
      * @throws {Error} If generation fails
      */
-    async generateVoucher(type, value, purpose = 'manual', createdBy = null, emailSentTo = null, rewardPasses = 1, signupBonusPasses = 10) {
+    async generateVoucher(type, value, purpose = 'manual', createdBy = null, emailSentTo = null, rewardPasses = 1, referralSignup = 10) {
         
         if (!type) {
             throw new Error('Voucher type is required');
@@ -329,7 +338,7 @@ class VoucherService {
                 p_created_by: createdBy,
                 p_email_sent_to: emailSentTo,
                 p_reward_passes: rewardPasses,
-                p_signup_bonus_passes: signupBonusPasses
+                p_signup_bonus_passes: referralSignup  // Database field name kept for compatibility
             });
             
             if (error) {
@@ -368,7 +377,7 @@ class VoucherService {
      * @param {string} purpose - Purpose for logging
      * @returns {Promise<object>} { voucherCode, isExisting, status }
      */
-    async findOrCreateVoucher(type, value, createdBy, emailSentTo, purpose = 'email_friend', rewardPasses = 1, signupBonusPasses = 10) {
+    async findOrCreateVoucher(type, value, createdBy, emailSentTo, purpose = 'email_friend', rewardPasses = 1, referralSignup = 10) {
       
       // One call - get any voucher to this email (redeemed or not)
       const { data: existing, error: searchError } = await supabase
@@ -401,7 +410,7 @@ class VoucherService {
       }
       
       // No existing voucher - create new one
-      const voucherCode = await this.generateVoucher(type, value, purpose, createdBy, emailSentTo, rewardPasses, signupBonusPasses);
+      const voucherCode = await this.generateVoucher(type, value, purpose, createdBy, emailSentTo, rewardPasses, referralSignup);
       
       console.log(`[VOUCHER] VoucherService ${version}| Created new voucher for ${emailSentTo}: ${voucherCode}`);
       
@@ -502,45 +511,56 @@ class VoucherService {
             
             // Now we have a valid unredeemed voucher
             const referrerId = referralVoucher.created_by;
-            const signupBonusPasses = referralVoucher.signup_bonus_passes || 10;
+            // Database field name is signup_bonus_passes (kept for compatibility)
+            const referralSignupValue = referralVoucher.signup_bonus_passes || 10;
             
-            console.log(`[VOUCHER] VoucherService ${version}| Found referral! Referrer:`, referrerId, 'Signup bonus:', signupBonusPasses);
+            // Parse the original voucher to determine its type (pass or era like pirates)
+            let rewardVoucherType = 'pass';  // Default to pass
+            try {
+                const parsed = this.parseVoucherCode(referralVoucher.voucher_code);
+                rewardVoucherType = parsed.voucherType;  // 'pass' or era name (e.g., 'pirates')
+                console.log(`[VOUCHER] VoucherService ${version}| Original voucher type: ${rewardVoucherType}, using for signup bonus`);
+            } catch (parseError) {
+                console.warn(`[VOUCHER] VoucherService ${version}| Could not parse original voucher, defaulting to 'pass':`, parseError.message);
+            }
             
-            // 1. Reward REFERRER with referral_signup passes
+            console.log(`[VOUCHER] VoucherService ${version}| Found referral! Referrer:`, referrerId, 'Signup bonus:', referralSignupValue, 'Type:', rewardVoucherType);
+            
+            // 1. Reward REFERRER with referral_signup passes/vouchers (same type as original invite)
             // Set created_by to null for system-generated reward vouchers to avoid security check
             const referrerRewardCode = await this.generateVoucher(
-              'pass',
-              signupBonusPasses,
+              rewardVoucherType,  // Use same type as original invite (pass or era)
+              referralSignupValue,
               'referral_signup_reward',
               null,  // created_by = null for system rewards (not user-created)
               null,
-              signupBonusPasses,
+              referralSignupValue,
               0
               );
             
             console.log(`[VOUCHER] VoucherService ${version}| Generated referrer reward:`, referrerRewardCode);
             // Referrer reward has email_sent_to as null (general voucher), so no email validation needed
             await this.redeemVoucher(referrerId, referrerRewardCode, null);
-            console.log(`[VOUCHER] VoucherService ${version}| Referrer rewarded with ${signupBonusPasses} passes!`);
+            console.log(`[VOUCHER] VoucherService ${version}| Referrer rewarded with ${referralSignupValue} ${rewardVoucherType} vouchers!`);
             
-            // 2. Reward NEW USER with signup bonus
-            console.log(`[VOUCHER] VoucherService ${version}| Generating signup bonus for new user:`, newUserId);
+            // 2. Reward NEW USER with referral_signup bonus (same type as original invite)
+            console.log(`[VOUCHER] VoucherService ${version}| Generating referral_signup bonus for new user:`, newUserId);
             
             // Set created_by to null for system-generated reward vouchers to avoid security check
             const newUserRewardCode = await this.generateVoucher(
-                 'pass',
-                 signupBonusPasses,
-                 'signup_bonus_reward',
+                 rewardVoucherType,  // Use same type as original invite (pass or era)
+                 referralSignupValue,
+                 'referral_signup_reward',
                  null,  // created_by = null for system rewards (not user-created)
                  newUserEmail,
                  0,
-                 signupBonusPasses
+                 referralSignupValue
                  );
             
-            console.log(`[VOUCHER] VoucherService ${version}| Generated signup bonus:`, newUserRewardCode);
-            // New user signup bonus has email_sent_to set to newUserEmail, validate it matches
+            console.log(`[VOUCHER] VoucherService ${version}| Generated referral_signup bonus:`, newUserRewardCode);
+            // New user referral_signup bonus has email_sent_to set to newUserEmail, validate it matches
             await this.redeemVoucher(newUserId, newUserRewardCode, newUserEmail);
-            console.log(`[VOUCHER] VoucherService ${version}| New user rewarded with ${signupBonusPasses} passes!`);
+            console.log(`[VOUCHER] VoucherService ${version}| New user rewarded with ${referralSignupValue} ${rewardVoucherType} vouchers!`);
             
             // 3. Redeem the original referral voucher (the 1 pass sent in the email)
             // This gives the new user the pass from the original invite voucher
@@ -565,9 +585,9 @@ class VoucherService {
             return {
                 rewarded: true,
                 referrerId,
-                referrerPasses: signupBonusPasses,
+                referrerPasses: referralSignupValue,
                 newUserId,
-                newUserPasses: signupBonusPasses,
+                newUserPasses: referralSignupValue,
                 referrerRewardCode,
                 newUserRewardCode
             };
