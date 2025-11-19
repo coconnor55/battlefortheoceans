@@ -1,5 +1,9 @@
 // src/services/RightsService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.1: Support generic 'era' vouchers for exclusive eras
+//         - If no era-specific voucher found and era is exclusive, check for generic 'era' vouchers
+//         - Generic era vouchers (rights_value='era') work for any exclusive era
+//         - Provides flexibility: vouchers can be era-specific or generic
 // v0.3.0: Use server-side RPC function for all rights consumption (security)
 //         - Changed voucher and pass consumption to use consume_rights RPC
 //         - Prevents cheating by ensuring server-side validation
@@ -49,7 +53,7 @@
 import { supabase } from '../utils/supabaseClient';
 import Player from '../classes/Player';
 
-const version = "v0.3.0";
+const version = "v0.3.1";
 const tag = "RIGHTS";
 const module = "RightsService";
 let method = "";
@@ -188,8 +192,12 @@ class RightsService {
     const eraId = eraConfig.id;
       
     try {
-      // Fetch all era rights for this user/era combo
-      const { data: eraRights, error: eraError } = await supabase
+      // Fetch era rights: first try era-specific, then generic 'era' vouchers for exclusive eras
+      let eraRights = null;
+      let eraError = null;
+      
+      // First, check for era-specific vouchers (rights_value = eraId)
+      const { data: specificRights, error: specificError } = await supabase
         .from('user_rights')
         .select('*')
         .eq('player_id', playerId)
@@ -198,8 +206,32 @@ class RightsService {
         .or('uses_remaining.gt.0,uses_remaining.eq.-1') // Has plays or unlimited
         .or('expires_at.is.null,expires_at.gt.now()'); // Not expired
 
-      if (eraError) {
-        logerror('Error checking era rights:', eraError);
+      if (specificError) {
+        logerror('Error checking era-specific rights:', specificError);
+      }
+      
+      eraRights = specificRights;
+      eraError = specificError;
+      
+      // If no era-specific vouchers found AND era is exclusive, check for generic 'era' vouchers
+      if ((!eraRights || eraRights.length === 0) && eraConfig.exclusive === true) {
+        log(`No era-specific vouchers for ${eraId}, checking for generic 'era' vouchers (exclusive era)`);
+        
+        const { data: genericRights, error: genericError } = await supabase
+          .from('user_rights')
+          .select('*')
+          .eq('player_id', playerId)
+          .eq('rights_type', 'era')
+          .eq('rights_value', 'era')  // Generic era vouchers work for any exclusive era
+          .or('uses_remaining.gt.0,uses_remaining.eq.-1')
+          .or('expires_at.is.null,expires_at.gt.now()');
+        
+        if (genericError) {
+          logerror('Error checking generic era rights:', genericError);
+        } else if (genericRights && genericRights.length > 0) {
+          log(`Found ${genericRights.length} generic 'era' vouchers that work for exclusive era ${eraId}`);
+          eraRights = genericRights;
+        }
       }
       
       log(`checkRights for ${eraId}: found ${eraRights?.length || 0} era rights`);

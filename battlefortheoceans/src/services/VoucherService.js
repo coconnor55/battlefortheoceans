@@ -1,5 +1,9 @@
 // src/services/VoucherService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.2: Fix signup bonus voucher type parsing - use rightsValue for era vouchers
+//         - For era vouchers, use parsed.rightsValue (e.g., 'pirates') instead of parsed.voucherType ('era')
+//         - Ensures signup bonus vouchers are era-specific (pirates-10) not generic (era-10)
+//         - Invites for any exclusive era now generate era-specific signup bonus vouchers
 // v0.2.1: Fix signup bonus voucher type - use original invite voucher type instead of hardcoded 'pass'
 //         - Parse original referral voucher to determine its type (pass or era like pirates)
 //         - Use that type for signup bonus vouchers so exclusive eras get era vouchers, not pass vouchers
@@ -46,7 +50,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.2.1';
+const version = 'v0.2.2';
 
 class VoucherService {
     constructor() {
@@ -518,7 +522,13 @@ class VoucherService {
             let rewardVoucherType = 'pass';  // Default to pass
             try {
                 const parsed = this.parseVoucherCode(referralVoucher.voucher_code);
-                rewardVoucherType = parsed.voucherType;  // 'pass' or era name (e.g., 'pirates')
+                // For era vouchers, rightsValue contains the era name (e.g., 'pirates')
+                // For pass vouchers, rightsValue is 'voucher', so use voucherType
+                if (parsed.voucherType === 'era' && parsed.rightsValue !== 'voucher') {
+                    rewardVoucherType = parsed.rightsValue;  // Era name (e.g., 'pirates', 'midway')
+                } else {
+                    rewardVoucherType = parsed.voucherType;  // 'pass'
+                }
                 console.log(`[VOUCHER] VoucherService ${version}| Original voucher type: ${rewardVoucherType}, using for signup bonus`);
             } catch (parseError) {
                 console.warn(`[VOUCHER] VoucherService ${version}| Could not parse original voucher, defaulting to 'pass':`, parseError.message);
