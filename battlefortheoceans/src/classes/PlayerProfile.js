@@ -1,9 +1,13 @@
-// src/classes/PlayerProfile.js v0.1.0
+// src/classes/PlayerProfile.js v0.1.1
 // Copyright(c) 2025, Clint H. O'Connor
 // Represents a player's persistent profile and cumulative statistics
+// v0.1.1: Add pirate_fleets_sunk tracking for achievements
+//         - Track pirate fleet victories in Pirates era
+//         - Increments when player wins a game in Pirates era
+//         - Used by AchievementService for pirate fleet achievements
 // v0.1.0: Initial class creation
 
-const version = "v0.1.0";
+const version = "v0.1.1";
 const tag = "PROFILE";
 const module = "PlayerProfile";
 let method = "";
@@ -28,6 +32,7 @@ class PlayerProfile {
     // Era tracking
     this.eras_played = data.eras_played || [];
     this.eras_won = data.eras_won || [];
+    this.pirate_fleets_sunk = data.pirate_fleets_sunk || 0;
     
     // UI Preferences
     this.show_game_guide = data.show_game_guide !== false;
@@ -71,6 +76,11 @@ class PlayerProfile {
       this.eras_won.push(gameResults.era_id);
     }
     
+    // Track pirate fleets sunk (only for Pirates era wins)
+    if (gameResults.won && gameResults.era_id === 'pirates') {
+      this.pirate_fleets_sunk += 1;
+    }
+    
     this.updated_at = new Date().toISOString();
   }
   
@@ -86,6 +96,7 @@ class PlayerProfile {
     this.total_damage = 0.0;
     this.eras_played = [];
     this.eras_won = [];
+    this.pirate_fleets_sunk = 0;
     this.updated_at = new Date().toISOString();
   }
   
@@ -106,6 +117,7 @@ class PlayerProfile {
       total_damage: this.total_damage,
       eras_played: this.eras_played,
       eras_won: this.eras_won,
+      pirate_fleets_sunk: this.pirate_fleets_sunk,
       show_game_guide: this.show_game_guide,
       incomplete_games: this.incomplete_games,
       updated_at: this.updated_at

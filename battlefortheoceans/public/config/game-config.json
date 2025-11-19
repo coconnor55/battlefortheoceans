@@ -32,7 +32,7 @@
   },
   "ship_silhouettes": {
     "path_template": "/assets/ships/{era}/{class}/{index}.svg",
-    "comment": "Ship cells indexed 0 to n-1, where 0=bow, n-1=stern",
+    "comment": "Ship cells indexed 0 to n-1, where 0=stern, n-1=bow",
     "fallback": "/assets/ships/default/{index}.svg"
   },
   "animations": {

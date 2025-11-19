@@ -109,7 +109,7 @@ const GameGuide = ({ section, manualOpen = false, onClose, forceShow = false, er
               <h4>Placement Methods</h4>
               <ul>
                 <li><strong>Auto-Place:</strong> Click "Auto-Place All Ships" for random positioning</li>
-                <li><strong>Manual Drag:</strong> Click and drag from bow to stern to place each ship</li>
+                <li><strong>Manual Drag:</strong> Click and drag from stern to bow to place each ship</li>
                 <li><strong>Rotation:</strong> Drag in any direction - up, down, left, or right</li>
               </ul>
 
