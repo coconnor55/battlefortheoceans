@@ -149,7 +149,7 @@ const PlayingPage = () => {
     
   const canvasBoardRef = useRef(null);
   
-  const [, setRenderTrigger] = useState(0);
+  // No duplicate subscription - useGameState already subscribes to CoreEngine
   
   // Get opponent player(s) for fleet sidebar
   const opponentPlayers = gameInstance?.players?.filter(p => p.id !== playerId) || [];
@@ -232,12 +232,7 @@ const PlayingPage = () => {
     }
   }, [autoPlayEnabled, gameInstance]);
 
-  useEffect(() => {
-    const unsubscribe = subscribeToUpdates(() => {
-      setRenderTrigger(prev => prev + 1);
-    });
-    return unsubscribe;
-  }, [subscribeToUpdates]);
+  // No duplicate subscription - useGameState already subscribes to CoreEngine
 
   const gameState = React.useMemo(() => ({
     isPlayerTurn,

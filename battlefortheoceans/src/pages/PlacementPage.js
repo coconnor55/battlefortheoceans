@@ -127,15 +127,7 @@ const PlacementPage = () => {
   const [error, setError] = useState(null);
   const [isAutoPlacing, setIsAutoPlacing] = useState(false);
   
-  const [, setRenderTrigger] = useState(0);
-
-  // v0.4.17: Subscribe to coreEngine updates directly
-  useEffect(() => {
-    const unsubscribe = coreEngine.subscribe(() => {
-      setRenderTrigger(prev => prev + 1);
-    });
-    return unsubscribe;
-  }, []);
+  // No duplicate subscription - useGameState already subscribes to CoreEngine
 
   const handleShipPlaced = (ship, shipCells, orientation) => {
       method = 'handleShipPlaced';

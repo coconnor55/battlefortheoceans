@@ -115,6 +115,9 @@ class GameLifecycleManager {
     log(message) {
         console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
     }
+    logwarn(message) {
+        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    }
     logerror(message, error = null) {
         if (error) {
             console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
@@ -510,6 +513,7 @@ class GameLifecycleManager {
       if (!gameResults) {
         this.logerror('Failed to calculate game results - skipping stats update');
       } else {
+        this.log(`Calculated game results: won=${gameResults.won}, score=${gameResults.score}, accuracy=${gameResults.accuracy}`);
         try {
           // Update SSOT (Single Source of Truth) in-memory
           this.coreEngine.playerProfile.applyGameResults(gameResults);
@@ -520,11 +524,31 @@ class GameLifecycleManager {
           this.log('PlayerProfile persisted to database');
 
           // Insert game result record
-          await GameStatsService.insertGameResults(playerId, gameResults);
-          this.log('Game result record inserted');
+          try {
+            this.log(`Attempting to insert game result for player ${playerId}`);
+            const insertSuccess = await GameStatsService.insertGameResults(playerId, gameResults);
+            if (insertSuccess) {
+              this.log('Game result record inserted successfully');
+            } else {
+              this.logerror('Game result insert returned false - check database');
+            }
+          } catch (insertError) {
+            this.logerror('Failed to insert game result record:', insertError);
+            // Log full error details for debugging
+            if (insertError.message) {
+              this.logerror(`Insert error message: ${insertError.message}`);
+            }
+            if (insertError.stack) {
+              this.logerror(`Insert error stack: ${insertError.stack}`);
+            }
+            // Don't throw - game was completed, just log the error
+          }
 
         } catch (error) {
           this.logerror('Failed to update game statistics:', error);
+          if (error.message) {
+            this.logerror(`Error message: ${error.message}`);
+          }
         }
       }
       

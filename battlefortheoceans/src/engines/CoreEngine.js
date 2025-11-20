@@ -1,5 +1,8 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.45: Fix keyDataError persistence - don't clear in handleEvent_launch
+//          - keyDataError now persists so LaunchPage can display it
+//          - Only cleared when user clicks "Play Game" button
 // v0.6.44: Fix handleKeyDataError to bypass transition validation
 //          - Changed from dispatch(this.events.LAUNCH) to transition('launch')
 //          - Allows recovery from any state, not just states with defined LAUNCH transitions
@@ -77,7 +80,7 @@ import GameLifecycleManager from '../classes/GameLifecycleManager.js';
 import ConfigLoader from '../utils/ConfigLoader';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.6.44';
+const version = 'v0.6.45';
 const tag = "CORE";
 const module = "CoreEngine";
 let method = "";
@@ -347,8 +350,8 @@ class CoreEngine {
       // Launch prefetches some data, known for the life of the session:
       // coreEngine.gameConfig
       
-    // Clear any key data error when returning to launch
-    this.keyDataError = null;
+    // Don't clear keyDataError here - let it persist so LaunchPage can display it
+    // It will be cleared when user clicks "Play Game" button in LaunchPage
     this.notifySubscribers();
   }
   

@@ -1,5 +1,12 @@
 // src/services/GameStatsService.js v0.3.5
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.6: Improve error handling for game results insertion
+//         - Throw errors instead of returning false so failures are visible
+//         - Ensures game results are properly saved to Supabase
+//         - Storage estimate: ~300 bytes per game result row
+//           Supabase Pro tier (8GB database): ~27 million rows capacity
+//           Even with 1000 active players @ 10 games/day = 3.65M/year
+//           Well within Pro tier limits for many years
 // v0.3.5: Refactored for PlayerProfile architecture
 //         - Added insertGameResult() method for game_results table only
 //         - Updated logging to match new pattern (tag, module, method)
@@ -15,7 +22,7 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.3.5";
+const version = "v0.3.6";
 const tag = "SERVICE";
 const module = "GameStatsService";
 let method = "";
@@ -59,37 +66,71 @@ class GameStatsService {
 
     try {
       this.log(`Inserting game result for player ${playerId}`);
+      
+      const insertData = {
+        player_id: playerId,
+        era_name: gameResults.era_name,
+        opponent_type: gameResults.opponent_type,
+        opponent_name: gameResults.opponent_name,
+        won: gameResults.won,
+        shots: gameResults.shots,
+        hits: gameResults.hits,
+        misses: gameResults.misses,
+        sunk: gameResults.ships_sunk,
+        hits_damage: gameResults.hits_damage,
+        score: Math.round(gameResults.score),
+        accuracy: gameResults.accuracy,
+        turns: gameResults.turns,
+        duration_seconds: gameResults.duration_seconds
+      };
+      
+      this.log(`Insert data: ${JSON.stringify(insertData)}`);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('game_results')
-        .insert([{
-          player_id: playerId,
-          era_name: gameResults.era_name,
-          opponent_type: gameResults.opponent_type,
-          opponent_name: gameResults.opponent_name,
-          won: gameResults.won,
-          shots: gameResults.shots,
-          hits: gameResults.hits,
-          misses: gameResults.misses,
-          sunk: gameResults.ships_sunk,
-          hits_damage: gameResults.hits_damage,
-          score: Math.round(gameResults.score),
-          accuracy: gameResults.accuracy,
-          turns: gameResults.turns,
-          duration_seconds: gameResults.duration_seconds
-        }]);
+        .insert([insertData])
+        .select();
 
       if (error) {
         this.logerror('Error inserting game result:', error);
-        return false;
+        this.logerror(`Error details: code=${error.code}, message=${error.message}, details=${error.details}`);
+        throw new Error(`Failed to insert game result: ${error.message}`);
       }
 
-      this.log('Game result inserted successfully');
+      if (data && data.length > 0) {
+        const insertedId = data[0].id;
+        this.log(`Game result inserted successfully with id: ${insertedId}`);
+        
+        // Verify the record is actually readable (RLS check)
+        const { data: verifyData, error: verifyError } = await supabase
+          .from('game_results')
+          .select('id')
+          .eq('id', insertedId)
+          .eq('player_id', playerId)
+          .single();
+        
+        if (verifyError) {
+          this.logerror('RLS POLICY ISSUE: Insert succeeded but cannot read record back:', verifyError);
+          this.logerror(`Verify error details: code=${verifyError.code}, message=${verifyError.message}`);
+          throw new Error(`RLS policy prevents reading inserted record: ${verifyError.message}`);
+        }
+        
+        if (!verifyData) {
+          this.logerror('RLS POLICY ISSUE: Insert succeeded but record not found on read');
+          throw new Error('RLS policy prevents reading inserted record - record not found');
+        }
+        
+        this.log(`Verified: Record ${insertedId} is readable after insert`);
+      } else {
+        this.logerror('Insert returned no data - check RLS policies');
+        throw new Error('Insert succeeded but no data returned - RLS policy may be blocking SELECT');
+      }
       return true;
 
     } catch (error) {
       this.logerror('Failed to insert game result:', error);
-      return false;
+      // Re-throw so caller can handle it
+      throw error;
     }
   }
 

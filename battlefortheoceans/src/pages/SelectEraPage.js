@@ -1,5 +1,8 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.13: Fix React setState during render warning - defer handleKeyDataError to useEffect
+//         - Moved handleKeyDataError call to useEffect with setTimeout to defer execution
+//         - Prevents "Cannot update a component while rendering a different component" error
 // v0.6.12: Fix React hooks rule violations - move all hooks before key data check
 //          - Moved useState, useMemo, and useCallback hooks before the key data check
 // v0.6.11: Replace key data error throwing with graceful handling
@@ -44,12 +47,12 @@
 // v0.6.0: Pass System integration - badge display and access checking
 // v0.5.4: Moved GameGuide to App.js, removed setShowInfo and InfoButton
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import useEraBadges from '../hooks/useEraBadges';
 import GetAccessPage from './GetAccessPage';
 import { coreEngine, useGame } from '../context/GameContext';
 
-const version = 'v0.6.12';
+const version = 'v0.6.13';
 const tag = "SELECTERA";
 const module = "SelectEraPage";
 let method = "";
@@ -248,10 +251,20 @@ const SelectEraPage = () => {
     const missing = Object.entries(required)
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);
+    
+    // Defer handleKeyDataError to useEffect to avoid React setState during render warning
+    useEffect(() => {
+        if (missing.length > 0) {
+            const errorMessage = `key data missing: ${missing.join(', ')}`;
+            logwarn(errorMessage);
+            // Use setTimeout to defer to next tick, avoiding setState during render
+            setTimeout(() => {
+                coreEngine.handleKeyDataError('era', errorMessage);
+            }, 0);
+        }
+    }, [missing.length]); // Only run when missing data changes
+    
     if (missing.length > 0) {
-        const errorMessage = `key data missing: ${missing.join(', ')}`;
-        logwarn(errorMessage);
-        coreEngine.handleKeyDataError('era', errorMessage);
         return null; // Return null to prevent rendering
     }
 

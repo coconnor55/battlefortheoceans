@@ -21,7 +21,7 @@ const control = {
   BOARD: false,
   CANVAS: false,
   NETWORK: false,
-  STATS: false,
+  STATS: true,
   PAYMENT: false,
   OPPONENT: false,
   OVERLAY: false,
@@ -49,6 +49,7 @@ const control = {
   BADGES: false,
   PROFILE: true,
     AUTH: false,
+    SERVICE: true,
   DEBUG: true
 };
 

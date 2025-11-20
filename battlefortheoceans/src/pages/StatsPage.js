@@ -1,5 +1,9 @@
 // src/pages/StatsPage.js v0.1.6
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.9: Ensure StatsPage always loads from Supabase, not just session cache
+//         - Cache is now only for initial display while loading
+//         - Always fetches fresh data from game_results table
+//         - Game results are persisted in Supabase for all sessions
 // v0.1.8: Fix React hooks rule violations - remove duplicate useEffect after key data check
 //         - Removed duplicate useEffect that was after the key data check
 // v0.1.7: Replace key data error throwing with graceful handling
@@ -28,7 +32,7 @@ import gameStatsService from '../services/GameStatsService';
 import leaderboardService from '../services/LeaderboardService';
 import { supabase } from '../utils/supabaseClient';
 
-const version = "v0.1.8";
+const version = "v0.1.9";
 const tag = "STATS";
 const module = "StatsPage";
 let method = "";
@@ -87,7 +91,16 @@ function StatsPage({ onClose }) {
                 .order('created_at', { ascending: false })
                 .limit(100);
 
-            if (error) throw error;
+            if (error) {
+                logerror(`Error loading game_results: code=${error.code}, message=${error.message}, details=${error.details}`);
+                throw error;
+            }
+            
+            if (data && data.length === 0) {
+                log('No game results found for player - this may indicate RLS policy issue');
+            } else {
+                log(`Loaded ${data?.length || 0} game results for player ${playerProfile?.id}`);
+            }
             
             const games = data || [];
             setAllGames(games);
@@ -181,14 +194,15 @@ function StatsPage({ onClose }) {
         try {
             log('Loading stats for user:', playerProfile?.id);
             
-            // Check cache first
+            // Check cache first (but always refresh from database to ensure latest data)
             const cacheKey = `stats_${playerId}`;
             const cached = sessionStorage.getItem(cacheKey);
             
+            // Use cache only for initial display while loading
             if (cached) {
                 const parsedCache = JSON.parse(cached);
                 if (Date.now() - parsedCache.timestamp < CACHE_DURATION) {
-                    log('Using cached stats data');
+                    log('Using cached stats data for initial display');
                     setAllGames(parsedCache.allGames);
                     setRecentGames(parsedCache.allGames.slice(0, 10));
                     processEraStats(parsedCache.allGames, false);
@@ -205,7 +219,6 @@ function StatsPage({ onClose }) {
                 leaderboardService.getLeaderboard(100),
                 gameStatsService.getTotalGamesPlayed()
             ]);
-            console.log('[STATS] Setting stats from playerProfile:', playerProfile);
             setStats(playerProfile);
             setRanking(rankingData);
             setPercentile(percentileData);

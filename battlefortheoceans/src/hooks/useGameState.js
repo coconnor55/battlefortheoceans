@@ -33,248 +33,111 @@
 // v0.3.3: Added playerProfile to returned state
 // v0.3.2: Munitions terminology rename (resources → munitions)
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { coreEngine } from '../context/GameContext';
 
-const version = "v0.4.0";
+const version = "v0.4.1";
 const tag = "GAME";
 const module = "useGameState";
-let method = "";
+
+// v0.4.1: Minimize React usage - game is synchronous, React just for rendering
+// - Single subscription to trigger re-renders
+// - Read directly from CoreEngine on each render (no memoization)
+// - Direct function calls to CoreEngine (no useCallback wrappers)
 
 const useGameState = () => {
-    // Logging utilities
-    const log = (message) => {
-      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
-    };
-    
-    const logwarn = (message) => {
-        console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
-    };
-
-    const logerror = (message, error = null) => {
-      if (error) {
-        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
-      } else {
-        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
-      }
-    };
-
-    //key data - see CoreEngine handle{state}
-    const gameConfig = coreEngine.gameConfig;
-    const eras = coreEngine.eras;
-    const player = coreEngine.player
-    const playerProfile = coreEngine.playerProfile;
-    const playerEmail = coreEngine.playerEmail;
-    const selectedEraId = coreEngine.selectedEraId;
-    const selectedAlliance = coreEngine.selectedAlliance;
-    const selectedOpponents = coreEngine.selectedOpponents;
-
-    // derived data
-    const playerId = coreEngine.playerId;
-    const playerRole = coreEngine.playerRole;
-    const playerGameName = coreEngine.playerGameName;
-    const isGuest = player != null && player.isGuest;
-      const isAdmin = !!playerProfile?.isAdmin;
-      const isDeveloper = !!playerProfile?.isDeveloper;
-      const isTester = !!playerProfile?.isTester;
-    const selectedOpponent = coreEngine.selectedOpponents[0];
-
-    const selectedGameMode = coreEngine.selectedGameMode;
-    const gameInstance = coreEngine.gameInstance;
-    const board = coreEngine.board;
-
-    // stop game if key data is missing (selectedAlliance is allowed to be null)
-    // playerEmail is allowed to be null for guest users
-    const required = isGuest 
-        ? { gameConfig, eras, player, playerProfile, selectedEraId, selectedOpponents, gameInstance, board }
-        : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
-    const missing = Object.entries(required)
-        .filter(([key, value]) => !value)
-        .map(([key, value]) => `${key}=${value}`);
-        const hasMissingData = missing.length > 0;
-        if (hasMissingData) {
-            logwarn(`Game data still initializing: ${missing.join(', ')}`);
-        }
-    if (!hasMissingData) {
-        log('useGameState: passed CoreEngine data checks');
-    }
-    
-    const selectedEraConfig = coreEngine.selectedEraConfig;
-
-  // Message state from Game's Message system
-  const [messages, setMessages] = useState({
-    console: '',
-    ui: '',
-    system: '',
-    turn: ''
-  });
-  
-  // Force re-render trigger for observer pattern (bumped by coreEngine.subscribe)
+  // Single render trigger - CoreEngine manages all state synchronously
   const [, setRenderTrigger] = useState(0);
-  const forceUpdate = useCallback(() => setRenderTrigger(prev => prev + 1), []);
 
-  // Subscribe to CoreEngine updates so React sees synchronous store changes
+  // Single subscription to CoreEngine - triggers re-render when state changes
   useEffect(() => {
-    console.log('[HOOK]', version, 'Subscribing to CoreEngine updates');
     const unsubscribe = coreEngine.subscribe(() => {
-      forceUpdate();
+      setRenderTrigger(prev => prev + 1);
     });
-
     return () => {
-      console.log('[HOOK]', version, 'Unsubscribing from CoreEngine updates');
       if (typeof unsubscribe === 'function') {
         unsubscribe();
       }
     };
-  }, [forceUpdate]);
+  }, []);
 
-  // Subscribe to Message system updates
-  useEffect(() => {
-    if (gameInstance?.message) {
-      console.log('[HOOK]', version, 'Subscribing to Message system');
-      
-      const unsubscribe = gameInstance.message.subscribe((newMessages) => {
-        console.log('[HOOK]', version, 'Message system update:', newMessages);
-        setMessages(newMessages);
-      });
-      
-      // Get initial messages
-      const initialMessages = gameInstance.message.getCurrentMessages();
-      setMessages(initialMessages);
-      
-      return unsubscribe;
-    } else {
-      // Clear messages if no game instance
-      setMessages({
-        console: '',
-        ui: '',
-        system: '',
-        turn: ''
-      });
-    }
-  }, [gameInstance]);
-
-  // v0.3.8: Get ONLY computed values from UIState (not passthroughs)
+  // Read directly from CoreEngine (synchronous, no React state)
+  const gameInstance = coreEngine.gameInstance;
+  const board = coreEngine.board;
+  const player = coreEngine.player;
+  const playerProfile = coreEngine.playerProfile;
+  const selectedEraConfig = coreEngine.selectedEraConfig;
+  const selectedOpponent = coreEngine.selectedOpponents?.[0];
+  const selectedGameMode = coreEngine.selectedGameMode;
+  
+  // Get UI state directly from CoreEngine
   const uiState = coreEngine.getUIState();
-  const isPlayerTurn = uiState.isPlayerTurn;        // Computed
-  const currentPlayer = uiState.currentPlayer;      // Computed
-  const isGameActive = uiState.isGameActive;        // Computed
-  const gamePhase = uiState.gamePhase;              // Computed
-  const winner = uiState.winner;                    // Computed
-  const playerStats = uiState.playerStats;          // Computed/aggregated
-  const munitions = uiState.munitions || { starShells: 0, scatterShot: 0 }; // Computed
+  
+  // Get messages directly from game instance (if available)
+  const messages = gameInstance?.message?.getCurrentMessages() || {
+    console: '',
+    ui: '',
+    system: '',
+    turn: ''
+  };
 
-  // v0.3.7: Compute placement progress from coreEngine.player.fleet (the singleton!)
+  // Extract computed values from UIState
+  const isPlayerTurn = uiState.isPlayerTurn;
+  const currentPlayer = uiState.currentPlayer;
+  const isGameActive = uiState.isGameActive;
+  const gamePhase = uiState.gamePhase;
+  const winner = uiState.winner;
+  const playerStats = uiState.playerStats;
+  const munitions = uiState.munitions || { starShells: 0, scatterShot: 0 };
+
+  // Compute placement progress directly (synchronous read)
   const placementProgress = (() => {
-    if (!player || !player.fleet) {
-      console.log('[HOOK]', version, 'No player or fleet available');
-      return {
-        current: 0,
-        total: 0,
-        isComplete: false,
-        currentShip: null
-      };
+    if (!player?.fleet?.ships) {
+      return { current: 0, total: 0, isComplete: false, currentShip: null };
     }
-    
-    const fleet = player.fleet;
-    const ships = fleet.ships || [];
-    const totalShips = ships.length;
-    const placedShips = ships.filter(ship => ship.isPlaced);
-    const placedCount = placedShips.length;
-    
-    // Find first unplaced ship
-    const currentShip = ships.find(ship => !ship.isPlaced) || null;
-    
-    console.log('[HOOK]', version, 'Placement progress:', {
-      placedCount,
-      totalShips,
-      hasCurrentShip: !!currentShip,
-      currentShipName: currentShip?.name
-    });
-    
+    const ships = player.fleet.ships;
+    const placedCount = ships.filter(s => s.isPlaced).length;
     return {
       current: placedCount,
-      total: totalShips,
-      isComplete: placedCount === totalShips && totalShips > 0,
-      currentShip: currentShip
+      total: ships.length,
+      isComplete: placedCount === ships.length && ships.length > 0,
+      currentShip: ships.find(s => !s.isPlaced) || null
     };
   })();
 
-  // Handle player attack using Game's unified turn management
-  const handleAttack = useCallback((row, col) => {
-    if (!gameInstance) {
-      console.log('[HOOK]', version, 'No game instance');
-      return false;
-    }
-
-    // Get current player
-    const currentPlayer = gameInstance.getCurrentPlayer();
-    if (!currentPlayer || currentPlayer.type !== 'human') {
-      console.log('[HOOK]', version, 'Attack blocked - not human turn');
-      return false;
-    }
-
-    // v0.3.0: isValidAttack checks board coordinates only
-    if (!gameInstance.isValidAttack(row, col)) {
-      console.log('[HOOK]', version, 'Invalid attack attempt:', { row, col });
-      return false;
-    }
-
-    // v0.3.0: canShootAt checks dontShoot Set (both water misses AND destroyed ship cells)
-    if (!currentPlayer.canShootAt(row, col)) {
-      console.log('[HOOK]', version, 'Already shot at this location (water miss or destroyed ship):', { row, col });
-      return false;
-    }
-
-    try {
-      console.log('[HOOK]', version, 'Processing human attack through Game instance:', { row, col });
-      
-      // Execute attack through Game's unified processing (SYNCHRONOUS)
-      // Game will handle turn progression and trigger AI moves automatically
-      const result = gameInstance.processPlayerAction('attack', { row, col });
-      
-      // Canvas will handle visual updates automatically
-      // Messages will be handled by Message system automatically
-      
-      console.log('[HOOK]', version, 'Attack completed:', result.result);
-      return result;
-      
-    } catch (error) {
-      console.error('[HOOK]', version, 'Attack processing failed:', error);
-      return false;
-    }
-  }, [gameInstance]);
-  
-  // v0.3.7: Fire munition through CoreEngine singleton
-  const fireMunition = useCallback((munitionType, row, col) => {
-    console.log('[HOOK]', version, 'Firing munition through CoreEngine:', { munitionType, row, col });
-    return coreEngine.fireMunition(munitionType, row, col);
-  }, []);
-      
-  // Reset game
-  const resetGame = useCallback(() => {
-    if (gameInstance) {
-      gameInstance.reset();
-      // Canvas will handle visual updates automatically
-      // Message system will clear messages automatically
-    }
-  }, [gameInstance]);
-
-  // Get game statistics - computed directly from game instance
-  const getGameStats = useCallback(() => {
-    return gameInstance ? gameInstance.getGameStats() : null;
-  }, [gameInstance]);
-
-  // Check if position is valid for attack - read directly from game instance
-  const isValidAttack = useCallback((row, col) => {
+  // Direct function calls to CoreEngine (no React wrappers)
+  const handleAttack = (row, col) => {
     if (!gameInstance) return false;
-    
+    const currentPlayer = gameInstance.getCurrentPlayer();
+    if (!currentPlayer || currentPlayer.type !== 'human') return false;
+    if (!gameInstance.isValidAttack(row, col)) return false;
+    if (!currentPlayer.canShootAt(row, col)) return false;
+    try {
+      return gameInstance.processPlayerAction('attack', { row, col });
+    } catch (error) {
+      console.error('[HOOK]', version, 'Attack failed:', error);
+      return false;
+    }
+  };
+  
+  const fireMunition = (munitionType, row, col) => {
+    return coreEngine.fireMunition(munitionType, row, col);
+  };
+      
+  const resetGame = () => {
+    gameInstance?.reset();
+  };
+
+  const getGameStats = () => {
+    return gameInstance?.getGameStats() || null;
+  };
+
+  const isValidAttack = (row, col) => {
+    if (!gameInstance) return false;
     const currentPlayer = gameInstance.getCurrentPlayer();
     if (!currentPlayer) return false;
-    
-    // v0.3.0: Check both board validity AND dontShoot tracking
     return gameInstance.isValidAttack(row, col) && currentPlayer.canShootAt(row, col);
-  }, [gameInstance]);
+  };
 
   // v0.3.0: REMOVED getPlayerView() - no longer needed with player-owned data
   // Canvas components now read directly from:
@@ -283,27 +146,8 @@ const useGameState = () => {
   // - player.dontShoot for preventing invalid targeting
   // - ship.health for rendering craters/diagonals
 
-  // Determine appropriate battle message
   const battleMessage = messages.console || 'Awaiting battle action...';
-  
-  // Determine appropriate UI message - prioritize turn messages, fallback to UI messages
   const uiMessage = messages.turn || messages.ui || 'Preparing for battle...';
-
-//  console.log('[HOOK]', version, 'useGameState render', {
-//    hasGameInstance: !!gameInstance,
-//    hasBoard: !!board,
-//    hasPlayerProfile: !!playerProfile,
-//    hasPlayer: !!player,
-//    gamePhase: gamePhase,
-//    isPlayerTurn: isPlayerTurn,
-//    isGameActive: isGameActive,
-//    currentPlayerType: currentPlayer?.type,
-//    hasMessages: !!gameInstance?.message,
-//    battleMessage: battleMessage.substring(0, 50) + '...',
-//    uiMessage: uiMessage.substring(0, 50) + '...',
-//    munitions: munitions,
-//    placementProgress: placementProgress
-//  });
 
   return {
     // Game state - computed from game logic
@@ -361,9 +205,9 @@ const useGameState = () => {
     selectedOpponent,
     
     // Computed accuracy - FIXED: Use correct nested properties
-      accuracy: playerStats.player?.shots > 0 ?
-        (playerStats.player.hits / playerStats.player.shots * 100).toFixed(1) : 0,
-      isDataReady: !hasMissingData
+    accuracy: playerStats.player?.shots > 0 ?
+      (playerStats.player.hits / playerStats.player.shots * 100).toFixed(1) : 0,
+    isDataReady: !!(gameInstance && board && player && playerProfile)
   };
 };
 

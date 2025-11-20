@@ -1,5 +1,8 @@
 // src/pages/LaunchPage.js v0.3.10
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.11: Fix keyDataError persistence - don't clear in handleEvent_launch
+//          - keyDataError now persists until user clicks "Play Game" button
+//          - Clear keyDataError in handlePlayGame so message shows on LaunchPage
 // v0.3.10: Display key data error message when game restarts due to lost data
 //          - Shows "Lost key data during {state}, restarting game" above version number
 //          - Error message appears below Play button and horizontal line
@@ -17,7 +20,7 @@ import { coreEngine, useGame } from '../context/GameContext';
 import { events } from '../constants/GameEvents';
 import { APP_VERSION } from '../App.js';
 
-const version = 'v0.3.10';
+const version = 'v0.3.11';
 const tag = "LAUNCH";
 const module = "LaunchPage";
 let method = "";
@@ -109,6 +112,13 @@ const LaunchPage = () => {
 
   const handlePlayGame = () => {
     console.log('[LAUNCH]', version, 'Play Game button clicked - manual login');
+    
+    // Clear key data error when user clicks Play Game
+    if (coreEngine.keyDataError) {
+      coreEngine.keyDataError = null;
+      coreEngine.notifySubscribers();
+    }
+    
     if (dispatch) {
         log('exit Launch: coreEngine.gameConfig already set', coreEngine.gameConfig);
         log('exit Launch: coreEngine.eras already set', coreEngine.eras);
