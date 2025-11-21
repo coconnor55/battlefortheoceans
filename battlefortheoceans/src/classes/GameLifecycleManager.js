@@ -185,7 +185,10 @@ class GameLifecycleManager {
       const board = coreEngine.board;
 
       // stop game if key data is missing (selectedAlliance is allowed to be null)
-      const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents };
+      // playerEmail is allowed to be null for guest users
+      const required = isGuest 
+          ? { gameConfig, eras, player, playerProfile, selectedEraId, selectedOpponents }
+          : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents };
       const missing = Object.entries(required)
           .filter(([key, value]) => !value)
           .map(([key, value]) => `${key}=${value}`);
@@ -514,40 +517,47 @@ class GameLifecycleManager {
         this.logerror('Failed to calculate game results - skipping stats update');
       } else {
         this.log(`Calculated game results: won=${gameResults.won}, score=${gameResults.score}, accuracy=${gameResults.accuracy}`);
-        try {
-          // Update SSOT (Single Source of Truth) in-memory
-          this.coreEngine.playerProfile.applyGameResults(gameResults);
-          this.log('PlayerProfile stats updated in-memory');
-
-          // Persist PlayerProfile to database
-          await PlayerProfileService.save(this.coreEngine.playerProfile);
-          this.log('PlayerProfile persisted to database');
-
-          // Insert game result record
+        
+        // Skip database operations for guest users (they don't have database profiles)
+        const isGuest = Player.isGuest(playerId);
+        if (isGuest) {
+          this.log('Guest user - skipping profile update and database operations');
+        } else {
           try {
-            this.log(`Attempting to insert game result for player ${playerId}`);
-            const insertSuccess = await GameStatsService.insertGameResults(playerId, gameResults);
-            if (insertSuccess) {
-              this.log('Game result record inserted successfully');
-            } else {
-              this.logerror('Game result insert returned false - check database');
-            }
-          } catch (insertError) {
-            this.logerror('Failed to insert game result record:', insertError);
-            // Log full error details for debugging
-            if (insertError.message) {
-              this.logerror(`Insert error message: ${insertError.message}`);
-            }
-            if (insertError.stack) {
-              this.logerror(`Insert error stack: ${insertError.stack}`);
-            }
-            // Don't throw - game was completed, just log the error
-          }
+            // Update SSOT (Single Source of Truth) in-memory
+            this.coreEngine.playerProfile.applyGameResults(gameResults);
+            this.log('PlayerProfile stats updated in-memory');
 
-        } catch (error) {
-          this.logerror('Failed to update game statistics:', error);
-          if (error.message) {
-            this.logerror(`Error message: ${error.message}`);
+            // Persist PlayerProfile to database
+            await PlayerProfileService.save(this.coreEngine.playerProfile);
+            this.log('PlayerProfile persisted to database');
+
+            // Insert game result record
+            try {
+              this.log(`Attempting to insert game result for player ${playerId}`);
+              const insertSuccess = await GameStatsService.insertGameResults(playerId, gameResults);
+              if (insertSuccess) {
+                this.log('Game result record inserted successfully');
+              } else {
+                this.logerror('Game result insert returned false - check database');
+              }
+            } catch (insertError) {
+              this.logerror('Failed to insert game result record:', insertError);
+              // Log full error details for debugging
+              if (insertError.message) {
+                this.logerror(`Insert error message: ${insertError.message}`);
+              }
+              if (insertError.stack) {
+                this.logerror(`Insert error stack: ${insertError.stack}`);
+              }
+              // Don't throw - game was completed, just log the error
+            }
+
+          } catch (error) {
+            this.logerror('Failed to update game statistics:', error);
+            if (error.message) {
+              this.logerror(`Error message: ${error.message}`);
+            }
           }
         }
       }

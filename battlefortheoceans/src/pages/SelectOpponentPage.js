@@ -206,7 +206,7 @@ const SelectOpponentPage = () => {
     }
     
     return [];
-    }, [selectedEraConfig, selectedAlliance]);
+    }, [selectedEraConfig, selectedAlliance, isGuest, playerProfile?.id]);
 
     const handleBeginBattle = useCallback(async () => {
         method = 'handleBeginBattle';
@@ -277,6 +277,13 @@ const SelectOpponentPage = () => {
       
     if (!selectedEraConfig) return;
     
+    // Skip for guest users - they can't query user_profiles with guest IDs
+    if (isGuest || !playerProfile?.id) {
+      log('Guest user - skipping online humans fetch');
+      setOnlineHumans([]);
+      return;
+    }
+    
     setLoading(true);
     try {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
@@ -285,7 +292,7 @@ const SelectOpponentPage = () => {
           .from('user_profiles')  // ✅ Use existing table
           .select('id, game_name, last_seen')
           .gte('last_seen', fiveMinutesAgo)
-          .neq('id', playerProfile?.id)
+          .neq('id', playerProfile.id)  // Only valid for UUIDs, not guest IDs
           .limit(20);
         
       if (error) throw error;

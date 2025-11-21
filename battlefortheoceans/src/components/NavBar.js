@@ -360,7 +360,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
         </div>
         
         {(passBalance > 0 || voucherBalance > 0) && (
-          <div className="nav-bar__passes" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div className="nav-bar__passes" style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.875rem' }}>
             {passBalance > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                 <Coins size={16} />

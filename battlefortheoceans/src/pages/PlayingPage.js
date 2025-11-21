@@ -93,7 +93,10 @@ const PlayingPage = () => {
       const board = coreEngine.board;
 
       // stop game if key data is missing (selectedAlliance is allowed to be null)
-      const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
+      // playerEmail is allowed to be null for guest users
+      const required = isGuest 
+          ? { gameConfig, eras, player, playerProfile, selectedEraId, selectedOpponents, gameInstance, board }
+          : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId, selectedOpponents, gameInstance, board };
       const missing = Object.entries(required)
           .filter(([key, value]) => !value)
           .map(([key, value]) => `${key}=${value}`);

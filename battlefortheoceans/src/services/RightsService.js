@@ -189,6 +189,17 @@ class RightsService {
       return { canPlay: false, method: 'error', reason: 'Missing parameters' };
     }
     
+    // Guest users can only play free eras
+    if (Player.isGuest(playerId)) {
+      log('Guest user - checking if era is free');
+      if (eraConfig.exclusive === true || eraConfig.passes_required > 0) {
+        log(`Guest cannot play ${eraConfig.id} - requires access`);
+        return { canPlay: false, method: 'guest', reason: 'Requires account' };
+      }
+      log(`Guest can play free era ${eraConfig.id}`);
+      return { canPlay: true, method: 'free' };
+    }
+    
     const eraId = eraConfig.id;
       
     try {
