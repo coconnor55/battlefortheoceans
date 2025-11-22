@@ -649,6 +649,17 @@ class RightsService {
         };
       }
 
+      // GUEST USER - requires account
+      if (access.method === 'guest') {
+        return {
+          badge: 'Sign Up',
+          button: 'Sign Up',
+          style: 'badge-locked',
+          canPlay: false,
+          method: 'guest'
+        };
+      }
+
       // FREE ERA
       return {
         badge: 'FREE',

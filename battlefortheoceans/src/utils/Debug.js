@@ -23,7 +23,7 @@ const control = {
   NETWORK: false,
   STATS: true,
   PAYMENT: false,
-  OPPONENT: false,
+  OPPONENT: true,
   OVERLAY: false,
   TARGETING: false,
   GAME: true,
@@ -50,6 +50,7 @@ const control = {
   PROFILE: true,
     AUTH: false,
     SERVICE: true,
+    OVER: true,
   DEBUG: true
 };
 

@@ -380,7 +380,10 @@ const SelectEraPage = () => {
                 </p>
               ) : !selectedEraCanPlay ? (
                 <p className="text-dim text-center">
-                  Access required to play {selectedEraConfig.name}
+                  {isGuest 
+                    ? `Registered players can play ${selectedEraConfig.name}`
+                    : `Access required to play ${selectedEraConfig.name}`
+                  }
                 </p>
               ) : (
                 <div className="card-footer">
