@@ -156,11 +156,19 @@ const SelectEraPage = () => {
         log(`eraId=${era.id}, eraConfig=${coreEngine.selectedEraConfig}`);
         
         if (!badgeInfo.canPlay) {
-            // Era is locked - show GetAccessPage
-            log(`Era locked, showing GetAccessPage:`, era.id);
-            setShowGetAccessPage(true);
+            // Era is locked
+            if (isGuest) {
+                // Guest users should not see GetAccessPage - just show the message
+                log(`Era locked for guest user - showing message only:`, era.id);
+                // Don't open GetAccessPage for guest users
+                return;
+            } else {
+                // Registered users can see GetAccessPage
+                log(`Era locked, showing GetAccessPage:`, era.id);
+                setShowGetAccessPage(true);
+            }
         }
-    }, [coreEngine, eraBadges, setShowGetAccessPage]);
+    }, [coreEngine, eraBadges, isGuest, setShowGetAccessPage]);
     
     // Handle GetAccessPage completion
     const handleGetAccessComplete = useCallback(async (eraId) => {
@@ -399,8 +407,8 @@ const SelectEraPage = () => {
         </div>
       </div>
 
-      {/* Get Access Page Modal */}
-      {showGetAccessPage && (
+      {/* Get Access Page Modal - Only show for registered users */}
+      {showGetAccessPage && !isGuest && (
         <div className="modal-overlay modal-overlay--transparent">
           <GetAccessPage
             onComplete={handleGetAccessComplete}

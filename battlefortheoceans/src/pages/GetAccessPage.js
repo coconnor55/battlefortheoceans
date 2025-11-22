@@ -575,12 +575,19 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         fetchPriceInfo();
     }, [gameConfig, selectedEraConfig, selectedEraId]);
 
+    // Guest users should not see GetAccessPage - redirect them
+    if (isGuest) {
+        logwarn('Guest user attempted to access GetAccessPage - closing modal');
+        if (onCancel) {
+            onCancel();
+        }
+        return null; // Return null to prevent rendering
+    }
+
     // Key data check - stop game if key data is missing
     // (selectedAlliance is allowed to be null)
     // (playerEmail is allowed to be null for guest users)
-    const required = isGuest 
-        ? { gameConfig, eras, player, playerProfile, selectedEraId }
-        : { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
+    const required = { gameConfig, eras, player, playerProfile, playerEmail, selectedEraId };
     const missing = Object.entries(required)
         .filter(([key, value]) => !value)
         .map(([key, value]) => `${key}=${value}`);
