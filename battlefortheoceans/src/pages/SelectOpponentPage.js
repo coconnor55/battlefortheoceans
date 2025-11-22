@@ -206,7 +206,7 @@ const SelectOpponentPage = () => {
     }
     
     return [];
-    }, [selectedEraConfig, selectedAlliance, isGuest, playerProfile?.id]);
+    }, [selectedEraConfig, selectedAlliance]);
 
     const handleBeginBattle = useCallback(async () => {
         method = 'handleBeginBattle';
@@ -312,7 +312,7 @@ const SelectOpponentPage = () => {
     } finally {
       setLoading(false);
     }
-    }, [selectedEraConfig, playerProfile]);
+    }, [selectedEraConfig, playerProfile, isGuest]);
 
     useEffect(() => {
         fetchOnlineHumans();
@@ -465,8 +465,15 @@ const SelectOpponentPage = () => {
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={() => {}} // Handled by parent onClick
-                              onClick={(e) => e.stopPropagation()}
+                              disabled
+                              readOnly
+                              tabIndex={-1}
+                              style={{
+                                backgroundColor: isSelected ? 'var(--success)' : 'var(--bg-medium)',
+                                borderColor: isSelected ? 'var(--success)' : 'var(--border-subtle)',
+                                cursor: 'default',
+                                pointerEvents: 'none'
+                              }}
                             />
                           </div>
                           
@@ -476,7 +483,11 @@ const SelectOpponentPage = () => {
                                 src={`/${fleet.ai_captain.avatar}`}
                                 alt={fleet.ai_captain.name}
                                 onError={(e) => {
+                                  console.error(`[${tag}] ${version} Failed to load avatar: /${fleet.ai_captain.avatar}`, e);
                                   e.target.style.display = 'none';
+                                }}
+                                onLoad={() => {
+                                  console.log(`[${tag}] ${version} Successfully loaded avatar: /${fleet.ai_captain.avatar}`);
                                 }}
                               />
                             </div>
@@ -492,6 +503,7 @@ const SelectOpponentPage = () => {
                             <div className="item-description">{fleet.ai_captain.description}</div>
                             <div className="fleet-details">
                               <span className="fleet-name">{fleet.fleet_name}</span>
+                              <span> | </span>
                               <span className="ship-count">{fleet.ships.length} ships</span>
                             </div>
                           </div>
@@ -632,9 +644,10 @@ const SelectOpponentPage = () => {
               <p className="text-dim text-center">
                 {isMultiFleet
                   ? 'Select at least one pirate fleet to continue'
-                  : ''
+                  : selectedAlliance
+                    ? "Select an opponent to continue"
+                    : "Select an alliance to continue"
                 }
-                {selectedAlliance ? "Select an opponent to continue" : "Select an alliance to continue"}
               </p>
             ) : (
               <div className="card-footer">

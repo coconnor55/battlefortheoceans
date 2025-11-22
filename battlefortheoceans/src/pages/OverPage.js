@@ -93,6 +93,15 @@ const OverPage = () => {
     // Ref for capturing page content
     const pageRef = useRef(null);
 
+    // Log component mount
+    useEffect(() => {
+      method = 'useEffect-mount';
+      console.log(`[${tag}] ${version} ${module}: OverPage component mounted`);
+      return () => {
+        console.log(`[${tag}] ${version} ${module}: OverPage component unmounting`);
+      };
+    }, []);
+
     //key data - see CoreEngine handle{state}
     const gameConfig = coreEngine.gameConfig;
     const eras = coreEngine.eras;
@@ -197,6 +206,9 @@ const OverPage = () => {
 
   // Load game results on mount
   useEffect(() => {
+    method = 'useEffect-loadGameResults';
+    log(`Loading game results - gameInstance=${!!gameInstance}, selectedEraConfig=${!!selectedEraConfig}, selectedOpponents=${!!selectedOpponents}, player=${!!player}`);
+    
     // Try to get from CoreEngine first (normal flow)
     if (gameInstance && selectedEraConfig && selectedOpponents && player) {
       const results = {

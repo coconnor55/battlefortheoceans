@@ -1,5 +1,11 @@
 // src/utils/ConfigLoader.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v1.1.3: Added CDN support with automatic fallback to local assets
+//         - Added getAssetPath() method to construct CDN or local paths
+//         - Updated getEraImagePath(), getEraVideoPath(), getEraShipPath() to use CDN
+//         - CDN base URL from REACT_APP_GAME_CDN environment variable
+//         - Automatic fallback to /public folder if CDN fails or not configured
+// v1.1.2: CDN support with automatic fallback to public assets (documented)
 // v1.1.1: Updated for new era-based asset structure
 //         - Changed from /assets/ships/{era}/ to /assets/eras/{era}/ships/
 //         - Changed from combined ships-{era}.svg to individual ship files
@@ -8,12 +14,16 @@
 //         - Removed getShipCellSymbol() methods (no longer using combined SVG symbols)
 // v1.1.0: Added ship graphics loading from single SVG file
 
-const version = "v1.1.1";
+const version = "v1.1.3";
+
+// CDN base URL from environment variable (bunny.net CDN)
+const CDN_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
 
 /**
  * ConfigLoader - Centralized configuration loading utility
  * Loads game-config.json and era configs from /public/config/
  * Provides caching to avoid repeated fetches
+ * New in v1.1.3: CDN support with automatic fallback to public assets
  * New in v1.1.1: Era-based asset structure (/assets/eras/{era}/)
  */
 
@@ -24,6 +34,25 @@ class ConfigLoader {
     this.gameConfig = null;
     this.eraList = null;
     this.shipGraphicsCache = new Map(); // Cache loaded ship SVG files
+  }
+
+  /**
+   * Get asset path with CDN support and fallback
+   * Tries CDN first if available, falls back to public folder
+   * @param {string} relativePath - Path relative to public folder (e.g., '/assets/eras/traditional/ships/battleship.svg')
+   * @returns {string} Full path (CDN or local)
+   */
+  getAssetPath(relativePath) {
+    // Remove leading slash if present for consistency
+    const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+    
+    // If CDN is configured, use it; otherwise use local path
+    if (CDN_BASE_URL) {
+      return `${CDN_BASE_URL}/${cleanPath}`;
+    }
+    
+    // Fallback to local public folder
+    return `/${cleanPath}`;
   }
 
   /**
@@ -81,7 +110,14 @@ class ConfigLoader {
       const path = this.getEraShipPath(eraId, normalizedClass, color);
       console.log(`[CONFIG] ${version} Loading ship graphic: ${path}`);
       
-      const response = await fetch(path);
+      let response = await fetch(path);
+      
+      // If CDN fails, try fallback to local public folder
+      if (!response.ok && CDN_BASE_URL) {
+        const fallbackPath = `/assets/eras/${eraId}/ships/${filename}`;
+        console.log(`[CONFIG] ${version} CDN failed, trying fallback: ${fallbackPath}`);
+        response = await fetch(fallbackPath);
+      }
       
       if (!response.ok) {
         throw new Error(`Failed to load ${filename}: ${response.status}`);
@@ -114,17 +150,19 @@ class ConfigLoader {
    * @returns {string} Full path to image
    */
   getEraImagePath(eraId, filename) {
-    return `/assets/eras/${eraId}/images/${filename}`;
+    const relativePath = `assets/eras/${eraId}/images/${filename}`;
+    return this.getAssetPath(relativePath);
   }
 
   /**
    * Get path to era video asset
    * @param {string} eraId - Era identifier
    * @param {string} filename - Video filename (e.g., 'victory.mp4', 'defeat.mp4')
-   * @returns {string} Full path to video
+   * @returns {string} Full path to video (CDN or local)
    */
   getEraVideoPath(eraId, filename) {
-    return `/assets/eras/${eraId}/videos/${filename}`;
+    const relativePath = `assets/eras/${eraId}/videos/${filename}`;
+    return this.getAssetPath(relativePath);
   }
 
   /**
@@ -132,14 +170,15 @@ class ConfigLoader {
    * @param {string} eraId - Era identifier
    * @param {string} shipClass - Ship class (normalized: lowercase, hyphenated)
    * @param {string|null} color - Optional color variant ('red', 'blue', or null)
-   * @returns {string} Full path to ship SVG
+   * @returns {string} Full path to ship SVG (CDN or local)
    */
   getEraShipPath(eraId, shipClass, color = null) {
     const filename = color
       ? `${shipClass}-${color}.svg`
       : `${shipClass}.svg`;
     
-    return `/assets/eras/${eraId}/ships/${filename}`;
+    const relativePath = `assets/eras/${eraId}/ships/${filename}`;
+    return this.getAssetPath(relativePath);
   }
 
   /**

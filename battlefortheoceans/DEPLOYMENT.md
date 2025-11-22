@@ -1,0 +1,180 @@
+# Deployment Guide for battlefortheoceans.com
+
+This guide covers deploying the Battle for the Oceans game to Netlify with CDN support.
+
+## Overview
+
+The game uses a hybrid asset loading strategy:
+- **CDN (bunny.net)**: Primary source for static assets (images, videos, sounds, SVGs)
+- **Public folder**: Fallback for assets if CDN is unavailable or not configured
+- **Netlify**: Hosts the React app and serves as fallback for all assets
+
+## Prerequisites
+
+1. Netlify account connected to your GitHub repository
+2. bunny.net CDN account (optional but recommended)
+3. All assets uploaded to CDN (if using CDN)
+
+## Step 1: Upload Assets to CDN (bunny.net)
+
+If using bunny.net CDN, upload all assets maintaining the same directory structure:
+
+```
+cdn.battlefortheoceans.com/
+├── assets/
+│   ├── eras/
+│   │   ├── traditional/
+│   │   │   ├── ships/
+│   │   │   ├── videos/
+│   │   │   └── images/
+│   │   ├── midway/
+│   │   └── pirates/
+│   ├── effects/
+│   ├── icons/
+│   └── videos/
+├── sounds/
+├── captains/
+└── config/
+```
+
+**Important**: Maintain exact same folder structure as `/public` folder.
+
+## Step 2: Configure Netlify
+
+### 2.1 Environment Variables
+
+In Netlify Dashboard → Site settings → Environment variables, add:
+
+```
+REACT_APP_GAME_CDN = https://cdn.battlefortheoceans.com
+```
+
+**For production builds only**: Set this in Production environment variables.
+
+**For testing without CDN**: Leave this variable unset or empty - the app will use local public assets.
+
+### 2.2 Build Settings
+
+The `netlify.toml` file is already configured with:
+- Build command: `npm run build`
+- Publish directory: `build`
+- Node version: 18
+
+No additional configuration needed in Netlify dashboard if using `netlify.toml`.
+
+### 2.3 Domain Configuration
+
+1. In Netlify Dashboard → Domain settings
+2. Add custom domain: `battlefortheoceans.com`
+3. Configure DNS records as instructed by Netlify
+4. Enable HTTPS (automatic with Netlify)
+
+## Step 3: Deployment Process
+
+### Automatic Deployment (Recommended)
+
+1. Push to `main` or `dev1.3` branch
+2. Netlify automatically builds and deploys
+3. Check build logs in Netlify Dashboard
+
+### Manual Deployment
+
+```bash
+# Build locally
+npm run build
+
+# Deploy using Netlify CLI
+netlify deploy --prod
+```
+
+## Step 4: Verify Deployment
+
+1. **Check Build Logs**: Ensure build completes without errors
+2. **Test Asset Loading**: 
+   - Open browser DevTools → Network tab
+   - Load the game and check asset requests
+   - Verify assets load from CDN (if configured) or fallback to Netlify
+3. **Test Fallback**: 
+   - Temporarily disable CDN (remove env var)
+   - Verify assets still load from public folder
+   - Re-enable CDN
+
+## Asset Loading Strategy
+
+### How It Works
+
+1. **ConfigLoader** (`src/utils/ConfigLoader.js`):
+   - Checks for `REACT_APP_GAME_CDN` environment variable
+   - If set: Uses CDN URLs (e.g., `https://cdn.battlefortheoceans.com/assets/...`)
+   - If not set: Uses local paths (e.g., `/assets/...`)
+   - Ship graphics have automatic fallback: tries CDN first, then local
+
+2. **SoundManager** (`src/utils/SoundManager.js`):
+   - Uses `REACT_APP_GAME_CDN` for sound files
+   - Falls back to local `/sounds/` if CDN unavailable
+
+3. **Other Components**:
+   - `PromotionalBox.js`: Uses CDN for promotional images
+   - `PurchasePage.js`: Uses CDN for era images
+   - `App.js`: Uses CDN for background images
+
+### Fallback Behavior
+
+- **Ship SVGs**: Automatic fallback (tries CDN, then local)
+- **Sounds**: No automatic fallback (relies on CDN or local based on env var)
+- **Images/Videos**: No automatic fallback (relies on CDN or local based on env var)
+
+**Recommendation**: For production, ensure all assets are on CDN. The fallback is primarily for development/testing.
+
+## Troubleshooting
+
+### Assets Not Loading
+
+1. **Check CDN URL**: Verify `REACT_APP_GAME_CDN` is set correctly
+2. **Check CORS**: Ensure CDN allows requests from battlefortheoceans.com
+3. **Check Asset Paths**: Verify CDN folder structure matches public folder
+4. **Check Build**: Ensure assets are copied to `build` folder during build
+
+### Build Failures
+
+1. **Check Node Version**: Ensure Netlify uses Node 18+
+2. **Check Dependencies**: Run `npm install` locally to verify
+3. **Check Build Logs**: Look for specific error messages
+
+### CDN Issues
+
+1. **Test CDN Directly**: Try accessing `https://cdn.battlefortheoceans.com/assets/eras/traditional/ships/battleship.svg` directly
+2. **Check CDN Cache**: Clear CDN cache if assets updated
+3. **Verify CORS Headers**: CDN must allow requests from your domain
+
+## File Structure
+
+```
+battlefortheoceans/
+├── public/              # Local assets (fallback)
+│   ├── assets/
+│   ├── sounds/
+│   ├── config/
+│   └── ...
+├── src/
+│   └── utils/
+│       ├── ConfigLoader.js    # Asset path resolution
+│       └── SoundManager.js     # Sound loading
+├── netlify.toml         # Netlify configuration
+├── package.json
+└── build/               # Generated by npm run build
+```
+
+## Environment Variables Summary
+
+| Variable | Purpose | Required | Default |
+|----------|---------|----------|---------|
+| `REACT_APP_GAME_CDN` | CDN base URL for assets | No | Empty (uses local) |
+
+## Next Steps
+
+1. Upload all assets to bunny.net CDN
+2. Set `REACT_APP_GAME_CDN` in Netlify environment variables
+3. Deploy and test
+4. Monitor asset loading in production
+

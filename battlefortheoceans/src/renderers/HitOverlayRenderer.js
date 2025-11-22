@@ -1,5 +1,8 @@
 // src/renderers/HitOverlayRenderer.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.12.4: Now uses CDN-backed asset loading via ConfigLoader v1.1.3
+//          - Ship SVG loading automatically benefits from CDN with local fallback
+//          - No code changes needed - uses updated configLoader.getEraShipPath()
 // v0.12.3: Added star shell expanding ring effect
 //          - New drawStarShellEffect() method
 //          - Red expanding ring animation (0.5s duration)
@@ -19,7 +22,7 @@
 
 import configLoader from '../utils/ConfigLoader';
 
-const version = 'v0.12.3';
+const version = 'v0.12.4';
 
 class HitOverlayRenderer {
   constructor(eraId = 'traditional', gameBoard = null) {
@@ -62,6 +65,7 @@ class HitOverlayRenderer {
     try {
       const classLower = shipClass.toLowerCase().replace(/\s+/g, '-');
       const svgPath = configLoader.getEraShipPath(this.eraId, classLower, color);
+      const CDN_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
       
       const img = new Image();
       
@@ -74,9 +78,29 @@ class HitOverlayRenderer {
         };
         
         img.onerror = () => {
-          console.warn('[OVERLAY]', version, 'Failed to load ship SVG:', svgPath);
-          this.svgLoadingState.set(key, 'failed');
-          resolve(null);
+          // If CDN failed, try fallback to local public folder
+          if (CDN_BASE_URL) {
+            const fallbackPath = `/assets/eras/${this.eraId}/ships/${classLower}${color ? `-${color}` : ''}.svg`;
+            console.log('[OVERLAY]', version, 'CDN failed, trying fallback:', fallbackPath);
+            
+            const fallbackImg = new Image();
+            fallbackImg.onload = () => {
+              this.shipSvgCache.set(key, fallbackImg);
+              this.svgLoadingState.set(key, 'loaded');
+              console.log('[OVERLAY]', version, 'Loaded ship SVG from fallback:', key);
+              resolve(fallbackImg);
+            };
+            fallbackImg.onerror = () => {
+              console.warn('[OVERLAY]', version, 'Failed to load ship SVG from both CDN and fallback:', svgPath);
+              this.svgLoadingState.set(key, 'failed');
+              resolve(null);
+            };
+            fallbackImg.src = fallbackPath;
+          } else {
+            console.warn('[OVERLAY]', version, 'Failed to load ship SVG:', svgPath);
+            this.svgLoadingState.set(key, 'failed');
+            resolve(null);
+          }
         };
         
         img.src = svgPath;

@@ -1,0 +1,60 @@
+# Netlify configuration for battlefortheoceans.com
+# Build settings for React app deployment
+
+[build]
+  # Build command - React Scripts will create optimized production build
+  command = "npm run build"
+  
+  # Publish directory - React Scripts outputs to 'build' folder
+  publish = "build"
+  
+  # Environment variables
+  [build.environment]
+    # Set NODE_VERSION for Netlify build environment
+    NODE_VERSION = "18"
+    
+    # CDN URL for assets (bunny.net CDN)
+    # Set this in Netlify dashboard: Site settings > Environment variables
+    # REACT_APP_GAME_CDN = "https://cdn.battlefortheoceans.com"
+    
+    # Disable CI check for build (React Scripts can fail on warnings)
+    CI = "false"
+
+# Redirects and rewrites
+# The _redirects file in public/ handles SPA routing
+# This ensures all routes go to index.html for React Router
+
+# Headers for security and caching
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    # Cache static assets for 1 year
+    Cache-Control = "public, max-age=31536000, immutable"
+    
+    # CORS headers if needed for CDN
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+

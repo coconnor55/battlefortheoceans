@@ -1,5 +1,10 @@
 // src/classes/GameLifecycleManager.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.12: Make database operations non-blocking in endGame sequence
+//          - Wrapped async database calls in fire-and-forget IIFEs
+//          - Prevents network issues from blocking game end transition
+//          - Game end sequence now always completes and transitions to OverPage
+//          - Database operations continue in background even if they fail
 // v0.2.11: Fix consumeRights not being called - use Player.isHuman instead of HumanPlayer.isHuman
 //          - HumanPlayer doesn't have static isHuman method, only Player does
 //          - Added logging to verify isHuman check
@@ -33,7 +38,7 @@ import RightsService from '../services/RightsService.js';
 import GameStatsService from '../services/GameStatsService';
 import { coreEngine } from '../context/GameContext';
 
-const version = "v0.2.11";
+const version = "v0.2.12";
 const tag = "LIFECYCLE";
 const module = "GameLifecycleManager";
 let method = "";
@@ -487,10 +492,14 @@ class GameLifecycleManager {
       this.game.battleLog('Game ended: Draw', 'draw');
     }
 
-      // Decrement incomplete_games counter and consume rights
+      // Decrement incomplete_games counter and consume rights (non-blocking)
+      // Fire-and-forget pattern - don't block game end sequence on network issues
       if (Player.isHuman(playerId)) {
-        try {
-          await PlayerProfileService.decrementIncompleteGames(playerId);
+        // Run asynchronously without blocking
+        (async () => {
+          try {
+            this.log('Starting async game end housekeeping');
+            await PlayerProfileService.decrementIncompleteGames(playerId);
             const consumeResult = await RightsService.consumeRights(playerId, this.coreEngine.selectedEraConfig);
             this.log(`Incomplete game counter decremented and rights consumed (method: ${consumeResult.method})`);
             
@@ -499,11 +508,13 @@ class GameLifecycleManager {
                 this.coreEngine.notifySubscribers();
                 this.log('Notified subscribers after rights consumption');
             }
-        } catch (error) {
-          this.logerror(`Failed to process game end housekeeping:`, error);
-        }
+          } catch (error) {
+            this.logerror(`Failed to process game end housekeeping (non-blocking):`, error);
+          }
+        })();
       }
       
+    // Cleanup and calculate results synchronously
     this.cleanupTemporaryAlliances();
     
       // Calculate game results from player statistics
@@ -523,42 +534,45 @@ class GameLifecycleManager {
         if (isGuest) {
           this.log('Guest user - skipping profile update and database operations');
         } else {
-          try {
-            // Update SSOT (Single Source of Truth) in-memory
-            this.coreEngine.playerProfile.applyGameResults(gameResults);
-            this.log('PlayerProfile stats updated in-memory');
-
-            // Persist PlayerProfile to database
-            await PlayerProfileService.save(this.coreEngine.playerProfile);
-            this.log('PlayerProfile persisted to database');
-
-            // Insert game result record
+          // Run database operations asynchronously without blocking
+          (async () => {
             try {
-              this.log(`Attempting to insert game result for player ${playerId}`);
-              const insertSuccess = await GameStatsService.insertGameResults(playerId, gameResults);
-              if (insertSuccess) {
-                this.log('Game result record inserted successfully');
-              } else {
-                this.logerror('Game result insert returned false - check database');
-              }
-            } catch (insertError) {
-              this.logerror('Failed to insert game result record:', insertError);
-              // Log full error details for debugging
-              if (insertError.message) {
-                this.logerror(`Insert error message: ${insertError.message}`);
-              }
-              if (insertError.stack) {
-                this.logerror(`Insert error stack: ${insertError.stack}`);
-              }
-              // Don't throw - game was completed, just log the error
-            }
+              // Update SSOT (Single Source of Truth) in-memory
+              this.coreEngine.playerProfile.applyGameResults(gameResults);
+              this.log('PlayerProfile stats updated in-memory');
 
-          } catch (error) {
-            this.logerror('Failed to update game statistics:', error);
-            if (error.message) {
-              this.logerror(`Error message: ${error.message}`);
+              // Persist PlayerProfile to database
+              await PlayerProfileService.save(this.coreEngine.playerProfile);
+              this.log('PlayerProfile persisted to database');
+
+              // Insert game result record
+              try {
+                this.log(`Attempting to insert game result for player ${playerId}`);
+                const insertSuccess = await GameStatsService.insertGameResults(playerId, gameResults);
+                if (insertSuccess) {
+                  this.log('Game result record inserted successfully');
+                } else {
+                  this.logerror('Game result insert returned false - check database');
+                }
+              } catch (insertError) {
+                this.logerror('Failed to insert game result record:', insertError);
+                // Log full error details for debugging
+                if (insertError.message) {
+                  this.logerror(`Insert error message: ${insertError.message}`);
+                }
+                if (insertError.stack) {
+                  this.logerror(`Insert error stack: ${insertError.stack}`);
+                }
+                // Don't throw - game was completed, just log the error
+              }
+
+            } catch (error) {
+              this.logerror('Failed to update game statistics (non-blocking):', error);
+              if (error.message) {
+                this.logerror(`Error message: ${error.message}`);
+              }
             }
-          }
+          })();
         }
       }
       

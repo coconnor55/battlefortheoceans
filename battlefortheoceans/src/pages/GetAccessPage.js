@@ -1,5 +1,9 @@
 // src/pages/GetAccessPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.10: Only fetch price info when purchase is enabled
+//          - Price fetching now checks purchaseEnabled before making API calls
+//          - Prevents unnecessary network requests when purchase is disabled
+//          - Stripe is only loaded when actually initiating purchase (already lazy-loaded)
 // v0.2.9: Rename referral_passes to referral_email throughout
 //         - Updated all references from referral_passes to referral_email
 //         - referral_email = what each side gets when email invite sent/received (1)
@@ -86,7 +90,7 @@ import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 import * as LucideIcons from 'lucide-react';
 
-const version = 'v0.2.9';
+const version = 'v0.2.10';
 const tag = "ACCESS";
 const module = "GetAccessPage";
 let method = "";
@@ -519,9 +523,19 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         loadData();
     }, [selectedEraId, selectedEraConfig, loadNearestAchievements]);
 
-    // Fetch price info from Stripe
+    // Fetch price info from Stripe - only if purchase is enabled
     useEffect(() => {
         const fetchPriceInfo = async () => {
+            // Check if purchase is enabled before fetching
+            const purchaseEnabled = gameConfig?.purchase !== false;
+            const showPurchaseSection = purchaseEnabled && selectedEraConfig?.promotional?.stripe_price_id;
+            
+            if (!showPurchaseSection) {
+                console.log(`[ACCESS] GetAccessPage ${version}| Purchase disabled or no stripe_price_id - skipping price fetch`);
+                setPriceInfo(null);
+                return;
+            }
+            
             if (!selectedEraConfig?.promotional?.stripe_price_id) {
                 console.log(`[ACCESS] GetAccessPage ${version}| No stripe_price_id for era:`, selectedEraId);
                 setPriceInfo(null);
@@ -559,7 +573,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
         };
         
         fetchPriceInfo();
-    }, [selectedEraConfig, selectedEraId]);
+    }, [gameConfig, selectedEraConfig, selectedEraId]);
 
     // Key data check - stop game if key data is missing
     // (selectedAlliance is allowed to be null)
@@ -658,10 +672,11 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
   }
 
   // Determine which sections to show
-    
+  const purchaseEnabled = gameConfig?.purchase !== false; // Default to true if not set (backward compatible)
   const showPassSection = !selectedEraConfig.exclusive && selectedEraConfig.passes_required > 0;
   const showVoucherSection = selectedEraConfig.exclusive;
-    console.log(`[ACCESS] GetAccessPage ${version}| showPassSection ${showPassSection}, showVoucherSection ${showVoucherSection}, selectedEraConfig ${selectedEraConfig}`);
+  const showPurchaseSection = purchaseEnabled && selectedEraConfig.promotional?.stripe_price_id;
+    console.log(`[ACCESS] GetAccessPage ${version}| showPassSection ${showPassSection}, showVoucherSection ${showVoucherSection}, showPurchaseSection ${showPurchaseSection}, purchaseEnabled ${purchaseEnabled}`);
 
   return (
     <div className="modal-overlay modal-overlay--transparent">
@@ -875,63 +890,67 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             </div>
           )}
 
-          {/* Purchase Section - always shown */}
-          <div className="divider">
-            <span>Purchase</span>
-          </div>
-          <div className="card-section">
-            <h3>Purchase Premium Access</h3>
-            
-            <div className="feature-grid">
-              <div className="feature-item">
-                <strong>✅ One-time purchase</strong>
-                <p>Unlimited plays - immediately and forever</p>
+          {/* Purchase Section - shown only if purchase is enabled in game-config.json */}
+          {showPurchaseSection && (
+            <>
+              <div className="divider">
+                <span>Purchase</span>
               </div>
-              <div className="feature-item">
-                <strong>✅ Support development</strong>
-                <p>Help me create more amazing eras</p>
-              </div>
-            </div>
-            
-            {selectedEraConfig.promotional?.stripe_price_id ? (
-              <div className="text-center mt-md">
-                {fetchingPrice ? (
-                  <div className="loading">
-                    <div className="spinner spinner--sm"></div>
-                    <p>Loading price...</p>
+              <div className="card-section">
+                <h3>Purchase Premium Access</h3>
+                
+                <div className="feature-grid">
+                  <div className="feature-item">
+                    <strong>✅ One-time purchase</strong>
+                    <p>Unlimited plays - immediately and forever</p>
                   </div>
-                ) : priceInfo ? (
-                  <>
-                    <div className="price-display">
-                      <span className="price-amount">${(priceInfo.unit_amount / 100).toFixed(2)}</span>
-                    </div>
-                    
-                    {purchaseError && (
-                      <div className="message message--error mt-md">
-                        {purchaseError}
+                  <div className="feature-item">
+                    <strong>✅ Support development</strong>
+                    <p>Help me create more amazing eras</p>
+                  </div>
+                </div>
+                
+                {selectedEraConfig.promotional?.stripe_price_id ? (
+                  <div className="text-center mt-md">
+                    {fetchingPrice ? (
+                      <div className="loading">
+                        <div className="spinner spinner--sm"></div>
+                        <p>Loading price...</p>
                       </div>
+                    ) : priceInfo ? (
+                      <>
+                        <div className="price-display">
+                          <span className="price-amount">${(priceInfo.unit_amount / 100).toFixed(2)}</span>
+                        </div>
+                        
+                        {purchaseError && (
+                          <div className="message message--error mt-md">
+                            {purchaseError}
+                          </div>
+                        )}
+                        
+                        <button
+                          className="btn btn--primary btn--lg mt-md"
+                          onClick={handlePurchase}
+                          disabled={purchasing}
+                        >
+                          {purchasing ? 'Processing...' : `Purchase ${selectedEraConfig.name}`}
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-dim">
+                        Price information unavailable
+                      </p>
                     )}
-                    
-                    <button
-                      className="btn btn--primary btn--lg mt-md"
-                      onClick={handlePurchase}
-                      disabled={purchasing}
-                    >
-                      {purchasing ? 'Processing...' : `Purchase ${selectedEraConfig.name}`}
-                    </button>
-                  </>
+                  </div>
                 ) : (
-                  <p className="text-dim">
-                    Price information unavailable
+                  <p className="text-center text-dim mt-md">
+                    This era is not available for direct purchase.
                   </p>
                 )}
               </div>
-            ) : (
-              <p className="text-center text-dim mt-md">
-                This era is not available for direct purchase.
-              </p>
-            )}
-          </div>
+            </>
+          )}
 
         </div>
 

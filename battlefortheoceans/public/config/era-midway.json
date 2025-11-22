@@ -99,7 +99,7 @@
           "strategy": "methodical_optimal",
           "difficulty": 1.4,
           "description": "A methodical US Navy commander who uses systematic grid search patterns with offset targeting to locate and destroy enemy vessels with tactical precision.",
-          "avatar": "captains/C_Spruance.webp"
+          "avatar": "assets/eras/midway/captains/C_Spruance.webp"
         },
         {
           "id": "admiral-nimitz",
@@ -107,7 +107,7 @@
           "strategy": "aggressive",
           "difficulty": 1.7,
           "description": "The legendary Pacific Fleet commander who combines center-mass probability targeting with relentless recursive hunt tactics to dominate naval warfare.",
-          "avatar": "captains/FA_Nimitz.webp"
+          "avatar": "assets/eras/midway/captains/FA_Nimitz.webp"
         }
       ]
     },
@@ -133,7 +133,7 @@
           "strategy": "methodical_random",
           "difficulty": 1.0,
           "description": "Mitsuo Fuchida, the skilled aviator who led the Pearl Harbor attack. Uses disciplined checkerboard search patterns with systematic coverage.",
-          "avatar": "captains/LtC_Fuchida.webp"
+          "avatar": "assets/eras/midway/captains/LtC_Fuchida.webp"
         },
         {
           "id": "admiral-nagumo",
@@ -141,7 +141,7 @@
           "strategy": "methodical_optimal",
           "difficulty": 1.4,
           "description": "Commander of the Kido Butai carrier strike force. Employs advanced grid-search tactics with offset patterns to maximize fleet effectiveness.",
-          "avatar": "captains/A_Nagumo.webp"
+          "avatar": "assets/eras/midway/captains/A_Nagumo.webp"
         },
         {
           "id": "admiral-yamamoto",
@@ -149,7 +149,7 @@
           "strategy": "aggressive",
           "difficulty": 1.7,
           "description": "Isoroku Yamamoto, architect of the Pearl Harbor strike and master strategist of the Combined Fleet. Uses center-mass probability targeting with aggressive recursive hunt tactics to locate and destroy enemy vessels.",
-          "avatar": "captains/A_Yamamoto.webp"
+          "avatar": "assets/eras/midway/captains/A_Yamamoto.webp"
         }
       ]
     }
