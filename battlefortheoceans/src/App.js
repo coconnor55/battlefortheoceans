@@ -44,7 +44,7 @@ import AboutPage from './pages/AboutPage';
 import TestSuite from './tests/TestSuite';
 import './App.css';
 
-export const APP_VERSION = 'dev1.3';
+export const APP_VERSION = '1.4';
 
 const version = 'v0.4.6';
 const tag = "APP";

@@ -22,8 +22,8 @@
     "ship_silhouettes_path": "assets/eras/pirates/ships"
   },
   "promotional": {
-    "background_image": "images/background.jpg",
-    "promotional_image": "images/promotional.jpg",
+    "background_image": "assets/eras/pirates/images/background.jpg",
+    "promotional_image": "assets/eras/pirates/images/promotional.jpg",
     "stripe_price_id": "price_1SKwHzFKFdXJ01egR8DXhm5C",
     "tagline": "Hunt the Last Pirates!",
     "marketing_description": "Command the West Indies Squadron against the final generation of Caribbean pirates. Navigate treacherous waters, shallow reefs, and island hideouts in this sprawling Gulf of Mexico battlefield. Face up to four legendary pirate captains simultaneously!",

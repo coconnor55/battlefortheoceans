@@ -15,8 +15,8 @@
     "ship_silhouettes_path": "assets/eras/traditional/ships"
   },
   "promotional": {
-    "background_image": "images/background.jpg",
-    "promotional_image": "images/promotional.jpg"
+    "background_image": "assets/eras/traditional/images/background.jpg",
+    "promotional_image": "assets/eras/traditional/images/promotional.jpg"
   },
   "videos": {
     "sunkplayer": "assets/eras/traditional/videos/playersunk.mp4",

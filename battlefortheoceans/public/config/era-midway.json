@@ -19,8 +19,8 @@
     "ship_silhouettes_path": "assets/eras/midway/ships"
   },
   "promotional": {
-    "background_image": "images/background.jpg",
-    "promotional_image": "images/promotional.jpg",
+    "background_image": "assets/eras/midway/images/background.jpg",
+    "promotional_image": "assets/eras/midway/images/promotional.jpg",
     "stripe_price_id": "price_1SKvxVFKFdXJ01egvawS3rHH",
     "tagline": "Try Midway Island!",
     "marketing_description": "Take command of the US Navy or Imperial Navy and fight the historic Battle of Midway, June 4-7, 1942. Experience carrier warfare with authentic ship rosters and strategic Pacific theater combat.",
@@ -79,7 +79,7 @@
     {
       "name": "US Navy",
       "description": "Task Force 16 & 17 - Defend the strategic Midway atoll with carrier-based aviation and superior intelligence. Fight with disciplined tactics and technological advantage.",
-      "avatar": "us-navy-icon.png",
+      "avatar": "assets/eras/midway/images/us-navy-icon.png",
       "ships": [
         { "name": "USS Enterprise", "class": "Carrier", "size": 5, "terrain": ["deep"] },
         { "name": "USS Hornet", "class": "Carrier", "size": 5, "terrain": ["deep"] },
@@ -114,7 +114,7 @@
     {
       "name": "Imperial Navy",
       "description": "Kido Butai & Midway Invasion Force - Strike swift and decisive to capture Midway and lure the American fleet into a trap. Honor demands victory!",
-      "avatar": "japanese-navy-icon.png",
+      "avatar": "assets/eras/midway/images/japanese-navy-icon.png",
       "ships": [
         { "name": "Akagi", "class": "Carrier", "size": 5, "terrain": ["deep"] },
         { "name": "Kaga", "class": "Carrier", "size": 5, "terrain": ["deep"] },
