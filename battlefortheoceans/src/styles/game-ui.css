@@ -796,40 +796,39 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  /* Stack fleet sidebars vertically below game board on mobile */
+  /* Use grid layout: board on top, sidebars side-by-side below */
   .battle-board-layout {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
     gap: var(--space-md);
   }
   
-  /* Game board comes first, full width */
+  /* Game board takes full width on first row */
   .battle-board-layout .game-board-container {
-    order: 1;
+    grid-column: 1 / -1;
+    grid-row: 1;
     width: 100%;
     margin: 0 auto;
-    flex-shrink: 0;
   }
   
-  /* First fleet sidebar (Home) comes after board */
+  /* Fleet sidebars side-by-side on second row */
   .battle-board-layout .fleet-status-sidebar:nth-child(1) {
-    order: 2;
+    grid-column: 1;
+    grid-row: 2;
     min-width: auto;
     width: 100%;
-    flex-shrink: 0;
   }
   
-  /* Second fleet sidebar (Enemy) comes after Home */
   .battle-board-layout .fleet-status-sidebar:nth-child(3) {
-    order: 3;
+    grid-column: 2;
+    grid-row: 2;
     min-width: auto;
     width: 100%;
-    flex-shrink: 0;
   }
   
   .fleet-status-sidebar {
     min-width: auto;
-    width: 100%;
   }
   
   .fleet-status-header {
