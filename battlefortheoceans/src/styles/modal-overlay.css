@@ -264,24 +264,36 @@ max-width: 1400px;
 @media (max-width: 768px) {
   .modal-overlay {
     align-items: flex-start;
-    padding: var(--space-md);
-    padding-top: var(--space-lg);
+    padding: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
   
   .content-pane {
     margin: 0;
-    max-height: calc(100vh - var(--space-lg) * 2);
+    min-height: 100vh;
+    max-height: none;
     width: 100%;
     max-width: 100%;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top, var(--space-lg));
+    padding-bottom: env(safe-area-inset-bottom, var(--space-lg));
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
   }
   
-  /* Ensure header with close button is always visible while scrolling */
+  /* Ensure header with close button is accessible at top */
   .content-pane .card-header--with-close {
-    position: sticky;
-    top: 0;
-    background: var(--bg-overlay);
-    z-index: 10;
-    margin-bottom: var(--space-md);
+    position: relative;
+    margin-top: 0;
+    padding-top: var(--space-md);
+  }
+  
+  /* Ensure footer buttons are accessible at bottom */
+  .content-pane .card-footer {
+    padding-bottom: var(--space-md);
+    margin-bottom: 0;
   }
 }
 
