@@ -796,8 +796,40 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+  /* Stack fleet sidebars vertically below game board on mobile */
+  .battle-board-layout {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-md);
+  }
+  
+  /* Game board comes first, full width */
+  .battle-board-layout .game-board-container {
+    order: 1;
+    width: 100%;
+    margin: 0 auto;
+    flex-shrink: 0;
+  }
+  
+  /* First fleet sidebar (Home) comes after board */
+  .battle-board-layout .fleet-status-sidebar:nth-child(1) {
+    order: 2;
+    min-width: auto;
+    width: 100%;
+    flex-shrink: 0;
+  }
+  
+  /* Second fleet sidebar (Enemy) comes after Home */
+  .battle-board-layout .fleet-status-sidebar:nth-child(3) {
+    order: 3;
+    min-width: auto;
+    width: 100%;
+    flex-shrink: 0;
+  }
+  
   .fleet-status-sidebar {
-    min-width: 100px;
+    min-width: auto;
+    width: 100%;
   }
   
   .fleet-status-header {
