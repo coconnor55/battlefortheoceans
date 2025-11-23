@@ -275,19 +275,13 @@ max-width: 1400px;
     max-width: 100%;
   }
   
-  /* Ensure header with close button is always visible */
-  .card-header--with-close {
+  /* Ensure header with close button is always visible while scrolling */
+  .content-pane .card-header--with-close {
     position: sticky;
     top: 0;
     background: var(--bg-overlay);
     z-index: 10;
-    padding-top: var(--space-md);
-    margin-top: calc(-1 * var(--space-xl));
-    margin-left: calc(-1 * var(--space-xl));
-    margin-right: calc(-1 * var(--space-xl));
-    padding-left: var(--space-xl);
-    padding-right: var(--space-xl);
-    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+    margin-bottom: var(--space-md);
   }
 }
 
