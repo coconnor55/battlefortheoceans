@@ -31,6 +31,19 @@
 max-width: 1400px;
 }
 
+/* OverPage centering */
+.over-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 60px; /* Account for NavBar */
+  min-height: calc(100vh - 60px);
+}
+
+.over-page .content-pane--wide {
+  margin: var(--space-md) auto;
+}
+
 .content-pane--medium {
   max-width: 1024px;
 }
@@ -309,6 +322,11 @@ max-width: 1400px;
   
   .container .content-pane {
     margin: var(--space-md) auto;
+    width: calc(100% - var(--space-md) * 2);
+  }
+  
+  /* OverPage mobile adjustments */
+  .over-page .content-pane--wide {
     width: calc(100% - var(--space-md) * 2);
   }
 }

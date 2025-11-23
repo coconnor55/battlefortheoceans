@@ -644,15 +644,17 @@ const OverPage = () => {
 
           {/* Final Board Snapshot */}
           {gameResults.finalBoardImage && (
-            <div className="game-board-container">
-              <h4 className="text-center">Final Battle Board</h4>
-              <img
-                src={gameResults.finalBoardImage}
-                alt="Final battle board showing all ship positions"
-              />
-              <p className="text-center text-muted">
-                All enemy ship locations revealed
-              </p>
+            <div className="final-board-section">
+              <h4 className="text-center final-board-title">Final Battle Board</h4>
+              <div className="game-board-container">
+                <img
+                  src={gameResults.finalBoardImage}
+                  alt="Final battle board showing all ship positions"
+                />
+                <p className="text-center text-muted">
+                  All enemy ship locations revealed
+                </p>
+              </div>
             </div>
           )}
           

@@ -1276,6 +1276,17 @@
   margin-bottom: var(--space-md);
 }
 
+/* Final board section styling */
+.final-board-section {
+  margin: var(--space-xl) 0;
+}
+
+.final-board-title {
+  margin-bottom: var(--space-md);
+  color: var(--primary);
+  font-size: 1.25rem;
+}
+
 .player-stats {
   background: var(--bg-medium);
   border-radius: var(--border-radius-md);
@@ -1496,10 +1507,13 @@
   .game-board-container {
     min-height: 250px;
     padding: var(--space-sm);
+    width: 100%;
   }
   
-  .game-board-container canvas {
+  .game-board-container canvas,
+  .game-board-container img {
     max-width: 100%;
+    width: 100%;
     height: auto;
   }
   
@@ -1522,6 +1536,19 @@
   
   .achievement-grid--compact {
     grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  }
+  
+  /* Final board section - title above board on mobile */
+  .final-board-section {
+    margin: var(--space-lg) 0;
+  }
+  
+  .final-board-title {
+    margin-bottom: var(--space-md);
+  }
+  
+  .game-board-container {
+    margin: 0;
   }
 }
 
