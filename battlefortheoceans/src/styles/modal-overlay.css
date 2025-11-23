@@ -21,6 +21,7 @@
   /* NEW - Make scrollable */
   max-height: 90vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* v1.0.4: Fixed width to prevent horizontal movement */
@@ -62,6 +63,8 @@ max-width: 1400px;
   justify-content: center;
   z-index: var(--z-modal);
   animation: fadeIn var(--transition-speed) ease-in;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-overlay--transparent {
@@ -251,6 +254,41 @@ max-width: 1400px;
 
 .card.white .form-error {
   color: #DC3545;
+}
+
+/* ============================================
+   MOBILE FIXES
+   ============================================ */
+
+/* Mobile: Align modal content to top to prevent cutoff */
+@media (max-width: 768px) {
+  .modal-overlay {
+    align-items: flex-start;
+    padding: var(--space-md);
+    padding-top: var(--space-lg);
+  }
+  
+  .content-pane {
+    margin: 0;
+    max-height: calc(100vh - var(--space-lg) * 2);
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Ensure header with close button is always visible */
+  .card-header--with-close {
+    position: sticky;
+    top: 0;
+    background: var(--bg-overlay);
+    z-index: 10;
+    padding-top: var(--space-md);
+    margin-top: calc(-1 * var(--space-xl));
+    margin-left: calc(-1 * var(--space-xl));
+    margin-right: calc(-1 * var(--space-xl));
+    padding-left: var(--space-xl);
+    padding-right: var(--space-xl);
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+  }
 }
 
 /* EOF */

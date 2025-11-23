@@ -49,7 +49,7 @@ class ConfigLoader {
    */
   getAssetPath(relativePath) {
     // Remove leading slash if present for consistency
-    const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+    const cleanPath = relativePath.startsWitch('/') ? relativePath.slice(1) : relativePath;
     
     // If CDN is configured, use it; otherwise use local path
     if (CDN_BASE_URL) {
