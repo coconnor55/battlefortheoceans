@@ -260,7 +260,7 @@ max-width: 1400px;
    MOBILE FIXES
    ============================================ */
 
-/* Mobile: Align modal content to top to prevent cutoff */
+/* Mobile: Align modal content to top to prevent cutoff - ONLY for modal overlays */
 @media (max-width: 768px) {
   .modal-overlay {
     align-items: flex-start;
@@ -270,7 +270,8 @@ max-width: 1400px;
     overscroll-behavior: contain;
   }
   
-  .content-pane {
+  /* Only apply full-height to content panes INSIDE modal overlays */
+  .modal-overlay .content-pane {
     margin: 0;
     min-height: 100vh;
     max-height: none;
@@ -284,14 +285,14 @@ max-width: 1400px;
   }
   
   /* Ensure header with close button is accessible at top */
-  .content-pane .card-header--with-close {
+  .modal-overlay .content-pane .card-header--with-close {
     position: relative;
     margin-top: 0;
     padding-top: var(--space-md);
   }
   
   /* Ensure footer buttons are accessible at bottom */
-  .content-pane .card-footer {
+  .modal-overlay .content-pane .card-footer {
     padding-bottom: var(--space-md);
     margin-bottom: 0;
   }
