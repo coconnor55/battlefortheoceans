@@ -88,6 +88,7 @@ import VoucherService from '../services/VoucherService';
 import useInviteFlow from '../hooks/useInviteFlow';
 import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
+import configLoader from '../utils/ConfigLoader';
 import * as LucideIcons from 'lucide-react';
 
 const version = 'v0.2.10';
@@ -708,7 +709,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
           {selectedEraConfig.promotional?.promotional_image && (
             <div className="promo-image-container mb-lg">
               <img
-                src={`${selectedEraConfig.promotional.promotional_image}`}
+                src={configLoader.getEraAssetPath(selectedEraConfig.id, selectedEraConfig.promotional.promotional_image)}
                 alt={selectedEraConfig.name}
                 className="promo-image"
               />

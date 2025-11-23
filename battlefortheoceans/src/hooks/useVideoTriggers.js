@@ -21,6 +21,7 @@
 
 import { useState, useEffect } from 'react';
 import { coreEngine } from '../context/GameContext';
+import configLoader from '../utils/ConfigLoader';
 
 const version = 'v0.3.1';
 
@@ -33,12 +34,13 @@ const version = 'v0.3.1';
  * @returns {string|null} Video path or null if no video available
  */
 const getVideoPath = (eraConfig, videoKey, gameConfig) => {
-  // Try era-specific video first
+  // Try era-specific video first - use ConfigLoader for CDN support
   if (eraConfig?.videos?.[videoKey]) {
-    return eraConfig.videos[videoKey];
+    // Config provides relative path like "videos/victory.mp4"
+    return configLoader.getEraAssetPath(eraConfig.id, eraConfig.videos[videoKey]);
   }
   
-  // Fallback to generic video from game config
+  // Fallback to generic video from game config (already full path)
   if (gameConfig?.videos?.generic_fallbacks?.[videoKey]) {
     return gameConfig.videos.generic_fallbacks[videoKey];
   }

@@ -1,5 +1,10 @@
 // src/utils/ConfigLoader.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v1.1.4: Consistent era asset loading - all paths use ConfigLoader
+//         - Added getEraAssetPath() for relative paths from config files
+//         - Added getEraCaptainPath() for captain avatars
+//         - Config files now use relative paths (images/, videos/, captains/)
+//         - All asset loading goes through ConfigLoader with CDN fallback
 // v1.1.3: Added CDN support with automatic fallback to local assets
 //         - Added getAssetPath() method to construct CDN or local paths
 //         - Updated getEraImagePath(), getEraVideoPath(), getEraShipPath() to use CDN
@@ -14,7 +19,7 @@
 //         - Removed getShipCellSymbol() methods (no longer using combined SVG symbols)
 // v1.1.0: Added ship graphics loading from single SVG file
 
-const version = "v1.1.3";
+const version = "v1.1.4";
 
 // CDN base URL from environment variable (bunny.net CDN)
 const CDN_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
@@ -179,6 +184,32 @@ class ConfigLoader {
     
     const relativePath = `assets/eras/${eraId}/ships/${filename}`;
     return this.getAssetPath(relativePath);
+  }
+
+  /**
+   * Get path to era captain avatar asset
+   * @param {string} eraId - Era identifier
+   * @param {string} filename - Captain avatar filename (e.g., 'anne-bonney.webp')
+   * @returns {string} Full path to captain avatar (CDN or local)
+   */
+  getEraCaptainPath(eraId, filename) {
+    const relativePath = `assets/eras/${eraId}/captains/${filename}`;
+    return this.getAssetPath(relativePath);
+  }
+
+  /**
+   * Get path to era asset from relative path in config
+   * Config files provide relative paths like "images/background.jpg" or "videos/victory.mp4"
+   * This method constructs the full path with CDN support
+   * @param {string} eraId - Era identifier
+   * @param {string} relativePath - Relative path from config (e.g., "images/background.jpg", "captains/anne-bonney.webp")
+   * @returns {string} Full path to asset (CDN or local)
+   */
+  getEraAssetPath(eraId, relativePath) {
+    // Remove leading slash if present
+    const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+    const fullRelativePath = `assets/eras/${eraId}/${cleanPath}`;
+    return this.getAssetPath(fullRelativePath);
   }
 
   /**

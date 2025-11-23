@@ -42,6 +42,7 @@ import InactivityWarning from './components/InactivityWarning';
 import GameGuide from './components/GameGuide';
 import AboutPage from './pages/AboutPage';
 import TestSuite from './tests/TestSuite';
+import configLoader from './utils/ConfigLoader';
 import './App.css';
 
 const version = 'v0.4.6';
@@ -269,11 +270,7 @@ const SceneRenderer = () => {
       });
       
       if (eraConfig.promotional?.background_image) {
-        const backgroundImageUrl = eraConfig.promotional?.background_image
-          ? isProduction
-            ? `${gameCDN}/assets/eras/${eraConfig.id}/${eraConfig.promotional.background_image}`
-            : `/assets/eras/${eraConfig.id}/${eraConfig.promotional.background_image}`
-          : null;
+        const backgroundImageUrl = configLoader.getEraAssetPath(eraConfig.id, eraConfig.promotional.background_image);
         log(`Setting background image: ${backgroundImageUrl}`);
         
         const backgroundValue = `url('${backgroundImageUrl}')`;

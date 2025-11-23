@@ -35,6 +35,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
+import configLoader from '../utils/ConfigLoader';
 
 const version = 'v0.6.14';
 const tag = "OPPONENT";
@@ -480,14 +481,14 @@ const SelectOpponentPage = () => {
                           {fleet.ai_captain.avatar && (
                             <div className="opponent-avatar opponent-avatar--small">
                               <img
-                                src={`/${fleet.ai_captain.avatar}`}
+                                src={configLoader.getEraAssetPath(selectedEraConfig.id, fleet.ai_captain.avatar)}
                                 alt={fleet.ai_captain.name}
                                 onError={(e) => {
-                                  console.error(`[${tag}] ${version} Failed to load avatar: /${fleet.ai_captain.avatar}`, e);
+                                  console.error(`[${tag}] ${version} Failed to load avatar: ${fleet.ai_captain.avatar}`, e);
                                   e.target.style.display = 'none';
                                 }}
                                 onLoad={() => {
-                                  console.log(`[${tag}] ${version} Successfully loaded avatar: /${fleet.ai_captain.avatar}`);
+                                  console.log(`[${tag}] ${version} Successfully loaded avatar: ${fleet.ai_captain.avatar}`);
                                 }}
                               />
                             </div>
@@ -549,7 +550,7 @@ const SelectOpponentPage = () => {
                               {opponent.avatar && (
                                 <div className="opponent-avatar opponent-avatar--small">
                                   <img
-                                    src={`/${opponent.avatar}`}
+                                    src={configLoader.getEraAssetPath(selectedEraConfig.id, opponent.avatar)}
                                     alt={opponent.name}
                                     onError={(e) => {
                                       e.target.style.display = 'none';

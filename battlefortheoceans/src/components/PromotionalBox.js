@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import stripeService from '../services/StripeService';
+import configLoader from '../utils/ConfigLoader';
 
 const version = 'v0.2.1';
 // Detect if we're in production (battlefortheoceans.com) or local development
@@ -100,9 +101,7 @@ const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) =
 
   const promotionalImagePath = promotionalEra.promotional?.promotional_image || null;
   const promotionalImageUrl = promotionalImagePath
-    ? isProduction
-      ? `${gameCDN}/${promotionalImagePath}`
-      : `${promotionalImagePath}`
+    ? configLoader.getEraAssetPath(promotionalEra.id, promotionalImagePath)
     : null;
     console.log('[DEBUG]', version, 'Setting promotional image:', promotionalImageUrl);
 

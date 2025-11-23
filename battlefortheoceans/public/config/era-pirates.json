@@ -22,8 +22,8 @@
     "ship_silhouettes_path": "assets/eras/pirates/ships"
   },
   "promotional": {
-    "background_image": "assets/eras/pirates/images/background.jpg",
-    "promotional_image": "assets/eras/pirates/images/promotional.jpg",
+    "background_image": "images/background.jpg",
+    "promotional_image": "images/promotional.jpg",
     "stripe_price_id": "price_1SKwHzFKFdXJ01egR8DXhm5C",
     "tagline": "Hunt the Last Pirates!",
     "marketing_description": "Command the West Indies Squadron against the final generation of Caribbean pirates. Navigate treacherous waters, shallow reefs, and island hideouts in this sprawling Gulf of Mexico battlefield. Face up to four legendary pirate captains simultaneously!",
@@ -36,10 +36,10 @@
     ]
   },
   "videos": {
-    "sunkplayer": "assets/eras/pirates/videos/playersunk.mp4",
-    "sunkopponent": "assets/eras/pirates/videos/opponentsunk.mp4",
-    "victory": "assets/eras/pirates/videos/victory.mp4",
-    "defeat": "assets/eras/pirates/videos/defeat.mp4"
+    "sunkplayer": "videos/playersunk.mp4",
+    "sunkopponent": "videos/opponentsunk.mp4",
+    "victory": "videos/victory.mp4",
+    "defeat": "videos/defeat.mp4"
   },
   "game_rules": {
     "change_alliance": false,
@@ -116,7 +116,7 @@
             "strategy": "aggressive",
             "difficulty": 1.2,
             "description": "El Pirata Cofresí - The Robin Hood of Puerto Rico. Uses aggressive probability targeting and bold hit-and-run tactics from island hideouts.",
-            "avatar": "assets/eras/pirates/captains/roberto-cofresi.webp"
+            "avatar": "captains/roberto-cofresi.webp"
           },
           "description": "The Robin Hood of Puerto Rico. Known for distributing loot to the poor while evading Spanish and American naval forces.",
           "ships": [
@@ -136,7 +136,7 @@
             "strategy": "hunt-target",
             "difficulty": 1.0,
             "description": "The Gentleman Pirate - Master smuggler of Barataria Bay. Known for cunning tactics and switching between hunt and target modes like a true predator.",
-            "avatar": "assets/eras/pirates/captains/jean-lafitte.webp"
+            "avatar": "captains/jean-lafitte.webp"
           },
           "description": "Gentleman pirate and hero of New Orleans. Lafitte's Baratarian smugglers know every hidden cove and channel in the Gulf.",
           "ships": [
@@ -154,7 +154,7 @@
             "strategy": "hunt-target",
             "difficulty": 1.0,
             "description": "The Fierce Pirate Queen - One of the fiercest fighters to ever sail the Caribbean. Quick-tempered, skilled with pistol and cutlass, and absolutely fearless in battle. Switches between hunt and target modes with savage precision.",
-            "avatar": "assets/eras/pirates/captains/anne-bonney.webp"
+            "avatar": "captains/anne-bonney.webp"
           },
           "description": "The legendary female pirate who shattered every expectation of 18th-century womanhood. Anne Bonney's crew fights with the same fearlessness and ferocity as their captain—quick to anger, deadly with blade and pistol, and never backing down from a fight.",
           "ships": [
@@ -173,7 +173,7 @@
             "strategy": "aggressive",
             "difficulty": 1.4,
             "description": "The Little Devil - Most feared pirate in Cuban waters. Ruthless and unpredictable, combines aggressive targeting with intimate knowledge of reef systems.",
-            "avatar": "assets/eras/pirates/captains/diabolito.webp"
+            "avatar": "captains/diabolito.webp"
           },
           "description": "The Little Devil of Cuba. Brutal and unpredictable, his ships strike merchant vessels along the Florida Straits before vanishing into Cuban coves.",
           "ships": [
@@ -193,7 +193,7 @@
             "strategy": "aggressive",
             "difficulty": 1.6,
             "description": "Blackbeard himself! The most infamous pirate who ever lived. Terror of the Caribbean, master of intimidation, and brilliant tactician who strikes fear with aggressive probability attacks.",
-            "avatar": "assets/eras/pirates/captains/edward-teach.webp"
+            "avatar": "captains/edward-teach.webp"
           },
           "description": "The ghost of Blackbeard returns! Though Edward Teach fell in 1718, his legend lives on. This fleet sails under his black flag, striking terror into the hearts of Navy sailors.",
           "ships": [

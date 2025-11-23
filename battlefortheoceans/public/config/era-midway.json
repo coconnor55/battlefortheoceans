@@ -19,8 +19,8 @@
     "ship_silhouettes_path": "assets/eras/midway/ships"
   },
   "promotional": {
-    "background_image": "assets/eras/midway/images/background.jpg",
-    "promotional_image": "assets/eras/midway/images/promotional.jpg",
+    "background_image": "images/background.jpg",
+    "promotional_image": "images/promotional.jpg",
     "stripe_price_id": "price_1SKvxVFKFdXJ01egvawS3rHH",
     "tagline": "Try Midway Island!",
     "marketing_description": "Take command of the US Navy or Imperial Navy and fight the historic Battle of Midway, June 4-7, 1942. Experience carrier warfare with authentic ship rosters and strategic Pacific theater combat.",
@@ -33,10 +33,10 @@
     ]
   },
   "videos": {
-    "sunkplayer": "assets/eras/midway/videos/playersunk.mp4",
-    "sunkopponent": "assets/eras/midway/videos/opponentsunk.mp4",
-    "victory": "assets/eras/midway/videos/victory.mp4",
-    "defeat": "assets/eras/midway/videos/defeat.mp4"
+    "sunkplayer": "videos/playersunk.mp4",
+    "sunkopponent": "videos/opponentsunk.mp4",
+    "victory": "videos/victory.mp4",
+    "defeat": "videos/defeat.mp4"
   },
   "game_rules": {
     "change_alliance": false,
@@ -99,7 +99,7 @@
           "strategy": "methodical_optimal",
           "difficulty": 1.4,
           "description": "A methodical US Navy commander who uses systematic grid search patterns with offset targeting to locate and destroy enemy vessels with tactical precision.",
-          "avatar": "assets/eras/midway/captains/C_Spruance.webp"
+            "avatar": "captains/C_Spruance.webp"
         },
         {
           "id": "admiral-nimitz",
@@ -107,7 +107,7 @@
           "strategy": "aggressive",
           "difficulty": 1.7,
           "description": "The legendary Pacific Fleet commander who combines center-mass probability targeting with relentless recursive hunt tactics to dominate naval warfare.",
-          "avatar": "assets/eras/midway/captains/FA_Nimitz.webp"
+            "avatar": "captains/FA_Nimitz.webp"
         }
       ]
     },
@@ -133,7 +133,7 @@
           "strategy": "methodical_random",
           "difficulty": 1.0,
           "description": "Mitsuo Fuchida, the skilled aviator who led the Pearl Harbor attack. Uses disciplined checkerboard search patterns with systematic coverage.",
-          "avatar": "assets/eras/midway/captains/LtC_Fuchida.webp"
+            "avatar": "captains/LtC_Fuchida.webp"
         },
         {
           "id": "admiral-nagumo",
@@ -141,7 +141,7 @@
           "strategy": "methodical_optimal",
           "difficulty": 1.4,
           "description": "Commander of the Kido Butai carrier strike force. Employs advanced grid-search tactics with offset patterns to maximize fleet effectiveness.",
-          "avatar": "assets/eras/midway/captains/A_Nagumo.webp"
+            "avatar": "captains/A_Nagumo.webp"
         },
         {
           "id": "admiral-yamamoto",
@@ -149,7 +149,7 @@
           "strategy": "aggressive",
           "difficulty": 1.7,
           "description": "Isoroku Yamamoto, architect of the Pearl Harbor strike and master strategist of the Combined Fleet. Uses center-mass probability targeting with aggressive recursive hunt tactics to locate and destroy enemy vessels.",
-          "avatar": "assets/eras/midway/captains/A_Yamamoto.webp"
+            "avatar": "captains/A_Yamamoto.webp"
         }
       ]
     }

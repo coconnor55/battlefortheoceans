@@ -21,6 +21,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { coreEngine, useGame } from '../context/GameContext';
 import stripeService from '../services/StripeService';
+import configLoader from '../utils/ConfigLoader';
 import Player from '../classes/Player';
 
 const version = 'v0.4.4';
@@ -331,17 +332,13 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
     features.push(`${eraInfo.rows}x${eraInfo.cols} battlefield with authentic Pacific terrain`);
   }
 
-  // Image URL construction
+  // Image URL construction - use ConfigLoader for consistent CDN support
   const backgroundImageUrl = eraInfo.promotional?.background_image
-    ? isProduction
-      ? `${gameCDN}/${eraInfo.promotional.background_image}`
-      : `${eraInfo.promotional.background_image}`
+    ? configLoader.getEraAssetPath(eraInfo.id, eraInfo.promotional.background_image)
     : null;
 
   const promotionalImageUrl = eraInfo.promotional?.promotional_image
-    ? isProduction
-      ? `${gameCDN}/${eraInfo.promotional.promotional_image}`
-      : `${eraInfo.promotional.promotional_image}`
+    ? configLoader.getEraAssetPath(eraInfo.id, eraInfo.promotional.promotional_image)
     : null;
 
   return (

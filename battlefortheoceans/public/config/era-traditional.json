@@ -19,10 +19,10 @@
     "promotional_image": "assets/eras/traditional/images/promotional.jpg"
   },
   "videos": {
-    "sunkplayer": "assets/eras/traditional/videos/playersunk.mp4",
-    "sunkopponent": "assets/eras/traditional/videos/opponentsunk.mp4",
-    "victory": "assets/eras/traditional/videos/victory.mp4",
-    "defeat": "assets/eras/traditional/videos/defeat.mp4"
+    "sunkplayer": "videos/playersunk.mp4",
+    "sunkopponent": "videos/opponentsunk.mp4",
+    "victory": "videos/victory.mp4",
+    "defeat": "videos/defeat.mp4"
   },
   "game_rules": {
     "change_alliance": false,
@@ -90,7 +90,7 @@
           "strategy": "random",
           "difficulty": 0.7,
           "description": "A fresh naval academy graduate still learning the ropes of sea warfare. Fires randomly without any tactical planning.",
-          "avatar": "assets/eras/traditional/captains/E_Jack.webp"
+            "avatar": "captains/E_Jack.webp"
         },
         {
           "id": "captain-flynn",
@@ -98,7 +98,7 @@
           "strategy": "methodical_random",
           "difficulty": 1.0,
           "description": "A dashing naval officer who uses checkerboard search patterns to systematically cover the battlefield. Inspired by the swashbuckling heroes of old.",
-          "avatar": "assets/eras/traditional/captains/C_Flynn.webp"
+            "avatar": "captains/C_Flynn.webp"
         },
         {
           "id": "admiral-swift",
@@ -106,7 +106,7 @@
           "strategy": "methodical_optimal",
           "difficulty": 1.4,
           "description": "A seasoned fleet commander who employs advanced grid-search tactics with offset patterns to maximize coverage and hunt efficiency.",
-          "avatar": "assets/eras/traditional/captains/A_Swift.webp"
+            "avatar": "captains/A_Swift.webp"
         },
         {
           "id": "fleet-admiral-halsey",
@@ -114,7 +114,7 @@
           "strategy": "aggressive",
           "difficulty": 1.7,
           "description": "The legendary 'Bull' Halsey reborn. Commands with fierce aggression, radiating outward from the center with relentless recursive hunt tactics. Never lets a wounded ship escape. A master of center-mass probability targeting.",
-          "avatar": "assets/eras/traditional/captains/FA_Halsey.webp"
+            "avatar": "captains/FA_Halsey.webp"
         },
         {
           "id": "grand-admiral-sonnet",
@@ -122,7 +122,7 @@
           "strategy": "ai-hunt",
           "difficulty": 2.0,
           "description": "An AI consciousness from beyond the stars who has studied every naval battle in human history. Combines perfect probability calculations with adaptive pattern recognition and psychological warfare. Some say defeating this opponent is theoretically possible... but no one has proven it yet.",
-          "avatar": "assets/eras/traditional/captains/GA_Sonnet.webp"
+            "avatar": "captains/GA_Sonnet.webp"
         }
       ]
     }
