@@ -101,8 +101,8 @@ const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) =
   const promotionalImagePath = promotionalEra.promotional?.promotional_image || null;
   const promotionalImageUrl = promotionalImagePath
     ? isProduction
-      ? `${gameCDN}/assets/eras/${promotionalEra.id}/${promotionalImagePath}`
-      : `/assets/eras/${promotionalEra.id}/${promotionalImagePath}`
+      ? `${gameCDN}/${promotionalImagePath}`
+      : `${promotionalImagePath}`
     : null;
     console.log('[DEBUG]', version, 'Setting promotional image:', promotionalImageUrl);
 

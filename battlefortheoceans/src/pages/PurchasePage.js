@@ -340,8 +340,8 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
 
   const promotionalImageUrl = eraInfo.promotional?.promotional_image
     ? isProduction
-      ? `${gameCDN}/assets/eras/${eraInfo.id}/${eraInfo.promotional.promotional_image}`
-      : `/assets/eras/${eraInfo.id}/${eraInfo.promotional.promotional_image}`
+      ? `${gameCDN}/${eraInfo.promotional.promotional_image}`
+      : `${eraInfo.promotional.promotional_image}`
     : null;
 
   return (

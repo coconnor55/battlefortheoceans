@@ -708,7 +708,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
           {selectedEraConfig.promotional?.promotional_image && (
             <div className="promo-image-container mb-lg">
               <img
-                src={`/assets/eras/${selectedEraConfig.id}/${selectedEraConfig.promotional.promotional_image}`}
+                src={`${selectedEraConfig.promotional.promotional_image}`}
                 alt={selectedEraConfig.name}
                 className="promo-image"
               />

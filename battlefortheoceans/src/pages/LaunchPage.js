@@ -18,7 +18,6 @@
 import { useState, useEffect } from 'react';
 import { coreEngine, useGame } from '../context/GameContext';
 import { events } from '../constants/GameEvents';
-import { APP_VERSION } from '../App.js';
 
 const version = 'v0.3.11';
 const tag = "LAUNCH";
@@ -42,6 +41,10 @@ const LaunchPage = () => {
   const { dispatch, events } = useGame();  // ← Fixed: get events from context
   const [showButton, setShowButton] = useState(false);
   const [, forceUpdate] = useState(0);
+  
+  // Get game config version
+  const gameConfig = coreEngine.gameConfig;
+  const gameVersion = gameConfig?.version;
   
   // Subscribe to CoreEngine updates to see keyDataError changes
   useEffect(() => {
@@ -159,8 +162,8 @@ const LaunchPage = () => {
           </div>
         )}
         <div className="card-footer">
-          {APP_VERSION && (
-            <p className="game-version">{APP_VERSION}</p>
+          {gameVersion && (
+            <p className="game-version">{gameVersion}</p>
           )}
         </div>
       </div>
