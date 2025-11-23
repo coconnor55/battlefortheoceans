@@ -16,7 +16,7 @@
     "star_shell_pattern": "3x3"
   },
   "era_assets": {
-    "ship_silhouettes_path": "assets/eras/midway/ships"
+    "ship_silhouettes_path": "ships"
   },
   "promotional": {
     "background_image": "images/background.jpg",

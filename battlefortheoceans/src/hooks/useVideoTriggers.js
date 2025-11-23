@@ -40,9 +40,11 @@ const getVideoPath = (eraConfig, videoKey, gameConfig) => {
     return configLoader.getEraAssetPath(eraConfig.id, eraConfig.videos[videoKey]);
   }
   
-  // Fallback to generic video from game config (already full path)
+  // Fallback to generic video from game config (relative path, use ConfigLoader)
   if (gameConfig?.videos?.generic_fallbacks?.[videoKey]) {
-    return gameConfig.videos.generic_fallbacks[videoKey];
+    // Generic fallbacks are relative paths like "eras/traditional/videos/playersunk.mp4"
+    // Use getAssetPath to add CDN/public prefix
+    return configLoader.getAssetPath(gameConfig.videos.generic_fallbacks[videoKey]);
   }
   
   // No video available

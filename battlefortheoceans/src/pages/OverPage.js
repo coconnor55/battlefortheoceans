@@ -62,6 +62,7 @@ import PurchasePage from './PurchasePage';
 import Player from '../classes/Player';
 import VideoPopup from '../components/VideoPopup';
 import AchievementService from '../services/AchievementService';
+import configLoader from '../utils/ConfigLoader';
 import * as LucideIcons from 'lucide-react';
 
 const version = 'v0.5.15';
@@ -326,9 +327,11 @@ const OverPage = () => {
           // Check if achievement video exists
           const videoPath = gameConfig?.videos?.new_achievement;
           if (videoPath) {
-            log('Playing achievement video before modal:', videoPath);
+            // Use ConfigLoader to resolve relative path (CDN or public)
+            const fullVideoPath = configLoader.getAssetPath(videoPath);
+            log('Playing achievement video before modal:', fullVideoPath);
             // Show video first
-            setVideoData({ type: 'new_achievement', url: videoPath });
+            setVideoData({ type: 'new_achievement', url: fullVideoPath });
             setShowVideo(true);
             // Don't show modal yet - will show after video closes
           } else {
@@ -375,9 +378,11 @@ const OverPage = () => {
           // Check if achievement video exists
           const videoPath = gameConfig?.videos?.new_achievement;
           if (videoPath) {
-            log('Playing achievement video before modal:', videoPath);
+            // Use ConfigLoader to resolve relative path (CDN or public)
+            const fullVideoPath = configLoader.getAssetPath(videoPath);
+            log('Playing achievement video before modal:', fullVideoPath);
             // Show video first
-            setVideoData({ type: 'new_achievement', url: videoPath });
+            setVideoData({ type: 'new_achievement', url: fullVideoPath });
             setShowVideo(true);
             // Don't show modal yet - will show after video closes
           } else {

@@ -59,8 +59,9 @@ max-width: 1400px;
   bottom: 0;
   background: rgba(0, 0, 0, 0.8);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  padding-top: 60px; /* Account for fixed NavBar */
   z-index: 200; /* Above NavBar (z-index 100) */
   animation: fadeIn var(--transition-speed) ease-in;
   overflow-y: auto;

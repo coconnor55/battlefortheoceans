@@ -287,8 +287,7 @@ const AchievementsPage = ({ onClose, scrollPosition }) => {
   const allEarned = getAllEarned();
 
   return (
-    <div
-      className="container flex flex-column flex-center-scrollable">
+    <div className="container flex flex-column flex-center">
       <div className="content-pane content-pane--wide">
         {/* Header */}
         <div className="card-header card-header--with-close">

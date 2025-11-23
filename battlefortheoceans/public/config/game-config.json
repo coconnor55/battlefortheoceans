@@ -31,9 +31,9 @@
     "critical_health_percent": 0.5
   },
   "ship_silhouettes": {
-    "path_template": "/assets/ships/{era}/{class}/{index}.svg",
-    "comment": "Ship cells indexed 0 to n-1, where 0=stern, n-1=bow",
-    "fallback": "/assets/ships/default/{index}.svg"
+    "path_template": "ships/{class}/{index}.svg",
+    "comment": "Ship cells indexed 0 to n-1, where 0=stern, n-1=bow. Path is relative to assets/eras/{era}/",
+    "fallback": "ships/default/{index}.svg"
   },
   "animations": {
     "shot_animation": 500,
@@ -43,7 +43,7 @@
     "game_over_delay": 6000
   },
   "videos": {
-    "new_achievement": "/assets/videos/new-achievement.mp4",
+    "new_achievement": "assets/videos/new-achievement.mp4",
     "generic_fallbacks": {
         "sunkplayer": "assets/eras/traditional/videos/playersunk.mp4",
         "sunkopponent": "assets/eras/traditional/videos/opponentsunk.mp4",

@@ -19,7 +19,7 @@
     "scatter_shot_boost": 1
   },
   "era_assets": {
-    "ship_silhouettes_path": "assets/eras/pirates/ships"
+    "ship_silhouettes_path": "ships"
   },
   "promotional": {
     "background_image": "images/background.jpg",
