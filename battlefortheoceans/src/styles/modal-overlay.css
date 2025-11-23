@@ -61,7 +61,7 @@ max-width: 1400px;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--z-modal);
+  z-index: 200; /* Above NavBar (z-index 100) */
   animation: fadeIn var(--transition-speed) ease-in;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -265,6 +265,7 @@ max-width: 1400px;
   .modal-overlay {
     align-items: flex-start;
     padding: 0;
+    padding-top: 60px; /* Account for fixed NavBar (z-index 100) */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
@@ -273,7 +274,7 @@ max-width: 1400px;
   /* Only apply full-height to content panes INSIDE modal overlays */
   .modal-overlay .content-pane {
     margin: 0;
-    min-height: 100vh;
+    min-height: calc(100vh - 60px); /* Account for NavBar */
     max-height: none;
     width: 100%;
     max-width: 100%;
@@ -295,6 +296,19 @@ max-width: 1400px;
   .modal-overlay .content-pane .card-footer {
     padding-bottom: var(--space-md);
     margin-bottom: 0;
+  }
+  
+  /* Fix SelectEraPage centering on mobile */
+  .container.flex.flex-column.flex-center {
+    padding-top: 60px; /* Account for NavBar */
+    min-height: calc(100vh - 60px);
+    justify-content: flex-start;
+    align-items: center;
+  }
+  
+  .container .content-pane {
+    margin: var(--space-md) auto;
+    width: calc(100% - var(--space-md) * 2);
   }
 }
 
