@@ -266,7 +266,7 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  align-items: stretch;
+  align-items: center;
   margin: 0;
   padding: 0;
   overflow: visible;
@@ -286,6 +286,8 @@
   max-height: 67vh;
   width: auto;
   height: auto;
+  /* Prevent stretching - maintain natural aspect ratio */
+  align-self: center;
   margin: 0;
   display: block;
 }
