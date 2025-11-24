@@ -292,7 +292,6 @@
 
 /* Make view-mode-controls match canvas width exactly */
 .view-mode-controls {
-  align-self: stretch;
 }
 
 /* ============================================
@@ -699,7 +698,6 @@
   position: relative;
   z-index: 10;
   box-shadow: var(--shadow);
-  align-self: center;
 }
 
 .view-mode-btn {
@@ -1596,7 +1594,6 @@
   }
   
   .view-mode-controls {
-    width: 100%;
   }
   
   .stats-grid {
