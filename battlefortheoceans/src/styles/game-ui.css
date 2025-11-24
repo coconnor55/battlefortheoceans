@@ -292,7 +292,6 @@
 
 /* Make view-mode-controls match canvas width exactly */
 .view-mode-controls {
-  width: 100%;
   align-self: stretch;
 }
 
