@@ -589,6 +589,7 @@ const CanvasBoard = forwardRef(({
   }, [createExplosion]);
 
   useImperativeHandle(ref, () => ({
+    getCanvasElement: () => canvasRef.current,
     recordOpponentShot: (row, col, result) => {
       if (result === 'firing') {
         showOpponentAnimation(row, col, 'firing');
@@ -756,6 +757,8 @@ const CanvasBoard = forwardRef(({
       <canvas
         ref={canvasRef}
         className={getCanvasClasses()}
+        width={boardWidth + 40}
+        height={boardHeight + 40}
       />
       
       {showActionMenu && ReactDOM.createPortal(

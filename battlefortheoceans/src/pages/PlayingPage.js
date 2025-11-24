@@ -151,6 +151,33 @@ const PlayingPage = () => {
   }, []);
     
   const canvasBoardRef = useRef(null);
+  const viewControlsRef = useRef(null);
+  
+  // Match view controls width to canvas width
+  useEffect(() => {
+    const updateControlsWidth = () => {
+      // canvasBoardRef exposes getCanvasElement() method via useImperativeHandle
+      const canvasElement = canvasBoardRef.current?.getCanvasElement?.();
+      
+      if (canvasElement && viewControlsRef.current) {
+        const canvasRect = canvasElement.getBoundingClientRect();
+        viewControlsRef.current.style.width = `${canvasRect.width}px`;
+      }
+    };
+    
+    // Update on mount and resize
+    const timeoutId = setTimeout(updateControlsWidth, 100);
+    window.addEventListener('resize', updateControlsWidth);
+    
+    // Also update periodically to catch canvas size changes
+    const interval = setInterval(updateControlsWidth, 200);
+    
+    return () => {
+      window.removeEventListener('resize', updateControlsWidth);
+      clearInterval(interval);
+      clearTimeout(timeoutId);
+    };
+  }, [gameInstance, gameBoard, selectedEraConfig]);
   
   // No duplicate subscription - useGameState already subscribes to CoreEngine
   
@@ -315,7 +342,7 @@ const PlayingPage = () => {
                   player={player}
                 />
                 
-                <div className="view-mode-controls">
+                <div className="view-mode-controls" ref={viewControlsRef}>
                   <button
                     className={`view-mode-btn ${viewMode === 'fleet' ? 'view-mode-btn--active' : ''}`}
                     onClick={() => setViewMode('fleet')}

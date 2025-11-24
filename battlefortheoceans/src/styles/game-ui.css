@@ -266,7 +266,7 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  align-items: center;
+  align-items: stretch;
   margin: 0;
   padding: 0;
   overflow: visible;
@@ -282,13 +282,15 @@
   box-shadow: var(--shadow);
   background-color: transparent;
   /* Maintain aspect ratio while allowing scaling */
+  /* Use max constraints to scale down when needed, but preserve aspect ratio */
   max-width: 100%;
   max-height: 67vh;
+  /* width and height are set via HTML attributes - CSS will scale proportionally */
   width: auto;
   height: auto;
-  /* Prevent stretching - maintain natural aspect ratio */
+  /* Center horizontally and prevent stretching */
   align-self: center;
-  margin: 0;
+  margin: 0 auto;
   display: block;
 }
 
@@ -685,7 +687,7 @@
   display: flex;
   justify-content: stretch;
   gap: 0;
-  margin: 0;
+  margin: 0 auto;
   min-width: 0;
   background: rgba(0, 0, 0, 0.8);
   border: 2px solid var(--border-color);
@@ -695,7 +697,11 @@
   position: relative;
   z-index: 10;
   box-shadow: var(--shadow);
-  align-self: stretch;
+  /* Match canvas width - center and match canvas dimensions */
+  align-self: center;
+  /* Match canvas width by using auto (will match canvas since both are centered) */
+  max-width: 100%;
+  width: auto;
 }
 
 .view-mode-btn {
@@ -1599,12 +1605,17 @@
   .game-board-container canvas,
   .game-board-container img {
     max-width: 100%;
-    width: 100%;
+    /* Maintain aspect ratio - don't force width: 100% */
+    width: auto;
     height: auto;
   }
   
   .view-mode-controls {
-    width: 100%;
+    /* Match canvas width exactly - use same constraints as canvas */
+    width: auto;
+    max-width: 100%;
+    /* Ensure it matches the canvas by using the same alignment */
+    align-self: center;
   }
   
   .stats-grid {
