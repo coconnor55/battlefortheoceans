@@ -756,8 +756,6 @@ const CanvasBoard = forwardRef(({
       <canvas
         ref={canvasRef}
         className={getCanvasClasses()}
-        width={boardWidth + 40}
-        height={boardHeight + 40}
       />
       
       {showActionMenu && ReactDOM.createPortal(

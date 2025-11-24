@@ -69,8 +69,22 @@ class InputHandler {
     if (!canvas) return { x: 0, y: 0 };
     
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    // Use the actual internal canvas dimensions (not HTML attributes which may be overridden by CSS)
+    const internalWidth = canvas.width;
+    const internalHeight = canvas.height;
+    const displayWidth = rect.width;
+    const displayHeight = rect.height;
+    
+    // Validate dimensions to avoid division by zero or invalid calculations
+    if (!internalWidth || !internalHeight || !displayWidth || !displayHeight) {
+      return { x: 0, y: 0 };
+    }
+    
+    // Calculate scale factors
+    const scaleX = internalWidth / displayWidth;
+    const scaleY = internalHeight / displayHeight;
+    
+    // Transform mouse coordinates to canvas coordinates
     const x = (clientX - rect.left) * scaleX;
     const y = (clientY - rect.top) * scaleY;
     
