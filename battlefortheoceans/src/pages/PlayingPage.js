@@ -371,15 +371,18 @@ const PlayingPage = () => {
           <div className="game-stats">
             <span className="stat-inline">Your Hits: {playerHits || 0}</span>
             <span className="stat-inline">Enemy Hits: {opponentHits || 0}</span>
-            {canUseAutoPlay && isGameActive && (
+          </div>
+          
+          {canUseAutoPlay && isGameActive && (
+            <div className="autoplay-container">
               <button
                 className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
                 onClick={handleAutoPlayToggle}
               >
                 {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ AutoPlay'}
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

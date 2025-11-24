@@ -290,10 +290,6 @@
   display: block;
 }
 
-/* Make view-mode-controls match canvas width exactly */
-.view-mode-controls {
-}
-
 /* ============================================
    FINAL BOARD DISPLAY (OverPage)
    v2.2.0: Final board image styling
@@ -698,6 +694,7 @@
   position: relative;
   z-index: 10;
   box-shadow: var(--shadow);
+  align-self: stretch;
 }
 
 .view-mode-btn {
@@ -743,6 +740,8 @@
   justify-content: center;
   align-items: flex-start;
   margin-bottom: var(--space-md);
+  max-height: 80vh;
+  overflow: hidden;
 }
 
 /* Board and console container - stacked vertically */
@@ -752,14 +751,16 @@
   gap: var(--space-sm);
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
 }
 
-/* Fleet sidebars container - stacked horizontally */
+/* Fleet sidebars container - stacked vertically */
 .fleet-sidebars-container {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: var(--space-md);
   flex-shrink: 0;
+  overflow-y: auto;
 }
 
 .fleet-status-sidebar {
@@ -1213,8 +1214,16 @@
    PlayingPage specific styling
    ============================================ */
 
+.autoplay-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: var(--space-md) 0;
+  width: 100%;
+}
+
 .autoplay-toggle {
-  margin-left: var(--space-md);
+  margin: 0;
 }
 
 /* ============================================
@@ -1594,6 +1603,7 @@
   }
   
   .view-mode-controls {
+    width: 100%;
   }
   
   .stats-grid {
