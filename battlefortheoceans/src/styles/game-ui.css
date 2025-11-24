@@ -281,11 +281,11 @@
   border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
   box-shadow: var(--shadow);
   background-color: transparent;
-  /* Let canvas maintain its natural size (set by ctx.canvas.width/height) */
-  /* Scale down only if needed to fit container */
+  /* Maintain aspect ratio while allowing scaling */
   max-width: 100%;
   max-height: 67vh;
-  /* Don't set width/height - let canvas use its natural dimensions from ctx.canvas.width/height */
+  width: auto;
+  height: auto;
   margin: 0;
   display: block;
 }
