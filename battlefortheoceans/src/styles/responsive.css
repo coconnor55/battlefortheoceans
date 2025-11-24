@@ -323,25 +323,7 @@
    GAME-SPECIFIC RESPONSIVE ADJUSTMENTS
    ============================================ */
 
-/* Game board scaling */
-@media (max-width: 768px) {
-  .game-board-container {
-    min-height: 250px;
-    padding: var(--space-sm);
-  }
-  
-  .game-board-container canvas {
-    max-width: 100%;
-    height: auto;
-  }
-}
-
-@media (max-width: 480px) {
-  .game-board-container {
-    min-height: 200px;
-    margin: var(--space-sm) 0;
-  }
-}
+/* Game board scaling - consolidated in game-ui.css */
 
 /* Battle stats responsive */
 @media (max-width: 768px) {
