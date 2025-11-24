@@ -292,38 +292,59 @@ const PlayingPage = () => {
           </div>
           
           <div className="battle-board-layout">
-            <FleetStatusSidebar
-              fleet={player?.fleet}
-              title="Home"
-              munitions={munitions}
-            />
-            
-            <div className="game-board-container">
-              {showVideo && currentVideo && (
-                <VideoPopup
-                  videoSrc={currentVideo}
-                  onComplete={handleVideoComplete}
+            {/* Left side: Board and message console stacked vertically */}
+            <div className="board-console-container">
+              <div className="game-board-container">
+                {showVideo && currentVideo && (
+                  <VideoPopup
+                    videoSrc={currentVideo}
+                    onComplete={handleVideoComplete}
+                  />
+                )}
+                
+                <CanvasBoard
+                  ref={canvasBoardRef}
+                  mode="battle"
+                  viewMode={viewMode}
+                  eraConfig={selectedEraConfig}
+                  gameBoard={gameBoard}
+                  gameInstance={gameInstance}
+                  gameState={gameState}
+                  onShotFired={handleShotFired}
+                  onStarShellFired={onStarShellFired}
+                  player={player}
                 />
-              )}
+              </div>
               
-              <CanvasBoard
-                ref={canvasBoardRef}
-                mode="battle"
-                viewMode={viewMode}
-                eraConfig={selectedEraConfig}
-                gameBoard={gameBoard}
-                gameInstance={gameInstance}
-                gameState={gameState}
-                onShotFired={handleShotFired}
-                onStarShellFired={onStarShellFired}
-                player={player}
-              />
+              <div className="message-consoles">
+                <div className="console-combined">
+                  <div className="console-header">Messages</div>
+                  <div className="console-content-combined">
+                    <div className="ui-message">
+                      {uiMessage || 'Preparing for battle...'}
+                    </div>
+                    <div className="message-divider"></div>
+                    <div className="battle-message">
+                      {battleMessage || 'Awaiting battle action...'}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             
-            <FleetStatusSidebar
-              fleets={opponentFleetData}
-              title="Enemy"
-            />
+            {/* Right side: Fleet sidebars stacked horizontally */}
+            <div className="fleet-sidebars-container">
+              <FleetStatusSidebar
+                fleet={player?.fleet}
+                title="Home"
+                munitions={munitions}
+              />
+              
+              <FleetStatusSidebar
+                fleets={opponentFleetData}
+                title="Enemy"
+              />
+            </div>
           </div>
           
           <div className="view-mode-controls">
@@ -358,21 +379,6 @@ const PlayingPage = () => {
                 {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ AutoPlay'}
               </button>
             )}
-          </div>
-          
-          <div className="message-consoles">
-            <div className="console-combined">
-              <div className="console-header">Messages</div>
-              <div className="console-content-combined">
-                <div className="ui-message">
-                  {uiMessage || 'Preparing for battle...'}
-                </div>
-                <div className="message-divider"></div>
-                <div className="battle-message">
-                  {battleMessage || 'Awaiting battle action...'}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
