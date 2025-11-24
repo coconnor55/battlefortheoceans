@@ -281,9 +281,9 @@
   border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
   box-shadow: var(--shadow);
   background-color: transparent;
-   max-height: 67vh;
+  max-height: 67vh;
+  width: 100%;
   height: auto;
-  object-fit: contain;
   margin: 0;
   display: block;
 }
@@ -682,7 +682,7 @@
   justify-content: stretch;
   gap: 0;
   margin: 0;
-   min-width: 0;
+  min-width: 0;
   background: rgba(0, 0, 0, 0.8);
   border: 2px solid var(--border-color);
   border-top: none;
