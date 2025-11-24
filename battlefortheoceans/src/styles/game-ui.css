@@ -264,17 +264,23 @@
 
 .game-board-container {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
   margin: 0;
   padding: 0;
-  overflow: auto;
+  overflow: visible;
   min-height: 320px;
 }
 
 .game-board-container canvas {
+  flex-shrink: 0;
+}
+
+.game-board-container canvas {
   border: 2px solid var(--border-color);
-  border-radius: var(--border-radius-md);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
   box-shadow: var(--shadow);
   background-color: transparent;
   max-width: 100%;
@@ -282,6 +288,7 @@
   width: auto;
   height: auto;
   object-fit: contain;
+  margin: 0 auto;
 }
 
 /* ============================================
@@ -675,29 +682,32 @@
 
 .view-mode-controls {
   display: flex;
-  justify-content: center;
+  justify-content: stretch;
   gap: 0;
-  margin: var(--space-xs) auto var(--space-xs);
-  width: 50%;
+  margin: 0;
+  width: 100%;
   background: rgba(0, 0, 0, 0.8);
-  border-radius: var(--border-radius-md);
-  border-bottom: 2px solid var(--primary);
-  padding: 4px;
+  border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+  border-top: 1px solid var(--border-subtle);
+  padding: 2px;
+  position: relative;
+  z-index: 10;
 }
 
 .view-mode-btn {
   flex: 1;
-  padding: var(--space-xs) var(--space-sm);
+  padding: 4px var(--space-xs);
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.6);
   font-family: var(--font-heading);
-  font-size: 0.725rem;
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
   cursor: pointer;
   transition: all 0.2s ease;
   border-radius: var(--border-radius-sm);
+  line-height: 1.2;
 }
 
 .view-mode-btn:hover {
@@ -1234,7 +1244,7 @@
 }
 
 .console-header {
-  padding: var(--space-xs) var(--space-md);
+  padding: 2px var(--space-md);
   font-weight: bold;
   font-size: 0.75rem;
   text-align: center;

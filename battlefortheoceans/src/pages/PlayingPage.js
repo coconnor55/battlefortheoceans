@@ -314,6 +314,27 @@ const PlayingPage = () => {
                   onStarShellFired={onStarShellFired}
                   player={player}
                 />
+                
+                <div className="view-mode-controls">
+                  <button
+                    className={`view-mode-btn ${viewMode === 'fleet' ? 'view-mode-btn--active' : ''}`}
+                    onClick={() => setViewMode('fleet')}
+                  >
+                    FLEET VIEW
+                  </button>
+                  <button
+                    className={`view-mode-btn ${viewMode === 'blended' ? 'view-mode-btn--active' : ''}`}
+                    onClick={() => setViewMode('blended')}
+                  >
+                    BLENDED VIEW
+                  </button>
+                  <button
+                    className={`view-mode-btn ${viewMode === 'attack' ? 'view-mode-btn--active' : ''}`}
+                    onClick={() => setViewMode('attack')}
+                  >
+                    ATTACK VIEW
+                  </button>
+                </div>
               </div>
               
               <div className="message-consoles">
@@ -345,27 +366,6 @@ const PlayingPage = () => {
                 title="Enemy"
               />
             </div>
-          </div>
-          
-          <div className="view-mode-controls">
-            <button
-              className={`view-mode-btn ${viewMode === 'fleet' ? 'view-mode-btn--active' : ''}`}
-              onClick={() => setViewMode('fleet')}
-            >
-              FLEET VIEW
-            </button>
-            <button
-              className={`view-mode-btn ${viewMode === 'blended' ? 'view-mode-btn--active' : ''}`}
-              onClick={() => setViewMode('blended')}
-            >
-              BLENDED VIEW
-            </button>
-            <button
-              className={`view-mode-btn ${viewMode === 'attack' ? 'view-mode-btn--active' : ''}`}
-              onClick={() => setViewMode('attack')}
-            >
-              ATTACK VIEW
-            </button>
           </div>
           
           <div className="game-stats">
