@@ -274,7 +274,9 @@
   position: relative;
 }
 
-.game-board-container canvas {
+/* Consistent canvas/image styling for PlacementPage, PlayingPage, and OverPage */
+.game-board-container canvas,
+.game-board-container img {
   flex-shrink: 0;
   border: 2px solid var(--border-color);
   border-bottom: none;
@@ -313,6 +315,7 @@
   border: 1px solid var(--border-subtle);
 }
 
+/* .final-board-image - Deprecated: Use .game-board-container img instead for consistency */
 .final-board-image {
   max-width: 100%;
   height: auto;
