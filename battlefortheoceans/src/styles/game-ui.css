@@ -288,8 +288,8 @@
   max-width: 100%;
   max-height: 67vh;
   /* width and height are set via HTML attributes - CSS will scale proportionally */
-  width: auto;
-  height: auto;
+  width: fit-content;
+  height: fit-content;
   /* Center horizontally and prevent stretching */
   align-self: center;
   margin: 0 auto;
