@@ -9,7 +9,7 @@
 // v0.1.0: Main test suite orchestrator
 
 import React, { useState } from 'react';
-import { useGame } from '../context/GameContext';
+import { coreEngine,  useGame } from '../context/GameContext';
 import VoucherServiceTest from './VoucherServiceTest';
 import RightsServiceTest from './RightsServiceTest';
 import MunitionsTest from './MunitionsTest';
@@ -22,11 +22,48 @@ import PlayerProfileServiceTest from './PlayerProfileServiceTest';
 import './TestSuite.css';
 
 const version = 'v0.1.6';
+const tag = "TEST";
+const module = "TestSuite";
+let method = "";
 // Test user configuration
 
 const TestSuite = ({ onClose }) => {
-  const { playerProfile } = useGame();
-    const playerId = playerProfile?.id;
+    // Logging utilities
+    const log = (message) => {
+      console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+    };
+    
+    const logerror = (message, error = null) => {
+      if (error) {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+      } else {
+        console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+      }
+    };
+
+    // Key data - see CoreEngine handle{state}
+    const gameConfig = coreEngine.gameConfig;
+    const eras = coreEngine.eras;
+    const player = coreEngine.player;
+    const playerProfile = coreEngine.playerProfile;
+    const playerEmail = coreEngine.playerEmail;
+    const selectedEraId = coreEngine.selectedEraId;
+    const selectedAlliance = coreEngine.selectedAlliance;
+    const selectedOpponents = coreEngine.selectedOpponents;
+
+    // Derived data
+    const playerId = coreEngine.playerId;
+    const playerRole = coreEngine.playerRole;
+    const playerGameName = coreEngine.playerGameName;
+    const isGuest = player != null && player.isGuest;
+    const isAdmin = player != null && playerProfile?.isAdmin;
+    const isDeveloper = player != null && playerProfile?.isDeveloper;
+    const isTester = player != null && playerProfile?.isTester;
+    const selectedOpponent = selectedOpponents?.[0];
+    const selectedGameMode = coreEngine.selectedGameMode;
+    const gameInstance = coreEngine.gameInstance;
+    const board = coreEngine.board;
+
     const [activeTest, setActiveTest] = useState(null);
     const [expandedTests, setExpandedTests] = useState(new Set());
     const [completedTests, setCompletedTests] = useState(new Set());
@@ -38,12 +75,14 @@ const TestSuite = ({ onClose }) => {
       video: null,
       uiComponents: null,
       achievements: null,
-      gameStats: null,
-        playerProfile: null  // ← ADD THIS
+      gameStats: null
     });
 
+    log('TestSuite player: ', playerId, playerGameName, playerRole, isAdmin);
+
     // Admin check - only allow admins to run tests
-    if (playerProfile?.role !== 'admin') {
+    if (!isAdmin) {
+      logerror('Admin check failed - not an admin', playerId, playerGameName, playerRole, isAdmin);
       return (
         <div className="test-suite-overlay">
           <div className="test-suite-container">
@@ -63,8 +102,6 @@ const TestSuite = ({ onClose }) => {
       );
     }
 
-
-    const loggedInUserId = playerProfile?.id
 
   const tests = [
     {
@@ -272,7 +309,8 @@ const TestSuite = ({ onClose }) => {
         <div className="test-suite-list">
           {tests.map(test => {
             const isExpanded = expandedTests.has(test.id);
-            const hasResults = results[test.id] !== null;
+            const testResult = results[test.id];
+            const hasResults = testResult !== null && testResult !== undefined;
             const isCompleted = completedTests.has(test.id);
             const isRunning = activeTest === test.id;
             
@@ -284,11 +322,11 @@ const TestSuite = ({ onClose }) => {
                     <div>
                       <h3>{test.name} <span className="test-version">{test.version}</span></h3>
                       <p className="test-description">{test.description}</p>
-                      {hasResults && (
+                      {hasResults && testResult && (
                         <p className="test-quick-stats">
-                          ✓ {results[test.id].passed} passed,
-                          {results[test.id].failed > 0 ? ` ✗ ${results[test.id].failed} failed` : ' ✗ 0 failed'}
-                          {results[test.id].skipped > 0 && `, ⊘ ${results[test.id].skipped} skipped`}  {/* ← CHANGE 6: Show skipped in quick stats */}
+                          ✓ {testResult.passed || 0} passed,
+                          {testResult.failed > 0 ? ` ✗ ${testResult.failed} failed` : ' ✗ 0 failed'}
+                          {testResult.skipped > 0 && `, ⊘ ${testResult.skipped} skipped`}  {/* ← CHANGE 6: Show skipped in quick stats */}
                         </p>
                       )}
                     </div>

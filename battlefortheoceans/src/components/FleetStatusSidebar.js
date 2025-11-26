@@ -84,12 +84,22 @@ const FleetStatusSidebar = ({ fleet, fleets, title = 'Fleet', playerId, munition
     <div className="fleet-status-sidebar">
       <div className="fleet-status-header">{title}</div>
       
-      {/* Star shell counter (only for Home/player fleet) */}
+      {/* Munitions counter (only for Home/player fleet) */}
           {title === 'Home' && munitions && (
-            <div className="fleet-status-resource">
-              <span className="fleet-status-resource-emoji">💥</span>
-              <span className="fleet-status-resource-count">{munitions.starShells}</span>
-            </div>
+            <>
+              {munitions.starShells > 0 && (
+                <div className="fleet-status-resource">
+                  <span className="fleet-status-resource-emoji">✨</span>
+                  <span className="fleet-status-resource-count">{munitions.starShells}</span>
+                </div>
+              )}
+              {munitions.scatterShot > 0 && (
+                <div className="fleet-status-resource">
+                  <span className="fleet-status-resource-emoji">💥</span>
+                  <span className="fleet-status-resource-count">{munitions.scatterShot}</span>
+                </div>
+              )}
+            </>
           )}
           
       <div className="fleet-status-ships">

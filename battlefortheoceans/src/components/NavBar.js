@@ -53,6 +53,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import RightsService from '../services/RightsService';
 import PlayerProfileService from '../services/PlayerProfileService';
+import VoucherService from '../services/VoucherService';
 import { coreEngine, useGame } from '../context/GameContext';
 import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins, Diamond } from 'lucide-react';
 
@@ -268,6 +269,47 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
     }
   };
   
+  const handleAddVoucher = async () => {
+    method = 'handleAddVoucher';
+    log('User clicked Add 1 Voucher (Pirates)');
+    setShowUserMenu(false);
+    
+    if (!playerId) {
+      logerror('No playerId available');
+      alert('✗ Failed to add voucher - no player ID');
+      return;
+    }
+    
+    try {
+      // Generate a Pirates voucher (1 play) with purpose 'admin'
+      // Use null for createdBy to allow redemption (system/admin voucher)
+      const voucherCode = await VoucherService.generateVoucher(
+        'pirates',
+        1,
+        'admin', // purpose - tracks that this is an admin-created voucher
+        null, // createdBy - null allows the voucher to be redeemed (system/admin voucher)
+        null, // emailSentTo - null for general voucher
+        1, // rewardPasses
+        10 // referralSignup
+      );
+      
+      log(`Pirates voucher generated: ${voucherCode}`);
+      
+      // Immediately redeem the voucher for the current player
+      await VoucherService.redeemVoucher(playerId, voucherCode);
+      
+      log('Pirates voucher redeemed successfully');
+      
+      // Refresh voucher balance
+      await fetchVoucherBalance();
+      
+      alert('✓ 1 Pirates voucher added successfully!');
+    } catch (error) {
+      logerror('Failed to add voucher:', error);
+      alert(`✗ Failed to add voucher: ${error.message || 'Unknown error'}`);
+    }
+  };
+  
   const handleTest = () => {
     method = 'handleTest';
     log('User clicked test');
@@ -434,6 +476,16 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                       >
                         <Coins size={20} className="action-menu__emoji" />
                         <span className="action-menu__label">*Add 3 Passes</span>
+                      </div>
+                    )}
+                    
+                    {(isAdmin || isDeveloper || isTester) && (
+                      <div
+                        className="action-menu__item"
+                        onClick={handleAddVoucher}
+                      >
+                        <Diamond size={20} className="action-menu__emoji" />
+                        <span className="action-menu__label">*Add 1 Voucher (Pirates)</span>
                       </div>
                     )}
                     
