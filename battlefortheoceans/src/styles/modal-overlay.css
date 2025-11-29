@@ -11,24 +11,26 @@
   background: var(--bg-overlay);
   backdrop-filter: blur(10px);
   border-radius: var(--border-radius-lg);
-  padding: var(--space-xl);
+  /* Reduced padding for larger sizes (was var(--space-xl), now var(--space-md)) */
+  padding: var(--space-md);
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border-subtle);
   max-width: 600px;
-  margin: 50px auto;
+  margin: var(--space-sm) auto;
   width: 80vw;
 
   /* NEW - Make scrollable */
-  max-height: 90vh;
+  max-height: 95vh;
   overflow-y: auto;
+  overflow-x: visible; /* Allow horizontal overflow for game board */
   -webkit-overflow-scrolling: touch;
 }
 
-/* v1.0.4: Fixed width to prevent horizontal movement */
+/* v1.0.4: Grow to 95vw as viewport shrinks */
 .content-pane--wide {
-/*  width: 1400px;*/
-/*  max-width: 95vw;*/
-max-width: 1400px;
+  /* Container grows to 95vw as viewport shrinks (gaps on sides shrink) */
+  max-width: 95vw;
+  overflow-x: visible; /* Allow game board to extend if needed */
 }
 
 /* OverPage centering */
@@ -86,12 +88,11 @@ max-width: 1400px;
 }
 
 .modal {
-    margin-top: 50px;
-
+    margin-top: 40px;
   background: var(--bg-medium);
   border: 2px solid var(--border-color);
   border-radius: var(--border-radius-lg);
-  padding: var(--space-xl);
+  padding: var(--space-lg);
   max-width: 90%;
   max-height: 90vh;
   overflow-y: auto;
@@ -148,8 +149,8 @@ max-width: 1400px;
 
 /* Header section with bottom border */
 .card-header {
-  margin-bottom: var(--space-md);
-  padding-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
+  padding-bottom: var(--space-sm);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -293,8 +294,8 @@ max-width: 1400px;
     width: 100%;
     max-width: 100%;
     border-radius: 0;
-    padding-top: env(safe-area-inset-top, var(--space-lg));
-    padding-bottom: env(safe-area-inset-bottom, var(--space-lg));
+    padding-top: env(safe-area-inset-top, var(--space-md));
+    padding-bottom: env(safe-area-inset-bottom, var(--space-md));
     padding-left: var(--space-md);
     padding-right: var(--space-md);
   }
@@ -312,22 +313,27 @@ max-width: 1400px;
     margin-bottom: 0;
   }
   
-  /* Fix SelectEraPage centering on mobile */
+  /* Account for NavBar on mobile - but keep vertical centering */
   .container.flex.flex-column.flex-center {
     padding-top: 60px; /* Account for NavBar */
+    /* Keep justify-content: center to prevent jumping to top */
+    /* min-height ensures content doesn't get cut off */
     min-height: calc(100vh - 60px);
-    justify-content: flex-start;
-    align-items: center;
   }
   
+  /* Use max-width instead of fixed width to prevent jumps */
+  /* Allow container to grow to 95vw before constraining content */
   .container .content-pane {
     margin: var(--space-md) auto;
-    width: calc(100% - var(--space-md) * 2);
+    /*max-width: min(95vw, calc(100% - var(--space-md) * 2));*/
+    max-width: 95vw;
+    overflow-x: visible; /* Allow game board to extend if needed */
   }
   
   /* OverPage mobile adjustments */
   .over-page .content-pane--wide {
-    width: calc(100% - var(--space-md) * 2);
+    /*max-width: min(95vw, calc(100% - var(--space-md) * 2));*/
+    max-width: 95vw;
   }
 }
 

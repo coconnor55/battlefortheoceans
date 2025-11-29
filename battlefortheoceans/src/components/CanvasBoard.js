@@ -1,6 +1,8 @@
 // src/components/CanvasBoard.js
 // Copyright(c) 2025, Clint H. O'Connor
 //
+// v0.4.14: Star shells don't illuminate submarines
+//          - Submarines are excluded from star shell illumination (they're underwater)
 // v0.4.13: Pass starShellIllumination to HitOverlayRenderer for expanding ring effect
 //          - HitOverlayRenderer now draws animated red ring on star shell fire
 // v0.4.12: TargetOptionsMenu refactor - removed munitions prop drilling
@@ -32,7 +34,7 @@ import InputHandler from '../handlers/InputHandler';
 import TargetOptionsMenu from './TargetOptionsMenu';
 import useGameState from '../hooks/useGameState';
 
-const version = 'v0.4.13';
+const version = 'v0.4.14';
 
 // Constants
 const CELL_SIZE = 30;
@@ -47,6 +49,8 @@ const CanvasBoard = forwardRef(({
   gameState = null,
   onShotFired = null,
   onStarShellFired = null,
+  onScatterShotFired = null,
+  onTorpedoFired = null,
   currentShip = null,
   onShipPlaced = null,
   player = null,
@@ -105,7 +109,8 @@ const CanvasBoard = forwardRef(({
     previewCells,
     isValidPlacement,
     playerId: player?.id,
-    starShellIllumination
+    starShellIllumination,
+    torpedoPath: null
   });
 
   // Store ALL dynamic props that InputHandler needs
@@ -139,7 +144,8 @@ const CanvasBoard = forwardRef(({
       previewCells,
       isValidPlacement,
       playerId: playerId,
-      starShellIllumination
+      starShellIllumination,
+      torpedoPath: gameInstance?.torpedoPath || null
     };
   }, [mode, viewMode, gameState, gameInstance, previewCells, isValidPlacement, playerId, starShellIllumination]);
 
@@ -281,6 +287,31 @@ const CanvasBoard = forwardRef(({
           });
         }
         
+      // Draw torpedo path
+      if (props.gameInstance?.torpedoPath) {
+        const torpedoPath = props.gameInstance.torpedoPath;
+        const elapsed = Date.now() - torpedoPath.startTime;
+        const duration = 2000; // 2 second fade
+        
+        if (elapsed < duration) {
+          const progress = elapsed / duration;
+          const fadeOpacity = 1.0 - progress;
+          
+          hitOverlayRendererRef.current.drawTorpedoEffect(
+            ctx,
+            torpedoPath,
+            CELL_SIZE,
+            LABEL_SIZE,
+            offsetX,
+            offsetY,
+            fadeOpacity
+          );
+        } else {
+          // Clear torpedo path after animation
+          props.gameInstance.torpedoPath = null;
+        }
+      }
+      
       // Draw star shell illumination
       if (props.starShellIllumination) {
         const elapsed = Date.now() - props.starShellIllumination.startTime;
@@ -295,6 +326,11 @@ const CanvasBoard = forwardRef(({
             const shipPlacement = opponent.getShipAt(row, col);
             if (shipPlacement) {
               const ship = opponent.getShip(shipPlacement.shipId);
+              
+              // Skip submarines - star shells don't illuminate them
+              if (ship.class?.toLowerCase() === 'submarine') {
+                return;
+              }
               
               // Collect all cells for this ship
               const shipCells = [];
@@ -657,10 +693,20 @@ const CanvasBoard = forwardRef(({
     } else if (action === 'star') {
       // Star shell
       triggerStarShell(row, col);
+    } else if (action === 'scatter') {
+      // Scatter shot
+      if (onScatterShotFired && gameState?.isPlayerTurn) {
+        onScatterShotFired(row, col);
+      }
+    } else if (action === 'torpedo') {
+      // Torpedo
+      if (onTorpedoFired && gameState?.isPlayerTurn) {
+        onTorpedoFired(row, col);
+      }
     }
     
     setActionMenuCell(null);
-  }, [actionMenuCell, onShotFired, gameState, showShotAnimation, triggerStarShell]);
+  }, [actionMenuCell, onShotFired, onScatterShotFired, onTorpedoFired, gameState, showShotAnimation, triggerStarShell]);
 
   // Initialize InputHandler - ONLY ONCE
   useEffect(() => {

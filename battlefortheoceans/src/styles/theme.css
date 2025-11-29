@@ -280,39 +280,31 @@ code, pre {
    ============================================ */
 
 .container {
+  /* Maintain fixed size, grow to 95vw only when viewport forces it */
   width: 100%;
-  max-width: 1200px;
+  /* Container maintains 1400px until viewport shrinks enough that 95vw < 1400px */
+  /* When viewport > 1474px: container is 1400px (gaps shrink as viewport shrinks) */
+  /* When viewport < 1474px: container is 95vw (scales with viewport) */
+  /*max-width: min(1400px, 95vw);*/
+  max-width: 95vw;
   min-height: 100vh;
   margin: 0 auto;
-  padding: 0 var(--space-md);
+  /* Use clamp for smooth padding transition instead of breakpoint jumps */
+  padding: 0 clamp(var(--space-md), 2vw, var(--space-xl));
+  /* Add small top margin for gap below NavBar (preferred spacing) */
+  margin-top: var(--space-sm);
 }
 
 .container-fluid {
   width: 100%;
-  padding: 0 var(--space-md);
+  padding: 0 clamp(var(--space-md), 2vw, var(--space-xl));
 }
 
 .container-narrow {
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
-  padding: 0 var(--space-md);
-}
-
-@media (min-width: 768px) {
-  .container,
-  .container-fluid,
-  .container-narrow {
-    padding: 0 var(--space-lg);
-  }
-}
-
-@media (min-width: 1024px) {
-  .container,
-  .container-fluid,
-  .container-narrow {
-    padding: 0 var(--space-xl);
-  }
+  padding: 0 clamp(var(--space-md), 2vw, var(--space-xl));
 }
 
 /* ============================================

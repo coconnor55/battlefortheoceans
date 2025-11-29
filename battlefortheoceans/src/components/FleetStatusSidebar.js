@@ -1,5 +1,10 @@
 // src/components/FleetStatusSidebar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.2: Compact munitions display - all on one line separated by |
+//         - Shows star shells, scatter shot, and torpedoes
+//         - Only displays when non-zero
+//         - Calculates torpedoes from fleet submarines
+//
 // v0.2.1: Munitions refactoring - use munitions object instead of starShellsRemaining
 // v0.2.0: Added multi-fleet support for Pirates era
 //         - Can now display multiple opponent fleets with captain names
@@ -11,7 +16,7 @@
 
 import React from 'react';
 
-const version = 'v0.2.1';
+const version = 'v0.2.2';
 
 // Ship class abbreviations
 const CLASS_ABBREV = {
@@ -84,23 +89,43 @@ const FleetStatusSidebar = ({ fleet, fleets, title = 'Fleet', playerId, munition
     <div className="fleet-status-sidebar">
       <div className="fleet-status-header">{title}</div>
       
-      {/* Munitions counter (only for Home/player fleet) */}
-          {title === 'Home' && munitions && (
-            <>
-              {munitions.starShells > 0 && (
-                <div className="fleet-status-resource">
-                  <span className="fleet-status-resource-emoji">✨</span>
-                  <span className="fleet-status-resource-count">{munitions.starShells}</span>
-                </div>
-              )}
-              {munitions.scatterShot > 0 && (
-                <div className="fleet-status-resource">
-                  <span className="fleet-status-resource-emoji">💥</span>
-                  <span className="fleet-status-resource-count">{munitions.scatterShot}</span>
-                </div>
-              )}
-            </>
-          )}
+      {/* Munitions counter (only for Home/player fleet) - compact one-line display */}
+      {title === 'Home' && munitions && (() => {
+        // Calculate total torpedoes from fleet submarines
+        const totalTorpedoes = fleet?.ships?.reduce((total, ship) => {
+          if (ship.class?.toLowerCase() === 'submarine' && !ship.isSunk() && ship.getTorpedoes) {
+            return total + (ship.getTorpedoes() || 0);
+          }
+          return total;
+        }, 0) || 0;
+        
+        // Build munitions array (only non-zero)
+        const munitionsList = [];
+        if (munitions.starShells > 0) {
+          munitionsList.push({ icon: '✨', count: munitions.starShells });
+        }
+        if (munitions.scatterShot > 0) {
+          munitionsList.push({ icon: '💥', count: munitions.scatterShot });
+        }
+        if (totalTorpedoes > 0) {
+          munitionsList.push({ icon: '🚀', count: totalTorpedoes });
+        }
+        
+        // Only render if there are any munitions
+        if (munitionsList.length === 0) return null;
+        
+        return (
+          <div className="fleet-status-resource" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+            {munitionsList.map((item, index) => (
+              <React.Fragment key={index}>
+                {index > 0 && <span style={{ color: 'var(--text-dim)', margin: '0 0.25rem' }}>|</span>}
+                <span className="fleet-status-resource-emoji">{item.icon}</span>
+                <span className="fleet-status-resource-count">{item.count}</span>
+              </React.Fragment>
+            ))}
+          </div>
+        );
+      })()}
           
       <div className="fleet-status-ships">
         {fleet.ships.map((ship) => {

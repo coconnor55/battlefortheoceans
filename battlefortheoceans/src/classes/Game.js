@@ -9,8 +9,17 @@ import CombatResolver from './CombatResolver.js';
 import SoundManager from '../utils/SoundManager.js';
 import GameLifecycleManager from './GameLifecycleManager.js';
 
-const version = "v0.8.10";
+const version = "v0.8.12";
 /**
+ * v0.8.12: Torpedo path calculation fixed - stops at first enemy ship, land/excluded, or 10 cells
+ *          - calculateLinePath now stops when encountering enemy ship, land, or excluded terrain
+ *          - Path length is counted up to first blocking cell (enemy ship/land/excluded) or 10 cells max
+ *          - Red line rendering now correctly draws to the calculated path length
+ *
+ * v0.8.11: Torpedo stops at land/excluded cells - no explosion
+ *          - calculateLinePath stops when encountering land or excluded terrain
+ *          - fireTorpedo does not apply damage if torpedo stopped at land/excluded
+ *          - Red line rendering stops at the last water cell before land/excluded
  * v0.8.10: Skip animation delays when speedFactor is 0 (instant mode for autoplay)
  *          - When speedFactor === 0, animations are skipped entirely
  *          - Allows autoplay to proceed without waiting for animations
@@ -134,6 +143,9 @@ class Game {
       starShells: 0,
       scatterShot: 0
     };
+    
+    // Torpedo path for rendering (set when torpedo is fired)
+    this.torpedoPath = null;
     
     // Combat resolver (v0.8.4)
     this.combatResolver = new CombatResolver(this);
@@ -340,7 +352,7 @@ class Game {
       this.playerAlliances.set(player.id, alliance.id);
       
       // KEY DIFFERENCE: Create fleet from specific ships array instead of alliance config
-      const fleet = Fleet.fromShipArray(player.id, ships, allianceName);
+      const fleet = Fleet.fromShipArray(player.id, ships, allianceName, this.eraConfig);
       player.setFleet(fleet);
       
       this.players.push(player);
@@ -439,6 +451,10 @@ class Game {
     
     this.battleLog('Game started');
     this.postTurnMessage();
+    
+    // Notify UI that game state has changed (message system will update turn message)
+    this.notifyUIUpdate();
+    
     this.checkAndTriggerAITurn();
     
     return true;
@@ -640,10 +656,298 @@ class Game {
     // Decrement munition count
     this.munitions[munitionKey] = Math.max(0, this.munitions[munitionKey] - 1);
     
-    // Advance turn (munitions consume turn)
+    // Handle scatter shot damage pattern (3x3, 0.1 damage per cell)
+    if (munitionType === 'scatterShot') {
+      const scatterDamage = 0.1;
+      const hitCells = [];
+      
+      // 3x3 pattern centered on target cell
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const targetRow = row + dr;
+          const targetCol = col + dc;
+          
+          // Validate coordinates
+          if (this.board?.isValidCoordinate(targetRow, targetCol)) {
+            // Apply damage to this cell
+            const attackResult = this.receiveAttack(targetRow, targetCol, currentPlayer, scatterDamage);
+            if (attackResult && attackResult.result !== 'invalid') {
+              hitCells.push({ row: targetRow, col: targetCol, result: attackResult });
+            }
+          }
+        }
+      }
+      
+      console.log(`[GAME] ${this.id} Scatter shot hit ${hitCells.length} cells`);
+      
+      // Update last attack result with scatter shot summary
+      let anyHit = false;
+      if (hitCells.length > 0) {
+        anyHit = hitCells.some(h => h.result.result === 'hit' || h.result.result === 'destroyed');
+        const anyDestroyed = hitCells.some(h => h.result.result === 'destroyed');
+        
+        this.lastAttackResult = {
+          result: anyDestroyed ? 'destroyed' : (anyHit ? 'hit' : 'miss'),
+          ships: hitCells.flatMap(h => h.result.ships || []),
+          scatterCells: hitCells
+        };
+      } else {
+        this.lastAttackResult = { result: 'miss', ships: [] };
+      }
+      
+      // Notify UI update
+      this.notifyUIUpdate();
+      
+      // Advance turn (munitions consume turn, but respect turn_on_hit rules)
+      this.handleTurnProgression(anyHit);
+      return true;
+    }
+    
+    // Advance turn (star shells and other munitions consume turn)
     this.handleTurnProgression();
     
     return true;
+  }
+  
+  /**
+   * Fire a torpedo from a submarine
+   * Finds a submarine with torpedoes, calculates path to target, applies damage to first hit
+   * @param {number} targetRow - Target row
+   * @param {number} targetCol - Target column
+   * @returns {boolean} Success
+   */
+  fireTorpedo(targetRow, targetCol) {
+    if (this.state !== 'playing') {
+      console.log(`[GAME] ${this.id} Torpedo blocked - game not active`);
+      return false;
+    }
+    
+    const currentPlayer = this.getCurrentPlayer();
+    if (currentPlayer?.type !== 'human') {
+      console.log(`[GAME] ${this.id} Torpedo blocked - not human turn`);
+      return false;
+    }
+    
+    // Find a submarine with torpedoes available
+    let submarine = null;
+    let submarinePosition = null;
+    
+    if (currentPlayer.fleet?.ships) {
+      for (const ship of currentPlayer.fleet.ships) {
+        if (ship.class?.toLowerCase() === 'submarine' && 
+            !ship.isSunk() && 
+            ship.getTorpedoes() > 0) {
+          // Find submarine position
+          for (let row = 0; row < this.board.rows; row++) {
+            for (let col = 0; col < this.board.cols; col++) {
+              const placement = currentPlayer.getShipAt(row, col);
+              if (placement && placement.shipId === ship.id) {
+                submarine = ship;
+                submarinePosition = { row, col };
+                break;
+              }
+            }
+            if (submarine) break;
+          }
+          if (submarine) break;
+        }
+      }
+    }
+    
+    if (!submarine || !submarinePosition) {
+      console.log(`[GAME] ${this.id} Torpedo blocked - no submarine with torpedoes available`);
+      return false;
+    }
+    
+    // Calculate straight line path using Bresenham's line algorithm
+    // Path travels up to 10 cells in the direction of the target, but stops at land/excluded/enemy ship
+    const path = this.calculateLinePath(
+      submarinePosition.row, 
+      submarinePosition.col, 
+      targetRow, 
+      targetCol,
+      10, // max range - travel up to 10 cells in target direction
+      currentPlayer // firing player - for enemy ship detection
+    );
+    
+    if (path.length === 0) {
+      console.log(`[GAME] ${this.id} Torpedo blocked - invalid path`);
+      return false;
+    }
+    
+    // Calculate the actual end point (last cell in path)
+    // Path now stops at: land/excluded/enemy ship OR 10 cells, whichever comes first
+    const actualEnd = path.length > 0 ? path[path.length - 1] : submarinePosition;
+    
+    // Check if torpedo stopped at land/excluded (path ended early and last cell is not target)
+    const stoppedAtLand = path.length < 10 && 
+                          actualEnd.row !== targetRow && 
+                          actualEnd.col !== targetCol &&
+                          (this.board.terrain[actualEnd.row]?.[actualEnd.col] === 'land' ||
+                           this.board.terrain[actualEnd.row]?.[actualEnd.col] === 'excluded');
+    
+    console.log(`[GAME] ${this.id} Torpedo fired from (${submarinePosition.row}, ${submarinePosition.col}) toward (${targetRow}, ${targetCol}), path length: ${path.length}, actual end: (${actualEnd.row}, ${actualEnd.col}), stopped at land: ${stoppedAtLand}`);
+    
+    // Use torpedo
+    submarine.useTorpedo();
+    
+    // Check if last cell in path contains an enemy ship (path calculation stops at first enemy ship)
+    let hitTarget = null;
+    let hitCell = null;
+    
+    if (path.length > 0) {
+      const lastCell = path[path.length - 1];
+      // Skip the submarine's own position
+      if (lastCell.row !== submarinePosition.row || lastCell.col !== submarinePosition.col) {
+        // Check for enemy ships at the last cell (where path stopped)
+        for (const targetPlayer of this.players) {
+          if (this.isSameAlliance(currentPlayer.id, targetPlayer.id)) {
+            continue;
+          }
+          
+          const placement = targetPlayer.getShipAt(lastCell.row, lastCell.col);
+          if (placement) {
+            const ship = targetPlayer.getShip(placement.shipId);
+            if (ship && !ship.isSunk() && ship.health[placement.cellIndex] > 0) {
+              // Hit! Apply damage
+              hitTarget = { player: targetPlayer, ship, cellIndex: placement.cellIndex };
+              hitCell = lastCell;
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // Apply damage if target found (only if torpedo didn't stop at land/excluded)
+    if (hitTarget && !stoppedAtLand) {
+      const attackResult = this.receiveAttack(
+        hitCell.row, 
+        hitCell.col, 
+        currentPlayer, 
+        1.0 // Torpedo damage
+      );
+      
+      console.log(`[GAME] ${this.id} Torpedo hit at (${hitCell.row}, ${hitCell.col}):`, attackResult);
+      
+      this.lastAttackResult = attackResult;
+    } else if (stoppedAtLand) {
+      console.log(`[GAME] ${this.id} Torpedo stopped at land/excluded - no explosion`);
+      this.lastAttackResult = { result: 'miss', ships: [] };
+    } else {
+      console.log(`[GAME] ${this.id} Torpedo missed - no target along path`);
+      this.lastAttackResult = { result: 'miss', ships: [] };
+    }
+    
+    // Store torpedo path for rendering
+    // End point is the last cell in path (which stops at enemy ship, land/excluded, or maxRange)
+    const renderEnd = actualEnd; // Path already stops at correct location (enemy ship/land/excluded/10 cells)
+    
+    this.torpedoPath = {
+      start: submarinePosition,
+      end: renderEnd, // End point for rendering (stops at first enemy ship, land/excluded, or 10 cells)
+      target: { row: targetRow, col: targetCol }, // Original target (for reference)
+      path: path, // Path cells (stops at first blocking cell or maxRange)
+      hitCell: hitCell, // Cell where torpedo hit enemy ship (if any)
+      stoppedAtLand: stoppedAtLand, // Flag to indicate torpedo stopped at land/excluded
+      startTime: Date.now()
+    };
+    
+    // Notify UI update
+    this.notifyUIUpdate();
+    
+    // Advance turn
+    this.handleTurnProgression(hitTarget !== null);
+    
+    return true;
+  }
+  
+  /**
+   * Calculate straight line path between two points (Bresenham's line algorithm)
+   * Stops at land, excluded cells, or first enemy ship (whichever comes first)
+   * Travels up to maxRange cells in the direction of the target
+   * @param {number} startRow - Start row
+   * @param {number} startCol - Start column
+   * @param {number} endRow - End row (target direction, may be beyond range)
+   * @param {number} endCol - End column (target direction, may be beyond range)
+   * @param {number} maxRange - Maximum range (cells) - travel up to this many cells (default 10)
+   * @param {Player} firingPlayer - Player firing the torpedo (optional, for enemy ship detection)
+   * @returns {Array} Array of {row, col} cells along the path (stops at land/excluded/enemy ship or maxRange)
+   */
+  calculateLinePath(startRow, startCol, endRow, endCol, maxRange = 10, firingPlayer = null) {
+    const path = [];
+    let currentRow = startRow;
+    let currentCol = startCol;
+    
+    const deltaRow = Math.abs(endRow - startRow);
+    const deltaCol = Math.abs(endCol - startCol);
+    const stepRow = startRow < endRow ? 1 : -1;
+    const stepCol = startCol < endCol ? 1 : -1;
+    
+    let error = deltaCol - deltaRow;
+    let distance = 0;
+    
+    // Travel up to maxRange cells in the target direction, but stop at land/excluded/enemy ship
+    while (distance < maxRange) {
+      // Check if current cell is valid and not land/excluded
+      if (!this.board.isValidCoordinate(currentRow, currentCol)) {
+        // Invalid coordinate (out of bounds or excluded) - stop here
+        break;
+      }
+      
+      // Check if current cell is land
+      const terrain = this.board.terrain[currentRow][currentCol];
+      if (terrain === 'land' || terrain === 'excluded') {
+        // Hit land or excluded - stop here (don't add to path, don't continue)
+        break;
+      }
+      
+      // Check if current cell contains an enemy ship (if firingPlayer is provided)
+      if (firingPlayer) {
+        let hasEnemyShip = false;
+        for (const targetPlayer of this.players) {
+          if (this.isSameAlliance(firingPlayer.id, targetPlayer.id)) {
+            continue; // Skip same alliance
+          }
+          
+          const placement = targetPlayer.getShipAt(currentRow, currentCol);
+          if (placement) {
+            const ship = targetPlayer.getShip(placement.shipId);
+            if (ship && !ship.isSunk() && ship.health[placement.cellIndex] > 0) {
+              // Found enemy ship at this cell - stop here (include this cell in path)
+              hasEnemyShip = true;
+              break;
+            }
+          }
+        }
+        
+        if (hasEnemyShip) {
+          // Add this cell to path (torpedo hits here) and stop
+          path.push({ row: currentRow, col: currentCol });
+          break;
+        }
+      }
+      
+      // Valid water cell - add to path
+      path.push({ row: currentRow, col: currentCol });
+      
+      // Move to next cell in the direction of the target
+      const error2 = 2 * error;
+      
+      if (error2 > -deltaRow) {
+        error -= deltaRow;
+        currentCol += stepCol;
+      }
+      
+      if (error2 < deltaCol) {
+        error += deltaCol;
+        currentRow += stepRow;
+      }
+      
+      distance++;
+    }
+    
+    return path;
   }
 
   getPlayerStats() {

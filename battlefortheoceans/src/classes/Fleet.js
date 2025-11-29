@@ -3,8 +3,12 @@
 
 import Ship from './Ship.js';
 
-const version = "v0.2.0";
+const version = "v0.2.1";
 /**
+ * v0.2.1: Pass era config to Ship.fromConfig for torpedoes
+ *         - addShips() now accepts eraConfig parameter
+ *         - fromEraConfig() and fromShipArray() pass era config through
+ *
  * v0.2.0: Added fromShipArray() for multi-fleet combat (Pirates of the Gulf)
  *         Allows creating fleet from specific ship array instead of entire alliance
  */
@@ -48,14 +52,16 @@ class Fleet {
 
   /**
    * Bulk add ships from era configuration
+   * @param {Array} config - Array of ship configuration objects
+   * @param {Object} eraConfig - Era configuration (optional, for torpedoes)
    */
-  addShips(config) {
+  addShips(config, eraConfig = null) {
     if (!Array.isArray(config)) {
       throw new Error('Fleet.addShips() requires a ships configuration array');
     }
     
     config.forEach(shipConfig => {
-      const ship = Ship.fromConfig(shipConfig);
+      const ship = Ship.fromConfig(shipConfig, eraConfig);
       this.ships.push(ship);
     });
   }
@@ -104,7 +110,7 @@ class Fleet {
     }
     
     console.log(`Creating fleet for ${owner} with alliance ${allianceName}: ${alliance.ships.length} ships`);
-    fleet.addShips(alliance.ships);
+    fleet.addShips(alliance.ships, eraConfig);
     
     return fleet;
   }
@@ -115,9 +121,10 @@ class Fleet {
    * @param {string} owner - Player ID
    * @param {Array} ships - Array of ship configs from pirate_fleets[].ships
    * @param {string} allianceName - Alliance name for logging
+   * @param {Object} eraConfig - Era configuration (optional, for torpedoes)
    * @returns {Fleet} - Fleet instance with specific ships
    */
-  static fromShipArray(owner, ships, allianceName = 'Pirates') {
+  static fromShipArray(owner, ships, allianceName = 'Pirates', eraConfig = null) {
     const fleet = new Fleet(owner);
     
     if (!Array.isArray(ships) || ships.length === 0) {
@@ -125,7 +132,7 @@ class Fleet {
     }
     
     console.log(`Creating fleet for ${owner} with ${ships.length} specific ships (${allianceName})`);
-    fleet.addShips(ships);
+    fleet.addShips(ships, eraConfig);
     
     return fleet;
   }

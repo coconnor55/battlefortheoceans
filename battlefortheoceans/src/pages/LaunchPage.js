@@ -1,5 +1,6 @@
-// src/pages/LaunchPage.js v0.3.10
+// src/pages/LaunchPage.js v0.3.12
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.12: Add fullscreen checkbox option under Play Game button, default checked
 // v0.3.11: Fix keyDataError persistence - don't clear in handleEvent_launch
 //          - keyDataError now persists until user clicks "Play Game" button
 //          - Clear keyDataError in handlePlayGame so message shows on LaunchPage
@@ -19,7 +20,7 @@ import { useState, useEffect } from 'react';
 import { coreEngine, useGame } from '../context/GameContext';
 import { events } from '../constants/GameEvents';
 
-const version = 'v0.3.11';
+const version = 'v0.3.12';
 const tag = "LAUNCH";
 const module = "LaunchPage";
 let method = "";
@@ -40,6 +41,7 @@ const LaunchPage = () => {
 
   const { dispatch, events } = useGame();  // ← Fixed: get events from context
   const [showButton, setShowButton] = useState(false);
+  const [fullscreenEnabled, setFullscreenEnabled] = useState(true);
   const [, forceUpdate] = useState(0);
   
   // Get game config version
@@ -113,8 +115,33 @@ const LaunchPage = () => {
     console.log('[LAUNCH]', version, 'LaunchPage mounted');
   }, []);
 
-  const handlePlayGame = () => {
+  const handlePlayGame = async () => {
     console.log('[LAUNCH]', version, 'Play Game button clicked - manual login');
+    
+    // Enter fullscreen mode if checkbox is checked
+    if (fullscreenEnabled) {
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+          console.log('[LAUNCH]', version, 'Entered fullscreen mode');
+        } else if (document.documentElement.webkitRequestFullscreen) {
+          // Safari
+          await document.documentElement.webkitRequestFullscreen();
+          console.log('[LAUNCH]', version, 'Entered fullscreen mode (webkit)');
+        } else if (document.documentElement.msRequestFullscreen) {
+          // IE/Edge
+          await document.documentElement.msRequestFullscreen();
+          console.log('[LAUNCH]', version, 'Entered fullscreen mode (ms)');
+        } else if (document.documentElement.mozRequestFullScreen) {
+          // Firefox
+          await document.documentElement.mozRequestFullScreen();
+          console.log('[LAUNCH]', version, 'Entered fullscreen mode (moz)');
+        }
+      } catch (error) {
+        console.warn('[LAUNCH]', version, 'Failed to enter fullscreen:', error);
+        // Continue with game start even if fullscreen fails
+      }
+    }
     
     // Clear key data error when user clicks Play Game
     if (coreEngine.keyDataError) {
@@ -142,16 +169,35 @@ const LaunchPage = () => {
             One perfect shot at a time.
           </p>
         </div>
-        <div className="card-body flex flex-center">
+        <div className="card-body flex flex-center flex-column">
           {!showButton ? (
             <p className="text-muted">Preparing your session...</p>
           ) : (
-            <button
-              className="btn btn--primary btn--lg"
-              onClick={handlePlayGame}
-            >
-              Play Game
-            </button>
+            <>
+              <button
+                className="btn btn--primary btn--lg"
+                onClick={handlePlayGame}
+              >
+                Play Game
+              </button>
+              <label style={{ 
+                fontSize: '0.75rem', 
+                color: 'var(--text-muted)', 
+                marginTop: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                cursor: 'pointer'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={fullscreenEnabled}
+                  onChange={(e) => setFullscreenEnabled(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                Full screen mode (Esc to exit)
+              </label>
+            </>
           )}
         </div>
         {keyDataError && (

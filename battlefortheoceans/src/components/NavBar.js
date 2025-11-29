@@ -1,5 +1,9 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.21: Added Fullscreen toggle option under Help menu
+//          - Toggles fullscreen mode on/off
+//          - Shows "Fullscreen (Esc)" label
+//          - Listens for Escape key to exit fullscreen
 // v0.2.20: Add voucher balance display and fix pass singular/plural
 //          - Added voucher balance fetching and display
 //          - Fixed "Passes" to "Pass" when singular
@@ -55,9 +59,9 @@ import RightsService from '../services/RightsService';
 import PlayerProfileService from '../services/PlayerProfileService';
 import VoucherService from '../services/VoucherService';
 import { coreEngine, useGame } from '../context/GameContext';
-import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins, Diamond } from 'lucide-react';
+import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins, Diamond, Maximize2, Minimize2 } from 'lucide-react';
 
-const version = 'v0.2.20';
+const version = 'v0.2.21';
 const tag = "NAVBAR";
 const module = "NavBar";
 let method = "";
@@ -108,6 +112,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   const menuRef = useRef(null);
   const [passBalance, setPassBalance] = useState(0);
   const [voucherBalance, setVoucherBalance] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const fetchPassBalance = useCallback(async () => {
     method = 'fetchPassBalance';
@@ -164,6 +169,60 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
     });
     return unsubscribe;
   }, [subscribeToUpdates, fetchPassBalance, fetchVoucherBalance]);
+  
+  // Check initial fullscreen state
+  useEffect(() => {
+    const checkFullscreen = () => {
+      const isFs = !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      );
+      setIsFullscreen(isFs);
+    };
+    
+    checkFullscreen();
+    
+    // Listen for fullscreen changes
+    const events = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
+    events.forEach(event => {
+      document.addEventListener(event, checkFullscreen);
+    });
+    
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, checkFullscreen);
+      });
+    };
+  }, []);
+  
+  // Listen for Escape key to exit fullscreen
+  useEffect(() => {
+    const handleKeyDown = async (event) => {
+      if (event.key === 'Escape' && isFullscreen) {
+        // Exit fullscreen on Escape
+        try {
+          if (document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            await document.webkitExitFullscreen();
+          } else if (document.mozCancelFullScreen) {
+            await document.mozCancelFullScreen();
+          } else if (document.msExitFullscreen) {
+            await document.msExitFullscreen();
+          }
+        } catch (error) {
+          logerror('Failed to exit fullscreen on Escape:', error);
+        }
+      }
+    };
+    
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isFullscreen]);
   
   // Close menu when clicking outside
   useEffect(() => {
@@ -240,6 +299,43 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
     
     if (onShowHelp) {
       onShowHelp();
+    }
+  };
+  
+  const handleToggleFullscreen = async () => {
+    method = 'handleToggleFullscreen';
+    log(`Toggling fullscreen (currently: ${isFullscreen})`);
+    setShowUserMenu(false);
+    
+    try {
+      if (isFullscreen) {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+          await document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+          await document.msExitFullscreen();
+        }
+        log('Exited fullscreen');
+      } else {
+        // Enter fullscreen
+        const element = document.documentElement;
+        if (element.requestFullscreen) {
+          await element.requestFullscreen();
+        } else if (element.webkitRequestFullscreen) {
+          await element.webkitRequestFullscreen();
+        } else if (element.mozRequestFullScreen) {
+          await element.mozRequestFullScreen();
+        } else if (element.msRequestFullscreen) {
+          await element.msRequestFullscreen();
+        }
+        log('Entered fullscreen');
+      }
+    } catch (error) {
+      logerror('Failed to toggle fullscreen:', error);
     }
   };
   
@@ -469,9 +565,29 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                       <span className="action-menu__label">Help</span>
                     </div>
                     
+                    <div
+                      className="action-menu__item"
+                      onClick={handleToggleFullscreen}
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 size={20} className="action-menu__emoji" />
+                      ) : (
+                        <Maximize2 size={20} className="action-menu__emoji" />
+                      )}
+                      <span className="action-menu__label">Fullscreen (Esc)</span>
+                    </div>
+                            
+                    <div
+                      className="action-menu__item"
+                      onClick={handleLogout}
+                    >
+                      <LogOut size={20} className="action-menu__emoji" />
+                      <span className="action-menu__label">Logout</span>
+                    </div>
+                    
                     {(isAdmin || isDeveloper || isTester) && (
                       <div
-                        className="action-menu__item"
+                        className="action-menu__item action-menu__item--admin"
                         onClick={handleAddPasses}
                       >
                         <Coins size={20} className="action-menu__emoji" />
@@ -481,7 +597,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     
                     {(isAdmin || isDeveloper || isTester) && (
                       <div
-                        className="action-menu__item"
+                        className="action-menu__item action-menu__item--admin"
                         onClick={handleAddVoucher}
                       >
                         <Diamond size={20} className="action-menu__emoji" />
@@ -491,7 +607,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     
                     {(isAdmin || isDeveloper) && (
                       <div
-                        className="action-menu__item"
+                        className="action-menu__item action-menu__item--admin"
                         onClick={handleTest}
                       >
                         <TestTube size={20} className="action-menu__emoji" />
@@ -501,21 +617,13 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     
                     {(isAdmin || isDeveloper) && (
                       <div
-                        className="action-menu__item"
+                        className="action-menu__item action-menu__item--admin"
                         onClick={handleReset}
                       >
                         <Recycle size={20} className="action-menu__emoji" />
                         <span className="action-menu__label">Reset as New Player...</span>
                       </div>
                     )}
-                            
-                    <div
-                      className="action-menu__item"
-                      onClick={handleLogout}
-                    >
-                      <LogOut size={20} className="action-menu__emoji" />
-                      <span className="action-menu__label">Logout</span>
-                    </div>
                   </div>
                 </div>
               </>

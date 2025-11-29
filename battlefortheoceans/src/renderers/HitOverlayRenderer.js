@@ -1,5 +1,13 @@
 // src/renderers/HitOverlayRenderer.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.12.6: Fixed torpedo path rendering to use calculated path length
+//          - Now uses last cell from path array instead of torpedoPath.end
+//          - Ensures red line stops at first enemy ship, land/excluded, or 10 cells
+//
+// v0.12.5: Enhanced smoke effects - up to twice as dense, twice as far, and 50% more opaque
+//          - Increased smoke puffs from 2 to 4 (2x density)
+//          - Increased drift distance from 40 to 80 pixels (2x distance)
+//          - Increased base opacity by 50% (was 0.8-1.0, now 1.2-1.5 clamped to 1.0)
 // v0.12.4: Now uses CDN-backed asset loading via ConfigLoader v1.1.3
 //          - Ship SVG loading automatically benefits from CDN with local fallback
 //          - No code changes needed - uses updated configLoader.getEraShipPath()
@@ -22,7 +30,7 @@
 
 import configLoader from '../utils/ConfigLoader';
 
-const version = 'v0.12.4';
+const version = 'v0.12.6';
 
 class HitOverlayRenderer {
   constructor(eraId = 'traditional', gameBoard = null) {
@@ -131,8 +139,9 @@ class HitOverlayRenderer {
           } else {
             const lifeRatio = p.life / p.maxLife;
             // Drift toward 2 o'clock: right (cos 30°) and up (sin 30°)
-            p.driftX = lifeRatio * 40 * Math.cos(Math.PI / 6); // ~35 pixels right
-            p.driftY = -lifeRatio * 40 * Math.sin(Math.PI / 6); // ~20 pixels up
+            // Up to twice as far: 80 pixels instead of 40
+            p.driftX = lifeRatio * 80 * Math.cos(Math.PI / 6); // ~69 pixels right (was ~35)
+            p.driftY = -lifeRatio * 80 * Math.sin(Math.PI / 6); // ~40 pixels up (was ~20)
           }
         } else if (p.type === 'fire') {
           // Update rotation randomly every few frames
@@ -191,6 +200,80 @@ class HitOverlayRenderer {
       ctx.restore();
     }
     
+    /**
+     * Draw torpedo line effect (straight red line that fades)
+     * v0.12.6: Use last cell from path array to ensure correct stopping point
+     *          Path stops at first enemy ship, land/excluded, or 10 cells (whichever comes first)
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} torpedoPath - Torpedo path data { start, end, path, hitCell, startTime }
+     * @param {number} cellSize - Cell size in pixels
+     * @param {number} labelSize - Label size in pixels
+     * @param {number} offsetX - X offset
+     * @param {number} offsetY - Y offset
+     * @param {number} fadeOpacity - Current fade opacity (0.0 to 1.0)
+     */
+    drawTorpedoEffect(ctx, torpedoPath, cellSize, labelSize, offsetX, offsetY, fadeOpacity) {
+      if (!torpedoPath) {
+        console.warn('[OVERLAY]', version, 'drawTorpedoEffect: No torpedo path provided');
+        return;
+      }
+      
+      // Validate path array - use it if available, otherwise fall back to start/end
+      let endCell;
+      if (torpedoPath.path && torpedoPath.path.length > 0) {
+        // Use the last cell from the path array (guaranteed to be the correct stopping point)
+        // Path stops at: first enemy ship, land/excluded, or 10 cells (whichever comes first)
+        endCell = torpedoPath.path[torpedoPath.path.length - 1];
+      } else if (torpedoPath.end) {
+        // Fallback to torpedoPath.end if path array is not available
+        endCell = torpedoPath.end;
+      } else {
+        console.warn('[OVERLAY]', version, 'drawTorpedoEffect: No valid end point', torpedoPath);
+        return;
+      }
+      
+      // Validate end cell
+      if (!endCell || endCell.row === undefined || endCell.col === undefined) {
+        console.warn('[OVERLAY]', version, 'drawTorpedoEffect: Invalid end cell', { endCell, torpedoPath });
+        return;
+      }
+      
+      // Validate start position
+      if (!torpedoPath.start || torpedoPath.start.row === undefined || torpedoPath.start.col === undefined) {
+        console.warn('[OVERLAY]', version, 'drawTorpedoEffect: Invalid start position', torpedoPath);
+        return;
+      }
+      
+      // Calculate start and end positions
+      const startX = offsetX + labelSize + (torpedoPath.start.col * cellSize) + (cellSize / 2);
+      const startY = offsetY + labelSize + (torpedoPath.start.row * cellSize) + (cellSize / 2);
+      const endX = offsetX + labelSize + (endCell.col * cellSize) + (cellSize / 2);
+      const endY = offsetY + labelSize + (endCell.row * cellSize) + (cellSize / 2);
+      
+      // Draw red line that fades
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 0, 0, ${fadeOpacity})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.restore();
+      
+      // Draw hit marker if torpedo hit
+      if (torpedoPath.hitCell) {
+        const hitX = offsetX + labelSize + (torpedoPath.hitCell.col * cellSize) + (cellSize / 2);
+        const hitY = offsetY + labelSize + (torpedoPath.hitCell.row * cellSize) + (cellSize / 2);
+        
+        ctx.save();
+        ctx.fillStyle = `rgba(255, 0, 0, ${fadeOpacity})`;
+        ctx.beginPath();
+        ctx.arc(hitX, hitY, cellSize / 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+    
   /**
    * Initialize fire particles for a cell (now using emoji with rotation)
    */
@@ -221,8 +304,8 @@ class HitOverlayRenderer {
       });
     }
     
-    // Create 2 smoke puffs
-    for (let i = 0; i < 2; i++) {
+    // Create 4 smoke puffs (up to twice as dense - was 2)
+    for (let i = 0; i < 4; i++) {
       particles.push({
         type: 'smoke',
         emoji: '💨',
@@ -232,7 +315,7 @@ class HitOverlayRenderer {
         maxLife: 80 + Math.random() * 40,
         driftX: 0, // Will drift toward 2 o'clock
         driftY: 0, // Will rise
-        baseOpacity: 0.8 + Math.random() * 0.2, // Increased to 0.8-1.0 for visibility
+        baseOpacity: Math.min(1.0, (0.8 + Math.random() * 0.2) * 1.5), // Increased by 50%: was 0.8-1.0, now 1.2-1.5 clamped to 1.0
         scale: 0.6 + Math.random() * 0.3
       });
     }

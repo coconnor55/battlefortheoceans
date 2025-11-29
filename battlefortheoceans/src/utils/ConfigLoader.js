@@ -1,5 +1,6 @@
 // src/utils/ConfigLoader.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v1.1.5: NetworkError handling - detect and rethrow for CoreEngine to handle
 // v1.1.4: Consistent era asset loading - all paths use ConfigLoader
 //         - Added getEraAssetPath() for relative paths from config files
 //         - Added getEraCaptainPath() for captain avatars
@@ -19,10 +20,43 @@
 //         - Removed getShipCellSymbol() methods (no longer using combined SVG symbols)
 // v1.1.0: Added ship graphics loading from single SVG file
 
-const version = "v1.1.4";
+const version = "v1.1.5";
 
 // CDN base URL from environment variable (bunny.net CDN)
 const CDN_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
+
+/**
+ * Check if an error is a NetworkError
+ * NetworkError occurs when fetch fails due to network issues (offline, CORS, etc.)
+ * @param {Error} error - Error object to check
+ * @returns {boolean} True if error is a NetworkError
+ */
+function isNetworkError(error) {
+  if (!error) return false;
+  
+  // Check error name
+  if (error.name === 'NetworkError' || error.name === 'TypeError') {
+    // TypeError with "Failed to fetch" message is typically a network error
+    if (error.message && (
+      error.message.includes('Failed to fetch') ||
+      error.message.includes('NetworkError') ||
+      error.message.includes('Network request failed') ||
+      error.message.includes('Load failed')
+    )) {
+      return true;
+    }
+  }
+  
+  // Check if it's a fetch error (no response)
+  if (error.message && error.message.includes('fetch')) {
+    return true;
+  }
+  
+  return false;
+}
+
+// Export for use in CoreEngine
+export { isNetworkError };
 
 /**
  * ConfigLoader - Centralized configuration loading utility
@@ -84,6 +118,12 @@ class ConfigLoader {
       return this.gameConfig;
     } catch (error) {
       console.error(`[CONFIG] ${version} Error loading game-config:`, error);
+      
+      // Mark as NetworkError for CoreEngine to handle
+      if (isNetworkError(error)) {
+        error.isNetworkError = true;
+      }
+      
       throw error;
     }
   }
@@ -144,6 +184,12 @@ class ConfigLoader {
       return svgDoc;
     } catch (error) {
       console.error(`[CONFIG] ${version} Error loading ship graphic:`, error);
+      
+      // Mark as NetworkError for CoreEngine to handle
+      if (isNetworkError(error)) {
+        error.isNetworkError = true;
+      }
+      
       throw error;
     }
   }
@@ -241,6 +287,12 @@ class ConfigLoader {
       return eraConfig;
     } catch (error) {
       console.error(`[CONFIG] ${version} Error loading era ${eraId}:`, error);
+      
+      // Mark as NetworkError for CoreEngine to handle
+      if (isNetworkError(error)) {
+        error.isNetworkError = true;
+      }
+      
       throw error;
     }
   }
@@ -270,6 +322,12 @@ class ConfigLoader {
       return this.eraList;
     } catch (error) {
       console.error(`[CONFIG] ${version} Error loading era list:`, error);
+      
+      // Mark as NetworkError for CoreEngine to handle
+      if (isNetworkError(error)) {
+        error.isNetworkError = true;
+      }
+      
       throw error;
     }
   }

@@ -1,5 +1,9 @@
 // src/hooks/useAutoPlay.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.5: Fixed autoplay stopping frequently
+//         - Removed battleMessage from useEffect dependencies (was causing timer resets)
+//         - Made timer recursive to continue firing shots automatically
+//         - Timer now schedules next shot after each fire, creating continuous loop
 // v0.1.4: Reverted delay back to 200ms (5 shots/second is fast enough)
 //         - Kept 200ms delay between shots for reasonable autoplay speed
 //         - Animation delays are skipped via speedFactor=0, so no other delays
@@ -19,7 +23,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const version = 'v0.1.4';
+const version = 'v0.1.5';
 
 /**
  * useAutoPlay - Automated testing utility for rapid gameplay
@@ -67,14 +71,31 @@ const useAutoPlay = ({
 }) => {
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(false);
   const autoPlayTimerRef = useRef(null);
+  const autoPlayEnabledRef = useRef(false);
+  const isPlayerTurnRef = useRef(isPlayerTurn);
+  const isGameActiveRef = useRef(isGameActive);
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    autoPlayEnabledRef.current = autoPlayEnabled;
+  }, [autoPlayEnabled]);
+  
+  useEffect(() => {
+    isPlayerTurnRef.current = isPlayerTurn;
+  }, [isPlayerTurn]);
+  
+  useEffect(() => {
+    isGameActiveRef.current = isGameActive;
+  }, [isGameActive]);
+  
   // Check if user has permission to use autoplay
   const canUseAutoPlay = ['admin', 'developer', 'tester'].includes(playerProfile?.role);
 
-  // Fire random valid shot
+  // Fire random valid shot and schedule next shot
   const fireRandomShot = useCallback(() => {
       console.log("useAutoPlay.fireRandomShot: playerProfile=", playerProfile)
         console.log("useAutoPlay.fireRandomShot: selectedEraConfig.id=", selectedEraConfig.id)
-    if (!gameInstance || !isPlayerTurn || !isGameActive) {
+    if (!gameInstance || !isPlayerTurnRef.current || !isGameActiveRef.current) {
       return;
     }
 
@@ -108,15 +129,21 @@ const useAutoPlay = ({
     
     console.log('[AUTOPLAY]', version, 'Firing at', target, `(${validTargets.length} targets remaining)`);
     handleShotFired(target.row, target.col);
-  }, [gameInstance, isPlayerTurn, isGameActive, selectedEraConfig, handleShotFired]);
+    
+    // Schedule next shot (recursive timer) - check refs to avoid dependency issues
+    if (autoPlayEnabledRef.current && isGameActiveRef.current && isPlayerTurnRef.current) {
+      autoPlayTimerRef.current = setTimeout(() => {
+        fireRandomShot();
+      }, 200); // 200ms delay between shots (5 shots/second)
+    }
+  }, [gameInstance, selectedEraConfig, handleShotFired]);
 
-  // Manage autoplay timer
+  // Manage autoplay timer - start/stop based on state
   useEffect(() => {
     console.log('[AUTOPLAY]', version, 'useEffect triggered:', {
       autoPlayEnabled,
       isGameActive,
       isPlayerTurn,
-      battleMessage: battleMessage?.substring(0, 50),
       hasTimer: !!autoPlayTimerRef.current
     });
 
@@ -127,13 +154,13 @@ const useAutoPlay = ({
       autoPlayTimerRef.current = null;
     }
 
-    // Start new timer if enabled and ready
+    // Start initial timer if enabled and ready (fireRandomShot will schedule subsequent shots)
     if (autoPlayEnabled && isGameActive && isPlayerTurn) {
-      console.log('[AUTOPLAY]', version, 'Starting new timer (200ms)');
+      console.log('[AUTOPLAY]', version, 'Starting initial timer (200ms)');
       autoPlayTimerRef.current = setTimeout(() => {
-        console.log('[AUTOPLAY]', version, 'Timer fired, calling fireRandomShot');
+        console.log('[AUTOPLAY]', version, 'Initial timer fired, calling fireRandomShot');
         fireRandomShot();
-      }, 200); // 200ms delay between shots (5 shots/second)
+      }, 200); // 200ms delay before first shot
     } else {
       console.log('[AUTOPLAY]', version, 'NOT starting timer - conditions not met:', {
         autoPlayEnabled,
@@ -142,7 +169,7 @@ const useAutoPlay = ({
       });
     }
 
-    // Cleanup on unmount
+    // Cleanup on unmount or when conditions change
     return () => {
       if (autoPlayTimerRef.current) {
         console.log('[AUTOPLAY]', version, 'Cleanup: clearing timer');
@@ -150,7 +177,7 @@ const useAutoPlay = ({
         autoPlayTimerRef.current = null;
       }
     };
-  }, [autoPlayEnabled, isGameActive, isPlayerTurn, fireRandomShot, battleMessage]);
+  }, [autoPlayEnabled, isGameActive, isPlayerTurn, fireRandomShot]);
 
   // Disable autoplay when game ends
   useEffect(() => {

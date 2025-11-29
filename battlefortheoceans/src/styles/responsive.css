@@ -7,12 +7,8 @@
    ============================================ */
 
 @media (max-width: 768px) {
-  /* Content panes */
-  .content-pane,
-  .panel {
-    padding: var(--space-md);
-    margin: var(--space-sm) 0;
-  }
+  /* Content panes - keep larger padding above 480px, only reduce on very small screens */
+  /* Padding reduction moved to 480px breakpoint */
 
   /* Buttons */
   .btn {
@@ -63,13 +59,13 @@
     margin-top: var(--space-lg);
   }
   
-  /* Content panes */
+  /* Content panes - keep reduced padding on very small screens */
   .content-pane,
   .content-pane--narrow,
   .content-pane--medium,
   .content-pane--wide {
-    padding: var(--space-lg);
-    max-width: 95%;
+    /* Already using reduced padding from base styles */
+    max-width: 95vw; /* Use viewport width for smooth scaling */
   }
   
   /* Card system */
@@ -303,7 +299,8 @@
 
 @media (min-width: 1024px) {
   .content-pane--wide {
-    max-width: 95%;
+    /* Grow to 95vw as viewport shrinks */
+    max-width: 95vw;
   }
   
   .alliance-list {

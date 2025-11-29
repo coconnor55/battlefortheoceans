@@ -12,8 +12,8 @@
   "passes_required": 1,
   "exclusive": false,
   "munitions": {
-    "star_shells": 3,
-    "star_shell_pattern": "3x3"
+    "star_shells": 2,
+    "torpedoes": 2
   },
   "era_assets": {
     "ship_silhouettes_path": "ships"
@@ -29,7 +29,8 @@
       "Command legendary ships: USS Enterprise, Akagi, Yorktown",
       "13x13 battlefield with authentic Pacific terrain",
       "Expanded historical fleet with destroyers, cruisers, and PT boats",
-      "3 Star Shells for surgical reconnaissance"
+      "2 Star Shells for surgical reconnaissance",
+      "2 Torpedoes for submarine attacks"
     ]
   },
   "videos": {

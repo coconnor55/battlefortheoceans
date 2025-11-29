@@ -262,17 +262,7 @@
    v2.1.1: Canvas aspect ratio preservation
    ============================================ */
 
-.game-board-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: stretch;
-  margin: 0;
-  padding: 0;
-  overflow: visible;
-  min-height: 320px;
-  position: relative;
-}
+/* Game board container styling moved to battle-board-layout section above */
 
 /* Consistent canvas/image styling for PlacementPage, PlayingPage, and OverPage */
 .game-board-container canvas,
@@ -287,13 +277,19 @@
   /* Use max constraints to scale down when needed, but preserve aspect ratio */
   max-width: 100%;
   max-height: 67vh;
-  /* width and height are set via HTML attributes - CSS will scale proportionally */
-  width: fit-content;
-  height: fit-content;
+  /* width and height are set via HTML attributes - use auto to maintain aspect ratio */
+  /* For canvas: aspect ratio is determined by width/height attributes, CSS scales proportionally */
+  width: auto;
+  height: auto;
   /* Center horizontally and prevent stretching */
   align-self: center;
   margin: 0 auto;
   display: block;
+}
+
+/* For img elements, use object-fit to preserve aspect ratio */
+.game-board-container img {
+  object-fit: contain;
 }
 
 /* ============================================
@@ -313,14 +309,6 @@
   background: var(--bg-overlay);
   border-radius: var(--border-radius-md);
   border: 1px solid var(--border-subtle);
-}
-
-/* .final-board-image - Deprecated: Use .game-board-container img instead for consistency */
-.final-board-image {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--border-radius-md);
-  border: 2px solid var(--border-color);
 }
 
 /* ============================================
@@ -705,6 +693,8 @@
   /* Match canvas width by using auto (will match canvas since both are centered) */
   max-width: 100%;
   width: auto;
+  /* Use border-box so width includes borders/padding, matching canvas total width */
+  box-sizing: border-box;
 }
 
 .view-mode-btn {
@@ -746,40 +736,46 @@
 .battle-board-layout {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   gap: var(--space-md);
   justify-content: center;
   align-items: flex-start;
   margin-bottom: var(--space-md);
-  max-height: 80vh;
-  overflow: hidden;
+  overflow: visible; /* Prevent clipping of game board */
+  min-width: 0; /* Allow shrinking but don't clip content */
 }
 
-/* Board and console container - stacked vertically */
+/* Board and console container - stacked vertically, one flex item */
 .board-console-container {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-}
-
-/* Fleet sidebars container - stacked vertically */
-.fleet-sidebars-container {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
   flex-shrink: 0;
-  overflow-y: auto;
+  min-width: 0;
+  align-items: center; /* Center the board and console */
+  overflow: visible; /* Prevent truncation of game board */
 }
 
+/* Message console - matches board width */
+.message-consoles {
+  margin: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* Fleet sidebars - flex items, can be in a row when wide enough */
 .fleet-status-sidebar {
+  flex-shrink: 0;
   min-width: 120px;
   background: var(--bg-overlay);
   border: 2px solid var(--border-subtle);
   border-radius: var(--border-radius-md);
   padding: var(--space-sm);
   box-shadow: var(--shadow-sm);
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 .fleet-status-header {
@@ -841,47 +837,39 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  /* Stack layout vertically on mobile */
+  /* Allow layout to wrap naturally - don't force full width */
   .battle-board-layout {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  /* Board and console container - already vertical, just ensure full width */
-  .board-console-container {
-    width: 100%;
-    order: 1;
-  }
-  
-  /* Fleet sidebars container - horizontal side-by-side below board */
-  .fleet-sidebars-container {
-    order: 2;
-    width: 100%;
+    /* Keep row direction, allow wrapping */
     flex-direction: row;
-    gap: var(--space-md);
+    flex-wrap: wrap;
+    overflow: visible; /* Prevent clipping of game board */
   }
   
-  .fleet-sidebars-container .fleet-status-sidebar {
-    flex: 1;
-    min-width: 0;
-    width: auto;
+  /* Board and console container - maintain its natural width */
+  .board-console-container {
+    /* Let it size naturally, but don't shrink below content */
+    flex: 0 0 auto; /* Don't grow or shrink, maintain natural size */
+    min-width: 0; /* Allow flex shrinking if needed, but overflow visible prevents clipping */
+    overflow: visible; /* Prevent truncation - allow game board to extend */
   }
   
+  /* Console should still match board width (JS handles this) */
+  /* No override needed - JS handles width matching */
+  
+  /* Fleet sidebars - maintain their width, wrap when needed */
   .fleet-status-sidebar {
-    min-width: auto;
+    /* Keep natural width, allow wrapping */
+    flex: 0 0 auto;
+    min-width: 120px;
   }
   
+  /* Smaller font sizes for mobile */
   .fleet-status-header {
     font-size: 0.65rem;
   }
   
   .fleet-status-text {
     font-size: 0.7rem;
-  }
-  
-  /* Make message console thinner on mobile */
-  .message-consoles {
-    margin-top: var(--space-sm);
   }
   
   .console-header {
@@ -1190,6 +1178,23 @@
   border-color: var(--border-subtle);
 }
 
+.action-menu__item--admin {
+  border-left-width: 8px;
+  border-left-color: var(--warning);
+  position: relative;
+}
+
+.action-menu__item--admin::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--warning);
+  border-radius: var(--border-radius-md) 0 0 var(--border-radius-md);
+}
+
 .action-menu__emoji {
   font-size: 1.5rem;
   line-height: 1;
@@ -1230,6 +1235,17 @@
   align-items: center;
   margin: var(--space-md) 0;
   width: 100%;
+  /* Match the width and centering of battle-board-layout */
+  max-width: 100%;
+}
+
+.autoplay-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Center the button within the same width as battle-board-layout */
+  width: 100%;
+  max-width: fit-content;
 }
 
 .autoplay-toggle {
@@ -1240,11 +1256,23 @@
    BATTLE INTERFACE
    ============================================ */
 
-/* Message consoles - consolidated display */
+/* Message consoles - consolidated display - matches game board width */
 .message-consoles {
   margin: 0;
   width: 100%;
   max-width: 100%;
+  display: flex;
+  justify-content: center; /* Center the console content */
+}
+
+/* Console combined - width set via JavaScript to match game board container */
+.console-combined {
+  width: 100%; /* Default, will be overridden by JS to match board width */
+  max-width: 100%;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
 }
 
 .console-combined {
@@ -1601,8 +1629,11 @@
   .game-board-container {
     min-height: 250px;
     padding: 0;
-    width: 100%;
+    /* Don't constrain width - let canvas determine size */
+    width: auto;
+    max-width: none; /* Remove width constraint to prevent truncation */
     margin: 0;
+    overflow: visible; /* Ensure board isn't clipped */
   }
   
   .game-board-container canvas,

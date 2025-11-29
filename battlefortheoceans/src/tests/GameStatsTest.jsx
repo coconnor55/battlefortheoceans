@@ -29,7 +29,7 @@ const GameStatsTest = ({ playerId, onComplete }) => {
     const timestamp = new Date().toISOString();
     const logEntry = { timestamp, type, message };
     setResults(prev => [...prev, logEntry]);
-    console.log(`[TESTS] ${type.toUpperCase()} ${message}`);
+    console.log(`[TEST] ${type.toUpperCase()} ${message}`);
   };
 
   const getMockGame = () => {

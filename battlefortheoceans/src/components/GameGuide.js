@@ -1,5 +1,10 @@
 // src/components/GameGuide.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.3: Added long press and munitions information to battle guide
+//         - Added long press instructions for accessing action menu
+//         - Added comprehensive munitions section (star shells, scatter shot, torpedoes)
+//         - Updated fleet status sidebar description to mention munitions
+//
 // v0.2.2: Refactored for PlayerProfile architecture
 //         - Fixed playerProfile reference to use coreEngine.playerProfile
 //         - Updated in-memory profile update to use coreEngine.playerProfile
@@ -18,7 +23,7 @@ import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import InfoPanel from './InfoPanel';
 
-const version = 'v0.2.2';
+const version = 'v0.2.3';
 const tag = "GUIDE";
 const module = "GameGuide";
 let method = "";
@@ -172,20 +177,35 @@ const GameGuide = ({ section, manualOpen = false, onClose, forceShow = false, er
 
               <h4>Fleet Status Sidebars</h4>
               <ul>
-                <li><strong>Left sidebar (Home):</strong> Your fleet status</li>
+                <li><strong>Left sidebar (Home):</strong> Your fleet status and munitions count</li>
                 <li><strong>Right sidebar (Enemy):</strong> Opponent fleet status</li>
                 <li><strong>Skull:</strong> Ship is sunk (crossed out)</li>
-                <li><strong>Star Shells:</strong> Special reconnaissance ability (if available)</li>
+                <li><strong>Munitions:</strong> Shows remaining star shells, scatter shot, and torpedoes (if available)</li>
               </ul>
 
               <h4>How to Attack</h4>
               <ul>
                 <li>Wait for your turn (check the message console)</li>
-                <li>Click any unattacked cell on the grid</li>
+                <li><strong>Quick Shot:</strong> Click any unattacked cell to fire a standard shot</li>
+                <li><strong>Long Press:</strong> Press and hold on a cell to open the action menu with munitions options</li>
                 <li>Watch for hit/miss feedback and particle effects</li>
                 <li>Progressive intel: Ships reveal more info as you hit them</li>
                 <li>Repeat until all enemy ships are sunk!</li>
               </ul>
+
+              <h4>Munitions (Long Press Menu)</h4>
+              <p>
+                Long press on any cell to access special munitions. Available options depend on your era and remaining munitions.
+              </p>
+              <ul>
+                <li><strong>Standard Shot:</strong> Basic attack - always available</li>
+                <li><strong>Star Shell:</strong> Illuminates a 3x3 or 5x5 area, revealing enemy ships temporarily. Limited quantity per era.</li>
+                <li><strong>Scatter Shot:</strong> Attacks multiple adjacent cells simultaneously. Limited quantity per era.</li>
+                <li><strong>Torpedo:</strong> Straight-line attack from your submarine that travels up to 10 cells, stopping at first enemy ship, land, or excluded terrain. Only available if you have submarines with torpedoes remaining.</li>
+              </ul>
+              <p>
+                <strong>Note:</strong> Munitions are shown in your fleet status sidebar. Each era has different munition quantities.
+              </p>
 
               <h4>Strategy Tips</h4>
               <ul>
@@ -193,7 +213,9 @@ const GameGuide = ({ section, manualOpen = false, onClose, forceShow = false, er
                 <li>Ships are oriented horizontally or vertically (not diagonal)</li>
                 <li>Terrain affects gameplay - check ship restrictions</li>
                 <li>Track enemy attack patterns to predict their strategy</li>
-                <li>Use star shells strategically to reveal enemy positions</li>
+                <li>Use star shells strategically to reveal enemy positions before attacking</li>
+                <li>Save scatter shot for clustered ship formations</li>
+                <li>Torpedoes are powerful but limited - use them when you have a clear line to an enemy ship</li>
               </ul>
 
               <h4>Game Stats</h4>

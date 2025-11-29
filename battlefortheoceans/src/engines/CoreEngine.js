@@ -1,5 +1,8 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.46: NetworkError handling - transition to Launch state on network errors
+//          - Detect NetworkError in config loading
+//          - Prevent loops by checking current state
 // v0.6.45: Fix keyDataError persistence - don't clear in handleEvent_launch
 //          - keyDataError now persists so LaunchPage can display it
 //          - Only cleared when user clicks "Play Game" button
@@ -77,10 +80,10 @@
 import SessionManager from '../utils/SessionManager.js';
 import NavigationManager from '../utils/NavigationManager.js';
 import GameLifecycleManager from '../classes/GameLifecycleManager.js';
-import ConfigLoader from '../utils/ConfigLoader';
+import ConfigLoader, { isNetworkError } from '../utils/ConfigLoader';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.6.45';
+const version = 'v0.6.46';
 const tag = "CORE";
 const module = "CoreEngine";
 let method = "";
@@ -190,6 +193,7 @@ class CoreEngine {
     
     // Error state for graceful error handling
     this.keyDataError = null;       // stores key data error message when data is lost
+    this.networkErrorHandled = false; // Prevent loops - track if we've already handled a network error
 
     // =================================================================
     // MANAGERS - Initialize helper classes
@@ -219,22 +223,37 @@ class CoreEngine {
     this.restoreSession();
       
       // Load game config immediately
-      ConfigLoader.loadGameConfig().then(config => {
-        this.gameConfig = config;
-        this.log(`Game config loaded`);
-      });
+      ConfigLoader.loadGameConfig()
+        .then(config => {
+          this.gameConfig = config;
+          this.log(`Game config loaded`);
+          this.networkErrorHandled = false; // Reset on successful load
+        })
+        .catch(error => {
+          this.handleNetworkError('config', error);
+        });
 
       // Load era list, then preload all era configs
-      ConfigLoader.loadEraList().then(async (eraList) => {
-        this.log(`Era list loaded: ${eraList.length}`);
-        
-        // Preload all era configs
-        for (const era of eraList) {
-          const fullConfig = await ConfigLoader.loadEraConfig(era.id);
-          this.eras.set(era.id, fullConfig);
-        }
-        this.log(`All era configs preloaded: ${this.eras.size}`);
-      });
+      ConfigLoader.loadEraList()
+        .then(async (eraList) => {
+          this.log(`Era list loaded: ${eraList.length}`);
+          
+          // Preload all era configs
+          for (const era of eraList) {
+            try {
+              const fullConfig = await ConfigLoader.loadEraConfig(era.id);
+              this.eras.set(era.id, fullConfig);
+            } catch (error) {
+              this.handleNetworkError('era-config', error);
+              break; // Stop preloading on network error
+            }
+          }
+          this.log(`All era configs preloaded: ${this.eras.size}`);
+          this.networkErrorHandled = false; // Reset on successful load
+        })
+        .catch(error => {
+          this.handleNetworkError('era-list', error);
+        });
   }
 
     // Logging utilities
@@ -352,6 +371,11 @@ class CoreEngine {
       
     // Don't clear keyDataError here - let it persist so LaunchPage can display it
     // It will be cleared when user clicks "Play Game" button in LaunchPage
+    
+    // Reset network error handling flag when entering launch state
+    // This allows retry after user clicks "Play Game"
+    this.networkErrorHandled = false;
+    
     this.notifySubscribers();
   }
   
@@ -375,6 +399,43 @@ class CoreEngine {
     // Directly transition to Launch state (bypasses dispatch validation)
     // This allows recovery from any state, not just states with defined LAUNCH transitions
     this.transition('launch');
+  }
+  
+  /**
+   * Handle NetworkError - transition to Launch state to prevent loops
+   * @param {string} context - Context where error occurred (e.g., 'config', 'era-list')
+   * @param {Error} error - Error object
+   */
+  handleNetworkError(context, error) {
+    method = 'handleNetworkError';
+    
+    // Prevent loops - if we're already in launch or already handled this error, don't recurse
+    if (this.currentState === 'launch' || this.networkErrorHandled) {
+      this.logwarn(`NetworkError in ${context} but already in launch or error already handled - preventing loop`);
+      return;
+    }
+    
+    // Check if this is actually a NetworkError
+    if (!isNetworkError(error) && !error.isNetworkError) {
+      // Not a network error - log but don't transition
+      this.logerror(`Error in ${context} (not a NetworkError):`, error);
+      return;
+    }
+    
+    this.logerror(`NetworkError in ${context}:`, error);
+    
+    // Mark as handled to prevent loops
+    this.networkErrorHandled = true;
+    
+    // Save error message
+    this.keyDataError = {
+      state: context,
+      message: `Network error: ${error.message || 'Failed to fetch resource'}`
+    };
+    
+    // Transition to Launch state
+    this.transition('launch');
+    this.notifySubscribers();
   }
 
   handleEvent_login() {

@@ -152,6 +152,8 @@ const PlayingPage = () => {
     
   const canvasBoardRef = useRef(null);
   const viewControlsRef = useRef(null);
+  const messageConsoleRef = useRef(null);
+  const gameBoardContainerRef = useRef(null);
   
   // Match view controls width to canvas width
   useEffect(() => {
@@ -161,6 +163,8 @@ const PlayingPage = () => {
       
       if (canvasElement && viewControlsRef.current) {
         const canvasRect = canvasElement.getBoundingClientRect();
+        // Set width to match canvas total width (including borders)
+        // view-mode-controls uses box-sizing: border-box so width includes borders/padding
         viewControlsRef.current.style.width = `${canvasRect.width}px`;
       }
     };
@@ -216,6 +220,73 @@ const PlayingPage = () => {
     }
   }, [gameInstance]);
 
+  // Sync message console width to game board container width
+  useEffect(() => {
+    let rafId = null;
+    let lastWidth = 0;
+    
+    const syncConsoleWidth = () => {
+      // Cancel any pending animation frame
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      
+      // Defer DOM updates to next animation frame to prevent ResizeObserver loop
+      rafId = requestAnimationFrame(() => {
+        if (gameBoardContainerRef.current && messageConsoleRef.current) {
+          // Get the canvas element to match its width (not the container)
+          const canvasElement = canvasBoardRef.current?.getCanvasElement?.();
+          let boardWidth = 0;
+          
+          if (canvasElement) {
+            const canvasRect = canvasElement.getBoundingClientRect();
+            boardWidth = canvasRect.width;
+          } else {
+            // Fallback to container width if canvas not available
+            boardWidth = gameBoardContainerRef.current.offsetWidth;
+          }
+          
+          // Only update if width actually changed to prevent loops
+          if (boardWidth > 0 && Math.abs(boardWidth - lastWidth) > 1) {
+            const consoleCombined = messageConsoleRef.current.querySelector('.console-combined');
+            if (consoleCombined) {
+              consoleCombined.style.width = `${boardWidth}px`;
+              lastWidth = boardWidth;
+            }
+          }
+        }
+        rafId = null;
+      });
+    };
+
+    // Sync on mount and when board size changes
+    const timeoutId = setTimeout(syncConsoleWidth, 100);
+    
+    // Use ResizeObserver to sync when board container resizes
+    let resizeObserver;
+    if (gameBoardContainerRef.current && window.ResizeObserver) {
+      resizeObserver = new ResizeObserver((entries) => {
+        // Use entries to avoid accessing DOM in callback
+        syncConsoleWidth();
+      });
+      resizeObserver.observe(gameBoardContainerRef.current);
+    }
+
+    // Also sync on window resize
+    window.addEventListener('resize', syncConsoleWidth);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      window.removeEventListener('resize', syncConsoleWidth);
+    };
+  }, [gameInstance, gameBoard, selectedEraConfig]);
+
   const handleShotFired = useCallback((row, col) => {
     console.log('[ATTACK]', version, 'Player shot fired at', { row, col });
     
@@ -241,6 +312,18 @@ const PlayingPage = () => {
     console.log('[MUNITIONS]', version, 'Star shell fired at', { row, col });
     fireMunition('starShell', row, col);
   }, [fireMunition]);
+  
+  const onScatterShotFired = useCallback((row, col) => {
+    console.log('[MUNITIONS]', version, 'Scatter shot fired at', { row, col });
+    fireMunition('scatterShot', row, col);
+  }, [fireMunition]);
+  
+  const onTorpedoFired = useCallback((row, col) => {
+    console.log('[MUNITIONS]', version, 'Torpedo fired at', { row, col });
+    if (gameInstance) {
+      gameInstance.fireTorpedo(row, col);
+    }
+  }, [gameInstance]);
   
   // v0.5.1: AutoPlay testing utility extracted to hook
   const { autoPlayEnabled, canUseAutoPlay, handleAutoPlayToggle } = useAutoPlay({
@@ -319,9 +402,10 @@ const PlayingPage = () => {
           </div>
           
           <div className="battle-board-layout">
-            {/* Left side: Board and message console stacked vertically */}
+            {/* Board and console container - stacked vertically */}
             <div className="board-console-container">
-              <div className="game-board-container">
+              {/* Game board */}
+              <div className="game-board-container" ref={gameBoardContainerRef}>
                 {showVideo && currentVideo && (
                   <VideoPopup
                     videoSrc={currentVideo}
@@ -339,6 +423,8 @@ const PlayingPage = () => {
                   gameState={gameState}
                   onShotFired={handleShotFired}
                   onStarShellFired={onStarShellFired}
+                  onScatterShotFired={onScatterShotFired}
+                  onTorpedoFired={onTorpedoFired}
                   player={player}
                 />
                 
@@ -364,7 +450,8 @@ const PlayingPage = () => {
                 </div>
               </div>
               
-              <div className="message-consoles">
+              {/* Message console - matches board width */}
+              <div className="message-consoles" ref={messageConsoleRef}>
                 <div className="console-combined">
                   <div className="console-header">Messages</div>
                   <div className="console-content-combined">
@@ -380,34 +467,29 @@ const PlayingPage = () => {
               </div>
             </div>
             
-            {/* Right side: Fleet sidebars stacked horizontally */}
-            <div className="fleet-sidebars-container">
-              <FleetStatusSidebar
-                fleet={player?.fleet}
-                title="Home"
-                munitions={munitions}
-              />
-              
-              <FleetStatusSidebar
-                fleets={opponentFleetData}
-                title="Enemy"
-              />
-            </div>
-          </div>
-          
-          <div className="game-stats">
-            <span className="stat-inline">Your Hits: {playerHits || 0}</span>
-            <span className="stat-inline">Enemy Hits: {opponentHits || 0}</span>
+            {/* Fleet sidebars - can be in a row when wide enough */}
+            <FleetStatusSidebar
+              fleet={player?.fleet}
+              title="Home"
+              munitions={munitions}
+            />
+            
+            <FleetStatusSidebar
+              fleets={opponentFleetData}
+              title="Enemy"
+            />
           </div>
           
           {canUseAutoPlay && isGameActive && (
             <div className="autoplay-container">
-              <button
-                className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
-                onClick={handleAutoPlayToggle}
-              >
-                {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ AutoPlay'}
-              </button>
+              <div className="autoplay-wrapper">
+                <button
+                  className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
+                  onClick={handleAutoPlayToggle}
+                >
+                  {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ AutoPlay'}
+                </button>
+              </div>
             </div>
           )}
         </div>

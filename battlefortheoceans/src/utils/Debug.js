@@ -37,9 +37,8 @@ const control = {
   CORE: true,
   GUIDE: false,
   AUTOPLAY: true,
-  MUNITIONS: false,
-  TESTS: false,
-  RIGHTS: false,
+  MUNITIONS: true,
+   RIGHTS: false,
   INVITE: true,
   VOUCHER: true,
   ACCESS: true,
@@ -51,6 +50,7 @@ const control = {
     AUTH: false,
     SERVICE: true,
     OVER: true,
+    TEST: true,
   DEBUG: true
 };
 

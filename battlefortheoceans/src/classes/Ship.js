@@ -1,8 +1,18 @@
 // src/classes/Ship.js
 // Copyright(c) 2025, Clint H. O'Connor
 
-const version = "v0.2.1";
+const version = "v0.2.3";
 /**
+ * v0.2.3: Torpedoes from era config
+ * - Torpedoes now read from era config munitions.torpedoes instead of hardcoded
+ * - Only submarines get torpedoes (based on class)
+ * - Initial torpedo count stored for reset()
+ *
+ * v0.2.2: Torpedo System
+ * - Added 'torpedoes' property (from era config for submarines, 0 for others)
+ * - Added getTorpedoes() and useTorpedo() methods
+ * - Torpedoes are lost when submarine is sunk
+ *
  * v0.2.1: Progressive Fog of War System
  * - Added 'hitCount' tracking for reveal stages
  * - Added getRevealLevel() method (hidden/hit/size-hint/critical/sunk)
@@ -24,7 +34,7 @@ const version = "v0.2.1";
 class Ship {
     // Ship is a battle unit that has a name, size (1-5 cells), and allowed terrain (could be cannon on land too).  Each cell has health, initially 1.0, and can go negative if receiving a high power (>1.0) shot or a partial shot (e.g. 0.1) followed by a full (1.0) shot.  The ship is sunk when its total health drops to 0. Allowed ships are defined in the era-config file for a game. [FUTURE] A Ship can be captured (random chance) when its health falls to zero.  In this instance, a ship is reset with a random health between 50% and 75% and fires 50% power shots.  This, of course, messes up player maps because the ship disappears after being sunk and then reappears as a new ship.
     
-  constructor(name, size, terrain, shipClass) {
+  constructor(name, size, terrain, shipClass, torpedoes = 0) {
     // Validate required shipClass parameter
     if (!shipClass) {
       throw new Error(`Ship ${name} missing required 'shipClass' parameter`);
@@ -47,6 +57,11 @@ class Ship {
     
     // Fog of War tracking
     this.hitCount = 0; // Number of times this ship has been hit (for progressive reveal)
+    
+    // Torpedo tracking (only for submarines, from era config)
+    // Store initial count for reset()
+    this.initialTorpedoes = this.class.toLowerCase() === 'submarine' ? torpedoes : 0;
+    this.torpedoes = this.initialTorpedoes;
   }
 
   /**
@@ -110,6 +125,10 @@ class Ship {
     // Check if ship is now sunk
     if (this.isSunk() && !this.sunkAt) {
       this.sunkAt = Date.now();
+      // When submarine is sunk, torpedoes are lost
+      if (this.class.toLowerCase() === 'submarine') {
+        this.torpedoes = 0;
+      }
       console.log(`Ship ${this.name} SUNK! Total health: ${this.getHealth().toFixed(2)}`);
     }
 
@@ -190,6 +209,26 @@ class Ship {
   isSunk() {
     return this.getHealth() <= 0 || this.sunkAt !== null;
   }
+  
+  /**
+   * Get remaining torpedoes (only for submarines)
+   * @returns {number} - Number of torpedoes remaining
+   */
+  getTorpedoes() {
+    return this.torpedoes || 0;
+  }
+  
+  /**
+   * Use a torpedo (decrement count)
+   * @returns {boolean} - True if torpedo was used, false if none available
+   */
+  useTorpedo() {
+    if (this.torpedoes > 0) {
+      this.torpedoes--;
+      return true;
+    }
+    return false;
+  }
 
   /**
    * Reset ship to initial state
@@ -199,17 +238,30 @@ class Ship {
     this.health = Array(this.size).fill(1.0);
     this.sunkAt = null;
     this.hitCount = 0; // Reset fog of war tracking
+    // Reset torpedoes to initial count from era config
+    this.torpedoes = this.initialTorpedoes;
   }
 
   /**
    * Create ship from config object
    * UPDATED: Now requires 'class' property in config
+   * UPDATED: Accepts era config to read torpedoes from munitions.torpedoes
+   * @param {Object} config - Ship configuration object
+   * @param {Object} eraConfig - Era configuration (optional, for torpedoes)
+   * @returns {Ship} - New Ship instance
    */
-  static fromConfig(config) {
+  static fromConfig(config, eraConfig = null) {
     if (!config.class) {
       throw new Error(`Ship config missing required 'class' property: ${JSON.stringify(config)}`);
     }
-    return new Ship(config.name, config.size, config.terrain, config.class);
+    
+    // Get torpedoes from era config (only for submarines)
+    let torpedoes = 0;
+    if (config.class.toLowerCase() === 'submarine' && eraConfig?.munitions?.torpedoes) {
+      torpedoes = eraConfig.munitions.torpedoes;
+    }
+    
+    return new Ship(config.name, config.size, config.terrain, config.class, torpedoes);
   }
 }
 

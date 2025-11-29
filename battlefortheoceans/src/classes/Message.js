@@ -3,9 +3,14 @@
 
 import MessageHelper from '../utils/MessageHelper.js';
 
-const version = "v0.1.5";
+const version = "v0.1.6";
 
 /**
+ * v0.1.6: Fixed turn message not updating on game start
+ * - getCurrentMessages() now always uses computed turn message
+ * - Ensures messages update correctly when game transitions from setup -> playing
+ * - Fixes "Preparing game..." stuck message on PlayingPage entry
+ *
  * v0.1.5: Object-to-String Pre-processing
  * - Added comprehensive pre-processing in post() to convert all object types to strings
  * - Handles: players array, winner, attacker, target, opponent objects
@@ -93,13 +98,19 @@ class Message {
 
   /**
    * Get current messages for all channels
+   * v0.1.6: Always use computed turn message (not stored UI message)
+   *         This ensures messages update correctly when game state changes
    */
   getCurrentMessages() {
+    // Always compute turn message from current game state
+    // This ensures it updates when game transitions from setup -> playing
+    const turnMessage = this.getCurrentTurnMessage();
+    
     return {
       console: this.currentMessages.get(this.channels.CONSOLE) || '',
       system: this.currentMessages.get(this.channels.SYSTEM) || '',
       ui: this.currentMessages.get(this.channels.UI) || '',
-      turn: this.getCurrentTurnMessage()
+      turn: turnMessage
     };
   }
 

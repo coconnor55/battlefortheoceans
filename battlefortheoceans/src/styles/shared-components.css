@@ -162,6 +162,7 @@
 }
 
 /* Add top padding to content to account for fixed nav */
+/* Note: Container now has margin-top for gap, so this just accounts for NavBar height */
 .page-container {
     padding-top: 60px;
 }

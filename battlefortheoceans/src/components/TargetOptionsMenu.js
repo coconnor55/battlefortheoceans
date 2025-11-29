@@ -1,5 +1,7 @@
 // src/components/TargetOptionsMenu.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.2: Filter out munitions with zero count from menu display
+// v0.2.1: Added torpedo option (only when submarine has torpedoes)
 // v0.2.0: Renamed from ActionMenu to TargetOptionsMenu (semantic accuracy)
 //         - Removed munitions prop drilling - now reads from useGameState directly
 //         - Component name reflects purpose: options when targeting a cell
@@ -10,13 +12,40 @@
 import React from 'react';
 import useGameState from '../hooks/useGameState';
 
-const version = 'v0.2.0';
+const version = 'v0.2.2';
 
 const TargetOptionsMenu = ({ x, y, onAction, onClose }) => {
-  const { munitions } = useGameState();
+  const { munitions, humanPlayer } = useGameState();
     console.log('[MUNITIONS] Received munitions:', munitions);  // ADD THIS LINE
 
-    const actions = [
+    // Check if player has any submarine with torpedoes available
+    const getTotalTorpedoes = () => {
+      if (!humanPlayer?.fleet?.ships) {
+        console.log('[MUNITIONS] No humanPlayer or fleet.ships');
+        return 0;
+      }
+      
+      const submarines = humanPlayer.fleet.ships.filter(ship => {
+        const isSub = ship.class?.toLowerCase() === 'submarine';
+        const notSunk = !ship.isSunk();
+        const hasTorpedoes = ship.getTorpedoes && ship.getTorpedoes() > 0;
+        console.log('[MUNITIONS] Ship:', ship.name, 'class:', ship.class, 'isSub:', isSub, 'notSunk:', notSunk, 'torpedoes:', ship.getTorpedoes ? ship.getTorpedoes() : 'no method');
+        return isSub && notSunk && hasTorpedoes;
+      });
+      
+      const total = submarines.reduce((sum, ship) => {
+        const count = ship.getTorpedoes ? ship.getTorpedoes() : 0;
+        return sum + count;
+      }, 0);
+      
+      console.log('[MUNITIONS] Found', submarines.length, 'submarines with', total, 'total torpedoes');
+      return total;
+    };
+    
+    const totalTorpedoes = getTotalTorpedoes();
+    console.log('[MUNITIONS] Total torpedoes available:', totalTorpedoes);
+
+    const allActions = [
     {
       id: 'shot',
       label: 'Shot',
@@ -34,9 +63,22 @@ const TargetOptionsMenu = ({ x, y, onAction, onClose }) => {
       id: 'scatter',
       label: 'Scatter Shot',
       emoji: '💥',
-      enabled: false // Coming soon
+      enabled: munitions.scatterShot > 0,
+      count: munitions.scatterShot
+    },
+    {
+      id: 'torpedo',
+      label: 'Torpedo',
+      emoji: '🚀',
+      enabled: totalTorpedoes > 0,
+      count: totalTorpedoes
     }
   ];
+  
+  // Filter out munitions with zero count (always show 'shot' as it's always available)
+  const actions = allActions.filter(action => 
+    action.id === 'shot' || (action.enabled && (action.count === undefined || action.count > 0))
+  );
 
   const handleAction = (actionId) => {
     if (actions.find(a => a.id === actionId)?.enabled) {
