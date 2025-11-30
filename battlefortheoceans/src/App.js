@@ -273,7 +273,8 @@ const SceneRenderer = () => {
         const backgroundImageUrl = configLoader.getEraAssetPath(eraConfig.id, eraConfig.promotional.background_image);
         log(`Setting background image: ${backgroundImageUrl}`);
         
-        const backgroundValue = `url('${backgroundImageUrl}')`;
+        // Use url() without quotes to avoid potential CORS/opaque response issues
+        const backgroundValue = `url(${backgroundImageUrl})`;
         document.body.style.backgroundImage = backgroundValue;
         document.body.setAttribute('data-has-background-image', 'true');
         document.body.style.setProperty('--app-background', 'none');

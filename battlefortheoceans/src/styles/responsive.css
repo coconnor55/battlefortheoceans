@@ -130,6 +130,17 @@
     margin: var(--space-xs) 0;
   }
   
+  .era-item-content {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+  
+  .era-item-image {
+    width: 100%;
+    min-width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+  
   .era-name {
     font-size: 1rem;
   }

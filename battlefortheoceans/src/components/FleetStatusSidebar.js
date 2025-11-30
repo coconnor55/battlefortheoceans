@@ -115,10 +115,10 @@ const FleetStatusSidebar = ({ fleet, fleets, title = 'Fleet', playerId, munition
         if (munitionsList.length === 0) return null;
         
         return (
-          <div className="fleet-status-resource" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+          <div className="fleet-status-resource">
             {munitionsList.map((item, index) => (
               <React.Fragment key={index}>
-                {index > 0 && <span style={{ color: 'var(--text-dim)', margin: '0 0.25rem' }}>|</span>}
+                {index > 0 && <span className="fleet-status-resource-separator">|</span>}
                 <span className="fleet-status-resource-emoji">{item.icon}</span>
                 <span className="fleet-status-resource-count">{item.count}</span>
               </React.Fragment>

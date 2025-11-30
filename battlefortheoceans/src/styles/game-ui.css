@@ -16,6 +16,38 @@
   /* Uses .scrollable-list from shared-components.css */
 }
 
+/* Era item layout with background image on left */
+.era-item-content {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+  width: 100%;
+}
+
+.era-item-image {
+  flex-shrink: 0;
+  height: 150px;
+  width: auto;
+  max-width: 250px;
+  border-radius: var(--border-radius-sm);
+  overflow: hidden;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-subtle);
+}
+
+.era-background-image {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
+.era-item-text {
+  flex: 1;
+  min-width: 0; /* Allow text to shrink if needed */
+}
+
 /* Era-specific: larger title, grid info display */
 .era-grid,
 .era-players {
@@ -946,10 +978,11 @@
   justify-content: center;
   gap: var(--space-xs);
   padding: var(--space-xs);
-  margin: 0 var(--space-sm) var(--space-sm) var(--space-sm);
+  margin-bottom: var(--space-sm);
   background: var(--bg-medium);
   border-radius: var(--border-radius-sm);
   border: 1px solid var(--primary);
+  flex-wrap: wrap;
 }
 
 .fleet-status-resource-emoji {
@@ -962,6 +995,11 @@
   font-size: 1rem;
   font-weight: 700;
   color: var(--primary);
+}
+
+.fleet-status-resource-separator {
+  color: var(--text-dim);
+  margin: 0 var(--space-xs);
 }
 
 /* ============================================

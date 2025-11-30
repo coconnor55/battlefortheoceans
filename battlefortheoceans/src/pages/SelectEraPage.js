@@ -1,5 +1,8 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.14: Sort eras by access type (free, passes, vouchers) and oldest first within each group
+//         - Free eras first, then passes eras, then vouchers/exclusive eras
+//         - Within each group, sort by position in era-list.json (oldest first)
 // v0.6.13: Fix React setState during render warning - defer handleKeyDataError to useEffect
 //         - Moved handleKeyDataError call to useEffect with setTimeout to defer execution
 //         - Prevents "Cannot update a component while rendering a different component" error
@@ -51,8 +54,9 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import useEraBadges from '../hooks/useEraBadges';
 import GetAccessPage from './GetAccessPage';
 import { coreEngine, useGame } from '../context/GameContext';
+import configLoader from '../utils/ConfigLoader';
 
-const version = 'v0.6.13';
+const version = 'v0.6.14';
 const tag = "SELECTERA";
 const module = "SelectEraPage";
 let method = "";
@@ -115,14 +119,15 @@ const SelectEraPage = () => {
     const gameInstance = coreEngine.gameInstance;
     const board = coreEngine.board;
 
-    // Filter eras by status and user role (admin OR tester)
+    // Filter and sort eras by status, user role, and access type
     const availableEras = useMemo(() => {
         method = 'availableEras';
         
         if (!coreEngine.eras || coreEngine.eras.size === 0) return [];
         const allEras = Array.from(coreEngine.eras.values());
         
-        return allEras.filter(era => {
+        // Filter eras by status and user role
+        const filteredEras = allEras.filter(era => {
             // Always show active eras (or eras without status field)
             if (!era.status || era.status === 'active') return true;
             
@@ -135,7 +140,40 @@ const SelectEraPage = () => {
             // Hide everything else (beta, disabled, etc.)
             return false;
         });
-    }, [coreEngine.eras, playerRole]);
+        
+        // Create era order map from eraList (for oldest-first sorting)
+        const eraOrderMap = new Map();
+        if (coreEngine.eraList && Array.isArray(coreEngine.eraList)) {
+            coreEngine.eraList.forEach((eraEntry, index) => {
+                eraOrderMap.set(eraEntry.id, index);
+            });
+        }
+        
+        // Get order index for an era (fallback to 999 if not in eraList)
+        const getEraOrder = (era) => {
+            return eraOrderMap.get(era.id) ?? 999;
+        };
+        
+        // Categorize eras by access type
+        const categorizeEra = (era) => {
+            if (era.free === true) return 0; // Free eras
+            if (era.exclusive === true) return 2; // Vouchers/exclusive eras
+            return 1; // Passes eras (passes_required > 0)
+        };
+        
+        // Sort: first by category (free, passes, vouchers), then by order in eraList
+        return filteredEras.sort((a, b) => {
+            const categoryA = categorizeEra(a);
+            const categoryB = categorizeEra(b);
+            
+            if (categoryA !== categoryB) {
+                return categoryA - categoryB;
+            }
+            
+            // Same category - sort by order in eraList (oldest first)
+            return getEraOrder(a) - getEraOrder(b);
+        });
+    }, [coreEngine.eras, coreEngine.eraList, playerRole]);
 
     // Handle era selection - check if user has access
     const handleEraSelect = useCallback((era) => {
@@ -357,6 +395,9 @@ const SelectEraPage = () => {
           <div className="era-list scrollable-list">
             {availableEras.map((era) => {
               const badgeDisplay = getEraBadgeDisplay(era);
+              const backgroundImageUrl = era.promotional?.background_image
+                ? configLoader.getEraAssetPath(era.id, era.promotional.background_image)
+                : null;
 
               return (
                 <div
@@ -364,16 +405,29 @@ const SelectEraPage = () => {
                       className={`selectable-item era-item ${coreEngine.selectedEraConfig?.id === era.id ? 'selectable-item--selected' : ''} ${!badgeDisplay.canPlay ? 'selectable-item--locked' : ''}`}
                   onClick={() => handleEraSelect(era)}
                 >
-                  <div className="item-header">
-                    <span className="item-name">{era.name}</span>
-                    <span className={`badge ${badgeDisplay.style}`}>
-                      {badgeDisplay.badge}
-                    </span>
-                  </div>
-                  <div className="item-description">{era.era_description}</div>
-                  <div className="item-details">
-                    <span className="era-grid">{era.rows}×{era.cols} grid</span>
-                    <span className="era-players">Max {era.max_players} players</span>
+                  <div className="era-item-content">
+                    {backgroundImageUrl && (
+                      <div className="era-item-image">
+                        <img
+                          src={backgroundImageUrl}
+                          alt={`${era.name} background`}
+                          className="era-background-image"
+                        />
+                      </div>
+                    )}
+                    <div className="era-item-text">
+                      <div className="item-header">
+                        <span className="item-name">{era.name}</span>
+                        <span className={`badge ${badgeDisplay.style}`}>
+                          {badgeDisplay.badge}
+                        </span>
+                      </div>
+                      <div className="item-description">{era.era_description}</div>
+                      <div className="item-details">
+                        <span className="era-grid">{era.rows}×{era.cols} grid</span>
+                        <span className="era-players">Max {era.max_players} players</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );

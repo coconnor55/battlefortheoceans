@@ -263,17 +263,25 @@ class ConfigLoader {
    * @param {string} eraId - Era identifier (e.g., 'traditional', 'midway')
    * @returns {Promise<Object>} Era configuration object
    */
-  async loadEraConfig(eraId) {
+  async loadEraConfig(eraId, forceReload = false) {
     const cacheKey = `era-${eraId}`;
     
-    if (this.cache.has(cacheKey)) {
+    // Clear cache if force reload is requested
+    if (forceReload && this.cache.has(cacheKey)) {
+      console.log(`[CONFIG] ${version} Force reload requested, clearing cache for: ${eraId}`);
+      this.cache.delete(cacheKey);
+    }
+    
+    if (this.cache.has(cacheKey) && !forceReload) {
       console.log(`[CONFIG] ${version} Using cached era: ${eraId}`);
       return this.cache.get(cacheKey);
     }
 
     try {
       console.log(`[CONFIG] ${version} Loading era config: ${eraId}`);
-      const response = await fetch(`${this.configPath}/era-${eraId}.json`);
+      // Add cache busting query parameter to ensure fresh config on dev
+      const cacheBuster = process.env.NODE_ENV === 'development' ? `?t=${Date.now()}` : '';
+      const response = await fetch(`${this.configPath}/era-${eraId}.json${cacheBuster}`);
       
       if (!response.ok) {
         throw new Error(`Failed to load era-${eraId}.json: ${response.status}`);

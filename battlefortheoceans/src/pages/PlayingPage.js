@@ -468,27 +468,27 @@ const PlayingPage = () => {
             </div>
             
             {/* Fleet sidebars - can be in a row when wide enough */}
-            <FleetStatusSidebar
-              fleet={player?.fleet}
-              title="Home"
-              munitions={munitions}
-            />
-            
-            <FleetStatusSidebar
-              fleets={opponentFleetData}
-              title="Enemy"
-            />
+              <FleetStatusSidebar
+                fleet={player?.fleet}
+                title="Home"
+                munitions={munitions}
+              />
+              
+              <FleetStatusSidebar
+                fleets={opponentFleetData}
+                title="Enemy"
+              />
           </div>
           
           {canUseAutoPlay && isGameActive && (
             <div className="autoplay-container">
               <div className="autoplay-wrapper">
-                <button
-                  className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
-                  onClick={handleAutoPlayToggle}
-                >
-                  {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ AutoPlay'}
-                </button>
+              <button
+                className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
+                onClick={handleAutoPlayToggle}
+              >
+                {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ AutoPlay'}
+              </button>
               </div>
             </div>
           )}

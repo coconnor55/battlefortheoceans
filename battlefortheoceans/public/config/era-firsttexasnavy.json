@@ -1,0 +1,197 @@
+{
+  "version": "0.1.1",
+  "id": "firsttexasnavy",
+  "name": "First Texas Navy",
+  "era_description": "Gulf of Mexico, 1835-1836. The Republic of Texas establishes its first navy to defend its coastline and disrupt Mexican supply lines. Command the four schooners of the First Texas Navy, plus privateers, against the Mexican Navy in the fight for Texas independence.",
+  "about": "<div class=\"about-content\">\n<h2>First Texas Navy</h2>\n<p class=\"subtitle\">The Birth of the Texian Navy (1835-1836)</p>\n\n<h3>The Texas Revolution at Sea</h3>\n\n<p>In January 1836, the provisional government of Texas purchased four schooners to establish the First Texas Navy: Liberty, Independence, Brutus, and Invincible. These vessels, all schooners ranging from 60 to 125 tons, were tasked with protecting the Texas coastline and disrupting Mexican supply lines during the Texas Revolution.</p>\n\n<p>The Texas Navy was supplemented by privateers operating under letters of marque, including the San Felipe, Terrible, and Flash. These privateers played a crucial role in the early naval engagements of the revolution, with the San Felipe engaging the Mexican revenue cutter Correo de México in September 1835—an encounter many consider the opening naval battle of the Texas Revolution.</p>\n\n<p>Facing them was the Mexican Navy, including the schooner Montezuma, the brig Bravo (possibly a rebuilt Montezuma), the brig Vencedor del Alamo, and various sloops and armed schooners. The naval war in the Gulf of Mexico was as critical to Texas independence as the land battles at the Alamo and San Jacinto.</p>\n\n<h3>The Ships of the First Texas Navy</h3>\n\n<h4>Liberty</h4>\n<p>Originally the privateer William Robbins, this 60-ton schooner was purchased in January 1836 and renamed Liberty. Commanded by Captain William S. Brown, she participated in early naval engagements of the Texas Revolution.</p>\n\n<h4>Independence</h4>\n<p>A 125-ton schooner, formerly the U.S. Revenue Cutter Ingham, acquired in January 1836. Under Captain Charles Hawkins, Independence played a significant role, including transporting President David G. Burnet and the captured General Santa Anna to Velasco for the Treaties of Velasco.</p>\n\n<h4>Brutus</h4>\n<p>A 125-ton schooner purchased in January 1836. Commanded by Captain William A. Hurd (who had previously commanded the privateer San Felipe), Brutus participated in blockades of Matagorda and engagements along the Mexican coast.</p>\n\n<h4>Invincible</h4>\n<p>A 125-ton schooner built in Baltimore, Maryland (originally for the African slave trade), acquired in January 1836. Under Captain Jeremiah Brown, Invincible destroyed the Mexican man-of-war Bravo and captured the merchant vessel Pocket, which was supplying the Mexican army.</p>\n\n<h3>Privateers of the Republic</h3>\n\n<p>In addition to the official navy, the Texas government issued letters of marque to privateers. The San Felipe, commanded by William A. Hurd, engaged in the first naval battle of the revolution. The Terrible and Flash also operated under Texas authority, disrupting Mexican shipping and protecting the Texas coast.</p>\n\n<h3>The Mexican Response</h3>\n\n<p>The Mexican Navy deployed several vessels to counter the Texas naval threat, including the schooner Montezuma, the brig Bravo, the brig Vencedor del Alamo, and various sloops and armed schooners. The naval war in the Gulf was fierce, with both sides seeking to control supply lines and protect their coastlines.</p>\n\n<p>Command your fleet. Face the Mexican Navy. And fight for Texas independence on the waters of the Gulf of Mexico.</p>\n</div>",
+  "free": true,
+  "rows": 15,
+  "cols": 22,
+  "boundary": [],
+  "max_players": 2,
+  "passes_required": 0,
+  "exclusive": false,
+  "munitions": {
+    "star_shells": 0,
+    "star_shells_boost": 0,
+    "scatter_shot": 0,
+    "scatter_shot_boost": 0,
+    "torpedoes": 0
+  },
+  "era_assets": {
+    "ship_silhouettes_path": "ships"
+  },
+  "promotional": {
+    "background_image": "images/background.jpg",
+    "promotional_image": "images/promotional.jpg",
+    "tagline": "Fight for Texas Independence!",
+    "marketing_description": "Command the First Texas Navy against the Mexican fleet in the Gulf of Mexico. Navigate the same treacherous waters and irregular coastlines that defined the naval war for Texas independence.",
+    "features": [
+      "15x22 battlefield with Gulf coastline",
+      "Historic Texas Revolution (1835-1836)",
+      "Four Texas Navy schooners plus privateers",
+      "Face the Mexican Navy fleet",
+      "Free to play"
+    ]
+  },
+  "videos": {
+    "sunkplayer": "videos/playersunk.mp4",
+    "sunkopponent": "videos/opponentsunk.mp4",
+    "victory": "videos/victory.mp4",
+    "defeat": "videos/defeat.mp4"
+  },
+  "game_rules": {
+    "change_alliance": false,
+    "ship_capture": false,
+    "capture_chance": 0.0,
+    "turn_required": true,
+    "choose_alliance": true,
+    "turn_on_hit": true,
+    "turn_on_miss": false,
+    "placement_restriction": 10,
+    "multi_fleet_combat": false,
+    "fleet_selection_min": 1,
+    "fleet_selection_max": 1,
+    "fleet_difficulty_multipliers": {
+      "1": 1.0
+    }
+  },
+  "theme": {
+    "primary": "#D4AF37",
+    "primary_glow": "rgba(212, 175, 55, 0.8)",
+    "primary_dim": "rgba(212, 175, 55, 0.4)",
+    "primary_dark": "#B8941F",
+    "bg_dark": "#1E2A3A",
+    "bg_medium": "#2C3E50",
+    "bg_light": "#34495E",
+    "bg_overlay": "rgba(30, 42, 58, 0.92)",
+    "accent": "#FFD700",
+    "accent_secondary": "#2C5282",
+    "warning": "#D84315",
+    "success": "#7CB342",
+    "error": "#C62828",
+    "text_primary": "#F5F5DC",
+    "text_secondary": "#E8E8D3",
+    "text_dim": "#B8B8A0",
+    "text_disabled": "#787860",
+    "border_color": "#D4AF37",
+    "border_subtle": "rgba(212, 175, 55, 0.35)",
+    "border_strong": "#D4AF37",
+    "shadow": "0 4px 20px rgba(212, 175, 55, 0.6)",
+    "shadow_sm": "0 2px 10px rgba(212, 175, 55, 0.35)",
+    "shadow_lg": "0 8px 40px rgba(212, 175, 55, 0.6)",
+    "btn_border_primary": "#D4AF37",
+    "btn_border_primary_hover": "#FFD700"
+  },
+  "alliances": [
+    {
+      "name": "Texian Navy",
+      "description": "First Texian Navy - Command the four schooners of the First Texian Navy plus privateers. Defend the Texas coastline and disrupt Mexican supply lines in the fight for independence.",
+      "avatar": "texian-navy-icon.png",
+      "ships": [
+        { "name": "Liberty", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "Independence", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "Brutus", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "Invincible", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "San Felipe", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "Terrible", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "Flash", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] }
+      ]
+    },
+    {
+      "name": "Mexican Navy",
+      "description": "Mexican Navy - Defend Mexican interests in the Gulf of Mexico. Your fleet includes schooners, brigs, and sloops tasked with maintaining supply lines and countering the Texas naval threat.",
+      "avatar": "mexican-navy-icon.png",
+      "ships": [
+        { "name": "Montezuma", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "Bravo", "class": "Brig", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "Vencedor del Alamo", "class": "Brig", "size": 4, "terrain": ["deep", "shallow"] },
+        { "name": "Correo de México", "class": "Revenue Cutter", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "San Francisco de Tampico", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "La Sirena", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "El Cazador", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] }
+      ],
+      "ai_captains": [
+        {
+          "id": "juan-calvi",
+          "name": "Juan Calvi",
+          "strategy": "aggressive",
+          "difficulty": 1.6,
+          "description": "Lieutenant Juan Calvi - Commanded the Montezuma during the Ingham Incident. Experienced Mexican naval officer known for aggressive tactics and determination to enforce Mexican maritime laws.",
+          "avatar": "captains/juan-calvi.webp"
+        },
+        {
+          "id": "thomas-thompson",
+          "name": "Thomas M. Thompson",
+          "strategy": "hunt-target",
+          "difficulty": 1.2,
+          "description": "Lieutenant Thomas M. Thompson - British-born officer who commanded the Correo de México. Known for enforcing Mexican customs laws and engaging Texan privateers with calculated precision.",
+          "avatar": "captains/thomas-thompson.webp"
+        }
+      ]
+    }
+  ],
+  "terrain": [
+    ["land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "shallow", "shallow", "deep", "deep"],
+    ["land", "land", "land", "land", "land", "land", "land", "land", "land", "land", "shallow", "shallow", "land", "land", "land", "land", "land", "shallow", "shallow", "shallow", "deep", "deep"],
+    ["land", "land", "land", "land", "shallow", "shallow", "shallow", "land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "land", "land", "shallow", "shallow", "shallow", "deep", "deep", "deep"],
+    ["land", "land", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "shallow", "shallow", "shallow", "land", "land", "shallow", "shallow", "deep", "deep", "deep"],
+    ["land", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "land", "shallow", "shallow", "shallow", "deep", "deep"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "land", "shallow", "shoal", "shallow", "deep", "deep"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "land", "shallow", "shallow", "land", "deep"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "land", "shoal", "shoal", "deep", "shallow"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "land", "shallow", "shoal"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "land", "shoal", "land", "deep"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "deep", "deep", "deep", "deep", "deep", "shallow", "shoal", "land"],
+    ["land", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "deep", "land", "land", "deep", "shoal", "shoal"],
+    ["land", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "shallow", "shallow", "deep", "deep", "land", "land", "land", "land", "land", "shallow", "shallow"],
+    ["land", "shallow", "deep", "deep", "deep", "deep", "shallow", "shallow", "shallow", "shallow", "land", "land", "shallow", "deep", "deep", "deep", "deep", "deep", "deep", "shallow", "land", "land"],
+    ["land", "land", "deep", "deep", "deep", "deep", "shallow", "shallow", "land", "land", "land", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
+  ],
+  "messages": {
+    "transition": [
+      "The Gulf waters churn as Texas and Mexican ships prepare for battle!",
+      "Mexican sails spotted on the horizon - all hands to battle stations!",
+      "The fight for Texas independence begins at sea - engage the enemy!"
+    ],
+    "player_win": [
+      "Victory! The Mexican fleet is defeated!",
+      "The Gulf is secure! All Mexican vessels sent to the depths!",
+      "Outstanding command! Texas independence is secured at sea!"
+    ],
+    "player_lose": [
+      "Your fleet is destroyed! The Mexican Navy controls the Gulf!",
+      "Defeat! The First Texas Navy has fallen!",
+      "The Mexican fleet scatters your ships! The Gulf remains in enemy hands!"
+    ],
+    "opponent_win": [
+      "{opponent}: Your Texas vessels sink beneath Gulf waves!",
+      "{opponent}: Run back to your ports - these waters belong to Mexico!",
+      "{opponent}: Tell your president his navy lies at the bottom!"
+    ],
+    "opponent_lose": [
+      "{opponent}: Curse you! My fleet is destroyed!",
+      "{opponent}: You'll never take me alive... *glub*",
+      "{opponent}: Texas wins this day, but we'll return!"
+    ],
+    "attack_hit_unknown": "You fired at {cell} - HIT!",
+    "attack_hit_size_small": "HIT at {cell}! Contact reports small vessel!",
+    "attack_hit_size_medium": "HIT at {cell}! Medium warship engaged!",
+    "attack_hit_size_large": "HIT at {cell}! Large capital ship detected!",
+    "attack_hit_critical": "CRITICAL HIT at {cell}! {shipClass} is burning!",
+    "attack_miss": "Your broadside splashes harmlessly at {cell}.",
+    "opponent_attack_hit": "{opponent} scores a hit at {cell}!",
+    "opponent_attack_miss": "{opponent} fires at {cell} - their shot goes wide.",
+    "ship_sunk": "You sank the {shipName} at {cell}!",
+    "opponent_attack_sunk": "{opponent} destroyed your {shipName} at {cell}!",
+    "player_turn": "Your turn - fight for Texas!",
+    "ai_turn": "{opponent} maneuvers their fleet...",
+    "victory": "Victory! All enemy vessels destroyed!",
+    "defeat": "Defeat! Your fleet has been sunk.",
+    "rapid_fire": "Rapid Fire! Continuous broadsides!",
+    "game_start": "First Texas Navy - {players}",
+    "game_end": "Battle complete! {winner} controls the Gulf after {turns} turns!",
+    "turn_start": "Turn {turn}: {player} commands their fleet"
+  }
+}
+

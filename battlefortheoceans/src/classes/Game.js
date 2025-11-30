@@ -800,22 +800,22 @@ class Game {
       // Skip the submarine's own position
       if (lastCell.row !== submarinePosition.row || lastCell.col !== submarinePosition.col) {
         // Check for enemy ships at the last cell (where path stopped)
-        for (const targetPlayer of this.players) {
-          if (this.isSameAlliance(currentPlayer.id, targetPlayer.id)) {
-            continue;
-          }
-          
+      for (const targetPlayer of this.players) {
+        if (this.isSameAlliance(currentPlayer.id, targetPlayer.id)) {
+          continue;
+        }
+        
           const placement = targetPlayer.getShipAt(lastCell.row, lastCell.col);
-          if (placement) {
-            const ship = targetPlayer.getShip(placement.shipId);
-            if (ship && !ship.isSunk() && ship.health[placement.cellIndex] > 0) {
-              // Hit! Apply damage
-              hitTarget = { player: targetPlayer, ship, cellIndex: placement.cellIndex };
+        if (placement) {
+          const ship = targetPlayer.getShip(placement.shipId);
+          if (ship && !ship.isSunk() && ship.health[placement.cellIndex] > 0) {
+            // Hit! Apply damage
+            hitTarget = { player: targetPlayer, ship, cellIndex: placement.cellIndex };
               hitCell = lastCell;
-              break;
-            }
+            break;
           }
         }
+      }
       }
     }
     
