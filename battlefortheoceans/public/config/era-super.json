@@ -1,0 +1,199 @@
+{
+  "version": "0.1.0",
+  "id": "super",
+  "name": "Super Battleship",
+  "era_description": "An expanded version of Classic Battleship on a larger 12x12 board with additional ships, munitions, and strategic terrain features including islands and shoal waters.",
+  "about": "<div class=\"about-content\"><h2>Super Battleship</h2><p class=\"subtitle\">Classic Battleship Expanded</p><h3>Enhanced Gameplay</h3><p>Super Battleship takes the classic game to the next level with a larger 12x12 board, additional ships, and strategic terrain. Navigate around islands and through shoal waters as you command an expanded fleet with enhanced munitions.</p><h3>Fleet Composition</h3><p>Your fleet includes the standard Carrier, Battleship, Submarine, and Destroyer, plus an additional Cruiser and Destroyer for more tactical options. The larger board provides more room for strategic placement and longer-range engagements.</p><h3>Strategic Terrain</h3><p>Two islands create natural obstacles and strategic chokepoints, while shoal waters along the board edges require careful navigation. Ships that can operate in shallow water gain tactical advantages near the edges.</p><h3>Enhanced Munitions</h3><p>Your submarine carries two torpedoes for devastating underwater attacks, while star shells and scatter shot provide additional tactical options for locating and damaging enemy vessels.</p></div>",
+  "free": true,
+  "rows": 12,
+  "cols": 12,
+  "boundary": [],
+  "max_players": 2,
+  "passes_required": 0,
+  "exclusive": false,
+  "era_assets": {
+    "ship_silhouettes_path": "ships"
+  },
+  "promotional": {
+    "background_image": "images/background.jpg",
+    "promotional_image": "images/promotional.jpg"
+  },
+  "videos": {
+    "sunkplayer": "videos/playersunk.mp4",
+    "sunkopponent": "videos/opponentsunk.mp4",
+    "victory": "videos/victory.mp4",
+    "defeat": "videos/defeat.mp4"
+  },
+  "game_rules": {
+    "change_alliance": false,
+    "ship_capture": false,
+    "capture_chance": 0.0,
+    "turn_required": true,
+    "choose_alliance": false,
+    "turn_on_hit": true,
+    "turn_on_miss": false,
+    "placement_restriction": 10
+  },
+  "munitions": {
+    "star_shells": 2,
+    "scatter_shot": 1,
+    "torpedoes": 2
+  },
+  "theme": {
+    "primary": "#00D9FF",
+    "primary_glow": "rgba(0, 217, 255, 0.8)",
+    "primary_dim": "rgba(0, 217, 255, 0.3)",
+    "primary_dark": "#0099BB",
+    "bg_dark": "#0A1628",
+    "bg_medium": "#132B47",
+    "bg_light": "#1E4D6B",
+    "bg_overlay": "rgba(10, 22, 40, 0.9)",
+    "accent": "#00FFD4",
+    "accent_secondary": "#4A90E2",
+    "warning": "#FF6B35",
+    "success": "#00FF88",
+    "error": "#FF3366",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#B8E6F0",
+    "text_dim": "#7A9FAD",
+    "text_disabled": "#4A5C68",
+    "border_color": "#00D9FF",
+    "border_subtle": "rgba(0, 217, 255, 0.2)",
+    "border_strong": "#00D9FF",
+    "shadow": "0 0 20px rgba(0, 217, 255, 0.8)",
+    "shadow_sm": "0 0 10px rgba(0, 217, 255, 0.3)",
+    "shadow_lg": "0 0 40px rgba(0, 217, 255, 0.8)",
+    "btn_border_primary": "#00D9FF",
+    "btn_border_primary_hover": "#00D9FF"
+  },
+  "alliances": [
+    {
+      "name": "Player",
+      "avatar": "player-icon.png",
+      "ships": [
+        { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
+        { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "Cruiser 2", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+        { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] },
+        { "name": "Destroyer 2", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
+      ]
+    },
+    {
+      "name": "Opponent",
+      "avatar": "opponent-icon.png",
+      "ships": [
+        { "name": "Carrier", "class": "Carrier", "size": 5, "terrain": ["deep"] },
+        { "name": "Battleship", "class": "Battleship", "size": 4, "terrain": ["deep"] },
+        { "name": "Cruiser", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "Cruiser 2", "class": "Cruiser", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "Submarine", "class": "Submarine", "size": 3, "terrain": ["deep"] },
+        { "name": "Destroyer", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] },
+        { "name": "Destroyer 2", "class": "Destroyer", "size": 2, "terrain": ["deep", "shallow"] }
+      ],
+      "ai_captains": [
+        {
+          "id": "ensign-jack",
+          "name": "Ensign Jack",
+          "strategy": "random",
+          "difficulty": 0.7,
+          "description": "A fresh naval academy graduate still learning the ropes of sea warfare. Fires randomly without any tactical planning.",
+          "avatar": "captains/E_Jack.webp"
+        },
+        {
+          "id": "captain-flynn",
+          "name": "Captain Flynn",
+          "strategy": "methodical_random",
+          "difficulty": 1.0,
+          "description": "A dashing naval officer who uses checkerboard search patterns to systematically cover the battlefield. Inspired by the swashbuckling heroes of old.",
+          "avatar": "captains/C_Flynn.webp"
+        },
+        {
+          "id": "admiral-swift",
+          "name": "Admiral Swift",
+          "strategy": "methodical_optimal",
+          "difficulty": 1.4,
+          "description": "A seasoned fleet commander who employs advanced grid-search tactics with offset patterns to maximize coverage and hunt efficiency.",
+          "avatar": "captains/A_Swift.webp"
+        },
+        {
+          "id": "fleet-admiral-halsey",
+          "name": "Fleet Admiral Halsey",
+          "strategy": "aggressive",
+          "difficulty": 1.7,
+          "description": "The legendary 'Bull' Halsey reborn. Commands with fierce aggression, radiating outward from the center with relentless recursive hunt tactics. Never lets a wounded ship escape. A master of center-mass probability targeting.",
+          "avatar": "captains/FA_Halsey.webp"
+        },
+        {
+          "id": "grand-admiral-sonnet",
+          "name": "Grand Admiral Sonnet",
+          "strategy": "ai-hunt",
+          "difficulty": 2.0,
+          "description": "An AI consciousness from beyond the stars who has studied every naval battle in human history. Combines perfect probability calculations with adaptive pattern recognition and psychological warfare. Some say defeating this opponent is theoretically possible... but no one has proven it yet.",
+          "avatar": "captains/GA_Sonnet.webp"
+        }
+      ]
+    }
+  ],
+  "terrain": [
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "shoal", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "shoal", "land", "shoal", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "shoal", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shoal", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shoal", "land", "shoal"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "shoal", "deep"],
+    ["deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep", "deep"]
+  ],
+  "messages": {
+    "transition": [
+      "All hands to battle stations!",
+      "Enemy fleet spotted on the horizon!",
+      "Prepare for naval engagement!"
+    ],
+    "player_win": [
+      "Victory! Enemy fleet destroyed!",
+      "All enemy vessels have been sunk!",
+      "The seas belong to you, Admiral!"
+    ],
+    "player_lose": [
+      "Your fleet is sunk! The enemy controls these waters!",
+      "All ships lost! The battle is over!",
+      "Defeat! Your fleet lies beneath the waves!"
+    ],
+    "opponent_win": [
+      "{opponent}: My fleet rules these waters!",
+      "{opponent}: Your ships are no match for my strategy!",
+      "{opponent}: Victory belongs to the superior commander!"
+    ],
+    "opponent_lose": [
+      "{opponent}: My fleet is destroyed! Well fought!",
+      "{opponent}: You've bested me this time, Admiral!",
+      "{opponent}: The sea claims my ships today!"
+    ],
+    "attack_hit_unknown": "You fired at {cell} - HIT!",
+    "attack_hit_size_small": "HIT at {cell}! It's a small vessel!",
+    "attack_hit_size_medium": "HIT at {cell}! It's a medium-sized ship!",
+    "attack_hit_size_large": "HIT at {cell}! It's a large warship!",
+    "attack_hit_critical": "CRITICAL HIT at {cell}! It's a {shipClass}!",
+    "attack_miss": "You fired at {cell} - miss.",
+    "opponent_attack_hit": "{opponent} fired at {cell} - HIT!",
+    "opponent_attack_miss": "{opponent} fired at {cell} - miss.",
+    "ship_sunk": "You sank the {shipName} at {cell}!",
+    "opponent_attack_sunk": "{opponent} sank your {shipName} at {cell}!",
+    "player_turn": "Your turn - click to fire!",
+    "ai_turn": "{opponent} is taking their turn...",
+    "victory": "Victory! You sank the enemy fleet!",
+    "defeat": "Defeat! Your fleet has been sunk.",
+    "rapid_fire": "Rapid Fire! Click to fire continuously!",
+    "game_start": "Battle begins! {players}",
+    "game_end": "Game Over! {winner} wins after {turns} turns!",
+    "turn_start": "Turn {turn}: {player}'s turn"
+  }
+}
+

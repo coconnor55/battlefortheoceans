@@ -1,5 +1,6 @@
 // src/App.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.7: Added ErrorBoundary to catch and handle React component errors gracefully
 // v0.4.6: Added code to reposition help for achievements
 // v0.4.5: Refactored for PlayerProfile architecture
 //         - Fixed playerProfile reference to use coreEngine.playerProfile
@@ -42,6 +43,7 @@ import InactivityWarning from './components/InactivityWarning';
 import GameGuide from './components/GameGuide';
 import AboutPage from './pages/AboutPage';
 import TestSuite from './tests/TestSuite';
+import ErrorBoundary from './components/ErrorBoundary';
 import configLoader from './utils/ConfigLoader';
 import './App.css';
 
@@ -419,9 +421,11 @@ const App = () => {
   
   return (
     <div className="App">
-      <main>
-        <SceneRenderer />
-      </main>
+      <ErrorBoundary>
+        <main>
+          <SceneRenderer />
+        </main>
+      </ErrorBoundary>
     </div>
   );
 };

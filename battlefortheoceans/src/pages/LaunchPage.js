@@ -203,7 +203,7 @@ const LaunchPage = () => {
         {keyDataError && (
           <div className="message message--warning" style={{ margin: 0, borderRadius: 0, borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
             <p style={{ margin: 0, textAlign: 'center' }}>
-              Lost key data during {keyDataError.state}, restarting game
+              {keyDataError.message || `Lost key data during ${keyDataError.state}, restarting game`}
             </p>
           </div>
         )}

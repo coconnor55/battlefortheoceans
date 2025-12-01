@@ -1,5 +1,11 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.16: Sort eras by order in era-list.json (same order as era-list.json)
+//         - Removed category grouping (free, passes, vouchers)
+//         - Eras now display in the exact order they appear in era-list.json
+// v0.6.15: Add loading state while badges are being fetched
+//          - Show spinner and message while useEraBadges hook is loading
+//          - Prevents blank screen while checking era access
 // v0.6.14: Sort eras by access type (free, passes, vouchers) and oldest first within each group
 //         - Free eras first, then passes eras, then vouchers/exclusive eras
 //         - Within each group, sort by position in era-list.json (oldest first)
@@ -89,6 +95,7 @@ const SelectEraPage = () => {
     const {
         passBalance,
         eraBadges,
+        loading: badgesLoading,
         refresh: refreshBadges
     } = useEraBadges(coreEngine.playerId);
 
@@ -119,7 +126,7 @@ const SelectEraPage = () => {
     const gameInstance = coreEngine.gameInstance;
     const board = coreEngine.board;
 
-    // Filter and sort eras by status, user role, and access type
+    // Filter and sort eras by status, user role, and order in era-list.json
     const availableEras = useMemo(() => {
         method = 'availableEras';
         
@@ -141,7 +148,7 @@ const SelectEraPage = () => {
             return false;
         });
         
-        // Create era order map from eraList (for oldest-first sorting)
+        // Create era order map from eraList (matches era-list.json order)
         const eraOrderMap = new Map();
         if (coreEngine.eraList && Array.isArray(coreEngine.eraList)) {
             coreEngine.eraList.forEach((eraEntry, index) => {
@@ -154,23 +161,8 @@ const SelectEraPage = () => {
             return eraOrderMap.get(era.id) ?? 999;
         };
         
-        // Categorize eras by access type
-        const categorizeEra = (era) => {
-            if (era.free === true) return 0; // Free eras
-            if (era.exclusive === true) return 2; // Vouchers/exclusive eras
-            return 1; // Passes eras (passes_required > 0)
-        };
-        
-        // Sort: first by category (free, passes, vouchers), then by order in eraList
+        // Sort by order in era-list.json (same order as era-list.json)
         return filteredEras.sort((a, b) => {
-            const categoryA = categorizeEra(a);
-            const categoryB = categorizeEra(b);
-            
-            if (categoryA !== categoryB) {
-                return categoryA - categoryB;
-            }
-            
-            // Same category - sort by order in eraList (oldest first)
             return getEraOrder(a) - getEraOrder(b);
         });
     }, [coreEngine.eras, coreEngine.eraList, playerRole]);
@@ -315,6 +307,21 @@ const SelectEraPage = () => {
     }
 
     log('SelectEra: passed CoreEngine data checks');
+    
+    // Show loading state while badges are being fetched
+    if (badgesLoading && !isGuest) {
+        return (
+            <div className="container flex flex-column flex-center">
+                <div className="content-pane content-pane--wide">
+                    <div className="loading">
+                        <div className="spinner spinner--lg"></div>
+                        <h2>Loading Era Information</h2>
+                        <p>Checking access and availability...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
     
     const selectedEraBadgeInfo = selectedEraConfig ? eraBadges.get(selectedEraConfig.id) : null;
     const isPrivilegedRole = ['admin', 'developer', 'tester'].includes(playerRole);

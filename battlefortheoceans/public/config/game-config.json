@@ -26,9 +26,28 @@
     "medium": [3],
     "large": [4, 5]
   },
+  "ship_class_abbreviations": {
+    "Carrier": "CV",
+    "Battleship": "BB",
+    "Heavy Cruiser": "CA",
+    "Light Cruiser": "CL",
+    "Cruiser": "CA",
+    "Submarine": "SS",
+    "Destroyer": "DD",
+    "PT Boat": "PT",
+    "Frigate": "FG",
+    "Schooner": "SCH",
+    "Sloop": "SLP",
+    "Cutter": "CTR"
+  },
   "reveal_thresholds": {
     "size_hint_hits": 2,
     "critical_health_percent": 0.5
+  },
+  "munitions_damage": {
+    "star_shell": 0.0,
+    "scatter_shot": 0.1,
+    "torpedo": 1.0
   },
   "ship_silhouettes": {
     "path_template": "ships/{class}/{index}.svg",

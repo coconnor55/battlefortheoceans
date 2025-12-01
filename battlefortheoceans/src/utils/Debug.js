@@ -1,5 +1,8 @@
 // src/utils/debug.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.6: Turned off all debug categories for production - can be enabled via enableCategory() at runtime
+//         - All categories default to false for clean production logs
+//         - Critical errors and warnings still shown (console.error/warn are unfiltered)
 // v0.1.4: Added extendedDebug filter for DEBUG messages
 //         - If extendedDebug is false, filters out messages with "DEBUG" after [TAG]
 //         - Example: "[SELECTERA] DEBUG SelectEra.xyz" is filtered when extendedDebug=false
@@ -7,51 +10,51 @@
 // v0.1.3: Fixed infinite recursion - removed init log, use originalLog directly
 // Simple console.log filter by category
 
-const version = "v0.1.5";
+const version = "v0.1.6";
 
 // Control which categories are logged
 const extendedDebug = false;  // Set to false to filter DEBUG messages
 
 const control = {
-  HOOK: true,
-  PLACEMENT: true,
+  HOOK: false,
+  PLACEMENT: false,
   SOUND: false,
   AI: false,
   ATTACK: false,
   BOARD: false,
   CANVAS: false,
   NETWORK: false,
-  STATS: true,
+  STATS: false,
   PAYMENT: false,
-  OPPONENT: true,
+  OPPONENT: false,
   OVERLAY: false,
   TARGETING: false,
-  GAME: true,
-  NAVBAR: true,
+  GAME: false,
+  NAVBAR: false,
   ACHIEVEMENT: false,
   MESSAGE: false,
   FIRE: false,
   VIDEO: false,
   LAUNCH: false,
   LOGIN: false,
-  CORE: true,
+  CORE: false,
   GUIDE: false,
-  AUTOPLAY: true,
-  MUNITIONS: true,
-   RIGHTS: false,
-  INVITE: true,
-  VOUCHER: true,
-  ACCESS: true,
+  AUTOPLAY: false,
+  MUNITIONS: false,
+  RIGHTS: false,
+  INVITE: false,
+  VOUCHER: false,
+  ACCESS: false,
   SELECTERA: false,
-  LIFECYCLE: true,
+  LIFECYCLE: false,
   ABOUT: false,
   BADGES: false,
-  PROFILE: true,
-    AUTH: false,
-    SERVICE: true,
-    OVER: true,
-    TEST: true,
-  DEBUG: true
+  PROFILE: false,
+  AUTH: false,
+  SERVICE: false,
+  OVER: false,
+  TEST: false,
+  DEBUG: false
 };
 
 // Store original console methods FIRST

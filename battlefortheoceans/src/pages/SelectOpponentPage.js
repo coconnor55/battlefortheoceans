@@ -1,5 +1,8 @@
 // src/pages/SelectOpponentPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.15: Add loading indicator while fetching online humans
+//          - Show spinner in human opponents list while loading
+//          - Better UX feedback during async operation
 // v0.6.14: Fix React hooks rule violations - move all hooks before key data check
 //          - Moved all useCallback and useEffect hooks before the key data check
 //          - Moved isMultiFleet computation before hooks for use in dependency arrays
@@ -604,7 +607,12 @@ const SelectOpponentPage = () => {
                 
                 {humanExpanded && (
                   <div className="opponent-list scrollable-list scrollable-list--short">
-                    {onlineHumans.length === 0 ? (
+                    {loading ? (
+                      <div className="empty-state">
+                        <div className="spinner spinner--sm" style={{ margin: '1rem auto' }}></div>
+                        <p>Searching for online players...</p>
+                      </div>
+                    ) : onlineHumans.length === 0 ? (
                       <div className="empty-state">
                         <p>No human players online</p>
                         <p className="empty-state__hint">Human vs Human battles coming soon!</p>

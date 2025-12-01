@@ -1,5 +1,8 @@
 // src/pages/AboutPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.3: Sanitize HTML in about content to prevent XSS attacks
+//         - Use sanitizeHTML() before rendering eraConfig.about
+//         - Prevents malicious scripts in era configuration content
 // v0.1.2: Fixed CSS classes to match StatsPage exactly
 //         - container flex flex-column flex-center
 //         - content-pane content-pane--wide
@@ -11,8 +14,9 @@
 
 import React from 'react';
 import { coreEngine, useGame } from '../context/GameContext';
+import { sanitizeHTML } from '../utils/sanitizeHTML';
 
-const version = 'v0.1.2';
+const version = 'v0.1.3';
 
 const AboutPage = ({ onClose }) => {
   const eraConfig = coreEngine.selectedEraConfig;
@@ -53,7 +57,7 @@ const AboutPage = ({ onClose }) => {
           )}
         </div>
         <div>
-          <div dangerouslySetInnerHTML={{ __html: eraConfig.about }} />
+          <div dangerouslySetInnerHTML={{ __html: sanitizeHTML(eraConfig.about) }} />
         </div>
       </div>
     </div>

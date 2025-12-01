@@ -256,7 +256,7 @@
 .canvas-board {
   border: 1px solid var(--border-subtle);
   border-radius: var(--border-radius-md);
-  touch-action: none; /* Prevent default touch behaviors */
+  touch-action: pan-x pan-y pinch-zoom; /* Allow pinch/zoom for mobile, pan for interaction */
   transition: box-shadow var(--transition-fast);
 }
 

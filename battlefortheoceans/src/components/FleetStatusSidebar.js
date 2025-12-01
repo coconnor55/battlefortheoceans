@@ -15,24 +15,9 @@
 // v0.1.0: Initial fleet status sidebar component
 
 import React from 'react';
+import { coreEngine } from '../context/GameContext';
 
-const version = 'v0.2.2';
-
-// Ship class abbreviations
-const CLASS_ABBREV = {
-  'Carrier': 'CV',
-  'Battleship': 'BB',
-  'Heavy Cruiser': 'CA',
-  'Light Cruiser': 'CL',
-  'Cruiser': 'CA',
-  'Submarine': 'SS',
-  'Destroyer': 'DD',
-  'PT Boat': 'PT',
-  'Frigate': 'FG',
-  'Schooner': 'SCH',
-  'Sloop': 'SLP',
-  'Cutter': 'CTR'
-};
+const version = 'v0.2.3';
 
 const FleetStatusSidebar = ({ fleet, fleets, title = 'Fleet', playerId, munitions }) => {
   // Debug log
@@ -160,7 +145,10 @@ const getShipStatus = (ship) => {
 };
 
 const getShipAbbrev = (ship) => {
-  return CLASS_ABBREV[ship.class] || ship.class.substring(0, 2).toUpperCase();
+  // Get abbreviations from game config, fallback to first 2 letters if not found
+  const gameConfig = coreEngine?.gameConfig;
+  const abbreviations = gameConfig?.ship_class_abbreviations || {};
+  return abbreviations[ship.class] || ship.class.substring(0, 2).toUpperCase();
 };
 
 export default FleetStatusSidebar;

@@ -209,7 +209,8 @@ class GameLifecycleManager {
     // Create Game instance
     this.game = new Game(
       selectedEraConfig,
-      selectedOpponent.gameMode || 'turnBased'
+      selectedOpponent.gameMode || 'turnBased',
+      coreEngine.gameConfig
     );
     this.coreEngine.gameInstance = this.game;
       this.log('DEBUG new Game instance', this.game);

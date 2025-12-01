@@ -9,7 +9,7 @@ import CombatResolver from './CombatResolver.js';
 import SoundManager from '../utils/SoundManager.js';
 import GameLifecycleManager from './GameLifecycleManager.js';
 
-const version = "v0.8.12";
+const version = "v0.8.13";
 /**
  * v0.8.12: Torpedo path calculation fixed - stops at first enemy ship, land/excluded, or 10 cells
  *          - calculateLinePath now stops when encountering enemy ship, land, or excluded terrain
@@ -81,7 +81,7 @@ const version = "v0.8.12";
  */
 
 class Game {
-  constructor(eraConfig, gameMode = 'turnBased') {
+  constructor(eraConfig, gameMode = 'turnBased', gameConfig = null) {
     if (!eraConfig.game_rules) {
       throw new Error(`Era "${eraConfig.name}" is missing game_rules configuration`);
     }
@@ -96,6 +96,7 @@ class Game {
     this.id = `game-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.eraConfig = eraConfig;
     this.gameMode = gameMode;
+    this.gameConfig = gameConfig;
     
     this.state = 'setup';
     this.currentTurn = 0;
@@ -656,9 +657,9 @@ class Game {
     // Decrement munition count
     this.munitions[munitionKey] = Math.max(0, this.munitions[munitionKey] - 1);
     
-    // Handle scatter shot damage pattern (3x3, 0.1 damage per cell)
+    // Handle scatter shot damage pattern (3x3, damage from config)
     if (munitionType === 'scatterShot') {
-      const scatterDamage = 0.1;
+      const scatterDamage = this.gameConfig?.munitions_damage?.scatter_shot ?? 0.1;
       const hitCells = [];
       
       // 3x3 pattern centered on target cell
@@ -821,11 +822,14 @@ class Game {
     
     // Apply damage if target found (only if torpedo didn't stop at land/excluded)
     if (hitTarget && !stoppedAtLand) {
+      // Get torpedo damage from config
+      const torpedoDamage = this.gameConfig?.munitions_damage?.torpedo ?? 1.0;
+      
       const attackResult = this.receiveAttack(
         hitCell.row, 
         hitCell.col, 
         currentPlayer, 
-        1.0 // Torpedo damage
+        torpedoDamage
       );
       
       console.log(`[GAME] ${this.id} Torpedo hit at (${hitCell.row}, ${hitCell.col}):`, attackResult);

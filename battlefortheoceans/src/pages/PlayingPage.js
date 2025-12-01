@@ -219,6 +219,14 @@ const PlayingPage = () => {
       console.log(version, 'Battle board ref set in game instance');
     }
   }, [gameInstance]);
+  
+  // Prevent body scroll on mobile for better game interaction
+  useEffect(() => {
+    document.body.classList.add('playing-page-active');
+    return () => {
+      document.body.classList.remove('playing-page-active');
+    };
+  }, []);
 
   // Sync message console width to game board container width
   useEffect(() => {

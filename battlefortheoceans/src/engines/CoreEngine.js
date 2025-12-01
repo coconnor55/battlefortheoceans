@@ -1,5 +1,10 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.47: Improved network error handling with retry logic and user-friendly messages
+//          - Added retryWithBackoff utility for automatic retries with exponential backoff
+//          - Config and era loading now retry up to 3 times before failing
+//          - User-friendly error messages based on context (config, era-list, era-config)
+//          - Individual era config failures don't stop other eras from loading
 // v0.6.46: NetworkError handling - transition to Launch state on network errors
 //          - Detect NetworkError in config loading
 //          - Prevent loops by checking current state
@@ -81,6 +86,7 @@ import SessionManager from '../utils/SessionManager.js';
 import NavigationManager from '../utils/NavigationManager.js';
 import GameLifecycleManager from '../classes/GameLifecycleManager.js';
 import ConfigLoader, { isNetworkError } from '../utils/ConfigLoader';
+import { retryWithBackoff, isNetworkErrorForRetry } from '../utils/retryWithBackoff';
 import { supabase } from '../utils/supabaseClient';
 
 const version = 'v0.6.46';
@@ -222,8 +228,16 @@ class CoreEngine {
     // =================================================================
     this.restoreSession();
       
-      // Load game config immediately
-      ConfigLoader.loadGameConfig()
+      // Load game config immediately with retry logic
+      retryWithBackoff(
+        () => ConfigLoader.loadGameConfig(),
+        {
+          maxAttempts: 3,
+          initialDelay: 1000,
+          maxDelay: 5000,
+          shouldRetry: isNetworkErrorForRetry
+        }
+      )
         .then(config => {
           this.gameConfig = config;
           this.log(`Game config loaded`);
@@ -233,22 +247,39 @@ class CoreEngine {
           this.handleNetworkError('config', error);
         });
 
-      // Load era list, then preload all era configs
-      ConfigLoader.loadEraList()
+      // Load era list with retry logic, then preload all era configs
+      retryWithBackoff(
+        () => ConfigLoader.loadEraList(),
+        {
+          maxAttempts: 3,
+          initialDelay: 1000,
+          maxDelay: 5000,
+          shouldRetry: isNetworkErrorForRetry
+        }
+      )
         .then(async (eraList) => {
           this.log(`Era list loaded: ${eraList.length}`);
           
-          // Preload all era configs
+          // Preload all era configs with retry for each
           for (const era of eraList) {
             try {
-              const fullConfig = await ConfigLoader.loadEraConfig(era.id);
+              const fullConfig = await retryWithBackoff(
+                () => ConfigLoader.loadEraConfig(era.id),
+                {
+                  maxAttempts: 2, // Fewer retries for individual era configs
+                  initialDelay: 500,
+                  maxDelay: 3000,
+                  shouldRetry: isNetworkErrorForRetry
+                }
+              );
               this.eras.set(era.id, fullConfig);
             } catch (error) {
-              this.handleNetworkError('era-config', error);
-              break; // Stop preloading on network error
+              // Log error but continue loading other eras
+              this.logwarn(`Failed to load era config for ${era.id} after retries:`, error);
+              // Don't break - continue loading other eras
             }
           }
-          this.log(`All era configs preloaded: ${this.eras.size}`);
+          this.log(`All era configs preloaded: ${this.eras.size} of ${eraList.length}`);
           this.networkErrorHandled = false; // Reset on successful load
         })
         .catch(error => {
@@ -390,10 +421,10 @@ class CoreEngine {
     method = 'handleKeyDataError';
     this.logwarn(`Key data lost in ${stateName}: ${errorMessage}`);
     
-    // Save error message
+    // Save error message - use simple, non-technical message for players
     this.keyDataError = {
       state: stateName,
-      message: errorMessage
+      message: `Key data lost, restarting game`
     };
     
     // Directly transition to Launch state (bypasses dispatch validation)
@@ -403,6 +434,7 @@ class CoreEngine {
   
   /**
    * Handle NetworkError - transition to Launch state to prevent loops
+   * Provides user-friendly error messages and retry guidance
    * @param {string} context - Context where error occurred (e.g., 'config', 'era-list')
    * @param {Error} error - Error object
    */
@@ -427,10 +459,10 @@ class CoreEngine {
     // Mark as handled to prevent loops
     this.networkErrorHandled = true;
     
-    // Save error message
+    // Save error message - use simple, non-technical message for players
     this.keyDataError = {
       state: context,
-      message: `Network error: ${error.message || 'Failed to fetch resource'}`
+      message: `Key data lost, restarting game`
     };
     
     // Transition to Launch state

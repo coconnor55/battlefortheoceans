@@ -1,5 +1,8 @@
-// src/pages/OverPage.js v0.5.15
+// src/pages/OverPage.js v0.5.16
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.16: Sanitize HTML in snapshot display to prevent XSS attacks
+//          - Use sanitizeSnapshotHTML() before rendering snapshot HTML
+//          - Prevents malicious scripts in user-generated snapshot content
 // v0.5.15: Allow null playerEmail for guest users in key data check
 //          - Guest users don't have email, so playerEmail check is conditional
 //          - Only require playerEmail for non-guest users
@@ -63,6 +66,7 @@ import Player from '../classes/Player';
 import VideoPopup from '../components/VideoPopup';
 import AchievementService from '../services/AchievementService';
 import configLoader from '../utils/ConfigLoader';
+import { sanitizeSnapshotHTML } from '../utils/sanitizeHTML';
 import * as LucideIcons from 'lucide-react';
 
 const version = 'v0.5.15';
@@ -579,7 +583,7 @@ const OverPage = () => {
                   {canNavigateToLaunch ? 'Return to Launch Page' : 'Return to Login'}
                 </button>
               </div>
-              <div dangerouslySetInnerHTML={{ __html: snapshot.html }} />
+              <div dangerouslySetInnerHTML={{ __html: sanitizeSnapshotHTML(snapshot.html) }} />
             </div>
           </div>
         );
