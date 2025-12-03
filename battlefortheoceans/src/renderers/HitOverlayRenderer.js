@@ -1,5 +1,10 @@
 // src/renderers/HitOverlayRenderer.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.12.7: Fixed canvas tainting issue for board snapshots
+//          - Added crossOrigin='anonymous' to ship SVG image loading
+//          - Prevents "DOMException: The operation is insecure" when calling toDataURL()
+//          - Fixes final board image not displaying on localhost
+//
 // v0.12.6: Fixed torpedo path rendering to use calculated path length
 //          - Now uses last cell from path array instead of torpedoPath.end
 //          - Ensures red line stops at first enemy ship, land/excluded, or 10 cells
@@ -30,7 +35,7 @@
 
 import configLoader from '../utils/ConfigLoader';
 
-const version = 'v0.12.6';
+const version = 'v0.12.7';
 
 class HitOverlayRenderer {
   constructor(eraId = 'traditional', gameBoard = null) {
@@ -76,6 +81,7 @@ class HitOverlayRenderer {
       const CDN_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
       
       const img = new Image();
+      img.crossOrigin = 'anonymous'; // Prevent canvas tainting for toDataURL()
       
       return new Promise((resolve) => {
         img.onload = () => {
@@ -92,6 +98,7 @@ class HitOverlayRenderer {
             console.log('[OVERLAY]', version, 'CDN failed, trying fallback:', fallbackPath);
             
             const fallbackImg = new Image();
+            fallbackImg.crossOrigin = 'anonymous'; // Prevent canvas tainting for toDataURL()
             fallbackImg.onload = () => {
               this.shipSvgCache.set(key, fallbackImg);
               this.svgLoadingState.set(key, 'loaded');
@@ -560,7 +567,7 @@ class HitOverlayRenderer {
           
           // Draw ship outline with opacity based on sunk status
           if (shipCells.length > 0) {
-            const opacity = ship.isSunk() ? 0.4 : 1.0;
+            const opacity = ship.isSunk() ? 0.3 : 1.0;
             this.drawShipOutline(ctx, ship, shipCells, cellSize, labelSize, offsetX, offsetY, humanPlayer, opacity, 'blue');
           }
         }
@@ -690,7 +697,7 @@ class HitOverlayRenderer {
           
           // Draw ship outline with opacity based on sunk status
           if (shipCells.length > 0) {
-            const opacity = ship.isSunk() ? 0.4 : 1.0;
+            const opacity = ship.isSunk() ? 0.3 : 1.0;
             this.drawShipOutline(ctx, ship, shipCells, cellSize, labelSize, offsetX, offsetY, humanPlayer, opacity, 'blue');
           }
         }

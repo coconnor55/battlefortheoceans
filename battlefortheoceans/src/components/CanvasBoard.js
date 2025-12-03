@@ -34,7 +34,7 @@ import InputHandler from '../handlers/InputHandler';
 import TargetOptionsMenu from './TargetOptionsMenu';
 import useGameState from '../hooks/useGameState';
 
-const version = 'v0.4.14';
+const version = 'v0.4.15';
 
 // Constants
 const CELL_SIZE = 30;
@@ -122,18 +122,40 @@ const CanvasBoard = forwardRef(({
 
   // Preload ship SVGs
   useEffect(() => {
-    if (mode === 'placement' && player?.fleet?.ships && hitOverlayRendererRef.current) {
+    if (!hitOverlayRendererRef.current) return;
+    
+    // Placement mode: Preload blue SVGs for player ships
+    if (mode === 'placement' && player?.fleet?.ships) {
       const shipClasses = new Set();
       player.fleet.ships.forEach(ship => {
         shipClasses.add(ship.class);
       });
       
-      console.log('[CANVAS]', version, 'Preloading ship SVGs:', Array.from(shipClasses));
+      console.log('[CANVAS]', version, 'Preloading blue ship SVGs:', Array.from(shipClasses));
       shipClasses.forEach(shipClass => {
         hitOverlayRendererRef.current.loadShipSvg(shipClass, 'blue');
       });
     }
-  }, [mode, player?.fleet?.ships]);
+    
+    // Battle mode: Preload red SVGs for opponent ships
+    if (mode === 'battle' && gameInstance) {
+      const opponentShipClasses = new Set();
+      gameInstance.players.forEach(p => {
+        if (p.id !== player?.id && p.fleet?.ships) {
+          p.fleet.ships.forEach(ship => {
+            opponentShipClasses.add(ship.class);
+          });
+        }
+      });
+      
+      if (opponentShipClasses.size > 0) {
+        console.log('[CANVAS]', version, 'Preloading red opponent ship SVGs:', Array.from(opponentShipClasses));
+        opponentShipClasses.forEach(shipClass => {
+          hitOverlayRendererRef.current.loadShipSvg(shipClass, 'red');
+        });
+      }
+    }
+  }, [mode, player?.fleet?.ships, player?.id, gameInstance]);
 
   useEffect(() => {
     propsRef.current = {
@@ -143,11 +165,11 @@ const CanvasBoard = forwardRef(({
       gameInstance,
       previewCells,
       isValidPlacement,
-      playerId: playerId,
+      playerId: player?.id || gameState?.playerId,
       starShellIllumination,
       torpedoPath: gameInstance?.torpedoPath || null
     };
-  }, [mode, viewMode, gameState, gameInstance, previewCells, isValidPlacement, playerId, starShellIllumination]);
+  }, [mode, viewMode, gameState, gameInstance, previewCells, isValidPlacement, player?.id, starShellIllumination]);
 
   // Update inputPropsRef with ALL dynamic values
   useEffect(() => {
@@ -252,9 +274,11 @@ const CanvasBoard = forwardRef(({
         // Admin debug: Show opponent ships when 'Z' key is held
         if (window.DEBUG_SHOW_OPPONENT_SHIPS && props.playerId) {
           const opponentPlayers = props.gameInstance.players.filter(p => p.id !== props.playerId);
+          console.log('[CANVAS]', version, 'DEBUG_SHOW_OPPONENT_SHIPS: Drawing', opponentPlayers.length, 'opponents');
           
           opponentPlayers.forEach(opponent => {
             if (opponent.fleet && opponent.fleet.ships) {
+              console.log('[CANVAS]', version, 'Opponent', opponent.name, 'has', opponent.fleet.ships.length, 'ships');
               opponent.fleet.ships.forEach(ship => {
                 if (ship.isPlaced) {
                   const shipCells = [];
@@ -268,6 +292,10 @@ const CanvasBoard = forwardRef(({
                   }
                   
                   if (shipCells.length > 0) {
+                    // Sunk ships are faded, unsunk ships are bold
+                    const opacity = ship.isSunk() ? 0.3 : 1.0;
+                    const sunkStatus = ship.isSunk() ? 'SUNK' : 'ALIVE';
+                    console.log('[CANVAS]', version, `Drawing ${sunkStatus} ship:`, ship.name, ship.class, 'cells:', shipCells.length, 'opacity:', opacity);
                     hitOverlayRendererRef.current.drawShipOutline(
                       ctx,
                       ship,
@@ -277,10 +305,14 @@ const CanvasBoard = forwardRef(({
                       offsetX,
                       offsetY,
                       opponent,
-                      0.6, // Semi-transparent debug view
+                      opacity,
                       'red' // Enemy ships in red
                     );
+                  } else {
+                    console.warn('[CANVAS]', version, 'Ship', ship.name, 'has no cells found!');
                   }
+                } else {
+                  console.warn('[CANVAS]', version, 'Ship', ship.name, 'is not placed');
                 }
               });
             }
@@ -648,23 +680,46 @@ const CanvasBoard = forwardRef(({
     },
     
     captureWinnerBoard: (winnerId) => {
-      if (!canvasRef.current || !gameState?.playerId) return null;
+      console.log('[CANVAS]', version, 'captureWinnerBoard called with winnerId:', winnerId);
+      console.log('[CANVAS]', version, 'Canvas ref exists:', !!canvasRef.current);
+      console.log('[CANVAS]', version, 'gameState exists:', !!gameState);
+      console.log('[CANVAS]', version, 'gameState.playerId:', gameState?.playerId);
+      
+      if (!canvasRef.current || !gameState?.playerId) {
+        console.error('[CANVAS]', version, 'captureWinnerBoard: Missing required refs/state');
+        return null;
+      }
       
       try {
         const playerId = gameState.playerId;
         const isPlayerWinner = winnerId === playerId;
-        const captureViewMode = isPlayerWinner ? 'attack' : 'fleet';
         
-        console.log('[CANVAS]', version, `Capturing ${captureViewMode} view for winner:`, winnerId);
+        // Always use attack view for game over
+        const captureViewMode = 'attack';
+        
+        console.log('[CANVAS]', version, `Capturing ${captureViewMode} view for ${isPlayerWinner ? 'victory' : 'defeat'}, winner:`, winnerId);
         
         const originalViewMode = propsRef.current.viewMode;
+        const originalDebugFlag = window.DEBUG_SHOW_OPPONENT_SHIPS;
+        
         propsRef.current.viewMode = captureViewMode;
         
+        // On defeat, enable DEBUG_SHOW_OPPONENT_SHIPS (red SVGs already preloaded)
+        if (!isPlayerWinner) {
+          console.log('[CANVAS]', version, 'Defeat: Enabling opponent ship outlines for capture');
+          window.DEBUG_SHOW_OPPONENT_SHIPS = true;
+        }
+        
+        console.log('[CANVAS]', version, 'Rendering frame for capture...');
         renderFrame();
         
+        console.log('[CANVAS]', version, 'Converting canvas to data URL...');
         const imageData = canvasRef.current.toDataURL('image/png');
+        console.log('[CANVAS]', version, 'Image data captured, length:', imageData?.length || 0);
         
+        // Restore original state
         propsRef.current.viewMode = originalViewMode;
+        window.DEBUG_SHOW_OPPONENT_SHIPS = originalDebugFlag;
         
         return imageData;
       } catch (error) {

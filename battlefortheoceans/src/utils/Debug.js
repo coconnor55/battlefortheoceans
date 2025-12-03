@@ -22,7 +22,7 @@ const control = {
   AI: false,
   ATTACK: false,
   BOARD: false,
-  CANVAS: false,
+  CANVAS: true,
   NETWORK: false,
   STATS: false,
   PAYMENT: false,

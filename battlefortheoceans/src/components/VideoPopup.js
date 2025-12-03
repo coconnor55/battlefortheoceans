@@ -1,5 +1,10 @@
-// src/components/VideoPopup.js v0.1.5
+// src/components/VideoPopup.js v0.1.6
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.6: Video interruption - new videos stop currently playing videos
+//         - Removed hasPlayedRef (was preventing video changes)
+//         - Added currentVideoRef to track playing video
+//         - Pause and reset current video when new video starts
+//         - Enables victory/defeat videos to interrupt ship sunk videos
 // v0.1.5: Fixed looping - set loop=false AFTER metadata loads and on every timeupdate
 // v0.1.4: More aggressive anti-looping - set loop={false} in JSX AND via property AND via setAttribute
 // v0.1.3: Fixed looping issue - set both loop attribute and property to false
@@ -9,23 +14,27 @@
 
 import React, { useEffect, useRef } from 'react';
 
-const version = 'v0.1.5';
+const version = 'v0.1.6';
 
-const VideoPopup = ({ videoSrc, onComplete }) => {
+const VideoPopup = ({ videoSrc, onComplete, priority = 'normal' }) => {
   const videoRef = useRef(null);
-  const hasPlayedRef = useRef(false);
+  const currentVideoRef = useRef(null);
 
   useEffect(() => {
-    // Prevent double-play from React strict mode
-    if (hasPlayedRef.current) {
-      console.log('[VIDEO]', version, 'Already played, skipping');
-      return;
-    }
-    
-    console.log('[VIDEO]', version, 'Playing video:', videoSrc);
+    console.log('[VIDEO]', version, 'Playing video:', videoSrc, 'priority:', priority);
     
     if (videoRef.current && videoSrc) {
       const video = videoRef.current;
+      
+      // If a video is currently playing, stop it (especially for high-priority videos)
+      if (currentVideoRef.current && currentVideoRef.current !== videoSrc) {
+        console.log('[VIDEO]', version, 'Stopping previous video:', currentVideoRef.current);
+        video.pause();
+        video.currentTime = 0;
+      }
+      
+      // Track current video
+      currentVideoRef.current = videoSrc;
       
       // Set src programmatically to avoid OpaqueResponseBlocking
       video.src = videoSrc;
@@ -57,8 +66,6 @@ const VideoPopup = ({ videoSrc, onComplete }) => {
       // Load the video
       video.load();
       
-      hasPlayedRef.current = true;
-      
       video.play().catch(error => {
         console.warn('[VIDEO]', version, 'Video play failed:', error);
         onComplete?.();
@@ -69,7 +76,7 @@ const VideoPopup = ({ videoSrc, onComplete }) => {
         video.removeEventListener('timeupdate', handleTimeUpdate);
       };
     }
-  }, [videoSrc, onComplete]); // Re-run if videoSrc changes
+  }, [videoSrc, onComplete, priority]); // Re-run if videoSrc changes
 
   const handleVideoEnd = () => {
     console.log('[VIDEO]', version, 'Video ended - closing popup');

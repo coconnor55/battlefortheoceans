@@ -642,7 +642,11 @@ class GameLifecycleManager {
         this.game.finalBoardImage = this.game.battleBoardRef.current.captureWinnerBoard(winnerId);
         if (this.game.finalBoardImage) {
           this.log(`Winner's board captured successfully (${this.game.finalBoardImage.length} bytes)`);
+        } else {
+          this.logerror('Failed to capture winner board - captureWinnerBoard returned null');
         }
+      } else {
+        this.logerror(`Cannot capture winner board: battleBoardRef=${!!this.game.battleBoardRef}, current=${!!this.game.battleBoardRef?.current}, captureWinnerBoard=${!!this.game.battleBoardRef?.current?.captureWinnerBoard}`);
       }
       
       // Now wait before transitioning to OverPage
