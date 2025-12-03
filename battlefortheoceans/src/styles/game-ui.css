@@ -12,9 +12,7 @@
    Container and layout specific to era page
    ============================================ */
 
-.era-list {
-  /* Uses .scrollable-list from shared-components.css */
-}
+/* .era-list uses .scrollable-list from shared-components.css */
 
 /* Era item layout with background image on left */
 .era-item-content {
@@ -1841,6 +1839,108 @@
   .opponent-list {
     max-height: 250px;
   }
+}
+
+/* ============================================
+   ERROR CONSOLE
+   Admin/Developer error logging console
+   ============================================ */
+
+/* Error console uses existing classes:
+   - .card-header--with-close for header
+   - .stats-grid for statistics grid
+   - .loading-container for loading state
+   - .empty-state for empty state
+   - .table for error logs table
+   - .item-details for filter layout
+*/
+
+/* Stat card content layout */
+.error-console-stat-card {
+  padding: var(--space-md);
+}
+
+.error-console-stat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.error-console-stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.error-console-stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.error-console-filter-label-text {
+  font-size: 0.875rem;
+  font-weight: bold;
+}
+
+.error-console-detail-section {
+  margin-bottom: var(--space-md);
+}
+
+/* Filter controls */
+.error-console-filters {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.error-console-filter-input {
+  min-width: 150px;
+}
+
+/* Table row clickable */
+.error-console-table tbody tr {
+  cursor: pointer;
+}
+
+/* Monospace for IDs */
+.error-console-table-cell-monospace {
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+/* Severity colors */
+.error-console-severity-critical {
+  color: var(--error);
+  font-weight: bold;
+}
+
+.error-console-severity-summary {
+  color: var(--warning);
+  font-weight: bold;
+}
+
+/* Detail modal z-index */
+.error-console-detail-modal {
+  z-index: 1001;
+}
+
+/* Code blocks in detail view */
+.error-console-detail-code {
+  background: var(--bg-dark);
+  padding: var(--space-sm);
+  border-radius: var(--border-radius-sm);
+  overflow: auto;
+  max-height: 200px;
+}
+
+.error-console-detail-stack {
+  background: var(--bg-dark);
+  padding: var(--space-sm);
+  border-radius: var(--border-radius-sm);
+  overflow: auto;
+  max-height: 300px;
+  font-size: 0.875rem;
 }
 
 /* EOF */

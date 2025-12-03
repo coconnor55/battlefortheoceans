@@ -1,5 +1,6 @@
-// src/index.js v0.1.7
+// src/index.js v0.1.9
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.9: Removed Sentry initialization - using Supabase error logging instead
 // v0.1.7: Removed hash capture - let Supabase handle it naturally
 //         - LaunchPage now checks session for profile instead
 //         - Simpler flow: email link → Supabase → LaunchPage → ProfileCreation
@@ -31,7 +32,7 @@ import './styles/utilities.css';             // 8. Utility classes
 import './styles/stats.css';
 import './styles/responsive.css';            // 9. Responsive adjustments (last)
 
-const version = 'v0.1.7';
+const version = 'v0.1.9';
 
 // No hash capture needed - Supabase and LaunchPage handle auth flow
 console.log(`[INDEX] ${version} React initialization - letting Supabase handle auth naturally`);

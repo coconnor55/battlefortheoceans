@@ -59,7 +59,7 @@ import RightsService from '../services/RightsService';
 import PlayerProfileService from '../services/PlayerProfileService';
 import VoucherService from '../services/VoucherService';
 import { coreEngine, useGame } from '../context/GameContext';
-import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins, Diamond, Maximize2, Minimize2 } from 'lucide-react';
+import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins, Diamond, Maximize2, Minimize2, Terminal } from 'lucide-react';
 
 const version = 'v0.2.21';
 const tag = "NAVBAR";
@@ -78,7 +78,7 @@ const logerror = (message, error = null) => {
   }
 };
 
-const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onShowTest, onCloseOverlay, hasActiveOverlay }) => {
+const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onShowTest, onShowErrorConsole, onCloseOverlay, hasActiveOverlay }) => {
   method = 'NavBar';
   
   const {
@@ -415,6 +415,16 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
       onShowTest();
     }
   };
+
+  const handleErrorConsole = () => {
+    method = 'handleErrorConsole';
+    log('User clicked error console');
+    setShowUserMenu(false);
+    
+    if (onShowErrorConsole) {
+      onShowErrorConsole();
+    }
+  };
     
   // In your admin page/component
   const handleReset = async () => {
@@ -612,6 +622,16 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                       >
                         <TestTube size={20} className="action-menu__emoji" />
                         <span className="action-menu__label">Test</span>
+                      </div>
+                    )}
+                    
+                    {(isAdmin || isDeveloper) && (
+                      <div
+                        className="action-menu__item action-menu__item--admin"
+                        onClick={handleErrorConsole}
+                      >
+                        <Terminal size={20} className="action-menu__emoji" />
+                        <span className="action-menu__label">Access Console</span>
                       </div>
                     )}
                     

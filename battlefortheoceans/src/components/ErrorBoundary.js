@@ -36,9 +36,29 @@ class ErrorBoundary extends React.Component {
       errorInfo
     });
 
-    // Error is already logged to console.error above
-    // In production, you might want to send error to error reporting service here
-    // Example: errorReportingService.logError(error, errorInfo);
+    // Send to Supabase error logging service (critical error - React component errors)
+    import('../services/ErrorLogService.js').then(({ default: errorLogService }) => {
+      // Get player ID from CoreEngine if available
+      let playerId = null;
+      try {
+        const { coreEngine } = require('../context/GameContext');
+        playerId = coreEngine?.playerId || null;
+      } catch (err) {
+        // CoreEngine not available - continue without playerId
+      }
+      
+      errorLogService.logCriticalError(error, {
+        componentStack: errorInfo.componentStack,
+        errorBoundary: true
+      }, playerId).catch(err => {
+        console.error(`[${tag}] ${version} ${module}.componentDidCatch: Failed to log error:`, err);
+      });
+    }).catch(() => {
+      // ErrorLogService not available - log to console
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[${tag}] ErrorLogService not available`);
+      }
+    });
   }
 
   handleReload = () => {

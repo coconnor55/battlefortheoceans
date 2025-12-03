@@ -27,7 +27,7 @@
 // v0.4.10: Added InfoButton and InfoPanel with placement instructions
 // v0.4.9: Add beforeunload warning to prevent accidental refresh during placement
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { coreEngine, useGame } from '../context/GameContext';
 import useGameState from '../hooks/useGameState';
 import CanvasBoard from '../components/CanvasBoard';
@@ -124,8 +124,79 @@ const PlacementPage = () => {
     };
   }, []);
   
+  // Sync message console width to game board container width
+  useEffect(() => {
+    let rafId = null;
+    let lastWidth = 0;
+    
+    const syncConsoleWidth = () => {
+      // Cancel any pending animation frame
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      
+      // Defer DOM updates to next animation frame to prevent ResizeObserver loop
+      rafId = requestAnimationFrame(() => {
+        if (gameBoardContainerRef.current && messageConsoleRef.current) {
+          // Get the canvas element to match its width (not the container)
+          const canvasElement = canvasBoardRef.current?.getCanvasElement?.();
+          let boardWidth = 0;
+          
+          if (canvasElement) {
+            const canvasRect = canvasElement.getBoundingClientRect();
+            boardWidth = canvasRect.width;
+          } else {
+            // Fallback to container width if canvas not available
+            boardWidth = gameBoardContainerRef.current.offsetWidth;
+          }
+          
+          // Only update if width actually changed to prevent loops
+          if (boardWidth > 0 && Math.abs(boardWidth - lastWidth) > 1) {
+            const consoleCombined = messageConsoleRef.current.querySelector('.console-combined');
+            if (consoleCombined) {
+              consoleCombined.style.width = `${boardWidth}px`;
+              lastWidth = boardWidth;
+            }
+          }
+        }
+        rafId = null;
+      });
+    };
+
+    // Sync on mount and when board size changes
+    const timeoutId = setTimeout(syncConsoleWidth, 100);
+    
+    // Use ResizeObserver to sync when board container resizes
+    let resizeObserver;
+    if (gameBoardContainerRef.current && window.ResizeObserver) {
+      resizeObserver = new ResizeObserver((entries) => {
+        syncConsoleWidth();
+      });
+      resizeObserver.observe(gameBoardContainerRef.current);
+    }
+
+    // Also sync on window resize
+    window.addEventListener('resize', syncConsoleWidth);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      window.removeEventListener('resize', syncConsoleWidth);
+    };
+  }, [gameInstance, board, selectedEraConfig]);
+  
   const [error, setError] = useState(null);
   const [isAutoPlacing, setIsAutoPlacing] = useState(false);
+  
+  // Refs for syncing message console width to game board
+  const messageConsoleRef = useRef(null);
+  const gameBoardContainerRef = useRef(null);
+  const canvasBoardRef = useRef(null);
   
   // No duplicate subscription - useGameState already subscribes to CoreEngine
 
@@ -236,7 +307,7 @@ const PlacementPage = () => {
     if (isAutoPlacing) {
       return 'Autoplacing ships...';
     } else if (currentShip) {
-      return `Place your ${currentShip.name.toLowerCase()} in ${currentShip.terrain.join(' or ')} water`;
+      return `Place your ${currentShip.class.toLowerCase()} in ${currentShip.terrain.join(' or ')} water`;
     } else if (isPlacementComplete) {
       return 'Fleet is complete! Review your placement or click "Start Battle" to begin.';
     } else {
@@ -322,8 +393,9 @@ const PlacementPage = () => {
 
           <div className="divider"></div>
 
-          <div className="game-board-container">
+          <div className="game-board-container" ref={gameBoardContainerRef}>
             <CanvasBoard
+              ref={canvasBoardRef}
               mode="placement"
               eraConfig={selectedEraConfig}
               gameBoard={board}
@@ -334,7 +406,7 @@ const PlacementPage = () => {
             />
           </div>
 
-          <div className="message-consoles">
+          <div className="message-consoles" ref={messageConsoleRef}>
             <div className="console-combined">
               <div className="console-header">Fleet Placement</div>
               <div className="console-content-combined">

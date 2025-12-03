@@ -24,14 +24,18 @@ const VideoPopup = ({ videoSrc, onComplete }) => {
     
     console.log('[VIDEO]', version, 'Playing video:', videoSrc);
     
-    if (videoRef.current) {
+    if (videoRef.current && videoSrc) {
       const video = videoRef.current;
+      
+      // Set src programmatically to avoid OpaqueResponseBlocking
+      video.src = videoSrc;
       
       // Set loop to false
       video.loop = false;
       video.removeAttribute('loop');
       
       console.log('[VIDEO]', version, 'Initial loop property:', video.loop);
+      console.log('[VIDEO]', version, 'Video src set to:', videoSrc);
       
       // Listen for metadata loaded to enforce loop=false
       const handleLoadedMetadata = () => {
@@ -50,6 +54,9 @@ const VideoPopup = ({ videoSrc, onComplete }) => {
       video.addEventListener('loadedmetadata', handleLoadedMetadata);
       video.addEventListener('timeupdate', handleTimeUpdate);
       
+      // Load the video
+      video.load();
+      
       hasPlayedRef.current = true;
       
       video.play().catch(error => {
@@ -62,7 +69,7 @@ const VideoPopup = ({ videoSrc, onComplete }) => {
         video.removeEventListener('timeupdate', handleTimeUpdate);
       };
     }
-  }, []); // Empty deps - only run once
+  }, [videoSrc, onComplete]); // Re-run if videoSrc changes
 
   const handleVideoEnd = () => {
     console.log('[VIDEO]', version, 'Video ended - closing popup');
@@ -89,10 +96,10 @@ const VideoPopup = ({ videoSrc, onComplete }) => {
           <video
             ref={videoRef}
             className="video-popup__video"
-            src={videoSrc}
             onEnded={handleVideoEnd}
             onError={handleVideoError}
             playsInline
+            preload="auto"
           />
           <button className="video-popup__skip btn btn--sm" onClick={handleSkip}>
             Skip

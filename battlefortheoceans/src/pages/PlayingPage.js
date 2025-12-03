@@ -220,13 +220,6 @@ const PlayingPage = () => {
     }
   }, [gameInstance]);
   
-  // Prevent body scroll on mobile for better game interaction
-  useEffect(() => {
-    document.body.classList.add('playing-page-active');
-    return () => {
-      document.body.classList.remove('playing-page-active');
-    };
-  }, []);
 
   // Sync message console width to game board container width
   useEffect(() => {

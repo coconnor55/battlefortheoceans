@@ -16,7 +16,10 @@
 //         - Browser popstate event listener setup
 //         - Reduces CoreEngine by ~200 lines
 
-const version = "v0.1.1";
+const version = "v0.1.2";
+const tag = "NAVIGATION";
+const module = "NavigationManager";
+let method = "";
 
 /**
  * NavigationManager
@@ -37,11 +40,14 @@ const version = "v0.1.1";
  */
 class NavigationManager {
   constructor(coreEngine) {
+    method = 'constructor';
+    
     if (!coreEngine) {
       throw new Error('NavigationManager requires CoreEngine instance');
     }
     
     this.coreEngine = coreEngine;
+    this.log('NavigationManager initialized');
     
     // URL route mapping
     this.stateToRoute = {
@@ -71,6 +77,7 @@ class NavigationManager {
    * Setup browser back/forward button handling
    */
   setupBrowserNavigation() {
+    method = 'setupBrowserNavigation';
     window.addEventListener('popstate', (event) => {
       this.handleBrowserNavigation(event);
     });
@@ -87,6 +94,7 @@ class NavigationManager {
    * @param {string} path - URL path (defaults to window.location.pathname)
    */
   async initializeFromURL(path = window.location?.pathname || '/') {
+    method = 'initializeFromURL';
     const targetState = this.routeToState[path] || 'launch';
     
     this.log(`Initializing from URL: ${path} → ${targetState}`);
@@ -116,6 +124,7 @@ class NavigationManager {
    * @param {string} currentState - Current game state
    */
   syncURL(currentState) {
+    method = 'syncURL';
     const route = this.stateToRoute[currentState];
     if (!route || typeof window === 'undefined' || !window.history) {
       return;
@@ -148,6 +157,7 @@ class NavigationManager {
    * @param {PopStateEvent} event - Browser navigation event
    */
   async handleBrowserNavigation(event) {
+    method = 'handleBrowserNavigation';
     const targetState = event.state?.state;
     
     if (!targetState) {
@@ -189,6 +199,7 @@ class NavigationManager {
    * @returns {boolean} True if transition is valid
    */
   isValidBackwardTransition(from, to) {
+    method = 'isValidBackwardTransition';
     const backwardAllowed = {
       'opponent': ['era'],
       'placement': ['opponent'],
@@ -211,6 +222,7 @@ class NavigationManager {
    * @returns {string|null} URL route
    */
   getRouteForState(state) {
+    method = 'getRouteForState';
     return this.stateToRoute[state] || null;
   }
   
@@ -221,12 +233,20 @@ class NavigationManager {
    * @returns {string|null} Game state
    */
   getStateForRoute(route) {
+    method = 'getStateForRoute';
     return this.routeToState[route] || null;
   }
   
   log(message) {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [NavigationManager ${version}] ${message}`);
+    console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+  }
+  
+  logerror(message, error = null) {
+    if (error) {
+      console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+    } else {
+      console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    }
   }
 }
 

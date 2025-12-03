@@ -54,7 +54,9 @@ const control = {
   SERVICE: false,
   OVER: false,
   TEST: false,
-  DEBUG: false
+  DEBUG: false,
+  NAVIGATION: false,
+  SOUND: false
 };
 
 // Store original console methods FIRST

@@ -107,7 +107,7 @@
 - **Notes**: In July 1836, blockaded the Texas schooner Brutus at Matagorda. The Invincible was sent to defend the Brutus and offered to engage the Vencedor del Alamo near Veracruz, but the Mexican vessel retreated, avoiding confrontation.
 
 ### 4. **Correo de México**
-- **Class**: Revenue Cutter
+- **Class**: Cutter
 - **Captain**: Thomas M. Thompson (Lieutenant, 1835)
 - **Period**: 1835
 - **Notes**: Mexican revenue cutter engaged by the Texas privateer San Felipe off Brazoria in September 1835. This engagement is considered by many as the opening naval battle of the Texas Revolution. Thomas M. Thompson was a British-born officer who later became an American citizen, serving as a lieutenant in the Mexican Navy. The Correo de México was captured by Texan forces during this engagement.

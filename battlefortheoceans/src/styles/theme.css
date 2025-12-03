@@ -280,19 +280,18 @@ code, pre {
    ============================================ */
 
 .container {
-  /* Maintain fixed size, grow to 95vw only when viewport forces it */
+  /* Container stays fixed in viewport while background scrolls */
+  position: fixed;
+  top: 60px; /* Below NavBar */
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
-  /* Container maintains 1400px until viewport shrinks enough that 95vw < 1400px */
-  /* When viewport > 1474px: container is 1400px (gaps shrink as viewport shrinks) */
-  /* When viewport < 1474px: container is 95vw (scales with viewport) */
-  /*max-width: min(1400px, 95vw);*/
   max-width: 95vw;
-  min-height: 100vh;
-  margin: 0 auto;
+  height: calc(100vh - 60px); /* Full height minus NavBar */
+  overflow-y: auto; /* Container content can scroll independently */
   /* Use clamp for smooth padding transition instead of breakpoint jumps */
   padding: 0 clamp(var(--space-md), 2vw, var(--space-xl));
-  /* Add small top margin for gap below NavBar (preferred spacing) */
-  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
 }
 
 .container-fluid {

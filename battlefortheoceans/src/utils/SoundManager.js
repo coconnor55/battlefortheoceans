@@ -6,7 +6,10 @@
 //         - Sound enable/disable toggle
 //         - Reduces Game.js by ~40 lines
 
-const version = "v0.1.0";
+const version = "v0.1.1";
+const tag = "SOUND";
+const module = "SoundManager";
+let method = "";
 
 // Environment-aware CDN path
 const SOUND_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
@@ -31,6 +34,8 @@ const SOUND_BASE_URL = process.env.REACT_APP_GAME_CDN || '';
  */
 class SoundManager {
   constructor() {
+    method = 'constructor';
+    
     this.soundEnabled = true;
     this.soundEffects = {};
     this.soundLoadErrors = [];
@@ -44,6 +49,7 @@ class SoundManager {
    * Loads from CDN if REACT_APP_GAME_CDN is set
    */
   initializeSounds() {
+    method = 'initializeSounds';
     const soundFiles = {
       cannonBlast: 'cannon-blast.mp3',
       incomingWhistle: 'incoming-whistle.mp3',
@@ -64,17 +70,17 @@ class SoundManager {
         
         // Log successful load
         audio.addEventListener('canplaythrough', () => {
-          console.log(`[SoundManager ${version}] Loaded: ${key}`);
+          this.log(`Loaded: ${key}`);
         }, { once: true });
         
       } catch (error) {
-        console.warn(`[SoundManager ${version}] Failed to load: ${key}`, error);
+        this.logerror(`Failed to load: ${key}`, error);
         this.soundLoadErrors.push(key);
       }
     });
     
     if (this.soundLoadErrors.length > 0) {
-      console.warn(`[SoundManager ${version}] Failed to load ${this.soundLoadErrors.length} sounds:`, this.soundLoadErrors);
+      this.logerror(`Failed to load ${this.soundLoadErrors.length} sounds: ${this.soundLoadErrors.join(', ')}`);
     }
   }
   
@@ -85,6 +91,7 @@ class SoundManager {
    * @param {number} delay - Delay in milliseconds (default: 0)
    */
   playSound(soundType, delay = 0) {
+    method = 'playSound';
     if (!this.soundEnabled) {
       return;
     }
@@ -98,7 +105,7 @@ class SoundManager {
           console.debug(`[SoundManager ${version}] Playback blocked for ${soundType}:`, error.message);
         });
       } else if (!audio) {
-        console.warn(`[SoundManager ${version}] Sound not found: ${soundType}`);
+        console.warn(`[${tag}] ${version} ${module}.${method}: Sound not found: ${soundType}`);
       }
     }, delay);
   }
@@ -109,6 +116,7 @@ class SoundManager {
    * @param {boolean} enabled - True to enable sounds, false to disable
    */
   toggleSound(enabled) {
+    method = 'toggleSound';
     this.soundEnabled = enabled;
     this.log(`Sound ${enabled ? 'enabled' : 'disabled'}`);
   }
@@ -150,12 +158,20 @@ class SoundManager {
    * @returns {boolean} True if sounds are enabled
    */
   isEnabled() {
+    method = 'isEnabled';
     return this.soundEnabled;
   }
   
   log(message) {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] [SoundManager ${version}] ${message}`);
+    console.log(`[${tag}] ${version} ${module}.${method} : ${message}`);
+  }
+  
+  logerror(message, error = null) {
+    if (error) {
+      console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+    } else {
+      console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+    }
   }
 }
 

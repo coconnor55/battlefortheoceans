@@ -174,12 +174,12 @@ const LaunchPage = () => {
             <p className="text-muted">Preparing your session...</p>
           ) : (
             <>
-              <button
-                className="btn btn--primary btn--lg"
-                onClick={handlePlayGame}
-              >
-                Play Game
-              </button>
+            <button
+              className="btn btn--primary btn--lg"
+              onClick={handlePlayGame}
+            >
+              Play Game
+            </button>
               <label style={{ 
                 fontSize: '0.75rem', 
                 color: 'var(--text-muted)', 

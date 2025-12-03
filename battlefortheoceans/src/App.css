@@ -15,8 +15,8 @@
   margin: 0;
   padding: 0;
   width: 100vw;
-  min-height: 100vh;
-  /* Use CSS variable for background control, with fallback to default image */
+  min-height: 200vh; /* Ensure App is taller than viewport to allow scrolling */
+  /* Background scrolls with page */
   background-image: var(--app-background, url('https://cdn.battlefortheoceans.com/battlefortheoceans.jpg'));
   background-size: cover;
   background-position: center;
@@ -27,17 +27,7 @@
   position: relative;
   width: 100%;
   min-height: 100vh;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-}
-
-/* Prevent body scroll when on playing page for better mobile interaction */
-body.playing-page-active {
-  overflow: hidden;
-  position: fixed;
-  width: 100%;
-  height: 100%;
+  /* No overflow - let body handle scrolling */
 }
 
 /* EOF */

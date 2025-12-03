@@ -43,6 +43,7 @@ import InactivityWarning from './components/InactivityWarning';
 import GameGuide from './components/GameGuide';
 import AboutPage from './pages/AboutPage';
 import TestSuite from './tests/TestSuite';
+import ErrorConsole from './components/ErrorConsole';
 import ErrorBoundary from './components/ErrorBoundary';
 import configLoader from './utils/ConfigLoader';
 import './App.css';
@@ -85,7 +86,7 @@ const getHelpSection = (state) => {
 
 const SceneRenderer = () => {
   const { currentState, eraConfig, subscribeToUpdates, coreEngine } = useGame();
-  const [overlayPage, setOverlayPage] = useState(null); // 'stats' | 'achievements' | 'about' | 'help' | 'test' | null
+  const [overlayPage, setOverlayPage] = useState(null); // 'stats' | 'achievements' | 'about' | 'help' | 'test' | 'errorconsole' | null
     const [achievementsPosition, setAchievementsPosition] = useState(null);  // ← ADD THIS LINE
   const [autoShowedSections, setAutoShowedSections] = useState(new Set());
 
@@ -353,6 +354,7 @@ const SceneRenderer = () => {
           }}
         onShowHelp={() => setOverlayPage('help')}
         onShowTest={() => setOverlayPage('test')}
+        onShowErrorConsole={() => setOverlayPage('errorconsole')}
         onCloseOverlay={closeOverlay}
         hasActiveOverlay={overlayPage !== null}
       />
@@ -403,6 +405,10 @@ const SceneRenderer = () => {
         <div className="modal-overlay">
           <TestSuite onClose={closeOverlay} />
         </div>
+      )}
+      
+      {overlayPage === 'errorconsole' && (
+        <ErrorConsole onClose={closeOverlay} />
       )}
       
       {/* Inactivity warning modal */}

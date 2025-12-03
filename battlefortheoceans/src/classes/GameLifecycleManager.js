@@ -36,7 +36,8 @@ import { supabase } from '../utils/supabaseClient';
 import PlayerProfileService from '../services/PlayerProfileService.js';
 import RightsService from '../services/RightsService.js';
 import GameStatsService from '../services/GameStatsService';
-import { coreEngine } from '../context/GameContext';
+// Note: Don't import coreEngine from GameContext - causes circular dependency
+// Use this.coreEngine (passed to constructor) instead
 
 const version = "v0.2.12";
 const tag = "LIFECYCLE";
@@ -98,9 +99,11 @@ class GameLifecycleManager {
 
       // Use instanceof for proper type detection
     if (parent instanceof Game) {
-      // Parent is Game instance
+      // Parent is Game instance - need to get coreEngine reference
       this.game = parent;
-      this.coreEngine = coreEngine;
+      // Import coreEngine dynamically to avoid circular dependency at module load time
+      const { coreEngine: engineInstance } = require('../context/GameContext');
+      this.coreEngine = engineInstance;
       this.log(`Initialized for game ${parent.id}`);
     } else {
       // Parent is CoreEngine
@@ -166,28 +169,28 @@ class GameLifecycleManager {
     this.coreEngine.aiPlayers = [];
       
       //key data - see CoreEngine handle{state}
-      const gameConfig = coreEngine.gameConfig;
-      const eras = coreEngine.eras;
-      const player = coreEngine.player
-      const playerProfile = coreEngine.playerProfile;
-      const playerEmail = coreEngine.playerEmail;
-      const selectedEraId = coreEngine.selectedEraId;
-      const selectedAlliance = coreEngine.selectedAlliance;
-      const selectedOpponents = coreEngine.selectedOpponents;
+      const gameConfig = this.coreEngine.gameConfig;
+      const eras = this.coreEngine.eras;
+      const player = this.coreEngine.player
+      const playerProfile = this.coreEngine.playerProfile;
+      const playerEmail = this.coreEngine.playerEmail;
+      const selectedEraId = this.coreEngine.selectedEraId;
+      const selectedAlliance = this.coreEngine.selectedAlliance;
+      const selectedOpponents = this.coreEngine.selectedOpponents;
 
       // derived data
-      const playerId = coreEngine.playerId;
-      const playerRole = coreEngine.playerRole;
-      const playerGameName = coreEngine.playerGameName;
+      const playerId = this.coreEngine.playerId;
+      const playerRole = this.coreEngine.playerRole;
+      const playerGameName = this.coreEngine.playerGameName;
       const isGuest = player != null && player.isGuest;
       const isAdmin = player != null && playerProfile.isAdmin;
       const isDeveloper = player != null && playerProfile.isDeveloper;
       const isTester = player != null && playerProfile.isTester;
-      const selectedOpponent = coreEngine.selectedOpponents[0];
+      const selectedOpponent = this.coreEngine.selectedOpponents[0];
 
-      const selectedGameMode = coreEngine.selectedGameMode;
-      const gameInstance = coreEngine.gameInstance;
-      const board = coreEngine.board;
+      const selectedGameMode = this.coreEngine.selectedGameMode;
+      const gameInstance = this.coreEngine.gameInstance;
+      const board = this.coreEngine.board;
 
       // stop game if key data is missing (selectedAlliance is allowed to be null)
       // playerEmail is allowed to be null for guest users
@@ -204,16 +207,36 @@ class GameLifecycleManager {
           return; // Return early to prevent initialization
       }
 
-      const selectedEraConfig = coreEngine.selectedEraConfig;
+      const selectedEraConfig = this.coreEngine.selectedEraConfig;
 
     // Create Game instance
     this.game = new Game(
       selectedEraConfig,
       selectedOpponent.gameMode || 'turnBased',
-      coreEngine.gameConfig
+      this.coreEngine.gameConfig
     );
     this.coreEngine.gameInstance = this.game;
       this.log('DEBUG new Game instance', this.game);
+    
+    // Start error collection for this game session (non-blocking)
+    (async () => {
+      try {
+        const { startGameErrorCollection } = await import('../utils/ErrorCollector.js');
+        startGameErrorCollection(this.game.id, {
+          era: selectedEraConfig.id,
+          eraId: selectedEraConfig.id,
+          eraName: selectedEraConfig.name,
+          opponent: selectedOpponent.name,
+          opponentType: selectedOpponent.type,
+          gameMode: selectedOpponent.gameMode || 'turnBased'
+        });
+      } catch (error) {
+        // ErrorCollector not available - silently continue
+        if (process.env.NODE_ENV === 'development') {
+          this.log('ErrorCollector not available, skipping error collection');
+        }
+      }
+    })();
     
     // Set up game callbacks
     this.game.setUIUpdateCallback(() => this.coreEngine.notifySubscribers());
@@ -403,11 +426,11 @@ class GameLifecycleManager {
     async startGame(playerId, eraId) {
         method = 'startGame';
 
-        this.log(`playerId=${playerId}, eraId=${eraId}, player.id=${coreEngine.player?.id}`);
+        this.log(`playerId=${playerId}, eraId=${eraId}, player.id=${this.coreEngine.player?.id}`);
         
-        if (coreEngine.player == null ||
-            coreEngine.player.id !== playerId ||
-            coreEngine.player.isGuest)
+        if (this.coreEngine.player == null ||
+            this.coreEngine.player.id !== playerId ||
+            this.coreEngine.player.isGuest)
         {
             return;
         }
@@ -493,6 +516,37 @@ class GameLifecycleManager {
       this.game.battleLog('Game ended: Draw', 'draw');
     }
 
+      // End error collection and send summary to Supabase (non-blocking)
+      (async () => {
+        try {
+          const { endGameErrorCollection } = await import('../utils/ErrorCollector.js');
+          const gameStats = this.game.getGameStats();
+          const playerId = this.coreEngine.playerId;
+          
+          // Get incomplete counter value
+          let incompleteCounter = 'N/A';
+          try {
+            const playerProfile = this.coreEngine.playerProfile;
+            incompleteCounter = playerProfile?.incomplete_games || 0;
+          } catch (err) {
+            // Ignore if not available
+          }
+          
+          endGameErrorCollection(this.game.id, {
+            winner: this.game.winner?.name || null,
+            turns: gameStats.totalTurns,
+            duration: gameStats.duration,
+            humanWon: humanWon,
+            incompleteCounter: incompleteCounter
+          }, playerId);
+        } catch (error) {
+          // ErrorCollector not available - silently continue
+          if (process.env.NODE_ENV === 'development') {
+            this.log('ErrorCollector not available for error summary');
+          }
+        }
+      })();
+      
       // Decrement incomplete_games counter and consume rights (non-blocking)
       // Fire-and-forget pattern - don't block game end sequence on network issues
       if (Player.isHuman(playerId)) {

@@ -16,10 +16,15 @@
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border-subtle);
   max-width: 600px;
-  margin: var(--space-sm) auto;
   width: 80vw;
+  
+  /* Fixed positioning to stay in place while background scrolls */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 
-  /* NEW - Make scrollable */
+  /* Make scrollable */
   max-height: 95vh;
   overflow-y: auto;
   overflow-x: visible; /* Allow horizontal overflow for game board */

@@ -12,9 +12,9 @@
   "passes_required": 0,
   "exclusive": false,
   "munitions": {
-    "star_shells": 0,
+    "star_shells": 1,
     "star_shells_boost": 0,
-    "scatter_shot": 0,
+    "scatter_shot": 1,
     "scatter_shot_boost": 0,
     "torpedoes": 0
   },
@@ -86,7 +86,7 @@
   "alliances": [
     {
       "name": "Texian Navy",
-      "description": "First Texian Navy - Command the four schooners of the First Texian Navy plus privateers. Defend the Texas coastline and disrupt Mexican supply lines in the fight for independence.",
+      "description": "Command the four schooners of the first Texas Navy and privateers. Defend the Texas coastline and disrupt Mexican supply lines in the fight for independence.",
       "avatar": "texian-navy-icon.png",
       "ships": [
         { "name": "Liberty", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
@@ -100,13 +100,13 @@
     },
     {
       "name": "Mexican Navy",
-      "description": "Mexican Navy - Defend Mexican interests in the Gulf of Mexico. Your fleet includes schooners, brigs, and sloops tasked with maintaining supply lines and countering the Texas naval threat.",
+      "description": "Defend Mexican interests in the Gulf of Mexico. Your fleet includes schooners, brigs, and sloops tasked with maintaining supply lines and countering the Texas naval threat.",
       "avatar": "mexican-navy-icon.png",
       "ships": [
         { "name": "Montezuma", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
-        { "name": "Bravo", "class": "Brig", "size": 3, "terrain": ["deep", "shallow"] },
+        { "name": "Bravo", "class": "Brig", "size": 4, "terrain": ["deep", "shallow"] },
         { "name": "Vencedor del Alamo", "class": "Brig", "size": 4, "terrain": ["deep", "shallow"] },
-        { "name": "Correo de México", "class": "Revenue Cutter", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
+        { "name": "Correo de México", "class": "Cutter", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
         { "name": "San Francisco de Tampico", "class": "Schooner", "size": 3, "terrain": ["deep", "shallow", "shoal"] },
         { "name": "La Sirena", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] },
         { "name": "El Cazador", "class": "Sloop", "size": 2, "terrain": ["deep", "shallow", "shoal"] }

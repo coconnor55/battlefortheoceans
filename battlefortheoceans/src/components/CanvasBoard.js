@@ -627,9 +627,8 @@ const CanvasBoard = forwardRef(({
   useImperativeHandle(ref, () => ({
     getCanvasElement: () => canvasRef.current,
     recordOpponentShot: (row, col, result) => {
-      if (result === 'firing') {
-        showOpponentAnimation(row, col, 'firing');
-      } else {
+      // Skip 'firing' - only show animation for actual result
+      if (result !== 'firing') {
         showOpponentAnimation(row, col, result);
         
         if (result === 'hit' || result === 'sunk') {

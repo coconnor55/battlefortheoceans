@@ -603,12 +603,10 @@ const OverPage = () => {
 
   if (!gameResults) {
     return (
-      <div className="over-page">
-        <div className="content-pane">
-          <div className="loading loading--lg">
-            <div className="spinner spinner--lg"></div>
-            <p>Loading game results...</p>
-          </div>
+      <div className="container flex flex-column flex-center">
+        <div className="loading loading--lg">
+          <div className="spinner spinner--lg"></div>
+          <p>Loading game results...</p>
         </div>
       </div>
     );
@@ -618,7 +616,7 @@ const OverPage = () => {
   const isWinner = gameStats.winner === gameResults.playerName;
 
   return (
-    <div className="over-page">
+    <div className="container flex flex-column flex-center">
       <div className="content-pane content-pane--wide" ref={pageRef}>
         <div className="over-header">
           <h1 className={`over-title ${isWinner ? 'over-title--victory' : 'over-title--defeat'}`}>

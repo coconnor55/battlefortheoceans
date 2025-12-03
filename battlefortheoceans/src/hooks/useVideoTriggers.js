@@ -37,14 +37,18 @@ const getVideoPath = (eraConfig, videoKey, gameConfig) => {
   // Try era-specific video first - use ConfigLoader for CDN support
   if (eraConfig?.videos?.[videoKey]) {
     // Config provides relative path like "videos/victory.mp4"
-    return configLoader.getEraAssetPath(eraConfig.id, eraConfig.videos[videoKey]);
+    const path = configLoader.getEraAssetPath(eraConfig.id, eraConfig.videos[videoKey]);
+    console.log('[VIDEO] Era-specific path:', path);
+    return path;
   }
   
-  // Fallback to generic video from game config (relative path, use ConfigLoader)
+  // Fallback to generic video from game config
   if (gameConfig?.videos?.generic_fallbacks?.[videoKey]) {
-    // Generic fallbacks are relative paths like "eras/traditional/videos/playersunk.mp4"
-    // Use getAssetPath to add CDN/public prefix
-    return configLoader.getAssetPath(gameConfig.videos.generic_fallbacks[videoKey]);
+    // Generic fallbacks are relative paths like "assets/eras/traditional/videos/playersunk.mp4"
+    // Use getAssetPath to add leading slash for public folder
+    const path = configLoader.getAssetPath(gameConfig.videos.generic_fallbacks[videoKey]);
+    console.log('[VIDEO] Generic fallback path:', path);
+    return path;
   }
   
   // No video available
