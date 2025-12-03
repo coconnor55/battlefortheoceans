@@ -74,12 +74,18 @@ const GameGuide = ({ section, manualOpen = false, onClose, forceShow = false, er
     method = 'handleDontShowAgain';
     log('"Turn Off Game Guide" clicked');
     
+    // For guest users, update in-memory profile for session duration
     if (!playerProfile?.id || playerProfile?.id.startsWith('guest-')) {
-      log('Guest user - cannot persist preference');
+      log('Guest user - updating session preference (in-memory)');
+      if (coreEngine.playerProfile) {
+        coreEngine.playerProfile.show_game_guide = false;
+        log('Updated guest profile: show_game_guide = false (session only)');
+      }
       onClose();
       return;
     }
     
+    // For authenticated users, persist to database
     try {
       await disableGameGuide(playerProfile.id);
       log('Game guide disabled in database');
