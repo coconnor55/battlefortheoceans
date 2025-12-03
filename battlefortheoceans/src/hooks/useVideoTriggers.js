@@ -1,5 +1,8 @@
 // src/hooks/useVideoTriggers.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.2: BUGFIX - Wrap handleVideoComplete in useCallback to prevent video restarts
+//         - VideoPopup useEffect was re-running when onComplete changed on every render
+//         - Now stable reference prevents unnecessary video restarts
 // v0.3.1: BUGFIX - Proper null checks and dependency array fix
 //         - Remove coreEngine from dependency array (it's a singleton)
 //         - Add defensive null check before accessing gameInstance methods
@@ -19,11 +22,11 @@
 //         - Gracefully handles missing config (no videos shown)
 //         - Async config loading on mount
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { coreEngine } from '../context/GameContext';
 import configLoader from '../utils/ConfigLoader';
 
-const version = 'v0.3.1';
+const version = 'v0.3.2';
 
 /**
  * Get video path - era-specific or generic fallback
@@ -140,10 +143,10 @@ const useVideoTriggers = (gameInstance, eraConfig) => {
     };
   }, [gameInstance, eraConfig]); // Removed coreEngine - it's a singleton and shouldn't trigger re-runs
 
-  const handleVideoComplete = () => {
+  const handleVideoComplete = useCallback(() => {
     setShowVideo(false);
     setCurrentVideo(null);
-  };
+  }, []); // No dependencies - this function never changes
 
   return {
     showVideo,

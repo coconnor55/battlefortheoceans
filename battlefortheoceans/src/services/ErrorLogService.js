@@ -7,9 +7,10 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.1';
+const version = 'v0.1.2';
 const tag = "SERVICE";
 const module = "ErrorLogService";
+// v0.1.2: Changed era_id and player_id filters to use .like() for startsWith behavior
 // v0.1.1: Removed gameMode from error_context (game is always turn-based)
 // v0.1.0: Initial implementation
 let method = "";
@@ -193,11 +194,11 @@ class ErrorLogService {
       }
 
       if (era_id) {
-        query = query.eq('era_id', era_id);
+        query = query.like('era_id', `${era_id}%`);
       }
 
       if (player_id) {
-        query = query.eq('player_id', player_id);
+        query = query.like('player_id', `${player_id}%`);
       }
 
       const { data, error } = await query;

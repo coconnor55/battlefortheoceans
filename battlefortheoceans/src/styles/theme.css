@@ -291,7 +291,7 @@ code, pre {
   overflow-y: auto; /* Container content can scroll independently */
   /* Use clamp for smooth padding transition instead of breakpoint jumps */
   padding: 0 clamp(var(--space-md), 2vw, var(--space-xl));
-  padding-top: var(--space-sm);
+  padding-top: var(--space-xl);
 }
 
 .container-fluid {

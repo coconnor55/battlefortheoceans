@@ -1,6 +1,11 @@
-/* src/styles/modal-overlay.css v1.0.4 */
+/* src/styles/modal-overlay.css v1.0.5 */
 /* Copyright(c) 2025, Clint H. O'Connor */
 /* Modal and overlay components */
+/* v1.0.5: Fixed modal overlay positioning and close button visibility
+ *         - Increased padding-top from 60px to 80px to prevent NavBar overlap
+ *         - Enhanced close button styling for better visibility (white text, themed border)
+ *         - Consistent across Stats, Achievements, and Error Console
+ */
 
 /* ============================================
    CONTENT OVERLAY / PANES
@@ -81,7 +86,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 60px; /* Account for fixed NavBar */
+  padding-top: 80px; /* Account for fixed NavBar with proper clearance */
   z-index: 200; /* Above NavBar (z-index 100) */
   animation: fadeIn var(--transition-speed) ease-in;
   overflow-y: auto;
@@ -165,6 +170,21 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--space-md);
+}
+
+/* Enhanced close button visibility */
+.card-header--with-close .btn--secondary {
+  color: var(--text-primary);
+  border-color: var(--primary);
+  font-size: 1.25rem;
+  padding: var(--space-xs) var(--space-sm);
+  min-width: 36px;
+  font-weight: bold;
+}
+
+.card-header--with-close .btn--secondary:hover {
+  background: var(--primary);
+  color: var(--bg-dark);
 }
 
 /* Body section */
@@ -285,7 +305,7 @@
   .modal-overlay {
     align-items: flex-start;
     padding: 0;
-    padding-top: 60px; /* Account for fixed NavBar (z-index 100) */
+    padding-top: 80px; /* Account for fixed NavBar with proper clearance */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
@@ -299,7 +319,7 @@
     width: 100%;
     max-width: 100%;
     border-radius: 0;
-    padding-top: env(safe-area-inset-top, var(--space-md));
+    padding-top: env(safe-area-inset-top, var(--space-lg));
     padding-bottom: env(safe-area-inset-bottom, var(--space-md));
     padding-left: var(--space-md);
     padding-right: var(--space-md);

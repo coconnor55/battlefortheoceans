@@ -9,9 +9,14 @@ import React, { useState, useEffect } from 'react';
 import errorLogService from '../services/ErrorLogService';
 import { Filter, RefreshCw, AlertCircle, FileText } from 'lucide-react';
 
-const version = 'v0.1.0';
+const version = 'v0.1.1';
 const tag = "CONSOLE";
 const module = "ErrorConsole";
+// v0.1.1: Changed to use same structure as StatsPage/AchievementsPage
+//         - Removed modal-overlay wrapper (now added by App.js)
+//         - Changed from content-pane--wide to content-pane
+//         - Consistent styling across all overlays
+// v0.1.0: Initial implementation
 
 const ErrorConsole = ({ onClose }) => {
   const [errorLogs, setErrorLogs] = useState([]);
@@ -68,8 +73,8 @@ const ErrorConsole = ({ onClose }) => {
 
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="content-pane content-pane--wide" onClick={(e) => e.stopPropagation()}>
+    <div className="container flex flex-column flex-center">
+      <div className="content-pane">
         <div className="card-header card-header--with-close">
           <h1 className="card-title">Error Console</h1>
           {onClose && (
