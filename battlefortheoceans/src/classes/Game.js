@@ -9,8 +9,12 @@ import CombatResolver from './CombatResolver.js';
 import SoundManager from '../utils/SoundManager.js';
 import GameLifecycleManager from './GameLifecycleManager.js';
 
-const version = "v0.8.13";
+const version = "v0.8.14";
 /**
+ * v0.8.14: Removed gameMode parameter - game is always turn-based
+ *          - Constructor now takes (eraConfig, gameConfig) instead of (eraConfig, gameMode, gameConfig)
+ *          - Removed this.gameMode property
+ * v0.8.13: [Previous version notes retained]
  * v0.8.12: Torpedo path calculation fixed - stops at first enemy ship, land/excluded, or 10 cells
  *          - calculateLinePath now stops when encountering enemy ship, land, or excluded terrain
  *          - Path length is counted up to first blocking cell (enemy ship/land/excluded) or 10 cells max
@@ -81,7 +85,7 @@ const version = "v0.8.13";
  */
 
 class Game {
-  constructor(eraConfig, gameMode = 'turnBased', gameConfig = null) {
+  constructor(eraConfig, gameConfig = null) {
     if (!eraConfig.game_rules) {
       throw new Error(`Era "${eraConfig.name}" is missing game_rules configuration`);
     }
@@ -95,7 +99,6 @@ class Game {
 
     this.id = `game-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.eraConfig = eraConfig;
-    this.gameMode = gameMode;
     this.gameConfig = gameConfig;
     
     this.state = 'setup';
@@ -157,7 +160,7 @@ class Game {
     // Lifecycle manager (v0.8.6)
     this.lifecycleManager = new GameLifecycleManager(this);
     
-    console.log(`[GAME] ${this.id} Game created: ${this.id}, Mode: ${gameMode}`);
+    console.log(`[GAME] ${this.id} Game created: ${this.id}`);
   }
 
   playSound(soundType, delay = 0) {

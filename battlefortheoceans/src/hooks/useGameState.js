@@ -36,10 +36,11 @@
 import { useState, useEffect } from 'react';
 import { coreEngine } from '../context/GameContext';
 
-const version = "v0.4.1";
+const version = "v0.4.2";
 const tag = "GAME";
 const module = "useGameState";
 
+// v0.4.2: Removed gameMode from returned state (game is always turn-based)
 // v0.4.1: Minimize React usage - game is synchronous, React just for rendering
 // - Single subscription to trigger re-renders
 // - Read directly from CoreEngine on each render (no memoization)
@@ -68,7 +69,6 @@ const useGameState = () => {
   const playerProfile = coreEngine.playerProfile;
   const selectedEraConfig = coreEngine.selectedEraConfig;
   const selectedOpponent = coreEngine.selectedOpponents?.[0];
-  const selectedGameMode = coreEngine.selectedGameMode;
   
   // Get UI state directly from CoreEngine
   const uiState = coreEngine.getUIState();
@@ -156,7 +156,6 @@ const useGameState = () => {
     isGameActive,
     gamePhase,
     winner,
-    gameMode: selectedGameMode,
     playerId: player?.id,
     
     // v0.3.8: BOTH player objects from coreEngine singleton (not uiState passthroughs)

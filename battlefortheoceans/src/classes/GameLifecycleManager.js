@@ -40,12 +40,16 @@ import { startGameErrorCollection, endGameErrorCollection } from '../utils/Error
 // Note: Don't import coreEngine from GameContext - causes circular dependency
 // Use this.coreEngine (passed to constructor) instead
 
-const version = "v0.2.12";
+const version = "v0.2.13";
 const tag = "LIFECYCLE";
 const module = "GameLifecycleManager";
 let method = "";
 
 /**
+ * v0.2.13: Removed gameMode parameter when creating Game instance
+ *          - Game constructor now called with (eraConfig, gameConfig)
+ *          - Removed gameMode from error collection context
+ * v0.2.12: [Previous version notes retained]
  * v0.2.4: BUGFIX - Removed .catch() from dispatch call
  *         - CoreEngine.dispatch() is now synchronous (returns undefined, not Promise)
  *         - Was causing "can't access property 'catch'" error on game over
@@ -213,7 +217,6 @@ class GameLifecycleManager {
     // Create Game instance
     this.game = new Game(
       selectedEraConfig,
-      selectedOpponent.gameMode || 'turnBased',
       this.coreEngine.gameConfig
     );
     this.coreEngine.gameInstance = this.game;
@@ -226,8 +229,7 @@ class GameLifecycleManager {
         eraId: selectedEraConfig.id,
         eraName: selectedEraConfig.name,
         opponent: selectedOpponent.name,
-        opponentType: selectedOpponent.type,
-        gameMode: selectedOpponent.gameMode || 'turnBased'
+        opponentType: selectedOpponent.type
       });
     } catch (error) {
       this.logerror('Error starting error collection', error);

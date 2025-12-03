@@ -7,9 +7,11 @@
 
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.0';
+const version = 'v0.1.1';
 const tag = "SERVICE";
 const module = "ErrorLogService";
+// v0.1.1: Removed gameMode from error_context (game is always turn-based)
+// v0.1.0: Initial implementation
 let method = "";
 
 class ErrorLogService {
@@ -123,7 +125,6 @@ class ErrorLogService {
         // Additional context (incompleteCounter, etc.)
         error_context: {
           incompleteCounter: summary.context?.incompleteCounter || null,
-          gameMode: summary.context?.gameMode || null,
           opponentType: summary.context?.opponentType || null
         },
         

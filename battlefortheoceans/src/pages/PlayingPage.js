@@ -1,5 +1,6 @@
 // src/pages/PlayingPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.9: Removed gameMode from useGameState destructuring (game is always turn-based)
 // v0.5.8: Set speedFactor to 0 when autoplay is enabled to skip animation delays
 //         - Autoplay now proceeds instantly without waiting for animations
 //         - Restores speedFactor to 1 when autoplay is disabled
@@ -45,7 +46,7 @@ import CanvasBoard from '../components/CanvasBoard';
 import FleetStatusSidebar from '../components/FleetStatusSidebar';
 import VideoPopup from '../components/VideoPopup';
 
-const version = 'v0.5.7';
+const version = 'v0.5.9';
 const tag = "PLAYING";
 const module = "PlayingPage";
 let method = "";
@@ -124,7 +125,6 @@ const PlayingPage = () => {
     gamePhase,
     winner,
     gameBoard,
-    gameMode,
     handleAttack,
     munitions,
     fireMunition

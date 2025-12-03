@@ -89,12 +89,18 @@ import ConfigLoader, { isNetworkError } from '../utils/ConfigLoader';
 import { retryWithBackoff, isNetworkErrorForRetry } from '../utils/retryWithBackoff';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.6.46';
+const version = 'v0.6.47';
 const tag = "CORE";
 const module = "CoreEngine";
 let method = "";
 
 /**
+ * v0.6.47: Removed selectedGameMode property (game is always turn-based)
+ *          - Removed from session storage/restore
+ *          - Removed from reset
+ *          - Removed from getUIState
+ * v0.6.46: [Previous version notes retained]
+ * 
  * CoreEngine - Orchestrates game state machine and coordinates services
  *
  * Responsibilities:
@@ -194,7 +200,6 @@ class CoreEngine {
     this.eraConfig = null;
     this._selectedEraId = null;     // getter/setter, set during SelectEra state
     this._selectedOpponents = [];
-    this.selectedGameMode = null;
     this._selectedAlliance = null;
     
     // Error state for graceful error handling
@@ -589,7 +594,6 @@ class CoreEngine {
 
     this.currentState = sessionData.currentState;
     this.selectedOpponents = sessionData.selectedOpponents;
-    this.selectedGameMode = sessionData.selectedGameMode;
     this.selectedAlliance = sessionData.selectedAlliance;
 
     // Restore era config
@@ -727,7 +731,6 @@ class CoreEngine {
     this.playerProfile = null;
 //    this.eraConfig = null;
     this.selectedOpponents = [];
-    this.selectedGameMode = null;
     this.selectedAlliance = null;
     this.gameInstance = null;
     
@@ -780,7 +783,6 @@ class CoreEngine {
       player: this.player,
       eraConfig: this.eraConfig,
       selectedOpponents: this.selectedOpponents,
-      selectedGameMode: this.selectedGameMode,
       selectedAlliance: this.selectedAlliance,
       gameInstance: this.gameInstance,
       
