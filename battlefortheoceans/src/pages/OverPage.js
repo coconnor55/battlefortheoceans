@@ -368,7 +368,9 @@ const OverPage = () => {
           hits: playerStats.hits || 0,
           misses: playerStats.misses || 0,
           damage: playerStats.hitsDamage || 0,
-          score: playerStats.score || 0
+          score: playerStats.score || 0,
+          opponents_defeated: gameResults.opponents?.length || 0, // Alliance size
+          era_id: gameResults.eraId || null
         };
 
         log('Achievement check data:', achievementCheckData);

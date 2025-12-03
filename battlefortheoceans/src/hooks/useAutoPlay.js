@@ -24,6 +24,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const version = 'v0.1.5';
+const tag = "AUTOPLAY";
+const module = "useAutoPlay";
+let method = "";
+
+// Logging utilities
+const log = (message) => {
+  console.log(`[${tag}] ${version} ${module}.${method}: ${message}`);
+};
+
+const logwarn = (message) => {
+  console.warn(`[${tag}] ${version} ${module}.${method}: ${message}`);
+};
 
 /**
  * useAutoPlay - Automated testing utility for rapid gameplay
@@ -93,15 +105,15 @@ const useAutoPlay = ({
 
   // Fire random valid shot and schedule next shot
   const fireRandomShot = useCallback(() => {
-      console.log("useAutoPlay.fireRandomShot: playerProfile=", playerProfile)
-        console.log("useAutoPlay.fireRandomShot: selectedEraConfig.id=", selectedEraConfig.id)
+    method = 'fireRandomShot';
+    
     if (!gameInstance || !isPlayerTurnRef.current || !isGameActiveRef.current) {
       return;
     }
 
     const humanPlayerFromGame = gameInstance.players.find(p => p.type === 'human');
     if (!humanPlayerFromGame) {
-      console.log('[AUTOPLAY]', version, 'No human player found in game instance');
+      logwarn('No human player found in game instance');
       return;
     }
 
@@ -118,7 +130,7 @@ const useAutoPlay = ({
     }
 
     if (validTargets.length === 0) {
-      console.log('[AUTOPLAY]', version, 'No valid targets remaining - stopping');
+      log('No valid targets remaining - stopping');
       setAutoPlayEnabled(false);
       return;
     }
@@ -127,7 +139,7 @@ const useAutoPlay = ({
     const randomIndex = Math.floor(Math.random() * validTargets.length);
     const target = validTargets[randomIndex];
     
-    console.log('[AUTOPLAY]', version, 'Firing at', target, `(${validTargets.length} targets remaining)`);
+    log(`Firing at ${target.row},${target.col} (${validTargets.length} targets remaining)`);
     handleShotFired(target.row, target.col);
     
     // Schedule next shot (recursive timer) - check refs to avoid dependency issues
@@ -140,39 +152,26 @@ const useAutoPlay = ({
 
   // Manage autoplay timer - start/stop based on state
   useEffect(() => {
-    console.log('[AUTOPLAY]', version, 'useEffect triggered:', {
-      autoPlayEnabled,
-      isGameActive,
-      isPlayerTurn,
-      hasTimer: !!autoPlayTimerRef.current
-    });
+    method = 'useEffect[timer]';
 
     // Clear existing timer
     if (autoPlayTimerRef.current) {
-      console.log('[AUTOPLAY]', version, 'Clearing existing timer');
+      log('Clearing existing timer');
       clearTimeout(autoPlayTimerRef.current);
       autoPlayTimerRef.current = null;
     }
 
     // Start initial timer if enabled and ready (fireRandomShot will schedule subsequent shots)
     if (autoPlayEnabled && isGameActive && isPlayerTurn) {
-      console.log('[AUTOPLAY]', version, 'Starting initial timer (200ms)');
+      log('Starting initial timer (200ms)');
       autoPlayTimerRef.current = setTimeout(() => {
-        console.log('[AUTOPLAY]', version, 'Initial timer fired, calling fireRandomShot');
         fireRandomShot();
       }, 200); // 200ms delay before first shot
-    } else {
-      console.log('[AUTOPLAY]', version, 'NOT starting timer - conditions not met:', {
-        autoPlayEnabled,
-        isGameActive,
-        isPlayerTurn
-      });
     }
 
     // Cleanup on unmount or when conditions change
     return () => {
       if (autoPlayTimerRef.current) {
-        console.log('[AUTOPLAY]', version, 'Cleanup: clearing timer');
         clearTimeout(autoPlayTimerRef.current);
         autoPlayTimerRef.current = null;
       }
@@ -188,9 +187,10 @@ const useAutoPlay = ({
 
   // Toggle handler
   const handleAutoPlayToggle = () => {
+    method = 'handleAutoPlayToggle';
     setAutoPlayEnabled(prev => {
       const newState = !prev;
-      console.log('[AUTOPLAY]', version, 'Toggled:', newState);
+      log(`Toggled: ${newState}`);
       return newState;
     });
   };

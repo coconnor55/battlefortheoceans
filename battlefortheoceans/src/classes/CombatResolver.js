@@ -93,10 +93,12 @@ class CombatResolver {
    * @returns {Object} Attack result {result, ships, damage, cellFullyDestroyed}
    */
   receiveAttack(row, col, firingPlayer, damage = 1.0) {
-    console.log(`[TARGETING] Called by ${firingPlayer.name} (${firingPlayer.type}) at ${row},${col}`);
+    const cellKey = `${row},${col}`;
+    console.log(`[TARGETING] receiveAttack called by ${firingPlayer.name} at ${cellKey}, canShootAt=${firingPlayer.canShootAt(row, col)}, isDontShoot=${firingPlayer.isDontShoot(row, col)}`);
 
     // Validate coordinates
     if (!this.game.board?.isValidCoordinate(row, col)) {
+      console.log(`[TARGETING] INVALID coordinates ${row},${col}`);
       const result = { result: 'invalid', ships: [] };
       this.game.lastAttackResult = result;
       return result;
@@ -148,6 +150,7 @@ class CombatResolver {
       this.game.playSound('splash');
       firingPlayer.misses++;
       firingPlayer.recordDontShoot(row, col);
+      // Misses are NOT shared with alliance members - they need to discover empty cells themselves
       
       this.game.message.post('attack_miss', {
         attacker: firingPlayer,
@@ -164,6 +167,17 @@ class CombatResolver {
     // ALL_DESTROYED - wasted shot on dead cells
     if (liveTargets.length === 0 && deadTargets.length > 0) {
       console.log(`[TARGETING] ALL_DESTROYED - wasted shot on dead cells at ${cellName}`);
+      firingPlayer.recordDontShoot(row, col);
+      console.log(`[TARGETING] ${firingPlayer.name} marked ${cellName} as dontShoot (all_destroyed)`);
+      
+      // Also mark for all alliance members
+      const firingAlliance = this.game.playerAlliances.get(firingPlayer.id);
+      for (const player of this.game.players) {
+        if (player.id !== firingPlayer.id && this.game.playerAlliances.get(player.id) === firingAlliance) {
+          player.recordDontShoot(row, col);
+          console.log(`[TARGETING] ${player.name} (alliance) also marked ${cellName} as dontShoot (all_destroyed)`);
+        }
+      }
       
       const result = { result: 'all_destroyed', ships: [] };
       this.game.lastAttackResult = result;
@@ -307,9 +321,19 @@ class CombatResolver {
     const resultType = cellNowFullyDestroyed ? 'destroyed' : 'hit';
     
     // Mark destroyed cells so AI won't shoot there again
+    // All players in the same alliance should also record it
     if (resultType === 'destroyed') {
       firingPlayer.recordDontShoot(row, col);
-      console.log(`[TARGETING] Marked ${cellName} as dontShoot (destroyed)`);
+      console.log(`[TARGETING] ${firingPlayer.name} marked ${cellName} as dontShoot (destroyed)`);
+      
+      // Also mark for all alliance members
+      const firingAlliance = this.game.playerAlliances.get(firingPlayer.id);
+      for (const player of this.game.players) {
+        if (player.id !== firingPlayer.id && this.game.playerAlliances.get(player.id) === firingAlliance) {
+          player.recordDontShoot(row, col);
+          console.log(`[TARGETING] ${player.name} (alliance) also marked ${cellName} as dontShoot`);
+        }
+      }
     }
     
     const result = {
@@ -334,16 +358,27 @@ class CombatResolver {
    * @returns {boolean} Success/failure
    */
   registerShipPlacement(ship, shipCells, orientation, playerId) {
-    console.log(`[GAME] Attempting to place ${ship.name} for player ${playerId}`);
+    // Find player first
+    const player = this.game.getPlayer(playerId);
+    console.log(`[GAME] Attempting to place ${ship.name} for player ${player?.name || playerId}`);
     
     // Validate board boundaries and terrain
     if (!this.game.board.canPlaceShip(shipCells, ship.terrain)) {
-      console.warn(`[GAME] Ship placement failed board validation (bounds/terrain)`);
+      // Detailed failure logging
+      const playerName = player?.name || playerId;
+      console.warn(`[GAME] ${playerName}: ${ship.name} placement FAILED - cells:`, shipCells);
+      console.warn(`[GAME] ${playerName}: ${ship.name} requires terrain:`, ship.terrain);
+      
+      // Check each cell individually to find the problem
+      shipCells.forEach(({ row, col }) => {
+        const inBounds = this.game.board.isValidCoordinate(row, col);
+        const terrain = inBounds ? this.game.board.terrain[row][col] : 'OUT_OF_BOUNDS';
+        const terrainOk = ship.terrain.includes(terrain);
+        console.warn(`[GAME]   Cell ${row},${col}: terrain=${terrain}, inBounds=${inBounds}, terrainOk=${terrainOk}`);
+      });
+      
       return false;
     }
-    
-    // Find player
-    const player = this.game.getPlayer(playerId);
     if (!player) {
       console.warn(`[GAME] Player ${playerId} not found`);
       return false;

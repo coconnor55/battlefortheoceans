@@ -287,6 +287,12 @@ class AchievementService {
             case 'pirate_fleets_sunk':
               currentProgress = profile.pirate_fleets_sunk || 0;
               break;
+            case 'alliance_size_defeated':
+              // Check if current game defeated an alliance of required size
+              if (gameResults.won && gameResults.opponents_defeated >= achievement.requirement_value) {
+                currentProgress = achievement.requirement_value;
+              }
+              break;
             case 'win_streak':
             // TODO: Implement win streak tracking
             // For now, skip these achievements

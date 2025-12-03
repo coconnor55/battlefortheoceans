@@ -659,13 +659,17 @@ const CanvasBoard = forwardRef(({
   useImperativeHandle(ref, () => ({
     getCanvasElement: () => canvasRef.current,
     recordOpponentShot: (row, col, result) => {
+      console.log('[CANVAS]', version, `recordOpponentShot: ${row},${col} result="${result}"`);
       // Skip 'firing' - only show animation for actual result
       if (result !== 'firing') {
+        console.log('[CANVAS]', version, `Showing opponent animation at ${row},${col}`);
         showOpponentAnimation(row, col, result);
         
         if (result === 'hit' || result === 'sunk') {
           createExplosion(row, col, true);
         }
+      } else {
+        console.log('[CANVAS]', version, `Skipping animation for 'firing' at ${row},${col}`);
       }
     },
     

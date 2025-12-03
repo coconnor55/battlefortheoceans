@@ -524,7 +524,10 @@ class Game {
     if (this.state !== 'playing') return;
     
     const currentPlayer = this.getCurrentPlayer();
+    console.log(`[GAME] checkAndTriggerAITurn: currentPlayerIndex=${this.currentPlayerIndex}, currentPlayer=${currentPlayer?.name}, type=${currentPlayer?.type}, players=${this.players.map(p => p.name).join(',')}`);
+    
     if (currentPlayer?.type === 'ai') {
+      console.log(`[GAME] Executing AI turn for ${currentPlayer.name}`);
       try {
         await this.executeAITurnQueued(currentPlayer);
       } catch (error) {
@@ -538,13 +541,27 @@ class Game {
 
   async executeAITurnQueued(aiPlayer) {
     if (!aiPlayer.makeMove) {
+      console.error(`[GAME] AI Player ${aiPlayer.name} missing makeMove method`);
       throw new Error(`AI Player ${aiPlayer.name} missing makeMove method`);
     }
     
-    const aiDecision = aiPlayer.makeMove(this);
+    let aiDecision;
+    try {
+      aiDecision = aiPlayer.makeMove(this);
+      console.log(`[GAME] AI ${aiPlayer.name} makeMove returned:`, aiDecision);
+    } catch (error) {
+      console.error(`[GAME] AI ${aiPlayer.name} makeMove threw error:`, error);
+      throw error;
+    }
     
     if (!aiDecision) {
+      console.error(`[GAME] AI Player ${aiPlayer.name} returned no move decision (null/undefined)`);
       throw new Error(`AI Player ${aiPlayer.name} returned no move decision`);
+    }
+    
+    if (typeof aiDecision.row !== 'number' || typeof aiDecision.col !== 'number') {
+      console.error(`[GAME] AI Player ${aiPlayer.name} returned invalid decision:`, aiDecision);
+      throw new Error(`AI Player ${aiPlayer.name} returned invalid target coordinates`);
     }
     
     this.queueAction({
@@ -567,8 +584,13 @@ class Game {
   }
 
   nextTurn() {
+    const oldIndex = this.currentPlayerIndex;
+    const oldPlayer = this.players[oldIndex];
     this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
     this.currentTurn++;
+    const newPlayer = this.players[this.currentPlayerIndex];
+    
+    console.log(`[GAME] nextTurn: ${oldPlayer?.name} (index ${oldIndex}) -> ${newPlayer?.name} (index ${this.currentPlayerIndex}), turn ${this.currentTurn}`);
     
     this.postTurnMessage();
   }
