@@ -2,7 +2,14 @@
 // Copyright(c) 2025, Clint H. O'Connor
 
 const version = "v0.9.5";
-// v0.9.5: Added totalDamage tracking for achievements
+/**
+ * v0.9.5: Fixed double-write in autoPlaceShips causing placement inconsistencies
+ *         - Removed duplicate placeShip() calls after registerShipPlacement()
+ *         - registerShipPlacement() already calls player.placeShip() for each cell
+ *         - Eliminates "cell X already at Y,Z" warnings during AI placement
+ *         - Fixes Diabolito and other AIs having incomplete fleet placement
+ */
+// v0.9.4: Added totalDamage tracking for achievements
 // v0.9.4: Added playerProfile parameter to constructor
 //         - Player now holds reference to lifetime statistics (playerProfile)
 //         - Per-game stats (hits, misses, etc.) still reset each game
@@ -193,8 +200,7 @@ class Player {
           cells.push({ row: cellRow, col: cellCol });
         }
 
-        // Phase 2: DUAL-WRITE - write to both systems
-        // Still using Game.registerShipPlacement() for Board.cellContents (removed in Phase 4)
+        // registerShipPlacement handles placement validation and calls player.placeShip() for each cell
         const registered = game.registerShipPlacement(
           ship,
           cells,
@@ -203,12 +209,6 @@ class Player {
         );
         
         if (registered) {
-          // v0.9.3: Pass numeric degrees to placeShip()
-          for (let i = 0; i < cells.length; i++) {
-            const cell = cells[i];
-            this.placeShip(cell.row, cell.col, ship.id, i, orientation);
-          }
-          
           ship.place();
           placed = true;
           console.log(`[PLACEMENT] Placed ${ship.name} for ${this.name} (${orientation}°, attempt ${attempts + 1})`);
