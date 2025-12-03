@@ -92,10 +92,15 @@ class ErrorLogService {
    */
   async logGameErrorSummary(summary, playerId = null) {
     method = 'logGameErrorSummary';
+    const incompleteCounter = summary?.context?.incompleteCounter;
+    console.log(`[${tag}] ${version} ${module}.${method}: CALLED with totalErrors=${summary?.totalErrors}, incomplete=${incompleteCounter}, playerId=${playerId}`);
 
-    if (!summary || summary.totalErrors === 0) {
+    if (!summary) {
+      console.log(`[${tag}] ${version} ${module}.${method}: No summary provided, returning false`);
       return false;
     }
+    
+    // Log both errors AND successful games (totalErrors can be 0)
 
     try {
       const summaryData = {
@@ -115,20 +120,33 @@ class ErrorLogService {
         winner: summary.context?.winner || null,
         human_won: summary.context?.humanWon || null,
         
+        // Additional context (incompleteCounter, etc.)
+        error_context: {
+          incompleteCounter: summary.context?.incompleteCounter || null,
+          gameMode: summary.context?.gameMode || null,
+          opponentType: summary.context?.opponentType || null
+        },
+        
         // Metadata
-        severity: 'summary',
+        severity: summary.totalErrors === 0 ? 'success' : 'summary',
         environment: process.env.NODE_ENV || 'development',
         created_at: new Date().toISOString()
       };
 
-      const { error: dbError } = await supabase
+      console.log(`[${tag}] ${version} ${module}.${method}: Attempting Supabase insert:`, summaryData);
+      
+      const { data, error: dbError } = await supabase
         .from('error_logs')
-        .insert([summaryData]);
+        .insert([summaryData])
+        .select();
 
       if (dbError) {
+        console.error(`[${tag}] ${version} ${module}.${method}: Supabase INSERT FAILED:`, dbError);
         this.logerror('Failed to log error summary to Supabase:', dbError);
         return false;
       }
+      
+      console.log(`[${tag}] ${version} ${module}.${method}: Supabase INSERT SUCCESS:`, data);
 
       if (process.env.NODE_ENV === 'development') {
         this.log(`Error summary logged for game ${summary.gameId}: ${summary.totalErrors} errors`);

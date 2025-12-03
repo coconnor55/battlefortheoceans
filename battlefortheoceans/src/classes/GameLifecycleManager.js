@@ -36,6 +36,7 @@ import { supabase } from '../utils/supabaseClient';
 import PlayerProfileService from '../services/PlayerProfileService.js';
 import RightsService from '../services/RightsService.js';
 import GameStatsService from '../services/GameStatsService';
+import { startGameErrorCollection, endGameErrorCollection } from '../utils/ErrorCollector.js';
 // Note: Don't import coreEngine from GameContext - causes circular dependency
 // Use this.coreEngine (passed to constructor) instead
 
@@ -218,25 +219,19 @@ class GameLifecycleManager {
     this.coreEngine.gameInstance = this.game;
       this.log('DEBUG new Game instance', this.game);
     
-    // Start error collection for this game session (non-blocking)
-    (async () => {
-      try {
-        const { startGameErrorCollection } = await import('../utils/ErrorCollector.js');
-        startGameErrorCollection(this.game.id, {
-          era: selectedEraConfig.id,
-          eraId: selectedEraConfig.id,
-          eraName: selectedEraConfig.name,
-          opponent: selectedOpponent.name,
-          opponentType: selectedOpponent.type,
-          gameMode: selectedOpponent.gameMode || 'turnBased'
-        });
-      } catch (error) {
-        // ErrorCollector not available - silently continue
-        if (process.env.NODE_ENV === 'development') {
-          this.log('ErrorCollector not available, skipping error collection');
-        }
-      }
-    })();
+    // Start error collection for this game session
+    try {
+      startGameErrorCollection(this.game.id, {
+        era: selectedEraConfig.id,
+        eraId: selectedEraConfig.id,
+        eraName: selectedEraConfig.name,
+        opponent: selectedOpponent.name,
+        opponentType: selectedOpponent.type,
+        gameMode: selectedOpponent.gameMode || 'turnBased'
+      });
+    } catch (error) {
+      this.logerror('Error starting error collection', error);
+    }
     
     // Set up game callbacks
     this.game.setUIUpdateCallback(() => this.coreEngine.notifySubscribers());
@@ -517,35 +512,29 @@ class GameLifecycleManager {
     }
 
       // End error collection and send summary to Supabase (non-blocking)
-      (async () => {
+      try {
+        const gameStats = this.game.getGameStats();
+        const playerId = this.coreEngine.playerId;
+        
+        // Get incomplete counter value
+        let incompleteCounter = 0;
         try {
-          const { endGameErrorCollection } = await import('../utils/ErrorCollector.js');
-          const gameStats = this.game.getGameStats();
-          const playerId = this.coreEngine.playerId;
-          
-          // Get incomplete counter value
-          let incompleteCounter = 'N/A';
-          try {
-            const playerProfile = this.coreEngine.playerProfile;
-            incompleteCounter = playerProfile?.incomplete_games || 0;
-          } catch (err) {
-            // Ignore if not available
-          }
-          
-          endGameErrorCollection(this.game.id, {
-            winner: this.game.winner?.name || null,
-            turns: gameStats.totalTurns,
-            duration: gameStats.duration,
-            humanWon: humanWon,
-            incompleteCounter: incompleteCounter
-          }, playerId);
-        } catch (error) {
-          // ErrorCollector not available - silently continue
-          if (process.env.NODE_ENV === 'development') {
-            this.log('ErrorCollector not available for error summary');
-          }
+          const playerProfile = this.coreEngine.playerProfile;
+          incompleteCounter = playerProfile?.incomplete_games || 0;
+        } catch (err) {
+          // Ignore if not available
         }
-      })();
+        
+        endGameErrorCollection(this.game.id, {
+          winner: this.game.winner?.name || null,
+          turns: gameStats.totalTurns,
+          duration: gameStats.duration,
+          humanWon: humanWon,
+          incompleteCounter: incompleteCounter
+        }, playerId);
+      } catch (error) {
+        this.logerror('Error ending error collection', error);
+      }
       
       // Decrement incomplete_games counter and consume rights (non-blocking)
       // Fire-and-forget pattern - don't block game end sequence on network issues

@@ -19,6 +19,29 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import './utils/Debug.js'
+import { collectError, ErrorSeverity } from './utils/ErrorCollector';
+
+// Global error handlers to collect uncaught errors
+window.addEventListener('error', (event) => {
+  collectError(
+    event.error || new Error(event.message),
+    { 
+      source: 'window.onerror',
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno
+    },
+    ErrorSeverity.HIGH
+  );
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  collectError(
+    event.reason instanceof Error ? event.reason : new Error(String(event.reason)),
+    { source: 'unhandledrejection' },
+    ErrorSeverity.HIGH
+  );
+});
 
 // Import styles in correct order (CRITICAL)
 import './index.css';                        // 1. Global resets first

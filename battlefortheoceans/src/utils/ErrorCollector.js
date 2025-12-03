@@ -6,9 +6,23 @@
 //         - Sends critical errors immediately to Supabase
 //         - Efficient error tracking without external services
 
-const version = 'v0.1.0';
+const version = 'v0.1.1';
 const tag = "ERRORCOLLECTOR";
 const module = "ErrorCollector";
+let method = "";
+
+// Logging utilities
+const log = (message) => {
+  console.log(`[${tag}] ${version} ${module}.${method}: ${message}`);
+};
+
+const logerror = (message, error = null) => {
+  if (error) {
+    console.error(`[${tag}] ${version} ${module}.${method}: ${message}`, error);
+  } else {
+    console.error(`[${tag}] ${version} ${module}.${method}: ${message}`);
+  }
+};
 
 // In-memory error collection (per game session)
 const errorCollections = new Map(); // gameId -> error collection
@@ -72,8 +86,11 @@ function isCriticalError(error) {
  * @param {object} context - Additional context (era, opponent, etc.)
  */
 export function startGameErrorCollection(gameId, context = {}) {
+  method = 'startGameErrorCollection';
+  log(`Started collection for game ${gameId}`);
+  
   if (!gameId) {
-    console.warn(`[${tag}] ${version} ${module}.startGameErrorCollection: No gameId provided`);
+    logerror('No gameId provided');
     return;
   }
   
@@ -85,9 +102,7 @@ export function startGameErrorCollection(gameId, context = {}) {
     errorCounts: new Map(), // error type -> count
   });
   
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[${tag}] ${version} ${module}.startGameErrorCollection: Started collection for game ${gameId}`);
-  }
+  log(`Collection active, map size = ${errorCollections.size}`);
 }
 
 /**
@@ -183,57 +198,54 @@ export function collectError(error, options = {}) {
  * @param {string} playerId - Player ID (optional)
  */
 export function endGameErrorCollection(gameId, gameResult = {}, playerId = null) {
+  method = 'endGameErrorCollection';
+  log(`Called for game ${gameId}, playerId=${playerId}`);
+  
   if (!gameId) {
+    logerror('No gameId provided');
     return;
   }
   
   const collection = errorCollections.get(gameId);
   if (!collection) {
+    logerror(`No collection found for game ${gameId}, map size=${errorCollections.size}`);
     return;
   }
   
   const duration = Date.now() - collection.startTime;
   const totalErrors = Array.from(collection.errorCounts.values()).reduce((sum, count) => sum + count, 0);
+  const incompleteCount = typeof gameResult.incompleteCounter === 'number' ? gameResult.incompleteCounter : null;
   
-  if (totalErrors > 0) {
-    // Send error summary if there were errors
-    const summary = {
-      gameId,
-      duration,
-      totalErrors,
-      errorTypes: Array.from(collection.errorCounts.entries()).map(([key, count]) => ({
-        error: key,
-        count
-      })),
-      errors: collection.errors,
-      context: {
-        ...collection.context,
-        ...gameResult
-      },
-      timestamp: Date.now()
-    };
-    
-    // Send summary to Supabase
-    import('../services/ErrorLogService.js').then(({ default: errorLogService }) => {
-      errorLogService.logGameErrorSummary(summary, playerId).catch(err => {
-        console.error(`[${tag}] ${version} ${module}.endGameErrorCollection: Failed to log error summary:`, err);
-      });
-    }).catch(() => {
-      // ErrorLogService not available - log to console
-      console.warn(`[${tag}] ${version} ${module}.endGameErrorCollection: Error summary (ErrorLogService unavailable):`, summary);
+  log(`Processing game ${gameId}: ${totalErrors} errors, incomplete: ${incompleteCount}`);
+  
+  // Always send summary to Supabase (whether errors or success)
+  const summary = {
+    gameId,
+    duration,
+    totalErrors,
+    errorTypes: totalErrors > 0 ? Array.from(collection.errorCounts.entries()).map(([key, count]) => ({
+      error: key,
+      count
+    })) : [],
+    errors: collection.errors,
+    context: {
+      ...collection.context,
+      ...gameResult,
+      incompleteCounter: incompleteCount
+    },
+    timestamp: Date.now()
+  };
+  
+  log(`Sending summary to Supabase: ${totalErrors} errors, ${incompleteCount} incomplete`);
+  
+  // Send summary to Supabase
+  import('../services/ErrorLogService.js').then(({ default: errorLogService }) => {
+    errorLogService.logGameErrorSummary(summary, playerId).catch(err => {
+      logerror('Failed to log error summary', err);
     });
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[${tag}] ${version} ${module}.endGameErrorCollection: Sent summary for game ${gameId}:`, {
-        totalErrors,
-        errorTypes: collection.errorCounts.size
-      });
-    }
-  } else {
-    // No errors - log success message with incomplete counter
-    const incompleteCount = typeof gameResult.incompleteCounter === 'number' ? gameResult.incompleteCounter : 'N/A';
-    console.log(`[${tag}] ${version} ${module}.endGameErrorCollection: Game ${gameId} completed with no errors. Incomplete counter: ${incompleteCount}`);
-  }
+  }).catch(() => {
+    logerror('ErrorLogService unavailable, summary not sent');
+  });
   
   // Clean up
   errorCollections.delete(gameId);

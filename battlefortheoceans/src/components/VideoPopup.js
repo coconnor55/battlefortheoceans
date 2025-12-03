@@ -68,6 +68,22 @@ const VideoPopup = ({ videoSrc, onComplete, priority = 'normal' }) => {
       
       video.play().catch(error => {
         console.warn('[VIDEO]', version, 'Video play failed:', error);
+        
+        // Collect video errors for analysis
+        import('../utils/ErrorCollector').then(({ collectError, ErrorSeverity }) => {
+          collectError(
+            error,
+            { 
+              component: 'VideoPopup',
+              videoType: type,
+              videoSrc: videoSrc 
+            },
+            ErrorSeverity.LOW
+          );
+        }).catch(() => {
+          // ErrorCollector not available
+        });
+        
         onComplete?.();
       });
       

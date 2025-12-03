@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import errorLogService from '../services/ErrorLogService';
-import { X, Filter, RefreshCw, AlertCircle, FileText } from 'lucide-react';
+import { Filter, RefreshCw, AlertCircle, FileText } from 'lucide-react';
 
 const version = 'v0.1.0';
 const tag = "CONSOLE";
@@ -72,13 +72,11 @@ const ErrorConsole = ({ onClose }) => {
       <div className="content-pane content-pane--wide" onClick={(e) => e.stopPropagation()}>
         <div className="card-header card-header--with-close">
           <h1 className="card-title">Error Console</h1>
-          <button
-            className="btn btn--icon"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={24} />
-          </button>
+          {onClose && (
+            <button className="btn btn--secondary btn--sm" onClick={onClose}>
+              ✕
+            </button>
+          )}
         </div>
 
         <div className="card-body">
@@ -229,11 +227,10 @@ const ErrorConsole = ({ onClose }) => {
               <div className="card-header card-header--with-close">
                 <h2 className="card-title">Error Details</h2>
                 <button
-                  className="btn btn--icon"
+                  className="btn btn--secondary btn--sm"
                   onClick={() => setSelectedError(null)}
-                  aria-label="Close"
                 >
-                  <X size={24} />
+                  ✕
                 </button>
               </div>
               <div className="card-body">
