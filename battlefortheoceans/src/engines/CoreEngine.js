@@ -1,5 +1,8 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.48: Fixed alliance persistence bug when navigating back to era selection
+//          - handleEvent_era() now clears selectedAlliance and selectedOpponents
+//          - Prevents alliance from one era carrying over to another era
 // v0.6.47: Improved network error handling with retry logic and user-friendly messages
 //          - Added retryWithBackoff utility for automatic retries with exponential backoff
 //          - Config and era loading now retry up to 3 times before failing
@@ -89,7 +92,7 @@ import ConfigLoader, { isNetworkError } from '../utils/ConfigLoader';
 import { retryWithBackoff, isNetworkErrorForRetry } from '../utils/retryWithBackoff';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.6.47';
+const version = 'v0.6.48';
 const tag = "CORE";
 const module = "CoreEngine";
 let method = "";
@@ -496,7 +499,11 @@ class CoreEngine {
       // upon dispatch to era state, the following are known for the rest of the game:
       // coreEngine.selectedEraId
       // coreEngine.selectedEraConfig (from eras array)
-    this.log('Era selection state');
+    
+    // Clear alliance and opponents - they're era-specific
+    this.selectedAlliance = null;
+    this.selectedOpponents = [];
+    this.log('Era selection state - cleared alliance and opponents');
   }
 
   handleEvent_opponent() {
