@@ -99,6 +99,18 @@
   font-weight: 500;
 }
 
+.fleet-details {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.fleet-name {
+  font-weight: 500;
+}
+
 .alliance-fleet {
   font-size: 0.85rem;
   color: var(--text-secondary);
