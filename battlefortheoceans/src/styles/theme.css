@@ -292,6 +292,29 @@ code, pre {
   /* Use clamp for smooth padding transition instead of breakpoint jumps */
   padding: 0 clamp(var(--space-md), 2vw, var(--space-xl));
   padding-top: var(--space-xl);
+  /* Add bottom padding for mobile safe areas (iOS Safari bottom bar) */
+  padding-bottom: max(var(--space-xl), env(safe-area-inset-bottom, 0px));
+}
+
+/* Mobile-specific container top adjustment */
+@media (max-width: 480px) {
+  .container {
+    /* Reduce top offset on mobile - NavBar may be smaller or we want content higher */
+    top: 50px;
+    /* Further reduce if needed for very small screens */
+  }
+  
+  /* For very small screens, push content even higher */
+  @media (max-height: 700px) {
+    .container {
+      top: 45px;
+      padding-top: var(--space-xs);
+    }
+    
+    .container.flex.flex-column.flex-center {
+      padding-top: var(--space-xs);
+    }
+  }
 }
 
 .container-fluid {

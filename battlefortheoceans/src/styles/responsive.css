@@ -7,6 +7,11 @@
    ============================================ */
 
 @media (max-width: 768px) {
+  /* Override conflicting rule from modal-overlay.css that adds 60px padding-top */
+  .container.flex.flex-column.flex-center {
+    padding-top: var(--space-md) !important;
+    justify-content: flex-start !important;
+  }
   /* Content panes - keep larger padding above 480px, only reduce on very small screens */
   /* Padding reduction moved to 480px breakpoint */
 
@@ -47,6 +52,53 @@
    ============================================ */
 
 @media (max-width: 480px) {
+  /* Container adjustments for mobile browser UI */
+  .container {
+    /* On mobile, use min-height to allow content to determine size and enable scrolling */
+    /* Fallback for browsers that don't support dvh */
+    min-height: calc(100vh - 60px);
+    /* Support for newer viewport units (Safari 15.4+, Chrome 108+) - use dvh if available */
+    min-height: calc(100dvh - 60px);
+    /* Ensure bottom padding accounts for iOS Safari bottom bar (typically 34px on iPhone) */
+    padding-bottom: max(var(--space-2xl), env(safe-area-inset-bottom, 34px));
+    /* Minimal top padding on mobile to maximize space */
+    padding-top: var(--space-sm);
+  }
+  
+  /* Adjust flex-center on mobile - use flex-start to prevent pushing content down */
+  .container.flex.flex-column.flex-center {
+    /* Change from center to flex-start to prevent pushing content down */
+    justify-content: flex-start !important;
+    /* Override any conflicting padding-top rules - minimal top padding */
+    padding-top: var(--space-sm) !important;
+    /* Remove min-height constraint that might be pushing content down */
+    min-height: auto;
+  }
+  
+  /* Reduce margins on content panes inside containers on mobile */
+  .container .content-pane {
+    margin-top: 0 !important;
+    margin-bottom: var(--space-md);
+  }
+  
+  /* Also reduce card-header top spacing on mobile */
+  .content-pane .card-header {
+    margin-top: 0;
+    padding-top: var(--space-sm);
+  }
+  
+  /* Ensure action sections have bottom padding on mobile */
+  .action-section {
+    padding-bottom: max(var(--space-lg), env(safe-area-inset-bottom, 20px));
+    margin-bottom: var(--space-md);
+  }
+  
+  /* Card footer buttons need extra bottom spacing on mobile */
+  .card-footer {
+    padding-bottom: max(var(--space-md), env(safe-area-inset-bottom, 20px));
+    margin-bottom: var(--space-sm);
+  }
+  
   /* Authentication forms */
   .reset-password-form,
   .reset-success,

@@ -339,8 +339,9 @@
   }
   
   /* Account for NavBar on mobile - but keep vertical centering */
+  /* NOTE: This rule is overridden in responsive.css for better mobile UX */
   .container.flex.flex-column.flex-center {
-    padding-top: 60px; /* Account for NavBar */
+    padding-top: 60px; /* Account for NavBar - overridden in responsive.css */
     /* Keep justify-content: center to prevent jumping to top */
     /* min-height ensures content doesn't get cut off */
     min-height: calc(100vh - 60px);
