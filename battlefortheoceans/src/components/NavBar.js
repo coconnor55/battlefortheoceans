@@ -631,7 +631,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                         onClick={handleErrorConsole}
                       >
                         <Terminal size={20} className="action-menu__emoji" />
-                        <span className="action-menu__label">Access Console</span>
+                        <span className="action-menu__label">Error Console</span>
                       </div>
                     )}
                     

@@ -12,9 +12,10 @@ import { Filter, RefreshCw, AlertCircle, FileText } from 'lucide-react';
 const version = 'v0.1.1';
 const tag = "CONSOLE";
 const module = "ErrorConsole";
+// v0.1.2: Changed back to content-pane--wide for desktop consistency
+//         - Matches StatsPage and AchievementsPage pattern
 // v0.1.1: Changed to use same structure as StatsPage/AchievementsPage
 //         - Removed modal-overlay wrapper (now added by App.js)
-//         - Changed from content-pane--wide to content-pane
 //         - Consistent styling across all overlays
 // v0.1.0: Initial implementation
 
@@ -74,7 +75,7 @@ const ErrorConsole = ({ onClose }) => {
 
   return (
     <div className="container flex flex-column flex-center">
-      <div className="content-pane">
+      <div className="content-pane content-pane--wide">
         <div className="card-header card-header--with-close">
           <h1 className="card-title">Error Console</h1>
           {onClose && (
