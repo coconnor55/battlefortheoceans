@@ -75,7 +75,6 @@ const VideoPopup = ({ videoSrc, onComplete, priority = 'normal' }) => {
             error,
             { 
               component: 'VideoPopup',
-              videoType: type,
               videoSrc: videoSrc 
             },
             ErrorSeverity.LOW
