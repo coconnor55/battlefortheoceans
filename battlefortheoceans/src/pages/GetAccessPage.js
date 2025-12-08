@@ -727,6 +727,32 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             <div className="card-section">
                <div className="divider">
                </div>
+               
+               {/* Manual Voucher Entry */}
+               <div className="form-group">
+                 <p><strong>Already have a voucher?</strong></p>
+                 <form onSubmit={handleEnterVoucher} style={{ display: 'flex', gap: '0.5rem' }}>
+                   <input
+                     type="text"
+                     className="form-input"
+                     value={voucherCode}
+                     onChange={(e) => setVoucherCode(e.target.value)}
+                     placeholder="Cut and paste or input voucher code"
+                     disabled={loading}
+                     style={{ flex: 1 }}
+                   />
+                   <button
+                     type="submit"
+                     className="btn btn--primary"
+                     disabled={loading || !voucherCode.trim()}
+                   >
+                     {loading ? 'Redeeming...' : 'Enter'}
+                   </button>
+                 </form>
+               </div>
+               
+               <div className="divider">
+               </div>
               <h3>Earn</h3>
               
               {/* Nearest Achievements */}
@@ -823,9 +849,18 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                     {sendingEmail ? 'Sending...' : 'Send'}
                   </button>
                 </div>
-                               
+              </div>
+            </div>
+          )}
+
+          {/* Voucher Section - shown if era is exclusive */}
+          {showVoucherSection && (
+            <div className="card-section">
+               <div className="divider">
+               </div>
+               
                {/* Manual Voucher Entry */}
-               <div className="form-group"><p />
+               <div className="form-group">
                  <p><strong>Already have a voucher?</strong></p>
                  <form onSubmit={handleEnterVoucher} style={{ display: 'flex', gap: '0.5rem' }}>
                    <input
@@ -846,13 +881,9 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                    </button>
                  </form>
                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Voucher Section - shown if era is exclusive */}
-          {showVoucherSection && (
-            <div className="card-section">
+               
+               <div className="divider">
+               </div>
               <h3>Invite</h3>
               
               <div className="info-card">
