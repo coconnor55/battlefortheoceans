@@ -736,6 +736,7 @@ class CoreEngine {
     // Clear local state
     this.player = null;
     this.playerProfile = null;
+    this.playerEmail = null;
 //    this.eraConfig = null;
     this.selectedOpponents = [];
     this.selectedAlliance = null;
