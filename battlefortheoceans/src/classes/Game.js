@@ -763,13 +763,15 @@ class Game {
         if (ship.class?.toLowerCase() === 'submarine' && 
             !ship.isSunk() && 
             ship.getTorpedoes() > 0) {
-          // Find submarine position
+          // Find submarine bow position (last cell, cellIndex = size - 1)
+          // Torpedoes fire from the bow, not the stern
           for (let row = 0; row < this.board.rows; row++) {
             for (let col = 0; col < this.board.cols; col++) {
               const placement = currentPlayer.getShipAt(row, col);
-              if (placement && placement.shipId === ship.id) {
+              if (placement && placement.shipId === ship.id && placement.cellIndex === ship.size - 1) {
                 submarine = ship;
                 submarinePosition = { row, col };
+                console.log(`[GAME] ${this.id} Found submarine bow at (${row}, ${col}), cellIndex=${placement.cellIndex}, ship size=${ship.size}`);
                 break;
               }
             }

@@ -383,7 +383,7 @@ const SelectOpponentPage = () => {
     <div className="container flex flex-column flex-center">
       <div className="page-with-info">
 
-        <div className="content-pane content-pane--wide">
+        <div className="content-pane content-pane--wide select-opponent-page">
           {/* Header */}
           <div className="card-header">
             <div className="card-header__content">

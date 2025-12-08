@@ -192,6 +192,19 @@
   color: var(--text-secondary);
 }
 
+/* SelectOpponentPage-specific: Make card-body scrollable, leaving header and action-section visible */
+.select-opponent-page .card-body--scrollable {
+  max-height: calc(95vh - 280px); /* Account for header (~80px) + action-section (~100px) + padding (~100px) */
+  overflow-y: auto;
+  overflow-x: visible;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--space-md);
+}
+
+.select-opponent-page.content-pane {
+  overflow-y: visible; /* Let card-body--scrollable handle scrolling */
+}
+
 /* Footer section with top border */
 .card-footer {
   margin-top: var(--space-md);
