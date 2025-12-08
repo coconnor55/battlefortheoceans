@@ -1,5 +1,8 @@
 // src/services/AchievementService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.0: Refactored to use reward_type and reward_count instead of reward_passes
+//         - Supports era-specific vouchers (e.g., 'pirates') via reward_type
+//         - Pirate achievements now properly reward Pirates vouchers
 // v0.2.4: Pirates achievement gives voucher instead of passes (if Pirates is exclusive)
 // v0.2.3: Actually credit passes for achievements
 // v0.2.2: Change progress value from decimal to integer
@@ -11,7 +14,7 @@ import RightsService from './RightsService';
 import VoucherService from './VoucherService';
 import ConfigLoader from '../utils/ConfigLoader';
 
-const version = 'v0.2.4';
+const version = 'v0.3.0';
 
 class AchievementService {
   constructor() {
@@ -320,52 +323,41 @@ class AchievementService {
             if (updated?.unlocked && !userRecord?.unlocked) {
               newlyUnlocked.push(achievement);
               
-              // Credit passes if achievement has reward
-              if (achievement.reward_passes && achievement.reward_passes > 0) {
+              // Credit rewards if achievement has reward
+              const rewardType = achievement.reward_type;
+              const rewardCount = achievement.reward_count || 0;
+              
+              if (rewardType && rewardCount > 0) {
                 try {
-                  // Check if this is a Pirates-related achievement (first pirate fleet sunk)
-                  const isPiratesAchievement = achievement.requirement_type === 'pirate_fleets_sunk' && 
-                                               achievement.requirement_value === 1;
-                  
-                  if (isPiratesAchievement) {
-                    // Check if Pirates era is exclusive
-                    try {
-                      const piratesConfig = await ConfigLoader.loadEraConfig('pirates');
-                      if (piratesConfig?.exclusive === true) {
-                        // Generate and redeem a Pirates voucher instead of passes
-                        this.log(`Pirates achievement detected and Pirates is exclusive - generating voucher instead of passes`);
-                        const voucherCode = await VoucherService.generateVoucher(
-                          'pirates',
-                          1,
-                          'achievement',
-                          null, // created_by = null for system rewards
-                          null, // emailSentTo = null
-                          0, // rewardPasses not applicable
-                          0  // signupBonus not applicable
-                        );
-                        await VoucherService.redeemVoucher(playerId, voucherCode);
-                        this.log(`Credited 1 Pirates voucher for achievement: ${achievement.name}`);
-                        continue; // Skip pass crediting
+                  if (rewardType === 'passes') {
+                    // Credit generic passes
+                    await RightsService.creditPasses(
+                      playerId,
+                      rewardCount,
+                      'achievement',
+                      {
+                        achievement_id: achievement.id,
+                        achievement_name: achievement.name
                       }
-                    } catch (configError) {
-                      this.error('Failed to check Pirates era config, falling back to passes:', configError);
-                      // Fall through to pass crediting
-                    }
+                    );
+                    this.log(`Credited ${rewardCount} passes for achievement: ${achievement.name}`);
+                  } else {
+                    // rewardType is an era name (e.g., 'pirates') - generate era voucher
+                    this.log(`Generating ${rewardCount} ${rewardType} voucher(s) for achievement: ${achievement.name}`);
+                    const voucherCode = await VoucherService.generateVoucher(
+                      rewardType, // era name (e.g., 'pirates')
+                      rewardCount,
+                      'achievement',
+                      null, // created_by = null for system rewards
+                      null, // emailSentTo = null
+                      0, // rewardPasses not applicable for era vouchers
+                      0  // signupBonus not applicable
+                    );
+                    await VoucherService.redeemVoucher(playerId, voucherCode);
+                    this.log(`Credited ${rewardCount} ${rewardType} voucher(s) for achievement: ${achievement.name}`);
                   }
-                  
-                  // Default: credit passes
-                  await RightsService.creditPasses(
-                    playerId,
-                    achievement.reward_passes,
-                    'achievement',
-                    {
-                      achievement_id: achievement.id,
-                      achievement_name: achievement.name
-                    }
-                  );
-                  this.log(`Credited ${achievement.reward_passes} passes for achievement: ${achievement.name}`);
-                } catch (passError) {
-                  this.error('Failed to credit passes/voucher for achievement:', passError);
+                } catch (rewardError) {
+                  this.error('Failed to credit reward for achievement:', rewardError);
                   // Don't throw - achievement was still unlocked
                 }
               }

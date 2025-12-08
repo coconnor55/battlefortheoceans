@@ -224,8 +224,13 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
             };
             
             // Filter unlocked and calculate progress
+            // Show achievements that have rewards (either passes or era vouchers)
             const locked = achievements
-                .filter(a => !unlockedIds.has(a.id) && a.reward_passes > 0)
+                .filter(a => {
+                  if (unlockedIds.has(a.id)) return false;
+                  // Check if achievement has rewards
+                  return a.reward_type && a.reward_count > 0;
+                })
                 .map(a => {
                     const progress = calculateProgress(a, stats || {});
                     const percentage = calculateProgressPercent(a, stats || {});
@@ -768,11 +773,21 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                           key={achievement.id}
                           className="challenge-item challenge-item--condensed"
                         >
-                          {achievement.reward_passes > 0 && (
-                            <div className="challenge-passes-badge">
-                              +{achievement.reward_passes} Passes
-                            </div>
-                          )}
+                          {(() => {
+                            const rewardType = achievement.reward_type;
+                            const rewardCount = achievement.reward_count || 0;
+                            if (rewardType && rewardCount > 0) {
+                              const rewardLabel = rewardType === 'passes' 
+                                ? `${rewardCount} Pass${rewardCount !== 1 ? 'es' : ''}`
+                                : `${rewardCount} ${rewardType.charAt(0).toUpperCase() + rewardType.slice(1)} Voucher${rewardCount !== 1 ? 's' : ''}`;
+                              return (
+                                <div className="challenge-passes-badge">
+                                  +{rewardLabel}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                           <div className="challenge-header">
                             <div className="challenge-icon">
                               <Icon size={24} />

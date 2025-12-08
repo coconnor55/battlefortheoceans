@@ -9,7 +9,7 @@
 //         - Only require playerEmail for non-guest users
 // v0.1.3: Added passes reward badge to challenge cards
 //         - Display "+X Passes" badge in upper right of each challenge card
-//         - Only shows when achievement has reward_passes > 0
+//         - Only shows when achievement has reward_count > 0
 //         - Styled with success color and positioned absolutely
 // v0.1.2: Changed ERA to SELECTERA (Claude error)
 // v0.1.1: Added badge click handler with InfoPanel details
@@ -425,11 +425,21 @@ const AchievementsPage = ({ onClose, scrollPosition }) => {
                     tabIndex={0}
                     onKeyPress={(e) => e.key === 'Enter' && handleAchievementClick(achievement)}
                   >
-                    {achievement.reward_passes > 0 && (
-                      <div className="challenge-passes-badge">
-                        +{achievement.reward_passes} Passes
-                      </div>
-                    )}
+                    {(() => {
+                      const rewardType = achievement.reward_type;
+                      const rewardCount = achievement.reward_count || 0;
+                      if (rewardType && rewardCount > 0) {
+                        const rewardLabel = rewardType === 'passes' 
+                          ? `${rewardCount} Pass${rewardCount !== 1 ? 'es' : ''}`
+                          : `${rewardCount} ${rewardType.charAt(0).toUpperCase() + rewardType.slice(1)} Voucher${rewardCount !== 1 ? 's' : ''}`;
+                        return (
+                          <div className="challenge-passes-badge">
+                            +{rewardLabel}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                     <div className="challenge-header">
                       <div className="challenge-icon">
                         <Icon size={32} />
