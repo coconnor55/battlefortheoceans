@@ -1,13 +1,17 @@
 // src/pages/AdminInvitePage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.0: Added voucher display with copy functionality
+//         - Display generated vouchers after invite is sent
+//         - Copy button next to each voucher code
+//         - "Link Copied" tooltip appears for 3 seconds after copying
 // v0.1.0: Initial AdminInvitePage - allows admins to invite new players with custom messages and vouchers
 
 import React, { useState } from 'react';
 import { coreEngine } from '../context/GameContext';
 import VoucherService from '../services/VoucherService';
-import { Mail, ChevronUp, ChevronDown, Send } from 'lucide-react';
+import { Mail, ChevronUp, ChevronDown, Send, Copy, Check } from 'lucide-react';
 
-const version = 'v0.1.0';
+const version = 'v0.2.0';
 const tag = "ADMIN_INVITE";
 const module = "AdminInvitePage";
 let method = "";
@@ -38,6 +42,8 @@ function AdminInvitePage({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [generatedVouchers, setGeneratedVouchers] = useState([]);
+  const [copiedVoucher, setCopiedVoucher] = useState(null);
   
   const handleIncrementPasses = () => {
     setPassCount(prev => prev + 1);
@@ -116,6 +122,9 @@ function AdminInvitePage({ onClose }) {
       if (passVoucherCode) voucherCodes.push(passVoucherCode);
       if (piratesVoucherCode) voucherCodes.push(piratesVoucherCode);
       
+      // Store generated vouchers for display
+      setGeneratedVouchers(voucherCodes);
+      
       // Send email via Netlify function (admin invite endpoint)
       const response = await fetch('/.netlify/functions/send-admin-invite', {
         method: 'POST',
@@ -146,17 +155,34 @@ function AdminInvitePage({ onClose }) {
       setSuccess(`Invite sent successfully to ${friendEmail}!`);
       log(`Admin invite sent successfully`);
       
-      // Reset form
+      // Reset form (but keep vouchers visible)
       setFriendEmail('');
       setCustomMessage('');
       setPassCount(2);
       setPiratesVoucherCount(2);
+      // Don't reset generatedVouchers - keep them visible
       
     } catch (err) {
       logerror('Failed to send admin invite:', err);
       setError(err.message || 'Failed to send invite');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const handleCopyVoucher = async (voucherCode) => {
+    method = 'handleCopyVoucher';
+    try {
+      await navigator.clipboard.writeText(voucherCode);
+      setCopiedVoucher(voucherCode);
+      log(`Copied voucher to clipboard: ${voucherCode}`);
+      
+      // Clear the copied state after 3 seconds
+      setTimeout(() => {
+        setCopiedVoucher(null);
+      }, 3000);
+    } catch (err) {
+      logerror('Failed to copy voucher to clipboard:', err);
     }
   };
   
@@ -292,6 +318,36 @@ function AdminInvitePage({ onClose }) {
           {success && (
             <div className="message message--success">
               {success}
+            </div>
+          )}
+          
+          {/* Display generated vouchers with copy buttons */}
+          {generatedVouchers.length > 0 && (
+            <div className="form-group mt-md">
+              <label>Voucher Codes:</label>
+              <div className="admin-invite-voucher-list">
+                {generatedVouchers.map((voucher, index) => (
+                  <div key={index} className="admin-invite-voucher-item">
+                    <code className="admin-invite-voucher-code">{voucher}</code>
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--icon admin-invite-copy-btn"
+                      onClick={() => handleCopyVoucher(voucher)}
+                      aria-label="Copy voucher code"
+                      title={copiedVoucher === voucher ? 'Link Copied' : 'Copy voucher code'}
+                    >
+                      {copiedVoucher === voucher ? (
+                        <Check size={16} />
+                      ) : (
+                        <Copy size={16} />
+                      )}
+                    </button>
+                    {copiedVoucher === voucher && (
+                      <span className="admin-invite-copy-tooltip">Link Copied</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

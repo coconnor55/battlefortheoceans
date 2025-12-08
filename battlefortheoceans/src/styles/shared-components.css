@@ -606,4 +606,70 @@
   margin-right: var(--space-sm);
 }
 
+.admin-invite-voucher-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.admin-invite-voucher-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius-sm);
+  position: relative;
+}
+
+.admin-invite-voucher-code {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  padding: 0;
+  word-break: break-all;
+}
+
+.admin-invite-copy-btn {
+  flex-shrink: 0;
+  padding: var(--space-xs);
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-invite-copy-tooltip {
+  position: absolute;
+  top: -35px;
+  right: 0;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--border-radius-sm);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  z-index: 10;
+  animation: fadeIn var(--transition-fast) ease-in;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.admin-invite-copy-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  right: 12px;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid var(--bg-dark);
+}
+
 /* EOF */
