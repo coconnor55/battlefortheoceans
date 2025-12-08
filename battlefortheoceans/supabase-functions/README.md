@@ -40,3 +40,22 @@ Both checks work together to prevent voucher theft:
 - **Auto-redeemed reward vouchers**: Have `email_sent_to` as null, so email check is skipped, but creator check still applies
 - **System-generated vouchers**: May have `created_by` as null, so creator check is skipped
 
+## delete_user_cascade.sql
+
+Script to delete a user and all related records before deleting from auth.users.
+
+**Usage:**
+1. Open Supabase SQL Editor
+2. Update the user ID in the script (replace '180e5efa-2c5f-4a19-b969-d67283def379' with your user ID)
+3. Run the script to delete related records
+4. Then delete the user from Supabase Dashboard → Authentication → Users
+
+**What it deletes:**
+- user_achievements
+- game_results
+- user_rights
+- user_profiles
+- (Optional) vouchers created by the user
+
+**Note:** The auth.users record must be deleted separately from the Supabase Dashboard or via admin API.
+

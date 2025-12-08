@@ -221,12 +221,17 @@ const LoginDialog = ({
         return;
       }
       
+      logerror(`Sign-up error for ${email}:`, error);
       setError(error.message);
     } else {
-      log(`Sign-up successful, user: ${data.user.id}`);
+      log(`Sign-up successful, user: ${data.user.id}, email: ${email}`);
+      console.log(`[LOGIN] Sign-up data:`, data);
       
       if (data.user && !data.user.email_confirmed_at) {
         log(`Email confirmation required for: ${email}`);
+        log(`Confirmation email should have been sent to: ${email}`);
+        log(`Redirect URL: ${redirectUrl}`);
+        console.log(`[LOGIN] Confirmation email sent to ${email} - check Supabase dashboard for delivery status`);
         setPendingConfirmation(true);
         setError(null);
         return;
@@ -393,17 +398,33 @@ const LoginDialog = ({
       {error && (
         <div className="error-section">
           <p className="message message--error">{error}</p>
-          {mode === 'login' && loginAttempted && error.includes('Account not found') && (
-            <button className="btn btn--secondary btn--sm" onClick={switchToSignup}>
+        </div>
+      )}
+      
+      {mode === 'login' && loginAttempted && error && error.includes('Account not found') && (
+        <>
+          <div className="text-center">
+            <button className="btn btn--primary" onClick={switchToSignup}>
               Sign Up Instead
             </button>
-          )}
-          {mode === 'signup' && userAlreadyExists && (
-            <button className="btn btn--secondary btn--sm" onClick={switchToLogin}>
+          </div>
+          <div className="divider">
+            <span>or</span>
+          </div>
+        </>
+      )}
+      
+      {mode === 'signup' && userAlreadyExists && error && error.includes('already registered') && (
+        <>
+          <div className="text-center">
+            <button className="btn btn--primary" onClick={switchToLogin}>
               Login Instead
             </button>
-          )}
-        </div>
+          </div>
+          <div className="divider">
+            <span>or</span>
+          </div>
+        </>
       )}
       
       <form onSubmit={mode === 'login' ? handleLogin : mode === 'signup' ? handleSignUp : handleForgotPassword}>

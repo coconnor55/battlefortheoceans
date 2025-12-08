@@ -412,7 +412,7 @@ class PlayerProfileService {
           const { error: rightsError } = await supabase
             .from('user_rights')
             .delete()
-            .eq('user_id', playerId);
+            .eq('player_id', playerId);
 
           if (rightsError) throw rightsError;
             this.log('Reset user_rights');

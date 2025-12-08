@@ -91,9 +91,9 @@ exports.handler = async (event) => {
     
     // Send email via Brevo
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.sender = { email: senderEmail, name: senderName };
+    sendSmtpEmail.sender = { email: 'battlefortheoceans@gmail.com', name: senderName };
     sendSmtpEmail.to = [{ email: friendEmail }];
-    sendSmtpEmail.cc = [{ email: senderEmail }]; // CC sender so they get a copy
+    sendSmtpEmail.cc = [{ email: senderEmail }]; // CC admin so they get a copy
     sendSmtpEmail.subject = `${senderName} invited you to play ${eraName}`;
     
     sendSmtpEmail.htmlContent = `

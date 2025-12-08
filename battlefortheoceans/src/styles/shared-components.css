@@ -572,4 +572,38 @@
   text-align: center;
 }
 
+/* ============================================
+   ADMIN INVITE PAGE COMPONENTS
+   ============================================ */
+
+.admin-invite-standard-message {
+  background: var(--bg-overlay);
+  padding: var(--space-md);
+  border-radius: var(--border-radius-sm);
+  margin-bottom: var(--space-md);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.admin-invite-counter-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.admin-invite-number-input {
+  width: 80px;
+  text-align: center;
+}
+
+.admin-invite-counter-label {
+  margin-left: var(--space-sm);
+  color: var(--text-secondary);
+}
+
+.admin-invite-icon {
+  margin-right: var(--space-sm);
+}
+
 /* EOF */

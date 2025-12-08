@@ -161,19 +161,22 @@ function AdminInvitePage({ onClose }) {
   };
   
   return (
-    <div className="modal-content">
-      <div className="modal-header">
-        <h2>Invite New Player</h2>
-        <button
-          className="btn btn--icon"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ×
-        </button>
-      </div>
-      
-      <div className="modal-body">
+    <div className="container flex flex-column flex-center">
+      <div className="content-pane content-pane--narrow">
+        <div className="card-header card-header--with-close">
+          <h2 className="card-title">Invite New Player</h2>
+          {onClose && (
+            <button
+              className="btn btn--secondary btn--sm"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        
+        <div className="card-body">
         <div className="form-group">
           <label htmlFor="friendEmail">Email Address</label>
           <input
@@ -188,26 +191,25 @@ function AdminInvitePage({ onClose }) {
         </div>
         
         <div className="form-group">
-          <div style={{ background: 'var(--bg-overlay)', padding: '1rem', borderRadius: 'var(--border-radius-sm)', marginBottom: '1rem', fontSize: '0.875rem', color: 'var(--text-primary)', lineHeight: '1.6' }}>
+          <div className="admin-invite-standard-message">
             {playerGameName || 'Admin'} has invited you to play Battle for the Oceans, modeled after the 1920s paper game of Battleship. Please try playing a game as a guest, and then sign up to create a game account where you will be able to use the following passes and vouchers to play more games.
           </div>
           
           <label htmlFor="customMessage">Optional custom message:</label>
           <textarea
             id="customMessage"
-            className="input"
+            className="input form-textarea"
             rows="4"
             placeholder="Add a personal message..."
             value={customMessage}
             onChange={(e) => setCustomMessage(e.target.value)}
             disabled={loading}
-            style={{ resize: 'vertical', minHeight: '100px' }}
           />
         </div>
         
         <div className="form-group">
           <label>Passes</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="admin-invite-counter-group">
             <button
               type="button"
               className="btn btn--secondary btn--icon"
@@ -219,7 +221,7 @@ function AdminInvitePage({ onClose }) {
             </button>
             <input
               type="number"
-              className="input"
+              className="input admin-invite-number-input"
               min="1"
               value={passCount}
               onChange={(e) => {
@@ -227,7 +229,6 @@ function AdminInvitePage({ onClose }) {
                 setPassCount(Math.max(1, val));
               }}
               disabled={loading}
-              style={{ width: '80px', textAlign: 'center' }}
             />
             <button
               type="button"
@@ -238,7 +239,7 @@ function AdminInvitePage({ onClose }) {
             >
               <ChevronUp size={16} />
             </button>
-            <span style={{ marginLeft: '0.5rem', color: 'var(--text-secondary)' }}>
+            <span className="admin-invite-counter-label">
               {passCount === 1 ? 'Pass' : 'Passes'}
             </span>
           </div>
@@ -246,7 +247,7 @@ function AdminInvitePage({ onClose }) {
         
         <div className="form-group">
           <label>Pirates Vouchers</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="admin-invite-counter-group">
             <button
               type="button"
               className="btn btn--secondary btn--icon"
@@ -258,7 +259,7 @@ function AdminInvitePage({ onClose }) {
             </button>
             <input
               type="number"
-              className="input"
+              className="input admin-invite-number-input"
               min="1"
               value={piratesVoucherCount}
               onChange={(e) => {
@@ -266,7 +267,6 @@ function AdminInvitePage({ onClose }) {
                 setPiratesVoucherCount(Math.max(1, val));
               }}
               disabled={loading}
-              style={{ width: '80px', textAlign: 'center' }}
             />
             <button
               type="button"
@@ -277,25 +277,25 @@ function AdminInvitePage({ onClose }) {
             >
               <ChevronUp size={16} />
             </button>
-            <span style={{ marginLeft: '0.5rem', color: 'var(--text-secondary)' }}>
+            <span className="admin-invite-counter-label">
               {piratesVoucherCount === 1 ? 'Voucher' : 'Vouchers'}
             </span>
           </div>
         </div>
         
         {error && (
-          <div className="message message--error" style={{ marginTop: '1rem' }}>
+          <div className="message message--error">
             {error}
           </div>
         )}
         
         {success && (
-          <div className="message message--success" style={{ marginTop: '1rem' }}>
+          <div className="message message--success">
             {success}
           </div>
         )}
         
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+        <div className="card-footer">
           <button
             className="btn btn--primary"
             onClick={handleSendInvite}
@@ -305,7 +305,7 @@ function AdminInvitePage({ onClose }) {
               'Sending...'
             ) : (
               <>
-                <Send size={16} style={{ marginRight: '0.5rem' }} />
+                <Send size={16} className="admin-invite-icon" />
                 SEND INVITE
               </>
             )}
@@ -317,6 +317,7 @@ function AdminInvitePage({ onClose }) {
           >
             CLOSE
           </button>
+        </div>
         </div>
       </div>
     </div>
