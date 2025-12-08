@@ -91,7 +91,6 @@ exports.handler = async (event) => {
     
     // Send email via Brevo
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.sender = { email: 'battlefortheoceans@gmail.com', name: senderName };
     sendSmtpEmail.to = [{ email: friendEmail }];
     sendSmtpEmail.cc = [{ email: senderEmail }]; // CC admin so they get a copy
     sendSmtpEmail.subject = `${senderName} invited you to play ${eraName}`;
@@ -141,7 +140,6 @@ Happy gaming!
     console.log(`[INVITE ${version}] Subject: ${sendSmtpEmail.subject}`);
     console.log(`[INVITE ${version}] HTML content length: ${sendSmtpEmail.htmlContent.length} chars`);
     console.log(`[INVITE ${version}] Email configuration:`);
-    console.log(`[INVITE ${version}]   Sender: ${senderEmail} (${senderName})`);
     console.log(`[INVITE ${version}]   To: ${friendEmail}`);
     console.log(`[INVITE ${version}]   CC: ${senderEmail}`);
     
