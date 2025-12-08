@@ -1,5 +1,10 @@
 // netlify/functions/send-admin-invite.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.0: Updated email format to match new specification
+//         - Subject: "You've been invited to play Battle for the Oceans!"
+//         - Updated body format with signup link instead of voucher redemption links
+//         - Voucher codes listed for Get Access page entry
+//         - Direct signup URL (no query params)
 // v0.1.0: Initial send-admin-invite function - handles admin invitation emails via Brevo
 //         - Accepts: friendEmail, senderName, senderEmail, voucherCode, eraName, customMessage
 //         - Handles multiple vouchers (comma-separated)
@@ -8,7 +13,7 @@
 
 const SibApiV3Sdk = require('sib-api-v3-sdk');
 
-const version = 'v0.1.0';
+const version = 'v0.2.0';
 
 // Brevo client
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
@@ -65,9 +70,8 @@ exports.handler = async (event) => {
       console.log(`[INVITE ${version}] Custom message provided`);
     }
     
-    // Build voucher links (handle multiple vouchers separated by comma)
+    // Build voucher codes (handle multiple vouchers separated by comma)
     const voucherCodes = voucherCode.split(',').map(code => code.trim());
-    const voucherLinks = voucherCodes.map(code => `https://battlefortheoceans.com/redeem/${code}`);
     
     console.log(`[INVITE ${version}] Parsed ${voucherCodes.length} voucher code(s):`, voucherCodes);
     
@@ -85,9 +89,11 @@ exports.handler = async (event) => {
     };
     
     const safeSenderName = escapeHtml(senderName);
-    const safeEraName = escapeHtml(eraName);
     const hasCustomMessage = customMessage && customMessage.trim();
-    const safeCustomMessage = hasCustomMessage ? escapeHtml(customMessage) : '';
+    const safeCustomMessage = hasCustomMessage ? escapeHtml(customMessage.trim()) : '';
+    
+    // Signup URL (base URL, no query params as they get stripped)
+    const signupUrl = 'https://battlefortheoceans.com';
     
     // Send email via Brevo
     const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
@@ -95,47 +101,58 @@ exports.handler = async (event) => {
     sendSmtpEmail.sender = { email: 'battlefortheoceans@gmail.com', name: senderName };
     sendSmtpEmail.to = [{ email: friendEmail }];
     sendSmtpEmail.cc = [{ email: senderEmail }]; // CC admin so they get a copy
-    sendSmtpEmail.subject = `${senderName} invited you to play ${eraName}`;
+    sendSmtpEmail.subject = `You've been invited to play Battle for the Oceans!`;
     
     sendSmtpEmail.htmlContent = `
       <html>
-        <body>
-          <h2>You've been invited to play ${safeEraName}!</h2>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <h2>You've been invited to play Battle for the Oceans!</h2>
+          
           <p>Hi there,</p>
-          <p>${safeSenderName} has invited you to play <strong>Battle for the Oceans</strong>, modeled after the 1920s paper game of Battleship. Please try playing a game as a guest, and then sign up to create a game account where you will be able to use the following passes and vouchers to play more games.</p>
-          ${hasCustomMessage ? `<div style="background: #f5f5f5; padding: 15px; margin: 20px 0; border-left: 4px solid #4CAF50; border-radius: 4px;">
-            <p style="margin: 0; font-style: italic;">"${safeCustomMessage.replace(/\n/g, '<br>')}"</p>
-          </div>` : ''}
-          <p>Use the following voucher code${voucherCodes.length > 1 ? 's' : ''} to get started:</p>
-          <div style="background: #e8f5e9; padding: 15px; margin: 20px 0; border-radius: 4px;">
-            ${voucherCodes.map(code => `<p style="margin: 5px 0;"><strong>${escapeHtml(code)}</strong></p>`).join('\n')}
+          
+          <p>${safeSenderName} has invited you to play Battle for the Oceans, modeled after the 1920s paper game of Battleship. Please sign up to create a game account where you will be able to use the following passes and vouchers to play more games.</p>
+          
+          ${hasCustomMessage ? `<p>"${safeCustomMessage.replace(/\n/g, '<br>')}"</p>` : ''}
+          
+          <p>In the Get Access page for these games, enter the following voucher codes to play Midway Island and Pirates of the Gulf:</p>
+          
+          <div style="background: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 4px; font-family: monospace;">
+            ${voucherCodes.map(code => `<div style="margin: 5px 0;">${escapeHtml(code)}</div>`).join('')}
           </div>
-          <p>Or click the link${voucherLinks.length > 1 ? 's' : ''} below to redeem:</p>
+          
+          <p>Click the link below to sign up:</p>
+          
           <div style="margin: 20px 0;">
-            ${voucherLinks.map(link => `<p><a href="${link}" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Redeem Voucher</a></p>`).join('')}
+            <a href="${signupUrl}" style="background: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">Sign Up</a>
           </div>
+          
           <p>Happy gaming!</p>
+          
           <p>— The Battle for the Oceans Team</p>
         </body>
       </html>
     `;
     
-    sendSmtpEmail.textContent = `
-You've been invited to play ${eraName}!
+    sendSmtpEmail.textContent = `You've been invited to play Battle for the Oceans!
+
+
 
 Hi there,
 
-${senderName} has invited you to play Battle for the Oceans, modeled after the 1920s paper game of Battleship. Please try playing a game as a guest, and then sign up to create a game account where you will be able to use the following passes and vouchers to play more games.
+${senderName} has invited you to play Battle for the Oceans, modeled after the 1920s paper game of Battleship. Please sign up to create a game account where you will be able to use the following passes and vouchers to play more games.
 
-${hasCustomMessage ? `\n"${customMessage}"\n` : ''}
+${hasCustomMessage ? `"${customMessage.trim()}"\n\n` : ''}In the Get Access page for these games, enter the following voucher codes to play Midway Island and Pirates of the Gulf:
 
-Use the following voucher code${voucherCodes.length > 1 ? 's' : ''} to get started:
-${voucherCodes.map(code => `  ${code}`).join('\n')}
+${voucherCodes.map(code => code).join('\n')}
 
-Or visit:
-${voucherLinks.join('\n')}
+Click the link below to sign up:
+
+${signupUrl}
+
+
 
 Happy gaming!
+
 — The Battle for the Oceans Team
     `;
     
