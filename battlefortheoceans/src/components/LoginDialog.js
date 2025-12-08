@@ -412,7 +412,7 @@ const LoginDialog = ({
             <span>or</span>
           </div>
         </>
-      )}
+          )}
       
       {mode === 'signup' && userAlreadyExists && error && error.includes('already registered') && (
         <>
@@ -423,7 +423,7 @@ const LoginDialog = ({
           </div>
           <div className="divider">
             <span>or</span>
-          </div>
+        </div>
         </>
       )}
       

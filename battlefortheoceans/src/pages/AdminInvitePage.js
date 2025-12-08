@@ -177,123 +177,124 @@ function AdminInvitePage({ onClose }) {
         </div>
         
         <div className="card-body">
-        <div className="form-group">
-          <label htmlFor="friendEmail">Email Address</label>
-          <input
-            id="friendEmail"
-            type="email"
-            className="input"
-            placeholder="friend@example.com"
-            value={friendEmail}
-            onChange={(e) => setFriendEmail(e.target.value)}
-            disabled={loading}
-          />
-        </div>
-        
-        <div className="form-group">
-          <div className="admin-invite-standard-message">
-            {playerGameName || 'Admin'} has invited you to play Battle for the Oceans, modeled after the 1920s paper game of Battleship. Please try playing a game as a guest, and then sign up to create a game account where you will be able to use the following passes and vouchers to play more games.
+          <div className="form-group">
+            <label htmlFor="friendEmail">Email Address</label>
+            <input
+              id="friendEmail"
+              type="email"
+              className="input"
+              placeholder="friend@example.com"
+              value={friendEmail}
+              onChange={(e) => setFriendEmail(e.target.value)}
+              disabled={loading}
+            />
           </div>
           
-          <label htmlFor="customMessage">Optional custom message:</label>
-          <textarea
-            id="customMessage"
-            className="input form-textarea"
-            rows="4"
-            placeholder="Add a personal message..."
-            value={customMessage}
-            onChange={(e) => setCustomMessage(e.target.value)}
-            disabled={loading}
-          />
-        </div>
-        
-        <div className="form-group">
-          <label>Passes</label>
-          <div className="admin-invite-counter-group">
-            <button
-              type="button"
-              className="btn btn--secondary btn--icon"
-              onClick={handleDecrementPasses}
-              disabled={loading || passCount <= 1}
-              aria-label="Decrease passes"
-            >
-              <ChevronDown size={16} />
-            </button>
-            <input
-              type="number"
-              className="input admin-invite-number-input"
-              min="1"
-              value={passCount}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10) || 2;
-                setPassCount(Math.max(1, val));
-              }}
+          <div className="form-group">
+            <div className="admin-invite-standard-message">
+              {playerGameName || 'Admin'} has invited you to play Battle for the Oceans, modeled after the 1920s paper game of Battleship. Please try playing a game as a guest, and then sign up to create a game account where you will be able to use the following passes and vouchers to play more games.
+            </div>
+            
+            <label htmlFor="customMessage">Optional custom message:</label>
+            <textarea
+              id="customMessage"
+              className="input form-textarea"
+              rows="4"
+              placeholder="Add a personal message..."
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
               disabled={loading}
             />
-            <button
-              type="button"
-              className="btn btn--secondary btn--icon"
-              onClick={handleIncrementPasses}
-              disabled={loading}
-              aria-label="Increase passes"
-            >
-              <ChevronUp size={16} />
-            </button>
-            <span className="admin-invite-counter-label">
-              {passCount === 1 ? 'Pass' : 'Passes'}
-            </span>
           </div>
+          
+          <div className="form-group">
+            <label>Passes</label>
+            <div className="admin-invite-counter-group">
+              <button
+                type="button"
+                className="btn btn--secondary btn--icon"
+                onClick={handleDecrementPasses}
+                disabled={loading || passCount <= 1}
+                aria-label="Decrease passes"
+              >
+                <ChevronDown size={16} />
+              </button>
+              <input
+                type="number"
+                className="input admin-invite-number-input"
+                min="1"
+                value={passCount}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10) || 2;
+                  setPassCount(Math.max(1, val));
+                }}
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="btn btn--secondary btn--icon"
+                onClick={handleIncrementPasses}
+                disabled={loading}
+                aria-label="Increase passes"
+              >
+                <ChevronUp size={16} />
+              </button>
+              <span className="admin-invite-counter-label">
+                {passCount === 1 ? 'Pass' : 'Passes'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="form-group">
+            <label>Pirates Vouchers</label>
+            <div className="admin-invite-counter-group">
+              <button
+                type="button"
+                className="btn btn--secondary btn--icon"
+                onClick={handleDecrementPirates}
+                disabled={loading || piratesVoucherCount <= 1}
+                aria-label="Decrease Pirates vouchers"
+              >
+                <ChevronDown size={16} />
+              </button>
+              <input
+                type="number"
+                className="input admin-invite-number-input"
+                min="1"
+                value={piratesVoucherCount}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10) || 2;
+                  setPiratesVoucherCount(Math.max(1, val));
+                }}
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="btn btn--secondary btn--icon"
+                onClick={handleIncrementPirates}
+                disabled={loading}
+                aria-label="Increase Pirates vouchers"
+              >
+                <ChevronUp size={16} />
+              </button>
+              <span className="admin-invite-counter-label">
+                {piratesVoucherCount === 1 ? 'Voucher' : 'Vouchers'}
+              </span>
+            </div>
+          </div>
+          
+          {error && (
+            <div className="message message--error">
+              {error}
+            </div>
+          )}
+          
+          {success && (
+            <div className="message message--success">
+              {success}
+            </div>
+          )}
         </div>
-        
-        <div className="form-group">
-          <label>Pirates Vouchers</label>
-          <div className="admin-invite-counter-group">
-            <button
-              type="button"
-              className="btn btn--secondary btn--icon"
-              onClick={handleDecrementPirates}
-              disabled={loading || piratesVoucherCount <= 1}
-              aria-label="Decrease Pirates vouchers"
-            >
-              <ChevronDown size={16} />
-            </button>
-            <input
-              type="number"
-              className="input admin-invite-number-input"
-              min="1"
-              value={piratesVoucherCount}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10) || 2;
-                setPiratesVoucherCount(Math.max(1, val));
-              }}
-              disabled={loading}
-            />
-            <button
-              type="button"
-              className="btn btn--secondary btn--icon"
-              onClick={handleIncrementPirates}
-              disabled={loading}
-              aria-label="Increase Pirates vouchers"
-            >
-              <ChevronUp size={16} />
-            </button>
-            <span className="admin-invite-counter-label">
-              {piratesVoucherCount === 1 ? 'Voucher' : 'Vouchers'}
-            </span>
-          </div>
-        </div>
-        
-        {error && (
-          <div className="message message--error">
-            {error}
-          </div>
-        )}
-        
-        {success && (
-          <div className="message message--success">
-            {success}
-          </div>
-        )}
         
         <div className="card-footer">
           <button
@@ -317,7 +318,6 @@ function AdminInvitePage({ onClose }) {
           >
             CLOSE
           </button>
-        </div>
         </div>
       </div>
     </div>
