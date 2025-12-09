@@ -433,9 +433,9 @@ const AchievementsPage = ({ onClose, scrollPosition }) => {
                           ? `${rewardCount} Pass${rewardCount !== 1 ? 'es' : ''}`
                           : `${rewardCount} ${rewardType.charAt(0).toUpperCase() + rewardType.slice(1)} Voucher${rewardCount !== 1 ? 's' : ''}`;
                         return (
-                          <div className="challenge-passes-badge">
+                      <div className="challenge-passes-badge">
                             +{rewardLabel}
-                          </div>
+                      </div>
                         );
                       }
                       return null;
