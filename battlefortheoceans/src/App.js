@@ -46,6 +46,7 @@ import AboutPage from './pages/AboutPage';
 import TestSuite from './tests/TestSuite';
 import ErrorConsole from './components/ErrorConsole';
 import AdminInvitePage from './pages/AdminInvitePage';
+import ReAwardPage from './pages/ReAwardPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import configLoader from './utils/ConfigLoader';
 import './App.css';
@@ -88,7 +89,7 @@ const getHelpSection = (state) => {
 
 const SceneRenderer = () => {
   const { currentState, eraConfig, subscribeToUpdates, coreEngine } = useGame();
-  const [overlayPage, setOverlayPage] = useState(null); // 'stats' | 'achievements' | 'about' | 'help' | 'test' | 'errorconsole' | 'admininvite' | null
+  const [overlayPage, setOverlayPage] = useState(null); // 'stats' | 'achievements' | 'about' | 'help' | 'test' | 'errorconsole' | 'admininvite' | 'reaward' | null
     const [achievementsPosition, setAchievementsPosition] = useState(null);  // ← ADD THIS LINE
   const [autoShowedSections, setAutoShowedSections] = useState(new Set());
 
@@ -358,6 +359,7 @@ const SceneRenderer = () => {
         onShowTest={() => setOverlayPage('test')}
         onShowErrorConsole={() => setOverlayPage('errorconsole')}
         onShowAdminInvite={() => setOverlayPage('admininvite')}
+        onShowReAward={() => setOverlayPage('reaward')}
         onCloseOverlay={closeOverlay}
         hasActiveOverlay={overlayPage !== null}
       />
@@ -419,6 +421,12 @@ const SceneRenderer = () => {
       {overlayPage === 'admininvite' && (
         <div className="modal-overlay">
           <AdminInvitePage onClose={closeOverlay} />
+        </div>
+      )}
+      
+      {overlayPage === 'reaward' && (
+        <div className="modal-overlay">
+          <ReAwardPage onClose={closeOverlay} />
         </div>
       )}
       

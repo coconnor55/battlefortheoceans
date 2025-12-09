@@ -326,20 +326,20 @@ class AchievementService {
               // Credit rewards if achievement has reward
               const rewardType = achievement.reward_type;
               const rewardCount = achievement.reward_count || 0;
-              
+                  
               if (rewardType && rewardCount > 0) {
                 try {
                   if (rewardType === 'passes') {
                     // Credit generic passes
-                    await RightsService.creditPasses(
-                      playerId,
+                  await RightsService.creditPasses(
+                    playerId,
                       rewardCount,
-                      'achievement',
-                      {
-                        achievement_id: achievement.id,
-                        achievement_name: achievement.name
-                      }
-                    );
+                    'achievement',
+                    {
+                      achievement_id: achievement.id,
+                      achievement_name: achievement.name
+                    }
+                  );
                     this.log(`Credited ${rewardCount} passes for achievement: ${achievement.name}`);
                   } else {
                     // rewardType is an era name (e.g., 'pirates') - generate era voucher
@@ -351,7 +351,8 @@ class AchievementService {
                       null, // created_by = null for system rewards
                       null, // emailSentTo = null
                       0, // rewardPasses not applicable for era vouchers
-                      0  // signupBonus not applicable
+                      0, // signupBonus not applicable
+                      playerId // created_for = player who earned the achievement
                     );
                     await VoucherService.redeemVoucher(playerId, voucherCode);
                     this.log(`Credited ${rewardCount} ${rewardType} voucher(s) for achievement: ${achievement.name}`);

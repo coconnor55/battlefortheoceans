@@ -781,9 +781,9 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                                 ? `${rewardCount} Pass${rewardCount !== 1 ? 'es' : ''}`
                                 : `${rewardCount} ${rewardType.charAt(0).toUpperCase() + rewardType.slice(1)} Voucher${rewardCount !== 1 ? 's' : ''}`;
                               return (
-                                <div className="challenge-passes-badge">
+                            <div className="challenge-passes-badge">
                                   +{rewardLabel}
-                                </div>
+                            </div>
                               );
                             }
                             return null;
@@ -872,8 +872,8 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
           {showVoucherSection && (
             <div className="card-section">
                <div className="divider">
-               </div>
-               
+                </div>
+                               
                {/* Manual Voucher Entry */}
                <div className="form-group">
                  <p><strong>Already have a voucher?</strong></p>
@@ -896,7 +896,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                    </button>
                  </form>
                </div>
-               
+
                <div className="divider">
                </div>
               <h3>Invite</h3>
