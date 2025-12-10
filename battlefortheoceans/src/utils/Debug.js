@@ -43,7 +43,7 @@ const control = {
   MUNITIONS: false,
   RIGHTS: false,
   INVITE: true,
-  VOUCHER: false,
+  VOUCHER: true,
   ACCESS: false,
   SELECTERA: false,
   LIFECYCLE: false,

@@ -105,8 +105,8 @@ export const GameProvider = ({ children }) => {
       getRecentChampions: (limit) => leaderboardService.getRecentChampions(limit),
       getPlayerGameName: (playerId) => coreEngine.getPlayerGameName(playerId), // Keep - still in CoreEngine
       
-      // v0.4.3: Logout function
-      logout: () => coreEngine.logout(),
+      // v0.4.3: Logout function (async - returns promise)
+      logout: async () => await coreEngine.logout(),
       
       // Rights functions
       // v0.4.6: Use service singletons directly

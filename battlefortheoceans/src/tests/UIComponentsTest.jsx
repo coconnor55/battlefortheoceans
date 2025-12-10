@@ -85,20 +85,6 @@ const UIComponentsTest = ({ playerId, onComplete }) => {
     
     const testComponents = [
       {
-        name: 'PassBalanceDisplay',
-        props: { playerId: playerId }
-      },
-      {
-        name: 'PlayConfirmModal',
-        props: {
-          era: { id: 'traditional', name: 'Traditional Battleship' },
-          badge: 'FREE',
-          method: 'free',
-          onConfirm: () => {},
-          onCancel: () => {}
-        }
-      },
-      {
         name: 'AchievementNotification',
         props: {
           achievement: {
@@ -150,12 +136,6 @@ try {
       break;
     case 'VideoPopup':
       ComponentModule = await import('../components/VideoPopup.js').catch(() => null);
-      break;
-    case 'PassBalanceDisplay':
-      ComponentModule = await import('../components/PassBalanceDisplay.js').catch(() => null);
-      break;
-    case 'PlayConfirmModal':
-      ComponentModule = await import('../components/PlayConfirmModal.js').catch(() => null);
       break;
     default:
       ComponentModule = null;

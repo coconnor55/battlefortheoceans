@@ -488,7 +488,7 @@ const PlayingPage = () => {
                 className={`btn btn--sm autoplay-toggle ${autoPlayEnabled ? 'btn--warning' : 'btn--secondary'}`}
                 onClick={handleAutoPlayToggle}
               >
-                {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ AutoPlay'}
+                {autoPlayEnabled ? '⏸ Stop AutoPlay' : '▶ Autoplay (random - see Help)'}
               </button>
               </div>
             </div>

@@ -147,6 +147,7 @@ const OverPage = () => {
     const {
         dispatch,
         events,
+        logout,
       } = useGame();
 
     // State for game results (from CoreEngine or sessionStorage)
@@ -441,11 +442,17 @@ const OverPage = () => {
     dispatch(events.SELECTERA);
   };
 
-  const handleLogOut = () => {
+  const handleLogOut = async () => {
     log('User clicked Log Out - clearing session and returning to launch');
+    // Use the logout function from GameContext to ensure proper cleanup
+    if (logout) {
+      await logout();
+    } else {
+      // Fallback to manual cleanup if logout function not available
     sessionStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(SNAPSHOT_KEY);
     dispatch(events.LAUNCH);
+    }
   };
 
   const handleSnapshotNavigate = () => {

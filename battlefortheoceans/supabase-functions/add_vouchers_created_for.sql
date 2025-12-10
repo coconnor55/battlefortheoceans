@@ -12,3 +12,6 @@ COMMENT ON COLUMN vouchers.created_for IS 'User ID this voucher was created for.
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_vouchers_created_for ON vouchers(created_for) WHERE created_for IS NOT NULL;
 
+
+
+

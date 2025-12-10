@@ -1,19 +1,7 @@
 -- Update to redeem_voucher_v2 function
--- Add check to prevent voucher creator from redeeming their own vouchers
--- This complements client-side email validation
-
--- Add this check after step 1 (check voucher exists) and before step 2 (check not redeemed):
-
-  -- 1.5. Check voucher creator is not redeeming their own voucher
-  IF EXISTS (
-    SELECT 1 FROM vouchers 
-    WHERE voucher_code = p_voucher_code 
-    AND created_by = p_user_id
-  ) THEN
-    RAISE EXCEPTION 'You cannot redeem a voucher that you created';
-  END IF;
-
--- Full updated function with the new check:
+-- - Adds check to prevent voucher creator from redeeming their own vouchers
+-- - Checks redeemed_at on vouchers table to prevent double redemption
+-- - Sets redeemed_at and redeemed_by when voucher is redeemed
 
 CREATE OR REPLACE FUNCTION redeem_voucher_v2(
   p_user_id UUID,
@@ -61,7 +49,16 @@ BEGIN
     RAISE EXCEPTION 'You cannot redeem a voucher that you created';
   END IF;
   
-  -- 2. Check voucher not already redeemed
+  -- 2. Check voucher not already redeemed - check redeemed_at FIRST (most reliable)
+  IF EXISTS (
+    SELECT 1 FROM vouchers 
+    WHERE voucher_code = p_voucher_code 
+    AND redeemed_at IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'Voucher already redeemed';
+  END IF;
+  
+  -- 2.5. Also check user_rights table as backup (shouldn't happen if redeemed_at is set, but double-check)
   IF EXISTS (
     SELECT 1 FROM user_rights WHERE voucher_used = p_voucher_code
   ) THEN
@@ -112,7 +109,14 @@ BEGIN
   )
   RETURNING id INTO v_new_right_id;
   
-  -- 7. Fetch and return the created entry
+  -- 7. Mark voucher as redeemed in vouchers table
+  UPDATE vouchers
+  SET redeemed_at = NOW(),
+      redeemed_by = p_user_id
+  WHERE voucher_code = p_voucher_code
+  AND redeemed_at IS NULL;
+  
+  -- 8. Fetch and return the created entry
   SELECT to_jsonb(user_rights.*) INTO v_result
   FROM user_rights
   WHERE id = v_new_right_id;

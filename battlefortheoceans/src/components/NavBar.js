@@ -59,7 +59,7 @@ import RightsService from '../services/RightsService';
 import PlayerProfileService from '../services/PlayerProfileService';
 import VoucherService from '../services/VoucherService';
 import { coreEngine, useGame } from '../context/GameContext';
-import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins, Diamond, Maximize2, Minimize2, Terminal, Mail, Award } from 'lucide-react';
+import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins, Diamond, Maximize2, Minimize2, Terminal, Mail } from 'lucide-react';
 
 const version = 'v0.2.21';
 const tag = "NAVBAR";
@@ -78,7 +78,7 @@ const logerror = (message, error = null) => {
   }
 };
 
-const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onShowTest, onShowErrorConsole, onShowAdminInvite, onShowReAward, onCloseOverlay, hasActiveOverlay }) => {
+const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onShowTest, onShowErrorConsole, onShowAdminInvite, onCloseOverlay, hasActiveOverlay }) => {
   method = 'NavBar';
   
   const {
@@ -435,16 +435,6 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
       onShowAdminInvite();
     }
   };
-
-  const handleReAward = () => {
-    method = 'handleReAward';
-    log('User clicked re-award');
-    setShowUserMenu(false);
-    
-    if (onShowReAward) {
-      onShowReAward();
-    }
-  };
     
   // In your admin page/component
   const handleReset = async () => {
@@ -662,16 +652,6 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                       >
                         <Mail size={20} className="action-menu__emoji" />
                         <span className="action-menu__label">Invite New Player</span>
-                      </div>
-                    )}
-                    
-                    {(isAdmin || isDeveloper) && (
-                      <div
-                        className="action-menu__item action-menu__item--admin"
-                        onClick={handleReAward}
-                      >
-                        <Award size={20} className="action-menu__emoji" />
-                        <span className="action-menu__label">Grant Missing Awards</span>
                       </div>
                     )}
                     

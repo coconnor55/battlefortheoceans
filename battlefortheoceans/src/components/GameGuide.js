@@ -119,7 +119,7 @@ const GameGuide = ({ section, manualOpen = false, onClose, forceShow = false, er
 
               <h4>Placement Methods</h4>
               <ul>
-                <li><strong>Auto-Place:</strong> Click "Auto-Place All Ships" for random positioning</li>
+                <li><strong>Auto-Place:</strong> Click "Autoplace" to position all ships randomly. Once you autoplace, manual placement is no longer available. Autoplace is not recommended when winning matters.</li>
                 <li><strong>Manual Drag:</strong> Click and drag from stern to bow to place each ship</li>
                 <li><strong>Rotation:</strong> Drag in any direction - up, down, left, or right</li>
               </ul>
@@ -211,6 +211,13 @@ const GameGuide = ({ section, manualOpen = false, onClose, forceShow = false, er
               </ul>
               <p>
                 <strong>Note:</strong> Munitions are shown in your fleet status sidebar. Each era has different munition quantities.
+              </p>
+
+              <h4>AutoPlay</h4>
+              <p>
+                AutoPlay is available to all players. It fires shots automatically at 200ms intervals. 
+                <strong>Note:</strong> AutoPlay uses random targeting and is not recommended when winning matters, 
+                as it does not use strategic decision-making.
               </p>
 
               <h4>Strategy Tips</h4>

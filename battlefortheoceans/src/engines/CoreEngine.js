@@ -724,16 +724,10 @@ class CoreEngine {
     method = 'logout';
     this.log('Logging out user');
     
-    // Sign out from Supabase (clears auth session)
-    try {
-      await supabase.auth.signOut();
-      this.log('Supabase session cleared');
-    } catch (error) {
-      this.logerror('Error signing out from Supabase:', error);
-      // Continue with local cleanup even if signOut fails
-    }
+    // Clear keyDataError - logout is planned, not an error
+    this.keyDataError = null;
     
-    // Clear local state
+    // Clear local state FIRST (before async operations)
     this.player = null;
     this.playerProfile = null;
     this.playerEmail = null;
@@ -744,6 +738,30 @@ class CoreEngine {
     
     // Clear session storage
     SessionManager.clear();
+    
+    // Sign out from Supabase (clears auth session and localStorage)
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        this.logerror('Error signing out from Supabase:', error);
+      } else {
+        this.log('Supabase session cleared');
+      }
+      
+      // Also explicitly clear Supabase localStorage keys as backup
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const supabaseKeys = Object.keys(localStorage).filter(key => 
+          key.startsWith('sb-') || key.includes('supabase')
+        );
+        supabaseKeys.forEach(key => {
+          localStorage.removeItem(key);
+          this.log(`Cleared localStorage key: ${key}`);
+        });
+      }
+    } catch (error) {
+      this.logerror('Error during signOut cleanup:', error);
+      // Continue even if signOut fails
+    }
     
     // Return to launch
     this.transition('launch');

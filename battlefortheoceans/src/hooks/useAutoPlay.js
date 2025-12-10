@@ -38,10 +38,10 @@ const logwarn = (message) => {
 };
 
 /**
- * useAutoPlay - Automated testing utility for rapid gameplay
+ * useAutoPlay - Automated gameplay utility
  *
  * Fires random valid shots automatically at 200ms intervals.
- * Only available to users with admin/developer/tester roles.
+ * Available to all players. Note: Uses random targeting and is not recommended when winning matters.
  *
  * @param {Object} params - Configuration object
  * @param {Game} params.gameInstance - Game instance
@@ -100,8 +100,8 @@ const useAutoPlay = ({
     isGameActiveRef.current = isGameActive;
   }, [isGameActive]);
   
-  // Check if user has permission to use autoplay
-  const canUseAutoPlay = ['admin', 'developer', 'tester'].includes(playerProfile?.role);
+  // Autoplay is now available to everyone
+  const canUseAutoPlay = true;
 
   // Fire random valid shot and schedule next shot
   const fireRandomShot = useCallback(() => {

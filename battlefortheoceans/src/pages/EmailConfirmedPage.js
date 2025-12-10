@@ -1,20 +1,78 @@
 // src/pages/EmailConfirmedPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.1: Check if user needs profile creation after confirmation
+//         - If user has session but no profile, proceed to profile creation
+//         - Otherwise, proceed to login
 // v0.1.0: Initial implementation - email confirmation success page
 //         Shows success message with "Next" button (no auto-redirect timer)
 //         Redirected here by index.js after hash capture
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../utils/supabaseClient';
+import PlayerProfileService from '../services/PlayerProfileService';
 
-const version = 'v0.1.0';
+const version = 'v0.1.1';
 
 const EmailConfirmedPage = () => {
   const navigate = useNavigate();
+  const [checkingProfile, setCheckingProfile] = useState(true);
 
-  const handleNext = () => {
+  useEffect(() => {
+    const checkProfile = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          // Check if user has profile
+          const profileData = await PlayerProfileService.getPlayerProfile(session.user.id);
+          
+          if (!profileData || !profileData.game_name) {
+            // No profile - will proceed to profile creation
+            setCheckingProfile(false);
+          } else {
+            // Has profile - will proceed to login
+            setCheckingProfile(false);
+          }
+        } else {
+          setCheckingProfile(false);
+        }
+      } catch (error) {
+        console.error('[EMAIL_CONFIRMED] Error checking profile:', error);
+        setCheckingProfile(false);
+      }
+    };
+    
+    checkProfile();
+  }, []);
+
+  const handleNext = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Check if user has profile
+        const profileData = await PlayerProfileService.getPlayerProfile(session.user.id);
+        
+        if (!profileData || !profileData.game_name) {
+          // No profile - proceed to profile creation
+          // Use window.location to ensure document.referrer is set
+          console.log(version, 'User clicked Next, proceeding to profile creation');
+          window.location.href = '/login';
+        } else {
+          // Has profile - proceed to login
+          console.log(version, 'User clicked Next, proceeding to login');
+          navigate('/login');
+        }
+      } else {
+        // No session - proceed to login
     console.log(version, 'User clicked Next, proceeding to login');
     navigate('/login');
+      }
+    } catch (error) {
+      console.error('[EMAIL_CONFIRMED] Error in handleNext:', error);
+      navigate('/login');
+    }
   };
 
   return (
@@ -28,15 +86,17 @@ const EmailConfirmedPage = () => {
           <h1 className="mb-md">Email Confirmed!</h1>
           
           <p className="mb-lg">
-            Your email has been successfully verified. You can now sign in and choose your game handle to start playing.
+            Your email has been successfully verified. {checkingProfile ? 'Setting up your account...' : 'You can now choose your game handle to start playing.'}
           </p>
           
+          {!checkingProfile && (
           <button
             className="btn btn--primary btn--lg"
             onClick={handleNext}
           >
             Next
           </button>
+          )}
         </div>
       </div>
     </div>

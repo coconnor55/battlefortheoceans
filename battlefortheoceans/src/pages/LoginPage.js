@@ -29,6 +29,7 @@ import LoginDialog from '../components/LoginDialog';
 import ProfileCreationDialog from '../components/ProfileCreationDialog';
 import HumanPlayer from '../classes/HumanPlayer';
 import PlayerProfile from '../classes/PlayerProfile';
+import VoucherService from '../services/VoucherService';
 
 const version = 'v0.3.16';
 const tag = "LOGIN";
@@ -66,18 +67,44 @@ const LoginPage = () => {
       log('Checking for existing authentication...');
       
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Validate session with Supabase - this checks if user actually exists and session is valid
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
         
-        if (session?.user) {
-          log(`User authenticated: ${session.user.id}`);
+        if (userError || !user) {
+          // Session is invalid or user doesn't exist - clear it and show login
+          log('Invalid session or user not found - clearing session and showing login');
+          await supabase.auth.signOut();
+          setAuthStep('login');
+          return;
+        }
+        
+        // User exists - log user properties for debugging
+        log('User object from getUser():', {
+          id: user.id,
+          email: user.email,
+          email_confirmed_at: user.email_confirmed_at,
+          email_verified: user.email_verified,
+          user_metadata: user.user_metadata
+        });
+        
+        // Check if email is confirmed (required in Europe)
+        if (!user.email_confirmed_at) {
+          // User exists but email not confirmed - show login dialog
+          log('User exists but email not confirmed - email_confirmed_at:', user.email_confirmed_at);
+          setAuthStep('login');
+          return;
+        }
+        
+        // User is confirmed - session is valid, proceed with profile check
+        log(`User authenticated and confirmed: ${user.id}, email_confirmed_at: ${user.email_confirmed_at}`);
           
           // Check if user has profile
-          const profileData = await getPlayerProfile(session.user.id);
+        const profileData = await getPlayerProfile(user.id);
           
           if (!profileData || !profileData.game_name) {
-            // New user (from signup) - no profile yet
+          // New user (from signup) - no profile yet, but email is confirmed
             log('No profile found - routing to ProfileCreation');
-            setAuthenticatedUser(session.user);
+          setAuthenticatedUser(user);
             setAuthStep('profile-creation');
           } else {
             // Existing user with profile - CREATE PlayerProfile instance
@@ -86,7 +113,7 @@ const LoginPage = () => {
             const playerProfile = new PlayerProfile(profileData);
             
             const player = new HumanPlayer(
-              session.user.id,
+              user.id,
               playerProfile.game_name,
               'human',
               1.0
@@ -95,17 +122,19 @@ const LoginPage = () => {
             log(`Player created for welcome-back: ${player.name}`);
             log(`PlayerProfile instance created: ${playerProfile.game_name}`);
             
-            setAuthenticatedUser(session.user);
+            setAuthenticatedUser(user);
             setAuthenticatedPlayer(player);
             setExistingProfile(playerProfile);
             setAuthStep('login'); // LoginDialog will show welcome mode
-          }
-        } else {
-          log('No existing session, showing login dialog');
-          setAuthStep('login');
         }
       } catch (err) {
         logerror('Error checking session:', err);
+        // Clear invalid session on error
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutError) {
+          // Ignore signOut errors
+        }
         setAuthStep('login');
       }
     };
@@ -145,6 +174,35 @@ const LoginPage = () => {
         log('Guest player detected, proceeding directly to game');
       } else {
         log('Registered player, proceeding to era selection');
+        log('About to process vouchers - email:', playerEmail, 'userId:', player.id, 'VoucherService exists:', !!VoucherService);
+        
+        // Process all vouchers for registered players (referral rewards + invite vouchers)
+        try {
+          log('Inside try block - Calling VoucherService.processAllVouchers with email:', playerEmail, 'userId:', player.id);
+          const voucherResult = await VoucherService.processAllVouchers(playerEmail, player.id);
+          log('VoucherService.processAllVouchers returned:', JSON.stringify(voucherResult));
+          
+          if (voucherResult.processed) {
+            log('Processed all vouchers - total redeemed:', voucherResult.totalRedeemed);
+            if (voucherResult.referral?.rewarded) {
+              log('Referrer rewarded:', voucherResult.referral.referrerId);
+            }
+            if (voucherResult.invite?.redeemed) {
+              log('Auto-redeemed invite vouchers:', voucherResult.invite.count);
+            }
+          } else {
+            log('Voucher processing returned processed=false, error:', voucherResult.error);
+            if (voucherResult.referral) {
+              log('Referral result:', JSON.stringify(voucherResult.referral));
+            }
+            if (voucherResult.invite) {
+              log('Invite result:', JSON.stringify(voucherResult.invite));
+            }
+          }
+        } catch (voucherError) {
+          logerror('Error processing vouchers:', voucherError);
+          logerror('Voucher error stack:', voucherError.stack);
+        }
       }
       
       await new Promise(resolve => setTimeout(resolve, 400));
@@ -172,7 +230,7 @@ const LoginPage = () => {
         }
     };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     method = 'handleContinue';
     log(`User continuing with existing profile: ${existingProfile.game_name}`);
     
@@ -188,9 +246,40 @@ const LoginPage = () => {
       log(`Set coreEngine.playerProfile = existingProfile(${existingProfile.game_name})`);
       
       // Store email (authenticatedUser already has it from checkExistingAuth)
-        if (authenticatedUser?.email) {
-          coreEngine.playerEmail = authenticatedUser.email;
-          log(`Set coreEngine.playerEmail = ${authenticatedUser.email}`);
+        const playerEmail = authenticatedUser?.email || null;
+        if (playerEmail) {
+          coreEngine.playerEmail = playerEmail;
+          log(`Set coreEngine.playerEmail = ${playerEmail}`);
+        }
+
+        // Process all vouchers for registered players (referral rewards + invite vouchers)
+        if (playerEmail && !authenticatedPlayer.id.startsWith('guest-')) {
+          try {
+            log('Calling VoucherService.processAllVouchers (handleContinue) with email:', playerEmail, 'userId:', authenticatedPlayer.id);
+            const voucherResult = await VoucherService.processAllVouchers(playerEmail, authenticatedPlayer.id);
+            log('VoucherService.processAllVouchers (handleContinue) returned:', JSON.stringify(voucherResult));
+            
+            if (voucherResult.processed) {
+              log('Processed all vouchers - total redeemed:', voucherResult.totalRedeemed);
+              if (voucherResult.referral?.rewarded) {
+                log('Referrer rewarded:', voucherResult.referral.referrerId);
+              }
+              if (voucherResult.invite?.redeemed) {
+                log('Auto-redeemed invite vouchers:', voucherResult.invite.count);
+              }
+            } else {
+              log('Voucher processing returned processed=false, error:', voucherResult.error);
+              if (voucherResult.referral) {
+                log('Referral result:', JSON.stringify(voucherResult.referral));
+              }
+              if (voucherResult.invite) {
+                log('Invite result:', JSON.stringify(voucherResult.invite));
+              }
+            }
+          } catch (voucherError) {
+            logerror('Error processing vouchers (handleContinue):', voucherError);
+            logerror('Voucher error stack:', voucherError.stack);
+          }
         }
 
         log('exit Login: coreEngine.player set: ', coreEngine.player);
@@ -233,6 +322,38 @@ const LoginPage = () => {
     // Get and store user email
       coreEngine.playerEmail = playerEmail;
       log(`Set coreEngine.playerEmail = ${playerEmail}`);
+    
+    // Process all vouchers for registered players (referral rewards + invite vouchers)
+    log('About to check voucher processing - playerEmail:', playerEmail, 'player.id:', player.id, 'isGuest:', player.id.startsWith('guest-'));
+    if (playerEmail && !player.id.startsWith('guest-')) {
+      log('Entering voucher processing block');
+      try {
+        log('Calling VoucherService.processAllVouchers (handleProfileCreationComplete) with email:', playerEmail, 'userId:', player.id);
+        const voucherResult = await VoucherService.processAllVouchers(playerEmail, player.id);
+        log('VoucherService.processAllVouchers (handleProfileCreationComplete) returned:', JSON.stringify(voucherResult));
+        
+        if (voucherResult.processed) {
+          log('Processed all vouchers - total redeemed:', voucherResult.totalRedeemed);
+          if (voucherResult.referral?.rewarded) {
+            log('Referrer rewarded:', voucherResult.referral.referrerId);
+          }
+          if (voucherResult.invite?.redeemed) {
+            log('Auto-redeemed invite vouchers:', voucherResult.invite.count);
+          }
+        } else {
+          log('Voucher processing returned processed=false, error:', voucherResult.error);
+          if (voucherResult.referral) {
+            log('Referral result:', JSON.stringify(voucherResult.referral));
+          }
+          if (voucherResult.invite) {
+            log('Invite result:', JSON.stringify(voucherResult.invite));
+          }
+        }
+      } catch (voucherError) {
+        logerror('Error processing vouchers (handleProfileCreationComplete):', voucherError);
+        logerror('Voucher error stack:', voucherError.stack);
+      }
+    }
       
     await new Promise(resolve => setTimeout(resolve, 400));
     

@@ -245,6 +245,16 @@ class AchievementService {
           continue;
         }
 
+        // Filter by reward_type: era-specific achievements (reward_type = era name) only apply to that era
+        // If reward_type is 'passes' or NULL, achievement applies to all eras
+        if (achievement.reward_type && achievement.reward_type !== 'passes') {
+          // reward_type is an era name (e.g., 'pirates') - only check this achievement for that era
+          if (achievement.reward_type !== gameResults.era_id) {
+            // This achievement is era-specific and doesn't match the current game era
+            continue;
+          }
+        }
+
         // Calculate current progress based on requirement type
         let currentProgress = 0;
         

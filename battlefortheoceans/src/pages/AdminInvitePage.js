@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import { coreEngine } from '../context/GameContext';
 import VoucherService from '../services/VoucherService';
-import { Mail, ChevronUp, ChevronDown, Send, Copy, Check } from 'lucide-react';
+import { Mail, ChevronUp, ChevronDown, Send } from 'lucide-react';
 
 const version = 'v0.2.0';
 const tag = "ADMIN_INVITE";
@@ -42,8 +42,6 @@ function AdminInvitePage({ onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [generatedVouchers, setGeneratedVouchers] = useState([]);
-  const [copiedVoucher, setCopiedVoucher] = useState(null);
   
   const handleIncrementPasses = () => {
     setPassCount(prev => prev + 1);
@@ -122,9 +120,6 @@ function AdminInvitePage({ onClose }) {
       if (passVoucherCode) voucherCodes.push(passVoucherCode);
       if (piratesVoucherCode) voucherCodes.push(piratesVoucherCode);
       
-      // Store generated vouchers for display
-      setGeneratedVouchers(voucherCodes);
-      
       // Send email via Netlify function (admin invite endpoint)
       const response = await fetch('/.netlify/functions/send-admin-invite', {
         method: 'POST',
@@ -170,21 +165,6 @@ function AdminInvitePage({ onClose }) {
     }
   };
   
-  const handleCopyVoucher = async (voucherCode) => {
-    method = 'handleCopyVoucher';
-    try {
-      await navigator.clipboard.writeText(voucherCode);
-      setCopiedVoucher(voucherCode);
-      log(`Copied voucher to clipboard: ${voucherCode}`);
-      
-      // Clear the copied state after 3 seconds
-      setTimeout(() => {
-        setCopiedVoucher(null);
-      }, 3000);
-    } catch (err) {
-      logerror('Failed to copy voucher to clipboard:', err);
-    }
-  };
   
   return (
     <div className="container flex flex-column flex-center">
@@ -321,35 +301,6 @@ function AdminInvitePage({ onClose }) {
             </div>
           )}
           
-          {/* Display generated vouchers with copy buttons */}
-          {generatedVouchers.length > 0 && (
-            <div className="form-group mt-md">
-              <label>Voucher Codes:</label>
-              <div className="admin-invite-voucher-list">
-                {generatedVouchers.map((voucher, index) => (
-                  <div key={index} className="admin-invite-voucher-item">
-                    <code className="admin-invite-voucher-code">{voucher}</code>
-                    <button
-                      type="button"
-                      className="btn btn--secondary btn--icon admin-invite-copy-btn"
-                      onClick={() => handleCopyVoucher(voucher)}
-                      aria-label="Copy voucher code"
-                      title={copiedVoucher === voucher ? 'Link Copied' : 'Copy voucher code'}
-                    >
-                      {copiedVoucher === voucher ? (
-                        <Check size={16} />
-                      ) : (
-                        <Copy size={16} />
-                      )}
-                    </button>
-                    {copiedVoucher === voucher && (
-                      <span className="admin-invite-copy-tooltip">Link Copied</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
         
         <div className="card-footer">

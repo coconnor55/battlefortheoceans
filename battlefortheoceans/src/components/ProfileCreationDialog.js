@@ -182,14 +182,20 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
       
       if (profile) {
         console.log(version, 'Profile creation completed successfully');
-          // ✅ ADD THESE 8 LINES HERE:
-          // Check for referral reward
-          const rewardResult = await VoucherService.processReferralReward(
+          
+          // Process all vouchers (referral rewards + invite vouchers)
+          const voucherResult = await VoucherService.processAllVouchers(
             userData.email,
             userData.id
           );
-          if (rewardResult.rewarded) {
-            console.log(version, 'Referrer rewarded:', rewardResult.referrerId);
+          if (voucherResult.processed) {
+            console.log(version, 'Processed all vouchers - total redeemed:', voucherResult.totalRedeemed);
+            if (voucherResult.referral?.rewarded) {
+              console.log(version, 'Referrer rewarded:', voucherResult.referral.referrerId);
+            }
+            if (voucherResult.invite?.redeemed) {
+              console.log(version, 'Auto-redeemed invite vouchers:', voucherResult.invite.count);
+            }
           }
           
           setStatusMessage('Success! Creating player...');

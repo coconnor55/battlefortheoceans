@@ -11,3 +11,4 @@ COMMENT ON COLUMN vouchers.purpose IS 'Purpose/reason for creating the voucher (
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_vouchers_purpose ON vouchers(purpose) WHERE purpose IS NOT NULL;
 
+

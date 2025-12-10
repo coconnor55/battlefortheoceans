@@ -110,17 +110,10 @@ exports.handler = async (event) => {
           
           <p>Hi there,</p>
           
-          <p>${safeSenderName} has invited you to play Battle for the Oceans, modeled after the 1920s paper game of Battleship. Please sign up to create a game account where you will be able to use the following passes and vouchers to play more games.</p>
+          <p>${safeSenderName} has invited you to play Battle for the Oceans, modeled after the 1920s paper game of Battleship. Please sign up to create a game account, and the following passes and vouchers should automatically be credited to your account when you have created your account and chosen a game handle.</p>
           
-          ${hasCustomMessage ? `<p>"${safeCustomMessage.replace(/\n/g, '<br>')}"</p>` : ''}
+          ${hasCustomMessage ? `<p><strong>${safeCustomMessage.replace(/\n/g, '<br>')}</strong></p>` : ''}
           
-          <p>In the Get Access page for these games, enter the following voucher codes to play Midway Island and Pirates of the Gulf:</p>
-          
-          <div style="background: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 4px; font-family: monospace;">
-            ${voucherCodes.map(code => `<div style="margin: 5px 0;">${escapeHtml(code)}</div>`).join('')}
-          </div>
-          
-          <p>Click the link below to sign up:</p>
           
           <div style="margin: 20px 0;">
             <a href="${signupUrl}" style="background: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">Sign Up</a>
@@ -129,31 +122,44 @@ exports.handler = async (event) => {
           <p>Happy gaming!</p>
           
           <p>— The Battle for the Oceans Team</p>
+          
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+          
+          <p style="font-size: 14px; color: #666;">If you do not see these passes and vouchers in the upper right of your game screen in Select Battle Era, you may need to cut and paste the following into the 'Already have a voucher' field on the Get Access page for these games:</p>
+          
+          <div style="background: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            ${voucherCodes.map(code => `<div style="margin: 15px 0;">
+              <div style="font-family: monospace; font-size: 14px; background: white; padding: 12px; border-radius: 4px; border: 2px solid #4CAF50; color: #333; word-break: break-all; user-select: all; -webkit-user-select: all; cursor: text;">${escapeHtml(code)}</div>
+              <div style="font-size: 12px; color: #666; margin-top: 4px; font-style: italic;">Select and copy the code above</div>
+            </div>`).join('')}
+          </div>
+          
+          <p style="font-size: 14px; color: #666;">They can only be used once, so if they have already been credited, they cannot be used again.</p>
         </body>
       </html>
     `;
     
     sendSmtpEmail.textContent = `You've been invited to play Battle for the Oceans!
 
-
-
 Hi there,
 
-${senderName} has invited you to play Battle for the Oceans, modeled after the 1920s paper game of Battleship. Please sign up to create a game account where you will be able to use the following passes and vouchers to play more games.
+${senderName} has invited you to play Battle for the Oceans, modeled after the 1920s paper game of Battleship. Please sign up to create a game account, and the following passes and vouchers should automatically be credited to your account when you have created your account and chosen a game handle.
 
-${hasCustomMessage ? `"${customMessage.trim()}"\n\n` : ''}In the Get Access page for these games, enter the following voucher codes to play Midway Island and Pirates of the Gulf:
-
-${voucherCodes.map(code => code).join('\n')}
-
-Click the link below to sign up:
+${hasCustomMessage ? `${customMessage.trim()}\n\n` : ''}Click here
 
 ${signupUrl}
-
-
 
 Happy gaming!
 
 — The Battle for the Oceans Team
+
+------
+
+If you do not see these passes and vouchers in the upper right of your game screen in Select Battle Era, you may need to cut and paste the following into the 'Already have a voucher' field on the Get Access page for these games:
+
+${voucherCodes.map(code => `${code}\nSelect and copy the code above`).join('\n\n')}
+
+They can only be used once, so if they have already been credited, they cannot be used again.
     `;
     
     console.log(`[INVITE ${version}] Subject: ${sendSmtpEmail.subject}`);

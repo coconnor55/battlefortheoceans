@@ -120,6 +120,10 @@ const LoginDialog = ({
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
     
     if (error) {
+      logerror('Supabase login error:', error);
+      logerror('Error code:', error.status);
+      logerror('Error message:', error.message);
+      
       if (error.message.includes('Invalid login credentials')) {
         setError('Account not found or incorrect password. Would you like to sign up instead?');
       } else {
@@ -129,12 +133,22 @@ const LoginDialog = ({
     }
     
     log(`Login successful, user: ${data.user.id}`);
+    log('User object from signInWithPassword:', {
+      id: data.user.id,
+      email: data.user.email,
+      email_confirmed_at: data.user.email_confirmed_at,
+      email_verified: data.user.email_verified,
+      user_metadata: data.user.user_metadata
+    });
     
-    // Check if email is confirmed
+    // Check if email is confirmed (required in Europe)
     if (!data.user.email_confirmed_at) {
+      log('Email not confirmed - email_confirmed_at:', data.user.email_confirmed_at);
       setError('Please confirm your email address before logging in. Check your inbox for a confirmation link.');
       return;
     }
+    
+    log('Email confirmed at:', data.user.email_confirmed_at);
     
     try {
       // Fetch user profile from database

@@ -318,10 +318,15 @@ class VoucherService {
      * @param {string} type - 'pass' or era name (e.g., 'pirates', 'midway')
      * @param {string|number} value - Count (e.g., 10) or time (e.g., 'days7')
      * @param {string} purpose - Purpose for logging (e.g., 'referral_reward', 'achievement')
+     * @param {string|null} createdBy - Player ID creating voucher (null for system-generated)
+     * @param {string|null} emailSentTo - Email address receiving voucher (null for general vouchers)
+     * @param {number} rewardPasses - Reward passes value (default: 1)
+     * @param {number} referralSignup - Referral signup bonus value (default: 10)
+     * @param {string|null} createdFor - Player ID this voucher is created for (null for general vouchers)
      * @returns {Promise<string>} Generated voucher code
      * @throws {Error} If generation fails
      */
-    async generateVoucher(type, value, purpose = 'manual', createdBy = null, emailSentTo = null, rewardPasses = 1, referralSignup = 10) {
+    async generateVoucher(type, value, purpose = 'manual', createdBy = null, emailSentTo = null, rewardPasses = 1, referralSignup = 10, createdFor = null) {
         
         if (!type) {
             throw new Error('Voucher type is required');
@@ -342,7 +347,8 @@ class VoucherService {
                 p_created_by: createdBy,
                 p_email_sent_to: emailSentTo,
                 p_reward_passes: rewardPasses,
-                p_signup_bonus_passes: referralSignup  // Database field name kept for compatibility
+                p_signup_bonus_passes: referralSignup,  // Database field name kept for compatibility
+                p_created_for: createdFor
             });
             
             if (error) {
@@ -476,6 +482,54 @@ class VoucherService {
     }
     
     /**
+     * Process all vouchers for a user (referral rewards + invite vouchers)
+     * This is the main entry point that should be called after login or profile creation
+     *
+     * @param {string} userEmail - Email of the user
+     * @param {string} userId - Player ID of the user
+     * @returns {Promise<object>} Combined result with all redemption details
+     */
+    async processAllVouchers(userEmail, userId) {
+        try {
+            console.log(`[VOUCHER] VoucherService ${version}| processAllVouchers called with email:`, userEmail, 'userId:', userId);
+            
+            if (!userEmail) {
+                console.warn(`[VOUCHER] VoucherService ${version}| processAllVouchers: userEmail is null/undefined`);
+                return { processed: false, error: 'userEmail is required' };
+            }
+            
+            if (!userId) {
+                console.warn(`[VOUCHER] VoucherService ${version}| processAllVouchers: userId is null/undefined`);
+                return { processed: false, error: 'userId is required' };
+            }
+            
+            // Process referral rewards first (if applicable)
+            console.log(`[VOUCHER] VoucherService ${version}| Calling processReferralReward...`);
+            const referralResult = await this.processReferralReward(userEmail, userId);
+            console.log(`[VOUCHER] VoucherService ${version}| processReferralReward returned:`, JSON.stringify(referralResult));
+            
+            // Process invite vouchers (admin invites, etc.)
+            console.log(`[VOUCHER] VoucherService ${version}| Calling processInviteVouchers...`);
+            const inviteResult = await this.processInviteVouchers(userEmail, userId);
+            console.log(`[VOUCHER] VoucherService ${version}| processInviteVouchers returned:`, JSON.stringify(inviteResult));
+            
+            const totalRedeemed = (referralResult.rewarded ? 1 : 0) + (inviteResult.redeemed ? inviteResult.count : 0);
+            console.log(`[VOUCHER] VoucherService ${version}| Total vouchers redeemed:`, totalRedeemed);
+            
+            return {
+                processed: true,
+                referral: referralResult,
+                invite: inviteResult,
+                totalRedeemed
+            };
+        } catch (error) {
+            console.error(`[VOUCHER] VoucherService ${version}| processAllVouchers error:`, error);
+            console.error(`[VOUCHER] VoucherService ${version}| processAllVouchers error stack:`, error.stack);
+            return { processed: false, error: error.message };
+        }
+    }
+    
+    /**
      * Process referral reward when new user signs up
      * Rewards BOTH the referrer AND the new user
      *
@@ -487,11 +541,13 @@ class VoucherService {
         try {
             console.log(`[VOUCHER] VoucherService ${version}| Checking referral reward for:`, newUserEmail);
             
-            // ✅ ONE CALL - Get unredeemed voucher sent to this email
+            // ✅ ONE CALL - Get unredeemed referral voucher sent to this email
+            // Only process vouchers with purpose 'email_friend' (regular referral invites)
             const { data: referralVoucher, error: searchError } = await supabase
             .from('vouchers')
             .select('*')
             .eq('email_sent_to', newUserEmail)
+            .eq('purpose', 'email_friend')  // Only referral vouchers, not admin invites
             .not('created_by', 'is', null)
             .is('redeemed_at', null)  // ✅ Only unredeemed vouchers
             .single();
@@ -605,6 +661,73 @@ class VoucherService {
         } catch (error) {
             console.error(`[VOUCHER] VoucherService ${version}| processReferralReward error:`, error);
             return { rewarded: false, error: error.message };
+        }
+    }
+    
+    /**
+     * Process and auto-redeem all vouchers sent to a user's email during signup/login
+     * This handles admin invites and any other vouchers sent to the user's email
+     *
+     * @param {string} userEmail - Email of the user
+     * @param {string} userId - Player ID of the user
+     * @returns {Promise<object>} Result with redemption details
+     */
+    async processInviteVouchers(userEmail, userId) {
+        try {
+            console.log(`[VOUCHER] VoucherService ${version}| Processing invite vouchers for:`, userEmail);
+            
+            // Get ALL unredeemed vouchers sent to this email
+            // Exclude referral vouchers (handled by processReferralReward) and reward vouchers
+            const { data: inviteVouchers, error: searchError } = await supabase
+                .from('vouchers')
+                .select('*')
+                .eq('email_sent_to', userEmail)
+                .neq('purpose', 'email_friend')  // Exclude referral vouchers (handled separately)
+                .neq('purpose', 'referral_signup_reward')  // Exclude reward vouchers
+                .is('redeemed_at', null)  // Only unredeemed vouchers
+                .order('created_at', { ascending: true });
+            
+            // Handle errors
+            if (searchError) {
+                console.error(`[VOUCHER] VoucherService ${version}| Search error:`, searchError);
+                return { redeemed: false, error: searchError.message };
+            }
+            
+            // If no vouchers found
+            if (!inviteVouchers || inviteVouchers.length === 0) {
+                console.log(`[VOUCHER] VoucherService ${version}| No unredeemed invite vouchers found`);
+                return { redeemed: false, reason: 'no_vouchers', count: 0 };
+            }
+            
+            console.log(`[VOUCHER] VoucherService ${version}| Found ${inviteVouchers.length} unredeemed voucher(s) for ${userEmail}`);
+            
+            // Redeem each voucher
+            const redeemedVouchers = [];
+            const failedVouchers = [];
+            
+            for (const voucher of inviteVouchers) {
+                try {
+                    console.log(`[VOUCHER] VoucherService ${version}| Redeeming voucher: ${voucher.voucher_code}`);
+                    await this.redeemVoucher(userId, voucher.voucher_code, userEmail);
+                    redeemedVouchers.push(voucher.voucher_code);
+                    console.log(`[VOUCHER] VoucherService ${version}| Successfully redeemed: ${voucher.voucher_code}`);
+                } catch (error) {
+                    console.error(`[VOUCHER] VoucherService ${version}| Failed to redeem voucher ${voucher.voucher_code}:`, error.message);
+                    failedVouchers.push({ code: voucher.voucher_code, error: error.message });
+                }
+            }
+            
+            return {
+                redeemed: redeemedVouchers.length > 0,
+                count: redeemedVouchers.length,
+                total: inviteVouchers.length,
+                redeemedVouchers,
+                failedVouchers
+            };
+            
+        } catch (error) {
+            console.error(`[VOUCHER] VoucherService ${version}| processInviteVouchers error:`, error);
+            return { redeemed: false, error: error.message };
         }
     }
 }
