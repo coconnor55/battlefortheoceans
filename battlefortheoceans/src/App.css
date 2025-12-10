@@ -17,7 +17,7 @@
   width: 100vw;
   min-height: 200vh; /* Ensure App is taller than viewport to allow scrolling */
   /* Background scrolls with page */
-  background-image: var(--app-background, url('/battlefortheoceans.jpg'));
+  background-image: var(--app-background);
   background-size: cover;
   background-position: center;
   background-attachment: scroll;

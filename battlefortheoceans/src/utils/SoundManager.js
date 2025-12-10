@@ -62,7 +62,10 @@ class SoundManager {
 
     Object.entries(soundFiles).forEach(([key, filename]) => {
       try {
-        const fullPath = `${SOUND_BASE_URL}/sounds/${filename}`;
+        // Use assets/sounds path - if CDN is set, prepend it; otherwise use local path
+        const fullPath = SOUND_BASE_URL 
+          ? `${SOUND_BASE_URL}/assets/sounds/${filename}` 
+          : `/assets/sounds/${filename}`;
         const audio = new Audio(fullPath);
         audio.preload = 'auto';
         audio.load();

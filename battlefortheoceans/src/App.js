@@ -134,6 +134,16 @@ const SceneRenderer = () => {
     return unsubscribe;
   }, [subscribeToUpdates]);
   
+  // Set default background image on mount
+  useEffect(() => {
+    method = 'useEffect-setDefaultBackground';
+    // Set default background image if not already set by era config
+    if (!document.body.style.getPropertyValue('--app-background')) {
+      document.body.style.setProperty('--app-background', 'url(/assets/images/battlefortheoceans.jpg)');
+      log('Default background image set');
+    }
+  }, []);
+
   // Load game config for inactivity settings
   useEffect(() => {
     method = 'useEffect-loadConfig';
@@ -306,7 +316,8 @@ const SceneRenderer = () => {
       
       document.body.style.backgroundImage = '';
       document.body.removeAttribute('data-has-background-image');
-      document.body.style.removeProperty('--app-background');
+      // Set default background image
+      document.body.style.setProperty('--app-background', 'url(/assets/images/battlefortheoceans.jpg)');
       document.body.style.setProperty('--body-before-opacity', '0.3');
       
       log(`Fallback theme switched to: ${eraKey}`);
@@ -317,7 +328,8 @@ const SceneRenderer = () => {
       
       document.body.style.backgroundImage = '';
       document.body.removeAttribute('data-has-background-image');
-      document.body.style.removeProperty('--app-background');
+      // Set default background image
+      document.body.style.setProperty('--app-background', 'url(/assets/images/battlefortheoceans.jpg)');
       document.body.style.setProperty('--body-before-opacity', '0.3');
     }
   }, [eraConfig]);
