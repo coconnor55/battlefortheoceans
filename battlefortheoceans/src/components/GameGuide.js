@@ -119,7 +119,7 @@ const GameGuide = ({ section, manualOpen = false, onClose, forceShow = false, er
 
               <h4>Placement Methods</h4>
               <ul>
-                <li><strong>Auto-Place:</strong> Click "Autoplace" to position all ships randomly. Once you autoplace, manual placement is no longer available. Autoplace is not recommended when winning matters.</li>
+                <li><strong>Autoplace:</strong> Click "Autoplace" to position all ships randomly. Once you autoplace, manual placement is no longer available. Autoplace is not recommended when winning matters.</li>
                 <li><strong>Manual Drag:</strong> Click and drag from stern to bow to place each ship</li>
                 <li><strong>Rotation:</strong> Drag in any direction - up, down, left, or right</li>
               </ul>

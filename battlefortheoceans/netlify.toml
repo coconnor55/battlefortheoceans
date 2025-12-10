@@ -13,9 +13,9 @@
     # Set NODE_VERSION for Netlify build environment
     NODE_VERSION = "18"
     
-    # CDN URL for assets (bunny.net CDN)
-    # Set this in Netlify dashboard: Site settings > Environment variables
-    # REACT_APP_GAME_CDN = "https://cdn.battlefortheoceans.com"
+    # CDN URL for assets - not needed, Netlify provides CDN automatically
+    # If you need a separate CDN, set REACT_APP_GAME_CDN in Netlify dashboard
+    # REACT_APP_GAME_CDN = ""
     
     # Disable CI check for build (React Scripts can fail on warnings)
     CI = "false"
