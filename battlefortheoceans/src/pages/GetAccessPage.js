@@ -651,7 +651,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
   if (loading) {
     return (
       <div className="modal-overlay modal-overlay--transparent">
-        <div className="content-pane content-pane--narrow">
+        <div className="content-pane">
           <div className="loading">
             <div className="spinner spinner--lg"></div>
             <p>Loading...</p>

@@ -55,6 +55,7 @@
 // v0.2.6: Only show Return to Game button when overlay is active
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import RightsService from '../services/RightsService';
 import PlayerProfileService from '../services/PlayerProfileService';
 import VoucherService from '../services/VoucherService';
@@ -110,9 +111,11 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   const [, forceUpdate] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
+  const menuElementRef = useRef(null); // Ref for the menu element in the portal
   const [passBalance, setPassBalance] = useState(0);
   const [voucherBalance, setVoucherBalance] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
 
   const fetchPassBalance = useCallback(async () => {
     method = 'fetchPassBalance';
@@ -224,17 +227,39 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
     }
   }, [isFullscreen]);
   
-  // Close menu when clicking outside
+  // Update menu position and close menu when clicking outside
   useEffect(() => {
+    const updateMenuPosition = () => {
+      if (menuRef.current && showUserMenu) {
+        const rect = menuRef.current.getBoundingClientRect();
+        setMenuPosition({
+          top: rect.bottom + 4, // 4px = marginTop: '0.5rem'
+          right: window.innerWidth - rect.right
+        });
+      }
+    };
+
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      // Check if click is outside both the menu button and the menu itself (which is in a portal)
+      const clickedButton = menuRef.current && menuRef.current.contains(event.target);
+      const clickedMenu = menuElementRef.current && menuElementRef.current.contains(event.target);
+      const clickedBackdrop = event.target.classList.contains('action-menu-backdrop');
+      
+      if (!clickedButton && !clickedMenu && !clickedBackdrop) {
         setShowUserMenu(false);
       }
     };
     
     if (showUserMenu) {
+      updateMenuPosition();
+      window.addEventListener('scroll', updateMenuPosition, true);
+      window.addEventListener('resize', updateMenuPosition);
       document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      return () => {
+        window.removeEventListener('scroll', updateMenuPosition, true);
+        window.removeEventListener('resize', updateMenuPosition);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
     }
   }, [showUserMenu]);
   
@@ -457,7 +482,18 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
   };
   
   const toggleUserMenu = () => {
-    setShowUserMenu(prev => !prev);
+    method = 'toggleUserMenu';
+    const newState = !showUserMenu;
+    log(`Toggling user menu: ${showUserMenu} -> ${newState}`);
+    
+    if (newState && menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect();
+      log(`Menu button position: top=${rect.top}, bottom=${rect.bottom}, right=${rect.right}, left=${rect.left}`);
+      log(`Window dimensions: width=${window.innerWidth}, height=${window.innerHeight}`);
+      log(`Calculated menu position will be: top=${rect.bottom + 4}px, right=${window.innerWidth - rect.right}px`);
+    }
+    
+    setShowUserMenu(newState);
   };
   
   // Show "Return to Game" whenever there's an active overlay (any state except launch/login)
@@ -537,7 +573,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
         )}
         
         {true && (
-          <div className="btn btn--secondary btn--xthin" ref={menuRef}>
+          <div className="btn btn--secondary btn--xthin" ref={menuRef} style={{ position: 'relative' }}>
             <span
               className="nav-bar__menu"
               onClick={toggleUserMenu}
@@ -547,7 +583,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
               <Menu size={22} className="action-menu__emoji" />
             </span>
             
-            {showUserMenu && (
+            {showUserMenu && createPortal(
               <>
                 <div
                   className="action-menu-backdrop"
@@ -556,12 +592,41 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                 />
                 <div
                   className="action-menu"
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: '0',
-                    marginTop: '0.5rem'
-                  }}
+                  ref={menuElementRef}
+                  style={(() => {
+                    method = 'render (action-menu style)';
+                    if (!menuRef.current) {
+                      log('ERROR: Menu ref not available, using fallback position');
+                      return { 
+                        position: 'fixed', 
+                        top: '60px', 
+                        right: '20px', 
+                        zIndex: 10000,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        visibility: 'visible',
+                        opacity: 1
+                      };
+                    }
+                    const rect = menuRef.current.getBoundingClientRect();
+                    const top = rect.bottom + 4;
+                    const right = window.innerWidth - rect.right;
+                    log(`Menu position calculated: top=${top}px, right=${right}px`);
+                    log(`Menu button rect: ${JSON.stringify({top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right})}`);
+                    const style = {
+                      position: 'fixed',
+                      top: `${top}px`,
+                      right: `${right}px`,
+                      zIndex: 10000, // Higher than nav-bar (100) and content containers
+                      display: 'flex',
+                      flexDirection: 'column',
+                      visibility: 'visible',
+                      opacity: 1
+                    };
+                    log(`Menu style object: ${JSON.stringify(style)}`);
+                    log(`Menu WILL RENDER via PORTAL at fixed position: top=${top}px, right=${right}px, zIndex=10000`);
+                    return style;
+                  })()}
                 >
                   <div className="action-menu__items">
                     <div
@@ -579,7 +644,11 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     
                     <div
                       className="action-menu__item"
-                      onClick={handleHelp}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleHelp();
+                        setShowUserMenu(false);
+                      }}
                     >
                       <HelpCircle size={20} className="action-menu__emoji" />
                       <span className="action-menu__label">Help</span>
@@ -587,7 +656,10 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     
                     <div
                       className="action-menu__item"
-                      onClick={handleToggleFullscreen}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFullscreen();
+                      }}
                     >
                       {isFullscreen ? (
                         <Minimize2 size={20} className="action-menu__emoji" />
@@ -599,7 +671,11 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                             
                     <div
                       className="action-menu__item"
-                      onClick={handleLogout}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLogout();
+                        setShowUserMenu(false);
+                      }}
                     >
                       <LogOut size={20} className="action-menu__emoji" />
                       <span className="action-menu__label">Logout</span>
@@ -608,7 +684,11 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     {(isAdmin || isDeveloper || isTester) && (
                       <div
                         className="action-menu__item action-menu__item--admin"
-                        onClick={handleAddPasses}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddPasses();
+                          setShowUserMenu(false);
+                        }}
                       >
                         <Coins size={20} className="action-menu__emoji" />
                         <span className="action-menu__label">*Add 3 Passes</span>
@@ -618,7 +698,11 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     {(isAdmin || isDeveloper || isTester) && (
                       <div
                         className="action-menu__item action-menu__item--admin"
-                        onClick={handleAddVoucher}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddVoucher();
+                          setShowUserMenu(false);
+                        }}
                       >
                         <Diamond size={20} className="action-menu__emoji" />
                         <span className="action-menu__label">*Add 1 Voucher (Pirates)</span>
@@ -628,7 +712,11 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     {(isAdmin || isDeveloper) && (
                       <div
                         className="action-menu__item action-menu__item--admin"
-                        onClick={handleTest}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTest();
+                          setShowUserMenu(false);
+                        }}
                       >
                         <TestTube size={20} className="action-menu__emoji" />
                         <span className="action-menu__label">Test</span>
@@ -638,7 +726,11 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     {(isAdmin || isDeveloper) && (
                       <div
                         className="action-menu__item action-menu__item--admin"
-                        onClick={handleErrorConsole}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleErrorConsole();
+                          setShowUserMenu(false);
+                        }}
                       >
                         <Terminal size={20} className="action-menu__emoji" />
                         <span className="action-menu__label">Error Console</span>
@@ -648,7 +740,11 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     {(isAdmin || isDeveloper) && (
                       <div
                         className="action-menu__item action-menu__item--admin"
-                        onClick={handleAdminInvite}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAdminInvite();
+                          setShowUserMenu(false);
+                        }}
                       >
                         <Mail size={20} className="action-menu__emoji" />
                         <span className="action-menu__label">Invite New Player</span>
@@ -658,7 +754,11 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     {(isAdmin || isDeveloper) && (
                       <div
                         className="action-menu__item action-menu__item--admin"
-                        onClick={handleReset}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReset();
+                          setShowUserMenu(false);
+                        }}
                       >
                         <Recycle size={20} className="action-menu__emoji" />
                         <span className="action-menu__label">Reset as New Player...</span>
@@ -666,7 +766,8 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                     )}
                   </div>
                 </div>
-              </>
+              </>,
+              document.body
             )}
           </div>
         )}

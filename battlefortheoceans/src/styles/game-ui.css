@@ -1167,12 +1167,14 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 9998;
+  z-index: 9999; /* Just below the menu (10000) */
   cursor: pointer;
 }
 
 .action-menu {
-  z-index: 9999;
+  z-index: 10000 !important; /* Higher than nav-bar (100) and any content containers */
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 .action-menu__items {

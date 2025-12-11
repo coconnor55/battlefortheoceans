@@ -402,7 +402,7 @@ const LoginPage = () => {
       )}
       
       {isLoading && authStep !== 'login' && (
-        <div className="content-pane content-pane--narrow">
+        <div className="content-pane">
           <div className="loading">
             <div className="spinner spinner--lg"></div>
             <h2>Welcome!</h2>

@@ -613,9 +613,11 @@ const OverPage = () => {
   if (!gameResults) {
     return (
       <div className="container flex flex-column flex-center">
-        <div className="loading loading--lg">
-          <div className="spinner spinner--lg"></div>
-          <p>Loading game results...</p>
+        <div className="content-pane">
+          <div className="loading">
+            <div className="spinner spinner--lg"></div>
+            <p>Loading game results...</p>
+          </div>
         </div>
       </div>
     );

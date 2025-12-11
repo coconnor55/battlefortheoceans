@@ -369,7 +369,7 @@ const PlacementPage = () => {
     
     return (
       <div className="container flex flex-column flex-center">
-        <div className="content-pane content-pane--narrow">
+        <div className="content-pane">
           <div className="loading">
             <div className="spinner spinner--lg"></div>
               <h2>{selectedEraConfig?.name || 'Setting Up'}</h2>

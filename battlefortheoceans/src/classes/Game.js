@@ -763,20 +763,37 @@ class Game {
         if (ship.class?.toLowerCase() === 'submarine' && 
             !ship.isSunk() && 
             ship.getTorpedoes() > 0) {
-          // Find submarine bow position (last cell, cellIndex = size - 1)
+          // Find submarine bow position
           // Torpedoes fire from the bow, not the stern
+          // cellIndex 0 is ALWAYS the stern, cellIndex size-1 is ALWAYS the bow
+          console.log(`[GAME] ${this.id} Searching for submarine ${ship.name} bow (cellIndex=${ship.size - 1})...`);
+          
+          // Collect all cells for this submarine for debugging
+          const allSubmarineCells = [];
           for (let row = 0; row < this.board.rows; row++) {
             for (let col = 0; col < this.board.cols; col++) {
               const placement = currentPlayer.getShipAt(row, col);
-              if (placement && placement.shipId === ship.id && placement.cellIndex === ship.size - 1) {
-                submarine = ship;
-                submarinePosition = { row, col };
-                console.log(`[GAME] ${this.id} Found submarine bow at (${row}, ${col}), cellIndex=${placement.cellIndex}, ship size=${ship.size}`);
-                break;
+              if (placement && placement.shipId === ship.id) {
+                allSubmarineCells.push({ row, col, cellIndex: placement.cellIndex, orientation: placement.orientation || 0 });
+                // Check if this is the bow (cellIndex size-1)
+                if (placement.cellIndex === ship.size - 1) {
+                  submarine = ship;
+                  submarinePosition = { row, col };
+                  console.log(`[GAME] ${this.id} Found submarine bow at (${row}, ${col}), cellIndex=${placement.cellIndex}, ship size=${ship.size}, orientation=${placement.orientation || 0}°`);
+                }
               }
             }
-            if (submarine) break;
           }
+          
+          // Debug: log all cells if we found the submarine
+          if (submarine && allSubmarineCells.length > 0) {
+            console.log(`[GAME] ${this.id} All submarine cells:`, allSubmarineCells);
+            const sternCell = allSubmarineCells.find(c => c.cellIndex === 0);
+            const bowCell = allSubmarineCells.find(c => c.cellIndex === ship.size - 1);
+            console.log(`[GAME] ${this.id} Stern cell:`, sternCell, `Bow cell:`, bowCell);
+            console.log(`[GAME] ${this.id} Torpedo will fire from bow at (${submarinePosition.row}, ${submarinePosition.col})`);
+          }
+          
           if (submarine) break;
         }
       }

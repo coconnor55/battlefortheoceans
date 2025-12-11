@@ -294,7 +294,7 @@ const PurchasePage = ({ eraId, onComplete, onCancel }) => {
   // Loading state
   if (loading) {
     return (
-      <div className="card card--narrow">
+      <div className="content-pane">
         <div className="loading">
           <div className="spinner spinner--lg"></div>
           <p>Loading era information...</p>

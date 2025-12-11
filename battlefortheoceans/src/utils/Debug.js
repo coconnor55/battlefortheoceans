@@ -30,7 +30,7 @@ const control = {
   OVERLAY: false,
   TARGETING: false,
   GAME: false,
-  NAVBAR: false,
+  NAVBAR: true,
   ACHIEVEMENT: false,
   MESSAGE: false,
   FIRE: false,

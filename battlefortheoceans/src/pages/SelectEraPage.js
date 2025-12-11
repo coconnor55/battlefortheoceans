@@ -312,7 +312,7 @@ const SelectEraPage = () => {
     if (badgesLoading && !isGuest) {
         return (
             <div className="container flex flex-column flex-center">
-                <div className="content-pane content-pane--wide">
+                <div className="content-pane">
                     <div className="loading">
                         <div className="spinner spinner--lg"></div>
                         <h2>Loading Era Information</h2>

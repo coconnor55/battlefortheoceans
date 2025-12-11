@@ -8,6 +8,8 @@
 
 .form-group {
   margin-bottom: var(--space-lg);
+  width: 100%;
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .form-label {
@@ -30,6 +32,7 @@
 .input,
 .input-primary {
   width: 100%;
+  box-sizing: border-box; /* Include padding and border in width calculation */
   padding: var(--space-md);
   background: var(--bg-dark);
   color: var(--text-primary);
@@ -144,11 +147,19 @@
 
 .password-group {
   position: relative;
+  width: 100%;
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .password-group .input,
 .password-group .input-primary {
   padding-right: 45px;
+  box-sizing: border-box; /* Include padding in width calculation */
+}
+
+.password-group .form-input {
+  padding-right: 45px;
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .password-toggle {
@@ -185,13 +196,22 @@
    ============================================ */
 
 .login-dialog {
-  max-width: 400px;
+  max-width: 100%;
+  width: 100%;
   margin: 0 auto;
   text-align: center;
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .login-dialog form {
   text-align: left;
+  width: 100%;
+  box-sizing: border-box; /* Include padding in width calculation */
+}
+
+.login-dialog .form-group {
+  width: 100%;
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .auth-links {
@@ -276,18 +296,24 @@
 .reset-password-form,
 .reset-success,
 .reset-error {
-  max-width: 400px;
+  max-width: 100%;
+  width: 100%;
   margin: 0 auto;
   text-align: center;
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .reset-password-form form {
   text-align: left;
   margin-top: var(--space-lg);
+  width: 100%;
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .reset-password-form .form-group {
   margin-bottom: var(--space-lg);
+  width: 100%;
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .reset-password-form label {
@@ -300,6 +326,7 @@
 
 .reset-password-form .password-group .input {
   padding-right: 45px;
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 .reset-password-form .form-actions {
@@ -323,7 +350,7 @@
 .loading-message,
 .transition-message {
   text-align: center;
-  padding: var(--space-xl);
+  padding: var(--space-md);
 }
 
 .loading-message h2,

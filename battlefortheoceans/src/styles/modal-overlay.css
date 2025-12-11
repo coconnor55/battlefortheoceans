@@ -16,8 +16,6 @@
   background: var(--bg-overlay);
   backdrop-filter: blur(10px);
   border-radius: var(--border-radius-lg);
-  /* Reduced padding for larger sizes (was var(--space-xl), now var(--space-md)) */
-  padding: var(--space-md);
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border-subtle);
   max-width: 600px;
@@ -29,11 +27,16 @@
   left: 50%;
   transform: translate(-50%, -50%);
 
-  /* Make scrollable */
-  max-height: 95vh;
+  /* Make scrollable - reduced max-height to ensure content is scrollable */
+  max-height: 90vh;
   overflow-y: auto;
   overflow-x: visible; /* Allow horizontal overflow for game board */
   -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  
+  /* Padding with extra bottom space for scrollability */
+  padding: var(--space-md);
+  padding-bottom: calc(var(--space-md) + var(--space-lg)); /* Extra bottom padding so last content is fully visible when scrolled */
 }
 
 /* v1.0.4: Grow to 95vw as viewport shrinks */
@@ -62,6 +65,7 @@
 
 .content-pane--narrow {
   max-width: 500px;
+  box-sizing: border-box; /* Include padding in width calculation */
 }
 
 /* For full-page overlays */
@@ -190,6 +194,16 @@
 /* Body section */
 .card-body {
   color: var(--text-secondary);
+  /* Ensure last element has bottom spacing for scrollability */
+  padding-bottom: var(--space-xs);
+}
+
+/* Ensure sections inside content-pane have proper bottom spacing for scrollability */
+.content-pane .divider:last-child,
+.content-pane .achievements-section:last-child,
+.content-pane .challenges-section:last-child,
+.content-pane .scrollable-list:last-child {
+  margin-bottom: var(--space-md);
 }
 
 /* SelectOpponentPage-specific: Make card-body scrollable, leaving header and action-section visible */

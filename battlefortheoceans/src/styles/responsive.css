@@ -6,6 +6,11 @@
    TABLET BREAKPOINTS (768px and below)
    ============================================ */
 
+/* Desktop: Start content at top instead of centering vertically */
+.container.flex.flex-column.flex-center {
+  justify-content: flex-start;
+}
+
 @media (max-width: 768px) {
   /* Override conflicting rule from modal-overlay.css that adds 60px padding-top */
   .container.flex.flex-column.flex-center {

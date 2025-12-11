@@ -115,6 +115,16 @@
   border-bottom: 2px solid var(--primary);
   z-index: 100;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  overflow-x: auto; /* Allow horizontal scrolling when content exceeds width */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+/* Override overflow clipping for dropdown menus - they use fixed positioning */
+.nav-bar__user .action-menu {
+  position: fixed !important;
+  z-index: 10000 !important; /* Ensure menu appears above all content */
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 .nav-bar__container {
@@ -125,6 +135,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 2rem;
+  min-width: min-content; /* Allow container to shrink below max-width if needed */
+  overflow-y: visible; /* Allow dropdown menus to escape vertical bounds */
 }
 
 .nav-bar__logo {
@@ -134,6 +146,7 @@
   color: var(--primary);
   text-shadow: 0 0 10px var(--primary-glow, rgba(0, 217, 255, 0.5));
   white-space: nowrap;
+  flex-shrink: 0; /* Prevent logo from shrinking */
 }
 
 .nav-bar__links {
@@ -141,14 +154,32 @@
   gap: 1rem;
   flex: 1;
   justify-content: center;
+  min-width: 0; /* Allow flex item to shrink if needed */
+  flex-wrap: nowrap; /* Prevent buttons from wrapping to new line */
+}
+
+.nav-bar__links .btn {
+  white-space: nowrap; /* Prevent button text from wrapping */
+  flex-shrink: 0; /* Prevent buttons from shrinking */
 }
 
 .nav-bar__user {
   display: flex;
-  position: relative;
+  position: static; /* Changed from relative - allows menu to escape overflow context */
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0; /* Prevent user section from compressing */
+  white-space: nowrap; /* Prevent username from wrapping */
+  z-index: 102; /* Higher z-index to ensure dropdown appears above nav-bar */
 }
+
+/* Menu button wrapper needs to be relative for absolute positioning of menu */
+.nav-bar__user > .btn {
+  position: relative;
+}
+
+/* Ensure dropdown menu escapes overflow clipping */
+/* Note: Menu uses fixed positioning with z-index 9999 (set in game-ui.css) */
 
 .nav-bar__username {
   font-family: var(--font-body);

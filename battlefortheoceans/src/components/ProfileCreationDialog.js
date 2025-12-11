@@ -251,12 +251,10 @@ const ProfileCreationDialog = ({ userData, onComplete }) => {
   if (isLoading && !existingProfile) {
     return (
       <div className="modal-overlay">
-        <div className="card">
-          <div className="card-body">
-            <div className="loading">
-              <div className="spinner spinner--lg"></div>
-              <p>Checking your profile...</p>
-            </div>
+        <div className="content-pane">
+          <div className="loading">
+            <div className="spinner spinner--lg"></div>
+            <p>Checking your profile...</p>
           </div>
         </div>
       </div>

@@ -245,15 +245,27 @@ class HitOverlayRenderer {
         return;
       }
       
-      // Validate start position
-      if (!torpedoPath.start || torpedoPath.start.row === undefined || torpedoPath.start.col === undefined) {
+      // Validate start position - use first cell from path array if available, otherwise use torpedoPath.start
+      let startCell;
+      if (torpedoPath.path && torpedoPath.path.length > 0) {
+        // Use first cell from path array (should be the bow position)
+        startCell = torpedoPath.path[0];
+      } else if (torpedoPath.start) {
+        // Fallback to torpedoPath.start
+        startCell = torpedoPath.start;
+      } else {
         console.warn('[OVERLAY]', version, 'drawTorpedoEffect: Invalid start position', torpedoPath);
         return;
       }
       
+      if (!startCell || startCell.row === undefined || startCell.col === undefined) {
+        console.warn('[OVERLAY]', version, 'drawTorpedoEffect: Invalid start cell', { startCell, torpedoPath });
+        return;
+      }
+      
       // Calculate start and end positions
-      const startX = offsetX + labelSize + (torpedoPath.start.col * cellSize) + (cellSize / 2);
-      const startY = offsetY + labelSize + (torpedoPath.start.row * cellSize) + (cellSize / 2);
+      const startX = offsetX + labelSize + (startCell.col * cellSize) + (cellSize / 2);
+      const startY = offsetY + labelSize + (startCell.row * cellSize) + (cellSize / 2);
       const endX = offsetX + labelSize + (endCell.col * cellSize) + (cellSize / 2);
       const endY = offsetY + labelSize + (endCell.row * cellSize) + (cellSize / 2);
       

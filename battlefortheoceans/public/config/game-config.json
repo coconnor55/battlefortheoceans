@@ -1,5 +1,5 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "game_name": "Battleship",
   "system_messages": {
     "turn": "Turn {turn}: {player}'s turn",
