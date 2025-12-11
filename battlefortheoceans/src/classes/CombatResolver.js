@@ -14,6 +14,8 @@
 //         - isValidAttack() - coordinate validation
 //         - Reduces Game.js by ~300 lines
 
+import MessageHelper from '../utils/MessageHelper';
+
 const version = "v0.1.2";
 
 /**
@@ -104,7 +106,7 @@ class CombatResolver {
       return result;
     }
 
-    const cellName = `${String.fromCharCode(65 + col)}${row + 1}`;
+    const cellName = MessageHelper.formatCell(row, col);
     
     // Find all targets at this cell (multi-fleet support)
     const liveTargets = [];

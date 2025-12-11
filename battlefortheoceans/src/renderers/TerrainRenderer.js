@@ -1,8 +1,10 @@
 // src/renderers/TerrainRenderer.js
 // Copyright(c) 2025, Clint H. O'Connor
-// v0.1.1: Store eraConfig and gameBoard in constructor to avoid passing through render loop
+// v0.1.2: Added Excel-style column labels (A-Z, AA, AB, AC, ...)
 
-const version = 'v0.1.1';
+import MessageHelper from '../utils/MessageHelper';
+
+const version = 'v0.1.2';
 
 class TerrainRenderer {
   constructor() {
@@ -64,9 +66,9 @@ class TerrainRenderer {
         terrainCtx.fillText(text, x, y);
       }
 
-      // Draw column labels
+      // Draw column labels (Excel-style: A, B, ..., Z, AA, AB, AC, ...)
       for (let col = 0; col < this.eraConfig.cols; col++) {
-        const letter = String.fromCharCode(65 + col);
+        const letter = MessageHelper.colToExcelLetters(col);
         const x = offsetX + col * cellSize + labelSize + cellSize / 2;
         const y = offsetY + labelSize / 2 + 4;
         

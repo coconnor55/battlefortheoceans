@@ -67,13 +67,31 @@ class MessageHelper {
   }
 
   /**
-   * Format a cell coordinate as a readable string (e.g., "A1", "J10")
+   * Convert column number to Excel-style column letters (A, B, ..., Z, AA, AB, AC, ...)
+   * @param {number} col - Column number (0-based)
+   * @returns {string} - Excel-style column letters
+   */
+  static colToExcelLetters(col) {
+    let result = '';
+    col++; // Convert to 1-based for calculation (Excel columns are 1-based: A=1, B=2, ...)
+    
+    while (col > 0) {
+      col--; // Adjust to 0-based for modulo (A=0, B=1, ..., Z=25)
+      result = String.fromCharCode(65 + (col % 26)) + result;
+      col = Math.floor(col / 26);
+    }
+    
+    return result;
+  }
+
+  /**
+   * Format a cell coordinate as a readable string (e.g., "A1", "J10", "AA1")
    * @param {number} row - Row number (0-based)
    * @param {number} col - Column number (0-based)
    * @returns {string} - Formatted cell reference
    */
   static formatCell(row, col) {
-    const letter = String.fromCharCode(65 + col); // Convert to A, B, C, etc.
+    const letter = this.colToExcelLetters(col); // Convert to Excel-style: A, B, ..., Z, AA, AB, AC, ...
     const number = row + 1; // Convert to 1-based numbering
     return `${letter}${number}`;
   }
