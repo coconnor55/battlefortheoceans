@@ -1,5 +1,8 @@
 // src/engines/CoreEngine.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.49: Fixed key data error appearing during logout
+//          - handleKeyDataError now skips error if player is null (planned logout)
+//          - handleEvent_launch clears keyDataError if this is a logout scenario
 // v0.6.48: Fixed alliance persistence bug when navigating back to era selection
 //          - handleEvent_era() now clears selectedAlliance and selectedOpponents
 //          - Prevents alliance from one era carrying over to another era
@@ -92,7 +95,7 @@ import ConfigLoader, { isNetworkError } from '../utils/ConfigLoader';
 import { retryWithBackoff, isNetworkErrorForRetry } from '../utils/retryWithBackoff';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.6.48';
+const version = 'v0.6.49';
 const tag = "CORE";
 const module = "CoreEngine";
 let method = "";
@@ -408,7 +411,13 @@ class CoreEngine {
       // Launch prefetches some data, known for the life of the session:
       // coreEngine.gameConfig
       
-    // Don't clear keyDataError here - let it persist so LaunchPage can display it
+    // Clear keyDataError if this is a logout (player is null)
+    // During logout, key data is intentionally cleared, so don't show error message
+    if (!this.player && this.keyDataError) {
+      this.keyDataError = null;
+      this.log('Cleared keyDataError - this is a logout, not an error');
+    }
+    // Otherwise, don't clear keyDataError here - let it persist so LaunchPage can display it
     // It will be cleared when user clicks "Play Game" button in LaunchPage
     
     // Reset network error handling flag when entering launch state
@@ -427,6 +436,15 @@ class CoreEngine {
    */
   handleKeyDataError(stateName, errorMessage) {
     method = 'handleKeyDataError';
+    
+    // Skip if this is a planned logout (player is null)
+    // During logout, key data is intentionally cleared, so this is not an error
+    // Launch page also doesn't require player data, so missing player there is expected
+    if (!this.player) {
+      this.log('Key data check with no player - skipping error (expected during logout or on launch page)');
+      return;
+    }
+    
     this.logwarn(`Key data lost in ${stateName}: ${errorMessage}`);
     
     // Save error message - use simple, non-technical message for players

@@ -101,6 +101,8 @@ const SelectEraPage = () => {
 
     // Rights and GetAccessPage state
     const [showGetAccessPage, setShowGetAccessPage] = useState(false);
+    const [showGuestSignupPrompt, setShowGuestSignupPrompt] = useState(false);
+    const [guestPromptEra, setGuestPromptEra] = useState(null);
 
     // Key data - see CoreEngine handle{state}
     const gameConfig = coreEngine.gameConfig;
@@ -188,9 +190,10 @@ const SelectEraPage = () => {
         if (!badgeInfo.canPlay) {
             // Era is locked
             if (isGuest) {
-                // Guest users should not see GetAccessPage - just show the message
-                log(`Era locked for guest user - showing message only:`, era.id);
-                // Don't open GetAccessPage for guest users
+                // Guest users should see signup prompt instead of GetAccessPage
+                log(`Era locked for guest user - showing signup prompt:`, era.id);
+                setGuestPromptEra(era);
+                setShowGuestSignupPrompt(true);
                 return;
             } else {
                 // Registered users can see GetAccessPage
@@ -467,6 +470,50 @@ const SelectEraPage = () => {
             </div>
         </div>
       </div>
+
+      {/* Guest Signup Prompt Modal */}
+      {showGuestSignupPrompt && guestPromptEra && (
+        <div className="modal-overlay">
+          <div className="content-pane content-pane--narrow">
+            <div className="card-header">
+              <h2 className="card-title">Account Required</h2>
+            </div>
+            <div className="card-body">
+              <p>
+                {guestPromptEra.exclusive
+                  ? `${guestPromptEra.name} requires vouchers, which are only available to registered players.`
+                  : guestPromptEra.passes_required > 0
+                  ? `${guestPromptEra.name} requires passes, which are only available to registered players.`
+                  : `${guestPromptEra.name} requires access, which is only available to registered players.`}
+              </p>
+              <p className="mt-md">
+                <button
+                  className="btn btn--primary"
+                  onClick={() => {
+                    const loginUrl = new URL(window.location.origin + '/login');
+                    loginUrl.searchParams.set('signup', 'true');
+                    window.location.href = loginUrl.toString();
+                  }}
+                >
+                  Create Account
+                </button>
+                {' '}to access this era and start earning achievements!
+              </p>
+            </div>
+            <div className="card-footer">
+              <button
+                className="btn btn--secondary"
+                onClick={() => {
+                  setShowGuestSignupPrompt(false);
+                  setGuestPromptEra(null);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Get Access Page Modal - Only show for registered users */}
       {showGetAccessPage && !isGuest && (

@@ -1,5 +1,8 @@
 // src/utils/NavigationManager.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.3: Fixed query parameter preservation in initializeFromURL()
+//         - Now preserves query parameters when initializing from URL
+//         - Fixes issue where signup=true parameter was being stripped
 // v0.1.1: Fixed browser navigation and page refresh using restoreToState()
 //         - initializeFromURL() now calls restoreToState() instead of setCurrentState()
 //         - Fixes page refresh bug where state handlers didn't run
@@ -16,7 +19,7 @@
 //         - Browser popstate event listener setup
 //         - Reduces CoreEngine by ~200 lines
 
-const version = "v0.1.2";
+const version = "v0.1.3";
 const tag = "NAVIGATION";
 const module = "NavigationManager";
 let method = "";
@@ -108,11 +111,21 @@ class NavigationManager {
     await this.coreEngine.restoreToState(targetState);
     
     // Replace history state (don't push, we're already here)
+    // Preserve query parameters from current URL
     if (window.history) {
+      const route = this.stateToRoute[targetState] || '/';
+      const currentUrl = new URL(window.location.href);
+      const newUrl = new URL(route, window.location.origin);
+      
+      // Preserve existing query parameters
+      currentUrl.searchParams.forEach((value, key) => {
+        newUrl.searchParams.set(key, value);
+      });
+      
       window.history.replaceState(
         { state: targetState, timestamp: Date.now() },
         '',
-        this.stateToRoute[targetState] || '/'
+        newUrl.pathname + newUrl.search
       );
     }
   }

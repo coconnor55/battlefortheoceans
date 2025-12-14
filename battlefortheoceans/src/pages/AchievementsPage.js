@@ -208,13 +208,19 @@ const AchievementsPage = ({ onClose, scrollPosition }) => {
   };
 
   const handleGuestSignup = () => {
-    console.log(version, 'Guest requesting signup - setting URL parameter');
+    method = 'handleGuestSignup';
+    log('Guest requesting signup - navigating to login page with signup parameter');
     
-    const currentUrl = new URL(window.location);
-    currentUrl.searchParams.set('signup', 'true');
-    window.history.replaceState({}, '', currentUrl);
+    // Close the achievements overlay first
+    if (onClose) {
+      onClose();
+    }
     
-    dispatch(events.LOGIN);
+    // Use window.location.href for full page navigation to avoid state transition issues
+    // This will cause a page reload and LoginPage will detect the signup parameter
+    const loginUrl = new URL(window.location.origin + '/login');
+    loginUrl.searchParams.set('signup', 'true');
+    window.location.href = loginUrl.toString();
   };
 
   if (!playerProfile) {
