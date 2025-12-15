@@ -43,6 +43,7 @@ const LoginDialog = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
   const [mode, setMode] = useState(showSignup ? 'signup' : 'login');
   const [loginAttempted, setLoginAttempted] = useState(false);
@@ -116,6 +117,7 @@ const LoginDialog = ({
     
     log(`Attempting user login with email: ${email}`);
     setLoginAttempted(true);
+    setSuccessMessage(null);
     
     const { error, data } = await supabase.auth.signInWithPassword({ email, password });
     
@@ -129,6 +131,7 @@ const LoginDialog = ({
       } else {
         setError(error.message);
       }
+      setSuccessMessage(null);
       return;
     }
     
@@ -196,6 +199,7 @@ const LoginDialog = ({
   const handleSignUp = async (e) => {
     method = 'handleSignUp';
     e.preventDefault();
+    setSuccessMessage(null);
     if (!email || !password) {
       setError('Email and password are required');
       return;
@@ -232,11 +236,13 @@ const LoginDialog = ({
         log(`User already exists: ${email}`);
         setError('This email is already registered. Would you like to login instead?');
         setUserAlreadyExists(true);
+        setSuccessMessage(null);
         return;
       }
       
       logerror(`Sign-up error for ${email}:`, error);
       setError(error.message);
+      setSuccessMessage(null);
     } else {
       log(`Sign-up successful, user: ${data.user.id}, email: ${email}`);
       console.log(`[LOGIN] Sign-up data:`, data);
@@ -260,6 +266,7 @@ const LoginDialog = ({
   const handleForgotPassword = async (e) => {
     method = 'handleForgotPassword';
     e.preventDefault();
+    setSuccessMessage(null);
     if (!email) {
       setError('Please enter your email address');
       return;
@@ -269,8 +276,8 @@ const LoginDialog = ({
                          window.location.hostname === 'www.battlefortheoceans.com';
     
     const redirectUrl = isProduction
-      ? 'https://battlefortheoceans.com'
-      : window.location.origin;
+      ? 'https://battlefortheoceans.com/reset-password'
+      : `${window.location.origin}/reset-password`;
     
     log(`Forgot password redirect URL: ${redirectUrl}`);
     
@@ -280,8 +287,10 @@ const LoginDialog = ({
     
     if (error) {
       setError(error.message);
+      setSuccessMessage(null);
     } else {
-      setError('Password reset email sent. Please check your inbox.');
+      setError(null);
+      setSuccessMessage('Password reset email sent. Please check your inbox.');
     }
   };
 
@@ -324,6 +333,7 @@ const LoginDialog = ({
 
   const handleResendConfirmation = async () => {
     method = 'handleResendConfirmation';
+    setSuccessMessage(null);
     if (!email) {
       setError('Please enter your email address first');
       return;
@@ -336,8 +346,10 @@ const LoginDialog = ({
     
     if (error) {
       setError(error.message);
+      setSuccessMessage(null);
     } else {
-      setError('Confirmation email resent. Please check your inbox.');
+      setError(null);
+      setSuccessMessage('Confirmation email resent. Please check your inbox.');
     }
   };
 
@@ -346,6 +358,7 @@ const LoginDialog = ({
     setPendingConfirmation(false);
     setMode('login');
     setError(null);
+    setSuccessMessage(null);
   };
 
   const togglePasswordVisibility = () => {
@@ -355,6 +368,7 @@ const LoginDialog = ({
   const switchToSignup = () => {
     setMode('signup');
     setError(null);
+    setSuccessMessage(null);
     setLoginAttempted(false);
     setUserAlreadyExists(false);
   };
@@ -362,12 +376,14 @@ const LoginDialog = ({
   const switchToLogin = () => {
     setMode('login');
     setError(null);
+    setSuccessMessage(null);
     setUserAlreadyExists(false);
   };
 
   const switchToForgot = () => {
     setMode('forgot');
     setError(null);
+    setSuccessMessage(null);
     setUserAlreadyExists(false);
   };
 
@@ -387,6 +403,7 @@ const LoginDialog = ({
           </p>
         </div>
         {error && <p className="message message--error">{error}</p>}
+        {successMessage && <p className="message message--success">{successMessage}</p>}
         <div className="confirmation-actions">
           <button className="btn btn--secondary" onClick={handleResendConfirmation}>
             Resend Confirmation Email
@@ -412,6 +429,12 @@ const LoginDialog = ({
       {error && (
         <div className="error-section">
           <p className="message message--error">{error}</p>
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="error-section">
+          <p className="message message--success">{successMessage}</p>
         </div>
       )}
       

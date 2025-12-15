@@ -1,10 +1,14 @@
 // src/pages/ResetPasswordPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.0: Updated styling to use container and content-pane pattern
+//         - Changed from page-base/page-content/content-frame to container/content-pane
+//         - Updated button classes to match other pages (btn--primary, btn--lg)
+//         - Added green styling for success message
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.1.1';
+const version = 'v0.2.0';
 
 const ResetPasswordPage = () => {
   const [newPassword, setNewPassword] = useState('');
@@ -115,24 +119,24 @@ const ResetPasswordPage = () => {
 
   if (success) {
     return (
-      <div className="page-base">
-        <div className="page-content">
-          <div className="content-frame">
-            <div className="reset-success">
-              <div className="page-header">
-                <h2>Password Reset Successful!</h2>
-              </div>
-              <div className="success-message">
-                <p>Your password has been updated successfully.</p>
-                <p>You can now log in with your new password.</p>
-              </div>
-              <button
-                className="btn btn-primary btn-large"
-                onClick={handleBackToLogin}
-              >
-                Go to Login
-              </button>
-            </div>
+      <div className="container flex flex-column flex-center">
+        <div className="content-pane content-pane--narrow">
+          <div className="card-header">
+            <h2 className="card-title" style={{ color: 'var(--success)' }}>Password Reset Successful!</h2>
+          </div>
+          <div className="card-body">
+            <p className="message message--success" style={{ marginBottom: 'var(--space-md)' }}>
+              Your password has been updated successfully.
+            </p>
+            <p>You can now log in with your new password.</p>
+          </div>
+          <div className="card-footer">
+            <button
+              className="btn btn--primary btn--lg"
+              onClick={handleBackToLogin}
+            >
+              Go to Login
+            </button>
           </div>
         </div>
       </div>
@@ -141,24 +145,27 @@ const ResetPasswordPage = () => {
 
   if (!hasValidTokens) {
     return (
-      <div className="page-base">
-        <div className="page-content">
-          <div className="content-frame">
-            <div className="reset-error">
-              <div className="page-header">
-                <h2>Invalid Reset Link</h2>
-              </div>
-              <div className="error-message">
-                <p>{error || 'This password reset link is invalid or has expired.'}</p>
+      <div className="container flex flex-column flex-center">
+        <div className="content-pane content-pane--narrow">
+          <div className="card-header">
+            <h2 className="card-title">Invalid Reset Link</h2>
+          </div>
+          <div className="card-body">
+            {error && <p className="message message--error">{error}</p>}
+            {!error && (
+              <>
+                <p>This password reset link is invalid or has expired.</p>
                 <p>Please request a new password reset from the login page.</p>
-              </div>
-              <button
-                className="btn btn-primary btn-large"
-                onClick={handleBackToLogin}
-              >
-                Back to Login
-              </button>
-            </div>
+              </>
+            )}
+          </div>
+          <div className="card-footer">
+            <button
+              className="btn btn--primary btn--lg"
+              onClick={handleBackToLogin}
+            >
+              Back to Login
+            </button>
           </div>
         </div>
       </div>
@@ -166,85 +173,83 @@ const ResetPasswordPage = () => {
   }
 
   return (
-    <div className="page-base">
-      <div className="page-content">
-        <div className="content-frame">
-          <div className="reset-password-form">
-            <div className="page-header">
-              <h2>Set New Password</h2>
-              <p>Enter your new password below</p>
+    <div className="container flex flex-column flex-center">
+      <div className="content-pane content-pane--narrow">
+        <div className="card-header">
+          <h2 className="card-title">Set New Password</h2>
+          <p className="card-subtitle">Enter your new password below</p>
+        </div>
+
+        <div className="card-body">
+          {error && (
+            <div className="message message--error">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handlePasswordReset}>
+            <div className="form-group password-group">
+              <label htmlFor="newPassword">New Password</label>
+              <input
+                id="newPassword"
+                className="input input-primary"
+                type={showPassword ? 'text' : 'password'}
+                name="new-password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                minLength={6}
+                required
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={togglePasswordVisibility}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                disabled={isLoading}
+              >
+                {showPassword ? '👁️' : '🙈'}
+              </button>
             </div>
 
-            {error && (
-              <div className="error-message">
-                {error}
-              </div>
-            )}
+            <div className="form-group">
+              <label htmlFor="confirmPassword">Confirm New Password</label>
+              <input
+                id="confirmPassword"
+                className="input input-primary"
+                type={showPassword ? 'text' : 'password'}
+                name="confirm-password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                minLength={6}
+                required
+                disabled={isLoading}
+              />
+            </div>
 
-            <form onSubmit={handlePasswordReset}>
-              <div className="form-group password-group">
-                <label htmlFor="newPassword">New Password</label>
-                <input
-                  id="newPassword"
-                  className="input input-primary"
-                  type={showPassword ? 'text' : 'password'}
-                  name="new-password"
-                  autoComplete="new-password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                  minLength={6}
-                  required
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={togglePasswordVisibility}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  disabled={isLoading}
-                >
-                  {showPassword ? '👁️' : '🙈'}
-                </button>
-              </div>
+            <div className="form-actions">
+              <button
+                className="btn btn--primary btn--lg"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Updating Password...' : 'Update Password'}
+              </button>
 
-              <div className="form-group">
-                <label htmlFor="confirmPassword">Confirm New Password</label>
-                <input
-                  id="confirmPassword"
-                  className="input input-primary"
-                  type={showPassword ? 'text' : 'password'}
-                  name="confirm-password"
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  minLength={6}
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-
-              <div className="form-actions">
-                <button
-                  className="btn btn-primary btn-large"
-                  type="submit"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Updating Password...' : 'Update Password'}
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={handleBackToLogin}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={handleBackToLogin}
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
