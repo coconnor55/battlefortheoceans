@@ -37,7 +37,8 @@ const LoginDialog = ({
   onClose,
   onContinue,
   onLogout,
-  showSignup = false
+  showSignup = false,
+  showForgot = false
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,7 +46,7 @@ const LoginDialog = ({
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
-  const [mode, setMode] = useState(showSignup ? 'signup' : 'login');
+  const [mode, setMode] = useState(showSignup ? 'signup' : (showForgot ? 'forgot' : 'login'));
   const [loginAttempted, setLoginAttempted] = useState(false);
   const [userAlreadyExists, setUserAlreadyExists] = useState(false);
 
@@ -65,8 +66,10 @@ const LoginDialog = ({
   useEffect(() => {
     if (showSignup && !existingProfile) {
       setMode('signup');
+    } else if (showForgot) {
+      setMode('forgot');
     }
-  }, [showSignup, existingProfile]);
+  }, [showSignup, showForgot, existingProfile]);
 
   // WELCOME BACK MODE - Returning user with profile
   if (existingUser && existingProfile) {

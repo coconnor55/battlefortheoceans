@@ -59,6 +59,7 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showSignup, setShowSignup] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
 
   // Check if user already authenticated (from email confirmation or existing session)
   useEffect(() => {
@@ -142,11 +143,14 @@ const LoginPage = () => {
     checkExistingAuth();
   }, [getPlayerProfile]);
 
-  // Check for showSignup flag in URL
+  // Check for showSignup or forgot flag in URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('signup') === 'true') {
       setShowSignup(true);
+    }
+    if (urlParams.get('forgot') === 'true') {
+      setShowForgot(true);
     }
   }, []);
   
@@ -389,6 +393,7 @@ const LoginPage = () => {
             onContinue={handleContinue}
             onLogout={handleLogout}
             showSignup={showSignup}
+            showForgot={showForgot}
           />
           {error && (
             <div className="content-pane content-pane--narrow mt-md">

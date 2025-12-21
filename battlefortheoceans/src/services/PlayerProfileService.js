@@ -415,11 +415,10 @@ class PlayerProfileService {
             .eq('player_id', playerId);
 
           if (rightsError) throw rightsError;
-            this.log('Reset user_rights');
+          this.log('Reset user_rights');
 
           this.log('Reset progress for player:', playerId);
-          return true;        this.log('Reset progress for player:', playerId);
-        return true;
+          return true;
 
       } catch (error) {
         this.logerror('Error resetting progress:', error);

@@ -1,5 +1,8 @@
 // src/pages/ResetPasswordPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.1: Added "Request New Reset Link" button to error state
+//         - Navigates to login page with forgot=true parameter
+//         - Updated LoginPage and LoginDialog to support showForgot prop
 // v0.2.0: Updated styling to use container and content-pane pattern
 //         - Changed from page-base/page-content/content-frame to container/content-pane
 //         - Updated button classes to match other pages (btn--primary, btn--lg)
@@ -8,7 +11,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
-const version = 'v0.2.0';
+const version = 'v0.2.1';
 
 const ResetPasswordPage = () => {
   const [newPassword, setNewPassword] = useState('');
@@ -117,6 +120,11 @@ const ResetPasswordPage = () => {
     window.location.href = '/';
   };
 
+  const handleRequestNewResetLink = () => {
+    // Navigate to login page with forgot password mode
+    window.location.href = '/login?forgot=true';
+  };
+
   if (success) {
     return (
       <div className="container flex flex-column flex-center">
@@ -162,7 +170,14 @@ const ResetPasswordPage = () => {
           <div className="card-footer">
             <button
               className="btn btn--primary btn--lg"
+              onClick={handleRequestNewResetLink}
+            >
+              Request New Reset Link
+            </button>
+            <button
+              className="btn btn--secondary"
               onClick={handleBackToLogin}
+              style={{ marginTop: 'var(--space-sm)' }}
             >
               Back to Login
             </button>
