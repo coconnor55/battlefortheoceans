@@ -1,6 +1,14 @@
-# Getting Started with Create React App
+# Battle for the Oceans
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Naval strategy game (React + Supabase). Play by era (Traditional, Midway, Pirates, etc.), manage passes and vouchers, track stats and achievements.
+
+## Quick start
+
+- **Run locally:** `npm start` → [http://localhost:3000](http://localhost:3000)
+- **Tests:** `npm test`
+- **Production build:** `npm run build` → output in `build/`
+
+Optional env: `REACT_APP_GAME_CDN` for asset CDN base URL. See [DEPLOYMENT.md](DEPLOYMENT.md) for Netlify and CDN setup.
 
 ## Available Scripts
 
@@ -27,7 +35,7 @@ It correctly bundles React in production mode and optimizes the build for the be
 The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for this project’s deployment guide.
 
 ### `npm run eject`
 

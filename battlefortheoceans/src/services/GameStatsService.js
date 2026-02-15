@@ -8,10 +8,8 @@
 //           Even with 1000 active players @ 10 games/day = 3.65M/year
 //           Well within Pro tier limits for many years
 // v0.3.5: Refactored for PlayerProfile architecture
-//         - Added insertGameResult() method for game_results table only
-//         - Updated logging to match new pattern (tag, module, method)
-//         - updateGameStats() marked as DEPRECATED (use PlayerProfile.applyGameResults + insertGameResult)
-//         - Removed duplicate profile update logic (now handled by PlayerProfile class)
+//         - insertGameResults() for game_results; profile updates via PlayerProfile.applyGameResults + PlayerProfileService.save
+//         - Removed updateGameStats() and recordGameCompletion() (use applyGameResults + save + insertGameResults)
 // v0.3.4: Three new stats: total_damage, eras_played, eras_won
 // v0.3.3: Export singleton instance instead of class
 //         - Matches pattern of PlayerProfileService, RightsService, AchievementService
@@ -135,106 +133,6 @@ class GameStatsService {
   }
 
   /**
-   * DEPRECATED: Use PlayerProfile.applyGameResults() + PlayerProfileService.save() + insertGameResult()
-   *
-   * Update game statistics after game completion
-   * This method is kept for backward compatibility but should not be used in new code
-   */
-  async updateGameStats(playerProfile, gameResults) {
-    method = 'updateGameStats';
-    
-    if (!playerProfile || !gameResults) {
-      this.logerror('Cannot update stats without profile and results');
-      return false;
-    }
-
-    try {
-      this.log('DEPRECATED METHOD - use PlayerProfile.applyGameResults() instead');
-      this.log('Updating game stats:', gameResults);
-
-      const playerId = playerProfile?.id;
-        
-      // Track unique eras played and won for achievements
-      const { data: existingStats } = await supabase
-        .from('user_profiles')
-        .select('eras_played, eras_won')
-        .eq('id', playerId)
-        .single();
-
-      const erasPlayed = new Set(existingStats?.eras_played || []);
-      erasPlayed.add(gameResults.era_id);
-
-      const erasWon = new Set(existingStats?.eras_won || []);
-      if (gameResults.won) {
-        erasWon.add(gameResults.era_id);
-      }
-      
-      // Calculate new totals - ROUND score to integer to match database schema
-      const newTotalGames = playerProfile.total_games + 1;
-      const newTotalWins = playerProfile.total_wins + (gameResults.won ? 1 : 0);
-      const newTotalScore = playerProfile.total_score + Math.round(gameResults.score);
-      const newBestAccuracy = Math.max(playerProfile.best_accuracy || 0, gameResults.accuracy);
-      const newTotalShipsSunk = (playerProfile.total_ships_sunk || 0) + gameResults.ships_sunk;
-      const newTotalDamage = (playerProfile.total_damage || 0) + gameResults.hits_damage;
-
-      // Update user_profiles table
-      const { data: updatedProfile, error: profileError } = await supabase
-        .from('user_profiles')
-        .update({
-          total_games: newTotalGames,
-          total_wins: newTotalWins,
-          total_score: newTotalScore,
-          best_accuracy: newBestAccuracy,
-          total_ships_sunk: newTotalShipsSunk,
-          total_damage: newTotalDamage,
-          eras_played: Array.from(erasPlayed),
-          eras_won: Array.from(erasWon),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', playerId)
-        .select()
-        .single();
-        
-      if (profileError) {
-        this.logerror('Error updating profile stats:', profileError);
-        return false;
-      }
-
-      // Insert game result record
-      const { error: resultError } = await supabase
-        .from('game_results')
-        .insert([{
-          player_id: playerId,
-          era_name: gameResults.era_name,
-          opponent_type: gameResults.opponent_type,
-          opponent_name: gameResults.opponent_name,
-          won: gameResults.won,
-          shots: gameResults.shots,
-          hits: gameResults.hits,
-          misses: gameResults.misses,
-          sunk: gameResults.ships_sunk,
-          hits_damage: gameResults.hits_damage,
-          score: Math.round(gameResults.score),
-          accuracy: gameResults.accuracy,
-          turns: gameResults.turns,
-          duration_seconds: gameResults.duration_seconds
-        }]);
-
-      if (resultError) {
-        this.logerror('Error inserting game result:', resultError);
-        // Profile was updated, so don't return false
-      }
-
-      this.log('Game stats updated successfully');
-      return updatedProfile;
-
-    } catch (error) {
-      this.logerror('Failed to update game stats:', error);
-      return false;
-    }
-  }
-
-  /**
    * Get total games played across all players (from game_results table)
    * v0.3.1: Moved from LeaderboardService for better separation of concerns
    */
@@ -313,22 +211,6 @@ class GameStatsService {
     }
   }
 
-  /**
-   * DEPRECATED: Use PlayerProfile.applyGameResults() + PlayerProfileService.save() + insertGameResult()
-   * Record game completion (convenience method)
-   */
-  async recordGameCompletion(gameInstance, playerProfile, eraConfig, selectedOpponent) {
-    method = 'recordGameCompletion';
-    
-    const gameResults = this.calculateGameResults(gameInstance, eraConfig, selectedOpponent);
-    
-    if (!gameResults) {
-      this.logerror('Cannot record completion without valid game results');
-      return false;
-    }
-
-    return await this.updateGameStats(playerProfile, gameResults);
-  }
 }
 
 // Export singleton instance (not class)

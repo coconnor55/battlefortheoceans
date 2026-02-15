@@ -18,7 +18,6 @@
 
 import { useState, useEffect } from 'react';
 import { coreEngine, useGame } from '../context/GameContext';
-import { events } from '../constants/GameEvents';
 
 const version = 'v0.3.12';
 const tag = "LAUNCH";

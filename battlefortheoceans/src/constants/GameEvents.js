@@ -14,6 +14,8 @@ const version = "v0.1.0";
  * These trigger transitions between game states
  * Exported as constants to avoid circular dependencies
  */
+// CoreEngine uses its own this.events (same names). Components get events via useGame().events.
+// This file exists for LaunchPage and others that may import without loading CoreEngine.
 export const events = {
   LAUNCH: Symbol('LAUNCH'),
   LOGIN: Symbol('LOGIN'),
@@ -21,8 +23,7 @@ export const events = {
   SELECTOPPONENT: Symbol('SELECTOPPONENT'),
   PLACEMENT: Symbol('PLACEMENT'),
   PLAY: Symbol('PLAY'),
-  OVER: Symbol('OVER'),
-  ERA: Symbol('ERA')
+  OVER: Symbol('OVER')
 };
 
 console.log(`[GameEvents ${version}] Events constants loaded`);

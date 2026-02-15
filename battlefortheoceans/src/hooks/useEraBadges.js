@@ -2,6 +2,9 @@
 // Copyright(c) 2025, Clint H. O'Connor
 //
 // PURPOSE:
+// v0.1.3: Optimize guest badge generation - skip database queries for guests
+//         - Generate badges locally for guests (free vs locked)
+//         - Prevents unnecessary API calls and improves performance
 // v0.1.2: use erasMap size instead to fix React rendering issue
 // v0.1.1: Accept erasMap instead of eras array
 //         - Prevents render loop by using stable string dependency
@@ -18,7 +21,7 @@ import RightsService from '../services/RightsService';
 import Player from '../classes/Player';
 import { coreEngine } from '../context/GameContext';
 
-const version = 'v0.1.2';
+const version = 'v0.1.3';
 const tag = "BADGES";
 const module = "useEraBadges";
 let method = "";
@@ -78,6 +81,40 @@ export function useEraBadges(playerId, erasMap) {
       if (!playerId || !coreEngine.eras || coreEngine.eras.size === 0) {
           setEraBadges(new Map());
         setLoading(false);
+        return;
+      }
+
+      // Skip database queries for guest users - generate badges locally
+      if (Player.isGuest(playerId)) {
+        method = 'fetchBadges';
+        log('Guest user - generating badges locally without database query');
+        const guestBadgeMap = new Map();
+        
+        // Guests can only play free eras (no passes_required, not exclusive)
+        coreEngine.eras.forEach((eraConfig, eraId) => {
+          const isFree = !eraConfig.exclusive && (!eraConfig.passes_required || eraConfig.passes_required === 0);
+          if (isFree) {
+            guestBadgeMap.set(eraId, {
+              badge: 'FREE',
+              button: 'Play',
+              style: 'badge-free',
+              canPlay: true,
+              method: 'free'
+            });
+          } else {
+            guestBadgeMap.set(eraId, {
+              badge: 'Sign Up',
+              button: 'Sign Up',
+              style: 'badge-locked',
+              canPlay: false,
+              method: 'guest'
+            });
+          }
+        });
+        
+        setEraBadges(guestBadgeMap);
+        setLoading(false);
+        log(`Generated ${guestBadgeMap.size} guest badges`);
         return;
       }
 

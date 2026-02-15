@@ -1,6 +1,44 @@
 # Supabase Function Updates
 
-This directory contains SQL updates for Supabase database functions.
+This directory contains SQL updates for Supabase database functions and RLS (Row Level Security).
+
+## RLS policies
+
+### rls_policies.sql
+
+**Apply RLS and policies** for all app tables. Safe to re-run (uses `DROP POLICY IF EXISTS` before each `CREATE POLICY`).
+
+| Table | Policies |
+|-------|----------|
+| **game_results** | INSERT/SELECT/UPDATE/DELETE own rows; plus SELECT all (for leaderboard/recent champions). |
+| **user_rights** | SELECT, INSERT, DELETE own rows. No client UPDATE — use `consume_rights()` RPC. |
+| **user_profiles** | SELECT all (leaderboard), INSERT/UPDATE own row only. |
+| **user_achievements** | SELECT, INSERT, UPDATE, DELETE own rows (`player_id = auth.uid()`). |
+| **vouchers** | SELECT where created_by/redeemed_by = you or email_sent_to = JWT email; UPDATE unredeemed to set redeemed_by = you. Creation via `generate_voucher` RPC. |
+| **achievements** | SELECT only (reference table). |
+| **error_logs** | INSERT (with optional player_id); SELECT own rows only. |
+
+**Caveats:** Vouchers “sent to me” SELECT requires `email` in the JWT (Supabase Auth includes it by default). Game_results allows authenticated users to read all rows for leaderboard/recent champions.
+
+**How to apply:** Supabase Dashboard → SQL Editor → paste and run `rls_policies.sql`.
+
+### check_rls.sql
+
+**Verify RLS** without changing data. Shows RLS enabled per table, all policies, auth context, and policy counts for: `game_results`, `user_rights`, `user_profiles`, `user_achievements`, `vouchers`, `achievements`, `error_logs`. Optional commented blocks for testing INSERT/SELECT.
+
+**How to use:** Run in SQL Editor. Replace placeholder UUIDs in the optional test blocks if needed.
+
+**Expected policy counts** (after cleanup): game_results 5, user_rights 3, user_profiles 3, user_achievements 4, vouchers 2, achievements 1, error_logs 2. If you see higher counts, you have legacy/duplicate policies.
+
+### rls_cleanup_legacy.sql
+
+**Remove legacy/duplicate policies** so only the canonical set from `rls_policies.sql` remains. Run in SQL Editor; it drops any policy on those seven tables whose name is not in the canonical list. Then re-run `rls_policies.sql` so the intended policies exist. Use this if section 6 of `check_rls.sql` shows more than the expected counts above.
+
+### consume_rights.sql
+
+RPC that consumes uses from a `user_rights` row. Runs with `SECURITY DEFINER` so it bypasses RLS; it validates that the authenticated user owns the row before updating. Used for voucher and pass consumption after a game.
+
+---
 
 ## redeem_voucher_v2_update.sql
 

@@ -42,8 +42,7 @@ class PlayerProfile {
     this.created_at = data.created_at || null;
     this.updated_at = data.updated_at || null;
       
-      // log creation
-      this.log(module, ' initialized');
+      this.log('initialized');
   }
   
 

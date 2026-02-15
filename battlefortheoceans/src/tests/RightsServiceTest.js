@@ -143,15 +143,15 @@ const RightsServiceTest = ({ playerId, onComplete }) => {
         failed++;
       }
 
-      // TEST 6: Test backward compatibility (hasEraAccess)
-      addTest('Backward compatibility', 'running', 'Testing hasEraAccess()...');
+      // TEST 6: checkRights returns canPlay (replaces legacy hasEraAccess)
+      addTest('checkRights access', 'running', 'Testing checkRights() for era access...');
       try {
-        const hasAccess = await RightsService.hasEraAccess(playerId, 'traditional');
-        // Traditional is free, so might not have explicit right
-        addTest('Backward compatibility', 'success', `✅ hasEraAccess() still works: ${hasAccess}`);
+        const eraConfig = { id: 'traditional', name: 'Traditional', exclusive: false };
+        const access = await RightsService.checkRights(playerId, eraConfig);
+        addTest('checkRights access', 'success', `✅ checkRights canPlay: ${access.canPlay}`);
         passed++;
       } catch (error) {
-        addTest('Backward compatibility', 'error', `❌ ${error.message}`);
+        addTest('checkRights access', 'error', `❌ ${error.message}`);
         failed++;
       }
 

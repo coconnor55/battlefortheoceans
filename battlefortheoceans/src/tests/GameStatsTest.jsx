@@ -8,6 +8,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import GameStatsService from '../services/GameStatsService';
+import PlayerProfileService from '../services/PlayerProfileService';
+import PlayerProfile from '../classes/PlayerProfile';
 import ConfigLoader from '../utils/ConfigLoader';
 
 const version = 'v0.3.2';
@@ -169,17 +171,17 @@ const GameStatsTest = ({ playerId, onComplete }) => {
       const opponent = { name: 'AI Captain' };
 
       const gameResults = GameStatsService.calculateGameResults(mockGame, eraConfig, opponent);
-      
-      // Add era_id to gameResults
-      gameResults.era_id = 'traditional';
-
-      // Update using test user profile
-      const updateResult = await GameStatsService.updateGameStats(beforeProfile, gameResults);
-
-      if (!updateResult) {
-        log(`❌ updateGameStats returned false/null`, 'error');
+      if (!gameResults) {
+        log(`❌ calculateGameResults returned null`, 'error');
         return false;
       }
+      gameResults.era_id = 'traditional';
+
+      // New flow: applyGameResults on profile, save, then insert game result
+      const profile = new PlayerProfile(beforeProfile);
+      profile.applyGameResults(gameResults);
+      await PlayerProfileService.save(profile);
+      await GameStatsService.insertGameResults(playerId, gameResults);
 
       // Verify update by fetching again
       const { data: afterProfile, error: afterError } = await supabase

@@ -125,6 +125,8 @@ export const useGame = () => useContext(GameState);
 
 // Export context for direct use if needed
 export { GameState as GameContext };
+
+// Do not remove: TestSuite and other dev/test code import coreEngine directly for key data (gameConfig, player, playerProfile, etc.)
 export { coreEngine };
 
 // EOF
