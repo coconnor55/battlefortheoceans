@@ -1,6 +1,6 @@
 # Battle for the Oceans — Netlify → Spinney migration plan
 
-**Status:** Phase 0–2 complete (`http://spinney.local:3002`, app `2.2.6`). **P3.1–P3.3 complete** (Auth URLs, templates ready, hub menu live). Next: smoke §6.
+**Status:** Phase 0–4 decided. **P5.1 complete** (`ocw` `1.0.1`: shared retired owner + `/battlefortheoceans`). Next: **P5.2** — `gitpush` in `ocw`, then add domains on Vercel.
 **Written:** 2026-09-29, revised 2026-09-30 (Opus, high). Steps are for cheaper models unless tagged otherwise.
 **App folder:** `battlefortheoceans/battlefortheoceans/` (git root is one level up).
 **Supabase:** project `xrsfrllrmquucrftnymy` — already in use; not migrated, not replaced.
@@ -147,8 +147,9 @@ Then run the smoke matrix (§6) on Spinney. Phases 4–8 wait until it is green.
 
 **P4.1** Model: Human. Supabase → Authentication → Emails → SMTP Settings.
 
-- Custom SMTP **off** (Supabase built-in mail): nothing to do.
-- Custom SMTP **on with Brevo** (`smtp-relay.brevo.com`): shutting down Brevo in Phase 7 would break sign-up and password-reset emails. **Stop and decide** with the user: switch Supabase back to built-in mail (low hourly limit; fine for a household) or another SMTP provider. Re-run smoke items 3–4 after the change.
+- **Decision (2026-09-30): use Supabase built-in mail**, not Brevo. Custom SMTP **off**.
+- Household use is **guest play** — sign-up / password-reset email smokes (§6 items 3–4) are optional; built-in 2 emails/hour is enough if ever needed. Do not raise limits or add another SMTP provider for this migration.
+- If custom SMTP was on with Brevo: turn **Enable custom SMTP** off and Save.
 
 ### Phase 5 — `ocw` Retired page and menu (O1–O3)
 
@@ -244,8 +245,8 @@ On `http://spinney.local:3002`:
 
 1. Home loads; deep link `/reset-password` loads the app (SPA fallback). The Launch page shows `2.2.3` or later.
 2. Guest play: Traditional era, place ships, play to game over. Animations and sounds play. The engine firewall diff is empty.
-3. Sign up → confirmation email → link lands on Spinney → signed in.
-4. Password reset email → `/reset-password` on Spinney.
+3. Sign up → confirmation email → link lands on Spinney → signed in. **Optional for household** (guest play is enough; built-in mail is 2/hour).
+4. Password reset email → `/reset-password` on Spinney. **Optional for household** (same as 3).
 5. Stats and achievements saved after a finished game (Supabase rows).
 6. Guest can play Midway and Pirates without passes or vouchers (`PURCHASE_ENABLED=false`).
 7. No request to `js.stripe.com` or `/.netlify/functions/` (DevTools → Network); no purchase or invite controls visible, including the admin "Invite New Player" action.
