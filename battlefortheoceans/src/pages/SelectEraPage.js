@@ -1,5 +1,7 @@
 // src/pages/SelectEraPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.6.17: Play button trusts badge canPlay (D8 open access for guests on exclusive eras)
+//         - selectedEraCanPlay was re-checking exclusive/voucher and ignoring FREE badges
 // v0.6.16: Sort eras by order in era-list.json (same order as era-list.json)
 //         - Removed category grouping (free, passes, vouchers)
 //         - Eras now display in the exact order they appear in era-list.json
@@ -62,7 +64,7 @@ import GetAccessPage from './GetAccessPage';
 import { coreEngine, useGame } from '../context/GameContext';
 import configLoader from '../utils/ConfigLoader';
 
-const version = 'v0.6.14';
+const version = 'v0.6.17';
 const tag = "SELECTERA";
 const module = "SelectEraPage";
 let method = "";
@@ -328,26 +330,13 @@ const SelectEraPage = () => {
     
     const selectedEraBadgeInfo = selectedEraConfig ? eraBadges.get(selectedEraConfig.id) : null;
     const isPrivilegedRole = ['admin', 'developer', 'tester'].includes(playerRole);
+    // Trust RightsService badge canPlay (D8: purchases off → free for guests on exclusive eras).
+    // Keep development-era admin/dev/tester gate only.
     const selectedEraCanPlay = (() => {
         if (!selectedEraConfig) return false;
-        
-        const passesRequired = selectedEraConfig.passes_required || 0;
-        const isExclusiveEra = selectedEraConfig.exclusive === true;
         const isDevelopmentEra = selectedEraConfig.status === 'development';
         const devGateSatisfied = !isDevelopmentEra || isPrivilegedRole;
-        
-        const passesAvailable = selectedEraBadgeInfo?.method === 'purchase'
-            ? true
-            : passesRequired === 0
-                ? true
-                : passBalance >= passesRequired;
-        
-        const hasVoucherAccess = ['voucher', 'purchase'].includes(selectedEraBadgeInfo?.method);
-        
-        return devGateSatisfied && (
-            (!isExclusiveEra && passesAvailable) ||
-            (isExclusiveEra && hasVoucherAccess)
-        );
+        return devGateSatisfied && selectedEraBadgeInfo?.canPlay === true;
     })();
     
     const playButton = () => {

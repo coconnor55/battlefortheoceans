@@ -1,8 +1,13 @@
 // src/classes/Ship.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.4: Ship ids via uniqueId() — crypto.randomUUID missing on http://spinney.local
+//         Named firewall exception (LAN HTTP secure-context gap).
 
-const version = "v0.2.3";
+import { uniqueId } from '../utils/uniqueId';
+
+const version = "v0.2.4";
 /**
+ * v0.2.4: uniqueId() for ship ids (works on non-secure LAN origins)
  * v0.2.3: Torpedoes from era config
  * - Torpedoes now read from era config munitions.torpedoes instead of hardcoded
  * - Only submarines get torpedoes (based on class)
@@ -40,8 +45,7 @@ class Ship {
       throw new Error(`Ship ${name} missing required 'shipClass' parameter`);
     }
     
-    // Use crypto.randomUUID() for guaranteed uniqueness
-    this.id = `ship-${crypto.randomUUID()}`;
+    this.id = `ship-${uniqueId()}`;
     this.name = name;
     this.size = size;
     this.terrain = terrain; // allowed terrain types array

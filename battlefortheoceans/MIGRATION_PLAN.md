@@ -1,6 +1,6 @@
 # Battle for the Oceans — Netlify → Spinney migration plan
 
-**Status:** Phase 0 decided. **P1.1 complete** (2026-09-30). Next: Phase 2.
+**Status:** Phase 0 decided. **P1–P2 complete** (`http://spinney.local:3002`, app `2.2.6`). **P3.1 complete** (Supabase Auth URLs → Spinney). Next: P3.2–P3.3, then smoke §6.
 **Written:** 2026-09-29, revised 2026-09-30 (Opus, high). Steps are for cheaper models unless tagged otherwise.
 **App folder:** `battlefortheoceans/battlefortheoceans/` (git root is one level up).
 **Supabase:** project `xrsfrllrmquucrftnymy` — already in use; not migrated, not replaced.
@@ -37,7 +37,7 @@ Landing a step (commit / push) follows `/Users/clintoconnor/Documents/GitHub/mis
 - Do not touch `package.json` `version`.
 - Docs-only and deploy-script-only changes do not bump the app version.
 
-**Engine firewall.** No step may edit `src/classes/**`, `src/engines/**`, `src/handlers/**`, `src/renderers/**`, `src/context/**`, `src/hooks/**`, or `public/config/**` — except the `"version"` line in `game-config.json` and any exception a step names explicitly. Check at the end of every step:
+**Engine firewall.** No step may edit `src/classes/**`, `src/engines/**`, `src/handlers/**`, `src/renderers/**`, `src/context/**`, `src/hooks/**`, or `public/config/**` — except the `"version"` line in `game-config.json` and any exception a step names explicitly. **Named exceptions (2026-09-30):** `src/classes/Ship.js` may import `uniqueId()` (LAN HTTP); `src/hooks/useEraBadges.js` must use `RightsService` for guest badges so D8 open-access applies. Check at the end of every step:
 
 ```bash
 git diff -- battlefortheoceans/src/classes battlefortheoceans/src/engines battlefortheoceans/src/handlers battlefortheoceans/src/renderers battlefortheoceans/src/context battlefortheoceans/src/hooks battlefortheoceans/public/config
@@ -113,7 +113,7 @@ Check: `npm run build`; firewall diff shows only the two `game-config.json` hunk
 - `package.json`: add `serve` (exact version pin) to `dependencies`; add script `"deploy:household": "bash scripts/deploy-household.sh"`.
 - `deploy/launchd/com.household.battlefortheoceans.plist`: from SMR's plist; label, `~/BattleForTheOceans`, command `exec npx serve -s build -l 3002`, log dir `battlefortheoceans`.
 - `deploy/household.env.example`: same keys as SMR, `HOUSEHOLD_REMOTE_DIR=BattleForTheOceans`.
-- `scripts/deploy-household.sh`: SMR's script adapted. Deliberate cross-repo copy (no shared owner exists across repos). Changes: `PORT=3002`, label, log name, remote dir; exclude `build`, `node_modules`, `.git`, `.env`, `deploy/household.env`, `docs`, `netlify`; sync `.env` separately after the main rsync (CRA reads `.env` at build time).
+- `scripts/deploy-household.sh`: SMR's script adapted. Deliberate cross-repo copy (no shared owner exists across repos). Changes: `PORT=3002`, label, log name, remote dir; exclude `build`, `node_modules`, `.git`, `.env`, `deploy/household.env`, `docs`, `netlify`; sync `.env` separately after the main rsync (CRA reads `.env` at build time). Use `npm install` (not `npm ci`) on Spinney — MacBook is arm64, Spinney is x86_64; `ci` fails on optional `@rollup/*` platform packages.
 - `scripts/bootstrap-household-server.sh` + `Install Battle for the Oceans.command`: SMR equivalents with the same substitutions.
 - `.gitignore`: add `deploy/household.env`.
 
@@ -260,4 +260,4 @@ Work after Phases 1–8 are done (not a gate for cutover).
 
 | ID | Note | Source |
 |---|---|---|
-| PT1 | Popup videos did not run during local play on `localhost:3002` (P1 verification, 2026-09-30). Diagnose and restore — achievement / sunk / victory / defeat popups. | Observed on local CRA with P1 switches. |
+| PT1 | ~~Popup videos~~ **Resolved 2026-09-30** — working again on Spinney after LAN deploy / uniqueId fix. | Was local CRA observation; closed. |

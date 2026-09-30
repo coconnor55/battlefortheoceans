@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.household.battlefortheoceans</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>cd "$HOME/BattleForTheOceans" &amp;&amp; exec npx serve -s build -l 3002</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>HOME_PLACEHOLDER/BattleForTheOceans</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>NODE_ENV</key>
+    <string>production</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>HOME_PLACEHOLDER/Library/Logs/battlefortheoceans/stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>HOME_PLACEHOLDER/Library/Logs/battlefortheoceans/stderr.log</string>
+</dict>
+</plist>

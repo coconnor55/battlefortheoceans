@@ -18,6 +18,7 @@
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.4",
     "react-scripts": "5.0.1",
+    "serve": "14.2.6",
     "sib-api-v3-sdk": "^8.5.0",
     "stripe": "^18.5.0",
     "web-vitals": "^2.1.4"
@@ -26,7 +27,8 @@
     "start": "react-scripts start",
     "build": "CI=false react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy:household": "bash scripts/deploy-household.sh"
   },
   "eslintConfig": {
     "extends": [

@@ -1,5 +1,6 @@
-// src/components/LoginDialog.js v0.1.44
+// src/components/LoginDialog.js v0.1.46
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.1.46: Guest ids via uniqueId() — crypto.randomUUID missing on http://spinney.local
 // v0.1.45: Return playerProfile, guestProfile as well
 // v0.1.44: Refactored for PlayerProfile architecture
 //          - Import PlayerProfile class
@@ -25,8 +26,9 @@ import { supabase } from '../utils/supabaseClient';
 import HumanPlayer from '../classes/HumanPlayer';
 import PlayerProfile from '../classes/PlayerProfile';
 import PlayerProfileService from '../services/PlayerProfileService';
+import { uniqueId } from '../utils/uniqueId';
 
-const version = 'v0.1.45';
+const version = 'v0.1.46';
 const tag = "AUTH";
 const module = "LoginDialog";
 let method = "";
@@ -299,7 +301,7 @@ const LoginDialog = ({
 
   const handleGuest = async () => {
     method = 'handleGuest';
-    const guestId = `guest-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+    const guestId = `guest-${Date.now()}-${uniqueId().slice(0, 8)}`;
     
     log(`Playing as guest with ID: ${guestId}`);
     
