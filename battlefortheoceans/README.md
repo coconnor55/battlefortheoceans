@@ -1,14 +1,15 @@
 # Battle for the Oceans
 
-Naval strategy game (React + Supabase). Play by era (Traditional, Midway, Pirates, etc.), manage passes and vouchers, track stats and achievements.
+Naval strategy game (React + Supabase). Household LAN on Spinney (`http://spinney.local:3002`). Public `battlefortheoceans.com` is a Retired page on Vercel `ocw`.
 
 ## Quick start
 
-- **Run locally:** `npm start` → [http://localhost:3000](http://localhost:3000)
+- **Run locally:** `PORT=3002 npm start` (Budget often owns `:3000`)
 - **Tests:** `npm test`
 - **Production build:** `npm run build` → output in `build/`
+- **Deploy to Spinney:** `npm run deploy:household` — see [DEPLOYMENT.md](DEPLOYMENT.md)
 
-Optional env: `REACT_APP_GAME_CDN` for asset CDN base URL. See [DEPLOYMENT.md](DEPLOYMENT.md) for Netlify and CDN setup.
+Optional env: `REACT_APP_GAME_CDN` for asset CDN base URL. Purchases/invites are off via `REACT_APP_PURCHASE_ENABLED` / `REACT_APP_INVITE_ENABLED` (see `src/constants/Features.js`).
 
 ## Available Scripts
 
@@ -17,7 +18,7 @@ In the project directory, you can run:
 ### `npm start`
 
 Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Open [http://localhost:3002](http://localhost:3002) when started with `PORT=3002`.
 
 The page will reload when you make changes.\
 You may also see any lint errors in the console.
@@ -35,7 +36,11 @@ It correctly bundles React in production mode and optimizes the build for the be
 The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for this project’s deployment guide.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for Spinney household deploy.
+
+### `npm run deploy:household`
+
+Builds and serves on Spinney at port `3002` (see [DEPLOYMENT.md](DEPLOYMENT.md)).
 
 ### `npm run eject`
 

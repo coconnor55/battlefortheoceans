@@ -1,6 +1,6 @@
 # Battle for the Oceans — Netlify → Spinney migration plan
 
-**Status:** Phase 0–4 decided. **P5.1 complete** (`ocw` `1.0.1`: shared retired owner + `/battlefortheoceans`). Next: **P5.2** — `gitpush` in `ocw`, then add domains on Vercel.
+**Status:** **Migration complete through Phase 8** (2026-09-30). Household: `http://spinney.local:3002` (app `2.2.7`). Public: Retired on Vercel `ocw`. Netlify / Stripe / Brevo shut down; Netlify functions and deploy files removed from the repo.
 **Written:** 2026-09-29, revised 2026-09-30 (Opus, high). Steps are for cheaper models unless tagged otherwise.
 **App folder:** `battlefortheoceans/battlefortheoceans/` (git root is one level up).
 **Supabase:** project `xrsfrllrmquucrftnymy` — already in use; not migrated, not replaced.
@@ -186,9 +186,9 @@ Model: Human. Registrar and DNS: **Network Solutions** (nameservers `ns85/ns86.w
 
 | Type | Host | Current value | Action in Phase 6 |
 |---|---|---|---|
-| A | `@` | `75.2.60.5` (Netlify) | Change to the value Vercel shows (normally `76.76.21.21`) |
-| CNAME | `www` | `battlefortheoceans.netlify.app` | Change to the value Vercel shows (normally `cname.vercel-dns.com`) |
-| CNAME | `cdn` | `battlefortheoceans.b-cdn.net` (bunny.net, abandoned Dec 2025) | **Delete** — a dangling CNAME to a CDN you no longer control can be taken over |
+| A | `@` | ~~`75.2.60.5` (Netlify)~~ → **`216.150.1.1`** (Vercel; set 2026-09-30) | Done — value from Vercel domain config (not the generic `76.76.21.21`) |
+| CNAME | `www` | ~~`battlefortheoceans.netlify.app`~~ → **`8bd8a318e99e651d.vercel-dns-016.com`** | Done — project-specific Vercel CNAME |
+| CNAME | `cdn` | `battlefortheoceans.b-cdn.net` (bunny.net, abandoned Dec 2025) | **Delete** if still present — dangling CNAME risk |
 | TXT | `@` | `brevo-code:2d0a44b5…` | Leave until P7.3, then delete |
 | CNAME | `brevo1._domainkey` | `b1.battlefortheoceans-com.dkim.brevo.com` | Leave until P7.3, then delete |
 | CNAME | `brevo2._domainkey` | `b2.battlefortheoceans-com.dkim.brevo.com` | Leave until P7.3, then delete |
@@ -200,44 +200,11 @@ Check (after propagation, up to 48 h): `dig +short battlefortheoceans.com` retur
 
 ### Phase 7 — Shut down Netlify, Stripe, Brevo
 
-All steps: Model: Human. Run after Phase 6's check passes.
-
-**P7.1 — Netlify.**
-
-1. Netlify → site `battlefortheoceans` → Domain management: remove `battlefortheoceans.com` and `www`.
-2. Site configuration → Danger zone → **Delete site** (its env vars, functions, and deploys go with it).
-3. GitHub → `coconnor55/battlefortheoceans` → Settings → Webhooks / GitHub Apps: remove Netlify's hook or repo access.
-4. Netlify account → Billing: cancel any paid plan if no other site uses it.
-
-**P7.2 — Stripe.**
-
-1. Stripe Dashboard → switch to **Live mode** → Payments. If there are any real charges or customers, **stop** and decide with the user (refund, support, record-keeping) before continuing. This answers D2b.
-2. Developers → Webhooks, in **both** test and live mode: delete any endpoint pointing at `battlefortheoceans.com/.netlify/functions/stripe_webhook`.
-3. Product catalog: archive the Midway (`price_1SKvxVFKFdXJ01egvawS3rHH`) and Pirates (`price_1SKwHzFKFdXJ01egR8DXhm5C`) prices and their products.
-4. Developers → API keys: roll or delete the secret key and any restricted keys used by this game.
-5. Close the Stripe account **only if** no other project uses it — confirm first.
-
-**P7.3 — Brevo.** Phase 4 must be done first.
-
-1. Brevo → SMTP & API → API keys: delete the key in `.env` `BREVO_API_KEY`.
-2. Templates: delete the invite template (`BREVO_INVITE_TEMPLATE_ID`).
-3. Senders, Domains & Dedicated IPs: remove domain `battlefortheoceans.com` and sender `battlefortheoceans@gmail.com`.
-4. Network Solutions DNS: delete TXT `@` `brevo-code:…`, CNAME `brevo1._domainkey`, CNAME `brevo2._domainkey`. For `_dmarc`, either delete it or — **optional, user choice** — since the domain sends no mail, set TXT `@` `v=spf1 -all` and TXT `_dmarc` `v=DMARC1; p=reject` so nobody can spoof it.
-5. Close the Brevo account **only if** no other project uses it.
-
-Check: `dig +short TXT battlefortheoceans.com` and `dig +short CNAME brevo1._domainkey.battlefortheoceans.com` no longer show Brevo values.
+**Done 2026-09-30** (human). Netlify site, Stripe, and Brevo shut down.
 
 ### Phase 8 — Repo cleanup
 
-**P8.1** Model: Auto. After Phase 7.
-
-- Delete `netlify.toml`, `public/_redirects`, `netlify/`, `NETLIFY_DEPLOYMENT_CHECKLIST.md`, and the local `.netlify/` folder.
-- `package.json`: remove `netlify`, `netlify-cli`, `stripe`, `sib-api-v3-sdk` (none imported under `src/`). Keep `@stripe/stripe-js` and `@stripe/react-stripe-js` — the switched-off purchase UI still imports them.
-- `.env` (local, never commit): delete `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MIDWAY`, `STRIPE_PRICE_PIRATES`, `REACT_APP_STRIPE_PUBLISHABLE_KEY`, `BREVO_API_KEY`, `BREVO_INVITE_TEMPLATE_ID`. Keep the two switches set to `false`. Re-run `npm run deploy:household` so Spinney gets the same `.env`.
-- Rewrite `DEPLOYMENT.md` for Spinney (deploy command, port, logs, `.env` switches, retired public domain). Update the README deploy lines.
-- Bump `game-config.json` `"version"`.
-
-Check: `npm run build`; `rg -n "netlify" src` shows only the `/.netlify/functions/` call sites already behind the switches; redeploy to Spinney and re-run smoke items 1, 2, and 7.
+**P8.1** **Done 2026-09-30.** Removed `netlify.toml`, `public/_redirects`, `netlify/`, `NETLIFY_DEPLOYMENT_CHECKLIST.md`, `.netlify/`; dropped `netlify`, `netlify-cli`, `stripe`, `sib-api-v3-sdk` from `package.json`; stripped Stripe/Brevo secrets from local `.env` (switches stay `false`); rewrote `DEPLOYMENT.md` / README for Spinney; bumped to `2.2.7`; redeployed household.
 
 ## 6. Smoke matrix (before Phase 4)
 
