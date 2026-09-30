@@ -1,6 +1,6 @@
 # Battle for the Oceans — Netlify → Spinney migration plan
 
-**Status:** **Migration complete through Phase 8** (2026-09-30). Household: `http://spinney.local:3002` (app `2.2.7`). Public: Retired on Vercel `ocw`. Netlify / Stripe / Brevo shut down; Netlify functions and deploy files removed from the repo.
+**Status:** **CLOSED** (2026-09-30). Phases 0–8 complete. Household: `http://spinney.local:3002`. Public: Retired on Vercel `ocw`. Netlify / Stripe / Brevo shut down; Netlify deploy stack removed from the repo (`2.2.7`). Optional leftovers (not plan gates): apex cert for bare `battlefortheoceans.com` (www is fine); purge leftover Brevo DNS at Network Solutions if still present; ensure LaunchAgent is lasting after `bootstrap-household-server.sh`.
 **Written:** 2026-09-29, revised 2026-09-30 (Opus, high). Steps are for cheaper models unless tagged otherwise.
 **App folder:** `battlefortheoceans/battlefortheoceans/` (git root is one level up).
 **Supabase:** project `xrsfrllrmquucrftnymy` — already in use; not migrated, not replaced.
