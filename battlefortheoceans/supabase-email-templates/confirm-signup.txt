@@ -16,5 +16,5 @@ If you didn't create an account, you can safely ignore this email.
 
 ---
 Battle for the Oceans
-https://battlefortheoceans.com
+http://spinney.local:3002
 

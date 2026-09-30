@@ -1,6 +1,6 @@
 # Battle for the Oceans — Netlify → Spinney migration plan
 
-**Status:** Phase 0 decided. **P1–P2 complete** (`http://spinney.local:3002`, app `2.2.6`). **P3.1 complete** (Supabase Auth URLs → Spinney). Next: P3.2–P3.3, then smoke §6.
+**Status:** Phase 0–2 complete (`http://spinney.local:3002`, app `2.2.6`). **P3.1–P3.3 complete** (Auth URLs, templates ready, hub menu live). Next: smoke §6.
 **Written:** 2026-09-29, revised 2026-09-30 (Opus, high). Steps are for cheaper models unless tagged otherwise.
 **App folder:** `battlefortheoceans/battlefortheoceans/` (git root is one level up).
 **Supabase:** project `xrsfrllrmquucrftnymy` — already in use; not migrated, not replaced.
@@ -122,8 +122,13 @@ Version: none (deploy files only).
 Check: `npm run build`; run `npx serve -s build -l 3002` locally, then `curl -s localhost:3002/reset-password | grep -q '<div id="root">'`.
 Stop: if `serve` needs config beyond `-s` and `-l`.
 
-**P2.2 — First deploy.** Model: Human (SSH + GUI session on Spinney). `npm run deploy:household`; if the LaunchAgent will not load over SSH, double-click the `.command` on Spinney.
-Check: `curl -sf http://spinney.local:3002/` and `/reset-password` return 200 from the MacBook.
+**P2.2 — First deploy.** **Done 2026-09-30.**
+
+1. `deploy/household.env` created from example — **done**.
+2. `npm run deploy:household` — **done** (after `npm install` vs `ci` for arm64→x86_64). Live at `http://spinney.local:3002/`; `/reset-password` SPA fallback OK; LaunchAgent `com.household.battlefortheoceans` running.
+3. Double-click `Install Battle for the Oceans.command` on Spinney — **not needed** (LaunchAgent loaded over SSH).
+
+Check (verified): `curl -sf http://spinney.local:3002/` and `/reset-password` return 200 from the MacBook.
 
 ### Phase 3 — Auth URLs and hub menu
 
@@ -134,7 +139,7 @@ Check: `curl -sf http://spinney.local:3002/` and `/reset-password` return 200 fr
 
 **P3.2 — Confirm-signup template.** Model: Auto. In `supabase-email-templates/confirm-signup.html` and `.txt`, replace `https://battlefortheoceans.com` with `http://spinney.local:3002`. Version: none. Human pastes the template into Supabase → Authentication → Email Templates.
 
-**P3.3 — Spinney hub menu.** Model: Auto, in the `spinney-hub` repo only. Add one list item "Battle for the Oceans" with `data-port="3002"` matching the existing two. Human runs `npm run deploy` there.
+**P3.3 — Spinney hub menu.** **Done 2026-09-30.** Item "Battle for the Oceans" `data-port="3002"` on `http://spinney.local/` (Apache install via `install.sh` on Spinney).
 
 Then run the smoke matrix (§6) on Spinney. Phases 4–8 wait until it is green.
 
