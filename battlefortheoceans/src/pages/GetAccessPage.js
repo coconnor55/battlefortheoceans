@@ -1,5 +1,7 @@
 // src/pages/GetAccessPage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.11: PURCHASE_ENABLED / INVITE_ENABLED from Features.js
+//          - Replaces game-config purchase flag; hides invite UI when invites off
 // v0.2.10: Only fetch price info when purchase is enabled
 //          - Price fetching now checks purchaseEnabled before making API calls
 //          - Prevents unnecessary network requests when purchase is disabled
@@ -90,8 +92,9 @@ import { supabase } from '../utils/supabaseClient';
 import { coreEngine, useGame } from '../context/GameContext';
 import configLoader from '../utils/ConfigLoader';
 import * as LucideIcons from 'lucide-react';
+import { PURCHASE_ENABLED, INVITE_ENABLED } from '../constants/Features';
 
-const version = 'v0.2.10';
+const version = 'v0.2.11';
 const tag = "ACCESS";
 const module = "GetAccessPage";
 let method = "";
@@ -533,8 +536,7 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
     useEffect(() => {
         const fetchPriceInfo = async () => {
             // Check if purchase is enabled before fetching
-            const purchaseEnabled = gameConfig?.purchase !== false;
-            const showPurchaseSection = purchaseEnabled && selectedEraConfig?.promotional?.stripe_price_id;
+            const showPurchaseSection = PURCHASE_ENABLED && selectedEraConfig?.promotional?.stripe_price_id;
             
             if (!showPurchaseSection) {
                 console.log(`[ACCESS] GetAccessPage ${version}| Purchase disabled or no stripe_price_id - skipping price fetch`);
@@ -685,11 +687,10 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
   }
 
   // Determine which sections to show
-  const purchaseEnabled = gameConfig?.purchase !== false; // Default to true if not set (backward compatible)
   const showPassSection = !selectedEraConfig.exclusive && selectedEraConfig.passes_required > 0;
   const showVoucherSection = selectedEraConfig.exclusive;
-  const showPurchaseSection = purchaseEnabled && selectedEraConfig.promotional?.stripe_price_id;
-    console.log(`[ACCESS] GetAccessPage ${version}| showPassSection ${showPassSection}, showVoucherSection ${showVoucherSection}, showPurchaseSection ${showPurchaseSection}, purchaseEnabled ${purchaseEnabled}`);
+  const showPurchaseSection = PURCHASE_ENABLED && selectedEraConfig.promotional?.stripe_price_id;
+    console.log(`[ACCESS] GetAccessPage ${version}| showPassSection ${showPassSection}, showVoucherSection ${showVoucherSection}, showPurchaseSection ${showPurchaseSection}, PURCHASE_ENABLED ${PURCHASE_ENABLED}`);
 
   return (
     <div className="modal-overlay modal-overlay--transparent">
@@ -821,6 +822,8 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
               )}
               
               {/* Email Friend for Passes */}
+              {INVITE_ENABLED && (
+                <>
                <div className="divider">
                </div>
                <h3>Invite</h3>
@@ -865,6 +868,8 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                   </button>
                 </div>
               </div>
+                </>
+              )}
             </div>
           )}
 
@@ -897,6 +902,8 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                  </form>
                </div>
 
+              {INVITE_ENABLED && (
+                <>
                <div className="divider">
                </div>
               <h3>Invite</h3>
@@ -941,10 +948,12 @@ const GetAccessPage = ({ onComplete, onCancel }) => {
                   </button>
                 </div>
               </div>
+                </>
+              )}
             </div>
           )}
 
-          {/* Purchase Section - shown only if purchase is enabled in game-config.json */}
+          {/* Purchase Section - shown only if PURCHASE_ENABLED */}
           {showPurchaseSection && (
             <>
               <div className="divider">

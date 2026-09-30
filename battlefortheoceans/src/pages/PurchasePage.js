@@ -1,5 +1,8 @@
 // src/pages/PurchasePage.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.5: Load Stripe.js only when PURCHASE_ENABLED (use pure entry)
+//         - Default @stripe/stripe-js injects the script on import
+//         - OverPage imports this file statically, so gate stripePromise
 // v0.4.4: Use singleton StripeService instance
 //         - Changed import from StripeService (class) to stripeService (instance)
 //         - Removed line 132: const stripeService = new StripeService()
@@ -17,14 +20,15 @@
 // v0.4.1: Previous version
 
 import React, { useState, useEffect } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe } from '@stripe/stripe-js/pure';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { coreEngine, useGame } from '../context/GameContext';
 import stripeService from '../services/StripeService';
 import configLoader from '../utils/ConfigLoader';
 import Player from '../classes/Player';
+import { PURCHASE_ENABLED } from '../constants/Features';
 
-const version = 'v0.4.4';
+const version = 'v0.4.5';
 // Detect if we're in production (battlefortheoceans.com) or local development
 
 const isProduction = window.location.hostname === 'battlefortheoceans.com';
@@ -33,8 +37,10 @@ const playerId = coreEngine.playerId;
 const playerProfile = coreEngine.playerProfile;
 const eraConfig = coreEngine.selectedEraConfig;
 
-// Load Stripe
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+// Load Stripe only when purchases are enabled (pure entry does not inject on import)
+const stripePromise = PURCHASE_ENABLED
+  ? loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY)
+  : null;
 
 const PaymentForm = ({ eraInfo, playerProfile, onSuccess, onError }) => {
   const stripe = useStripe();

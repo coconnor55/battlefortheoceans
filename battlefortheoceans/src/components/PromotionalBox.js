@@ -1,5 +1,6 @@
 // src/components/PromotionalBox.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.2: Skip promo UI and Stripe price fetch when PURCHASE_ENABLED is false
 // v0.2.1: Use singleton StripeService instance
 //         - Changed import from StripeService (class) to stripeService (instance)
 //         - Removed line 14: const stripeService = new StripeService()
@@ -9,8 +10,9 @@
 import React, { useState, useEffect } from 'react';
 import stripeService from '../services/StripeService';
 import configLoader from '../utils/ConfigLoader';
+import { PURCHASE_ENABLED } from '../constants/Features';
 
-const version = 'v0.2.1';
+const version = 'v0.2.2';
 // Detect if we're in production (battlefortheoceans.com) or local development
 const isBrowser = typeof window !== 'undefined';
 const isProduction = isBrowser && window.location.hostname === 'battlefortheoceans.com';
@@ -22,10 +24,17 @@ const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) =
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!PURCHASE_ENABLED) {
+      setPromotionalEra(null);
+      return;
+    }
     findPromotionalEra();
   }, [currentEra, availableEras, userRights]);
 
   useEffect(() => {
+    if (!PURCHASE_ENABLED) {
+      return;
+    }
     if (promotionalEra?.promotional?.stripe_price_id) {
       fetchPriceInfo(promotionalEra.promotional.stripe_price_id);
     }
@@ -33,6 +42,11 @@ const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) =
 
   // Find the next purchasable era to promote
   const findPromotionalEra = () => {
+    if (!PURCHASE_ENABLED) {
+      setPromotionalEra(null);
+      return;
+    }
+
     if (!currentEra || !availableEras || availableEras.length === 0) {
       setPromotionalEra(null);
       return;
@@ -94,8 +108,8 @@ const PromotionalBox = ({ currentEra, availableEras, userRights, onPurchase }) =
     }
   };
 
-  // Don't show anything if no promotional era found
-  if (!promotionalEra) {
+  // Don't show anything if purchases are off or no promotional era found
+  if (!PURCHASE_ENABLED || !promotionalEra) {
     return null;
   }
 

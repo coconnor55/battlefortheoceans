@@ -1,5 +1,6 @@
 build
-docs
+docs/*
+!docs/Game_Bible_v4_2.md
 
 # Logs
 logs

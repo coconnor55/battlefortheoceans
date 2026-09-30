@@ -1,5 +1,5 @@
 {
-  "version": "2.2.2",
+  "version": "2.2.3",
   "game_name": "Battleship",
   "system_messages": {
     "turn": "Turn {turn}: {player}'s turn",
@@ -75,7 +75,6 @@
     "logout_timeout": 30000,
     "enabled": true
   },
-  "purchase": false,
   "debug": {
     "reveal_ships_key": "z",
     "show_ai_thinking": false,

@@ -1,5 +1,6 @@
 // src/App.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.4.9: Skip AdminInvitePage overlay when INVITE_ENABLED is false
 // v0.4.8: Wrapped ErrorConsole in modal-overlay for consistency with Stats/Achievements
 // v0.4.7: Added ErrorBoundary to catch and handle React component errors gracefully
 // v0.4.6: Added code to reposition help for achievements
@@ -48,9 +49,10 @@ import ErrorConsole from './components/ErrorConsole';
 import AdminInvitePage from './pages/AdminInvitePage';
 import ErrorBoundary from './components/ErrorBoundary';
 import configLoader from './utils/ConfigLoader';
+import { INVITE_ENABLED } from './constants/Features';
 import './App.css';
 
-const version = 'v0.4.8';
+const version = 'v0.4.9';
 const tag = "APP";
 const module = "App";
 let method = "";
@@ -428,7 +430,7 @@ const SceneRenderer = () => {
         </div>
       )}
       
-      {overlayPage === 'admininvite' && (
+      {INVITE_ENABLED && overlayPage === 'admininvite' && (
         <div className="modal-overlay">
           <AdminInvitePage onClose={closeOverlay} />
         </div>

@@ -1,5 +1,6 @@
-// src/pages/OverPage.js v0.5.16
+// src/pages/OverPage.js v0.5.17
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.5.17: Guard purchase overlay when PURCHASE_ENABLED is false
 // v0.5.16: Sanitize HTML in snapshot display to prevent XSS attacks
 //          - Use sanitizeSnapshotHTML() before rendering snapshot HTML
 //          - Prevents malicious scripts in user-generated snapshot content
@@ -68,8 +69,9 @@ import AchievementService from '../services/AchievementService';
 import configLoader from '../utils/ConfigLoader';
 import { sanitizeSnapshotHTML } from '../utils/sanitizeHTML';
 import * as LucideIcons from 'lucide-react';
+import { PURCHASE_ENABLED } from '../constants/Features';
 
-const version = 'v0.5.15';
+const version = 'v0.5.17';
 const tag = "OVER";
 const module = "OverPage";
 let method = "";
@@ -472,6 +474,10 @@ const OverPage = () => {
   };
 
   const handlePurchase = (eraId) => {
+    if (!PURCHASE_ENABLED) {
+      log('Purchase ignored — PURCHASE_ENABLED=false');
+      return;
+    }
     log('User initiated purchase for era:', eraId);
     setPurchaseEraId(eraId);
     setShowPurchasePage(true);
@@ -905,7 +911,7 @@ const OverPage = () => {
           </div>
         )}
 
-        {showPurchasePage && (
+        {PURCHASE_ENABLED && showPurchasePage && (
           <div className="modal-overlay modal-overlay--transparent">
             <PurchasePage
               eraId={purchaseEraId}

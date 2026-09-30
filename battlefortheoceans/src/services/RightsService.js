@@ -1,5 +1,8 @@
 // src/services/RightsService.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.3.2: When PURCHASE_ENABLED is false, all eras are playable for everyone
+//         - checkRights short-circuits to free access (guests and signed-in)
+//         - consumeRights already no-ops for method 'free'
 // v0.3.1: Support generic 'era' vouchers for exclusive eras
 //         - If no era-specific voucher found and era is exclusive, check for generic 'era' vouchers
 //         - Generic era vouchers (rights_value='era') work for any exclusive era
@@ -52,8 +55,9 @@
 
 import { supabase } from '../utils/supabaseClient';
 import Player from '../classes/Player';
+import { PURCHASE_ENABLED } from '../constants/Features';
 
-const version = "v0.3.1";
+const version = "v0.3.2";
 const tag = "RIGHTS";
 const module = "RightsService";
 let method = "";
@@ -187,6 +191,12 @@ class RightsService {
     if (!playerId || !eraConfig) {
       logerror(`Missing required parameters - playerId ${playerId} eraConfig ${eraConfig}`);
       return { canPlay: false, method: 'error', reason: 'Missing parameters' };
+    }
+
+    // LAN / mothball: purchases off → every era open to guests and signed-in players
+    if (!PURCHASE_ENABLED) {
+      log(`PURCHASE_ENABLED=false - open access to ${eraConfig.id}`);
+      return { canPlay: true, method: 'free' };
     }
     
     // Guest users can only play free eras

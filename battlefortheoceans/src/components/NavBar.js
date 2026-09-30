@@ -1,5 +1,6 @@
 // src/components/NavBar.js
 // Copyright(c) 2025, Clint H. O'Connor
+// v0.2.22: Hide Invite New Player when INVITE_ENABLED is false
 // v0.2.21: Added Fullscreen toggle option under Help menu
 //          - Toggles fullscreen mode on/off
 //          - Shows "Fullscreen (Esc)" label
@@ -61,8 +62,9 @@ import PlayerProfileService from '../services/PlayerProfileService';
 import VoucherService from '../services/VoucherService';
 import { coreEngine, useGame } from '../context/GameContext';
 import { Recycle, Menu, LogOut, HelpCircle, TestTube, Coins, Diamond, Maximize2, Minimize2, Terminal, Mail } from 'lucide-react';
+import { INVITE_ENABLED } from '../constants/Features';
 
-const version = 'v0.2.21';
+const version = 'v0.2.22';
 const tag = "NAVBAR";
 const module = "NavBar";
 let method = "";
@@ -737,7 +739,7 @@ const NavBar = ({ onShowAbout, onShowStats, onShowAchievements, onShowHelp, onSh
                       </div>
                     )}
                     
-                    {(isAdmin || isDeveloper) && (
+                    {INVITE_ENABLED && (isAdmin || isDeveloper) && (
                       <div
                         className="action-menu__item action-menu__item--admin"
                         onClick={(e) => {
